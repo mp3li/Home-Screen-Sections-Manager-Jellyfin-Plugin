@@ -1,5 +1,40 @@
 # Changelog
 
+## [0.1.0.3-test] - 2026-08-04
+
+### Added
+
+- **Customization Settings** tab for the supported Abyss accent, corner radius,
+  indicator-pill color, optional web font, and Lite Mode settings.
+- Supported Jellyfin branding-configuration integration that preserves
+  unrelated Custom CSS while applying the generated Abyss CSS.
+- Restorable editing for every saved section name, type, and selected manual,
+  collection, metadata-tag, or library source.
+
+### Changed
+
+- Ports the current Collection Manager manual-media, collection-art,
+  metadata-tag, selected-library, and selected-content preview layouts into the
+  corresponding section types.
+- Uses the current Jellyfin theme text color for visible outlines instead of
+  assuming a dark dashboard.
+- Uses Collection Manager's aggregated metadata-type picker behavior, including
+  source grouping, full search, matching counts, and person images.
+
+### Fixed
+
+- Displays complete collection and library content previews across every
+  Jellyfin results page.
+- Keeps the inline section-name input focused and editable without the parent
+  row renderer replacing it.
+- Restores the saved source selections and manual media cards when editing a
+  plugin section.
+
+### Test boundary
+
+- This build saves complete section drafts and hybrid ordering but does not yet
+  render those drafts as Jellyfin home-screen sections.
+
 ## [0.1.0.2-test] - 2026-08-04
 
 ### Added

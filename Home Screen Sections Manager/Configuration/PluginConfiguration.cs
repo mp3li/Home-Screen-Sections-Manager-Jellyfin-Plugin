@@ -11,6 +11,18 @@ public sealed class PluginConfiguration : BasePluginConfiguration
     /// <summary>Gets or sets the dashboard label color for plugin-created sections.</summary>
     public string ManagerSectionLabelColor { get; set; } = "#aa5cc3";
 
+    public string AbyssAccentColor { get; set; } = "#f5f5f7";
+
+    public int AbyssRadius { get; set; } = 24;
+
+    public string AbyssIndicatorColor { get; set; } = "#373737";
+
+    public string AbyssFontImportUrl { get; set; } = string.Empty;
+
+    public string AbyssFontFamily { get; set; } = string.Empty;
+
+    public bool AbyssLiteMode { get; set; }
+
     /// <summary>Gets or sets the saved plugin-created home screen sections.</summary>
     public List<HomeScreenSectionDefinition> Sections { get; set; } = [];
 
@@ -51,4 +63,25 @@ public sealed class SectionSettingsRequest
 
     /// <summary>Gets or sets the hybrid row order.</summary>
     public List<string> SectionOrder { get; set; } = [];
+}
+/// <summary>Saved Abyss CSS generator settings.</summary>
+public sealed class CustomizationSettingsRequest
+{
+    /// <summary>Gets or sets the Abyss accent color as a six-digit HTML color.</summary>
+    public string AbyssAccentColor { get; set; } = "#f5f5f7";
+
+    /// <summary>Gets or sets global Abyss corner rounding in pixels.</summary>
+    public int AbyssRadius { get; set; } = 24;
+
+    /// <summary>Gets or sets the Abyss indicator-pill color as a six-digit HTML color.</summary>
+    public string AbyssIndicatorColor { get; set; } = "#373737";
+
+    /// <summary>Gets or sets an optional web-font stylesheet URL.</summary>
+    public string AbyssFontImportUrl { get; set; } = string.Empty;
+
+    /// <summary>Gets or sets an optional CSS font family.</summary>
+    public string AbyssFontFamily { get; set; } = string.Empty;
+
+    /// <summary>Gets or sets whether the supported Abyss Lite override is imported.</summary>
+    public bool AbyssLiteMode { get; set; }
 }

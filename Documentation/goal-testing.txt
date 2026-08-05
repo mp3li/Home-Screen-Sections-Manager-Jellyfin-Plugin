@@ -1,4 +1,4 @@
-HOME SCREEN SECTIONS MANAGER — PRIVATE TESTING TRACKER
+HOME SCREEN SECTIONS MANAGER — TESTING TRACKER
 =======================================================
 
 Rule
@@ -6,17 +6,31 @@ Rule
 Only record results observed on a real Jellyfin 10.11.11 server. A clean build
 or source audit is not a live-server result.
 
-Initial plugin-shell checks
----------------------------
+Current dashboard checks
+------------------------
 - [x] Build the Release DLL with the exact Jellyfin 10.11.11 packages.
 - [ ] Install the DLL in a dedicated Jellyfin plugin directory and restart the
       server without a plugin-load exception.
 - [ ] Confirm Home Screen Sections Manager appears in Dashboard navigation.
 - [ ] Confirm its page is available only to an administrator.
 - [ ] Confirm the header links open the correct repository and Patreon pages.
-- [ ] Confirm all three tabs render, switch correctly, and remain empty.
-- [ ] Confirm the server has no configuration/write activity from opening or
-      switching tabs.
+- [ ] Confirm all four tabs render and switch correctly.
+- [ ] Confirm Main Settings and Manage Home Screen Sections remain empty.
+- [ ] Confirm Customization Settings loads, saves, and applies all five
+      supported Abyss settings while preserving unrelated Custom CSS.
+- [ ] Confirm current Jellyfin sections appear in their saved order with blue
+      Jellyfin labels and Continue Watching locked at the top.
+- [ ] Confirm only one section row highlights at a time and the two label colors
+      can be changed and restored after a page reload.
+- [ ] Confirm Create Section inserts below the selected row, or at the bottom
+      when no row is selected, with an editable inline Section Name field.
+- [ ] Confirm plugin rows drag, edit, delete, and restore after a page reload.
+- [ ] Exercise all ten section types and compare their pickers with the
+      corresponding Collection Manager tabs.
+- [ ] Confirm collection/tag/library choices show the expected Content In
+      Section media and row modes show primary images.
+- [ ] Confirm Save and Move On restores the saved selection when editing and
+      reveals the blank Section Content Order Settings area.
 
 Results log
 -----------

@@ -29,4 +29,41 @@ public sealed class SectionSettingsController : ControllerBase
 
         return Ok(Plugin.Instance.UpdateSectionSettings(request));
     }
+
+    /// <summary>Gets the saved Abyss CSS generator settings.</summary>
+    [HttpGet("customization-settings")]
+    public ActionResult<CustomizationSettingsRequest> GetCustomizationSettings()
+    {
+        var configuration = Plugin.Instance?.Configuration ?? new PluginConfiguration();
+        return Ok(new CustomizationSettingsRequest
+        {
+            AbyssAccentColor = configuration.AbyssAccentColor,
+            AbyssRadius = configuration.AbyssRadius,
+            AbyssIndicatorColor = configuration.AbyssIndicatorColor,
+            AbyssFontImportUrl = configuration.AbyssFontImportUrl,
+            AbyssFontFamily = configuration.AbyssFontFamily,
+            AbyssLiteMode = configuration.AbyssLiteMode,
+        });
+    }
+
+    /// <summary>Saves only the Abyss CSS generator settings.</summary>
+    [HttpPost("customization-settings")]
+    public ActionResult<CustomizationSettingsRequest> SaveCustomizationSettings([FromBody] CustomizationSettingsRequest request)
+    {
+        if (Plugin.Instance is null)
+        {
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, "Home Screen Sections Manager is not initialized.");
+        }
+
+        var saved = Plugin.Instance.UpdateCustomizationSettings(request);
+        return Ok(new CustomizationSettingsRequest
+        {
+            AbyssAccentColor = saved.AbyssAccentColor,
+            AbyssRadius = saved.AbyssRadius,
+            AbyssIndicatorColor = saved.AbyssIndicatorColor,
+            AbyssFontImportUrl = saved.AbyssFontImportUrl,
+            AbyssFontFamily = saved.AbyssFontFamily,
+            AbyssLiteMode = saved.AbyssLiteMode,
+        });
+    }
 }

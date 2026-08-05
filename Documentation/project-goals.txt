@@ -3,21 +3,30 @@ HOME SCREEN SECTIONS MANAGER — CURRENT RELEASE GOALS
 
 Purpose
 -------
-Home Screen Sections Manager is a Jellyfin 10.11.11 Dashboard plugin. Its
-specific home-screen-section workflows have not been defined yet.
+Home Screen Sections Manager is the third Jellyfin 10.11.11 plugin in the
+Media Tagging Manager -> Collection Manager -> Home Screen Sections Manager
+workflow. It designs home sections that can display tagged media, collections,
+libraries, or explicitly selected items while retaining Jellyfin's own rows.
 
 Current scope
 -------------
-The plugin currently provides only the supported Dashboard shell and these
-three intentionally empty tabs:
+The plugin currently provides four Dashboard tabs:
 
 1. Main Settings
-2. Create Home Screen Sections
-3. Manage Home Screen Sections
+2. Customization Settings
+3. Create Home Screen Sections
+4. Manage Home Screen Sections
 
-No tab currently saves settings, changes Jellyfin home-screen content, creates
-collections, changes media metadata, writes NFO files, calls outside services,
-or starts background work.
+Main Settings and Manage Home Screen Sections are intentionally empty.
+Customization Settings applies supported Abyss variables through Jellyfin's
+branding configuration. Create Home Screen Sections reads the current user's
+official Jellyfin home-section display preferences, combines them with saved
+plugin drafts, and saves their hybrid order. It also saves each plugin section's
+type and selected manual, collection, tag, or library source.
+
+This release does not inject or render plugin sections on the home screen. It
+does not create collections, change media metadata, write NFO files, call
+outside services, or start background work.
 
 Implementation boundary
 -----------------------
@@ -32,6 +41,6 @@ Compatibility and packaging requirements
 - Build against Jellyfin.Controller and Jellyfin.Model 10.11.11 using net9.0.
 - Keep the Dashboard page as an embedded resource registered by IHasWebPages.
 - Preserve the Home Screen Sections Manager Noncommercial License 1.0.
-- Do not create a repository manifest entry until there is a real release ZIP.
-  Its version, target ABI, framework, source URL, MD5 checksum, timestamp, and
-  changelog must all describe that exact ZIP.
+- Every repository manifest entry requires a real release ZIP whose version,
+  target ABI, framework, source URL, MD5 checksum, timestamp, and changelog all
+  describe that exact ZIP.

@@ -28,24 +28,45 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
     /// <summary>Replaces only the settings owned by the section layout editor.</summary>
     public PluginConfiguration UpdateSectionSettings(SectionSettingsRequest request)
     {
+        var previous = Configuration;
         var configuration = new PluginConfiguration
         {
             JellyfinSectionLabelColor = request.JellyfinSectionLabelColor,
             ManagerSectionLabelColor = request.ManagerSectionLabelColor,
-            SectionOrder = request.SectionOrder.Where(id => !string.IsNullOrWhiteSpace(id)).Distinct(StringComparer.Ordinal).ToList(),
-            Sections = request.Sections
+            AbyssAccentColor = previous.AbyssAccentColor,
+            AbyssRadius = previous.AbyssRadius,
+            AbyssIndicatorColor = previous.AbyssIndicatorColor,
+            AbyssFontImportUrl = previous.AbyssFontImportUrl,
+            AbyssFontFamily = previous.AbyssFontFamily,
+            AbyssLiteMode = previous.AbyssLiteMode,
+            SectionOrder = (request.SectionOrder ?? []).Where(id => !string.IsNullOrWhiteSpace(id)).Distinct(StringComparer.Ordinal).ToList(),
+            Sections = (request.Sections ?? [])
                 .Where(section => !string.IsNullOrWhiteSpace(section.Id) && !string.IsNullOrWhiteSpace(section.Name) && !string.IsNullOrWhiteSpace(section.Type))
                 .Select(section => new HomeScreenSectionDefinition
                 {
                     Id = section.Id,
                     Name = section.Name.Trim(),
                     Type = section.Type,
-                    SourceIds = section.SourceIds.Where(id => !string.IsNullOrWhiteSpace(id)).Distinct(StringComparer.Ordinal).ToList(),
-                    ItemIds = section.ItemIds.Where(id => !string.IsNullOrWhiteSpace(id)).Distinct(StringComparer.Ordinal).ToList(),
+                    SourceIds = (section.SourceIds ?? []).Where(id => !string.IsNullOrWhiteSpace(id)).Distinct(StringComparer.Ordinal).ToList(),
+                    ItemIds = (section.ItemIds ?? []).Where(id => !string.IsNullOrWhiteSpace(id)).Distinct(StringComparer.Ordinal).ToList(),
                 })
                 .ToList(),
         };
 
+        UpdateConfiguration(configuration);
+        return configuration;
+    }
+
+    /// <summary>Updates only the saved Abyss CSS generator settings.</summary>
+    public PluginConfiguration UpdateCustomizationSettings(CustomizationSettingsRequest request)
+    {
+        var configuration = Configuration;
+        configuration.AbyssAccentColor = request.AbyssAccentColor ?? "#f5f5f7";
+        configuration.AbyssRadius = Math.Clamp(request.AbyssRadius, 0, 64);
+        configuration.AbyssIndicatorColor = request.AbyssIndicatorColor ?? "#373737";
+        configuration.AbyssFontImportUrl = (request.AbyssFontImportUrl ?? string.Empty).Trim();
+        configuration.AbyssFontFamily = (request.AbyssFontFamily ?? string.Empty).Trim();
+        configuration.AbyssLiteMode = request.AbyssLiteMode;
         UpdateConfiguration(configuration);
         return configuration;
     }
