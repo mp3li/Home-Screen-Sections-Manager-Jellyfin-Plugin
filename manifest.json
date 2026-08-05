@@ -14,8 +14,8 @@
         "targetAbi": "10.11.11.0",
         "framework": "net9.0",
         "sourceUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Test%20Releases/0.1.0.3-test/Jellyfin.Plugin.HomeScreenSectionsManager_0.1.0.3-test.zip",
-        "checksum": "b0ea4228cf2b45b1b348b6afae7a8578",
-        "timestamp": "2026-08-05T21:15:18Z"
+        "checksum": "9a623da82abf98f567f6531b911bf953",
+        "timestamp": "2026-08-05T21:24:10Z"
       }
     ]
   }

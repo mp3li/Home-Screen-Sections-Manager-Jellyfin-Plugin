@@ -355,6 +355,12 @@
             const itemQuery = params => ApiClient.getJSON(ApiClient.getUrl('Users/' + encodeURIComponent(userId()) + '/Items', params));
             const section = () => page.querySelector('.hssm-section-row.selected');
             const kind = () => state.type;
+            const collectionTypes = new Set(['individual-collection-content', 'multiple-collection-content', 'multiple-collections-in-a-row']);
+            const tagTypes = new Set(['individual-tag-content', 'multiple-tag-content', 'muilti-match-tag-collection-content']);
+            const libraryTypes = new Set(['library-content', 'multiple-library-content', 'libraries-in-a-row']);
+            const isCollectionType = () => collectionTypes.has(kind());
+            const isTagType = () => tagTypes.has(kind());
+            const isLibraryType = () => libraryTypes.has(kind());
             const rowImage = item => item.HasPrimaryImage || item.ImageTags ? '<img class="hssm-preview-image" loading="lazy" src="' + image(item.Id) + '" alt="" onerror="this.remove()" />' : '<span class="hssm-preview-image hssm-empty-image"></span>';
             const styles = document.createElement('style');
             styles.textContent = '#homeScreenSectionsManagerPage .hssm-conditional-section{border-top:1px solid var(--hssm-outline);margin-top:1.25em;padding-top:1.25em}#homeScreenSectionsManagerPage .hssm-conditional-section h2{margin:0 0 .35em}#homeScreenSectionsManagerPage .hssm-picker-library{border-top:1px solid var(--hssm-outline);margin-top:1em;padding-top:1em}#homeScreenSectionsManagerPage .hssm-picker-heading{display:flex;align-items:center;justify-content:space-between;gap:1em}#homeScreenSectionsManagerPage .hssm-picker-heading h3{margin:0}#homeScreenSectionsManagerPage .hssm-picker-content{margin-top:.8em}#homeScreenSectionsManagerPage .hssm-preview-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1em 1.25em}#homeScreenSectionsManagerPage .hssm-preview-card{display:flex;align-items:flex-start;gap:.55em;min-width:0}#homeScreenSectionsManagerPage .hssm-preview-image{display:block;flex:0 0 auto;width:4em;height:6em;object-fit:cover;border-radius:.35em;background:rgba(255,255,255,.08)}#homeScreenSectionsManagerPage .hssm-row-preview .hssm-preview-image{width:9em;height:5.1em}#homeScreenSectionsManagerPage .hssm-empty-image{border:1px solid var(--hssm-outline)}#homeScreenSectionsManagerPage .hssm-preview-copy{min-width:0;overflow-wrap:anywhere}#homeScreenSectionsManagerPage .hssm-preview-copy strong{display:block}#homeScreenSectionsManagerPage .hssm-tag-choice{border:1px solid var(--hssm-outline);border-radius:.4em;margin:.55em 0;padding:.55em .7em}#homeScreenSectionsManagerPage .hssm-tag-choice .checkboxContainer{margin:0}#homeScreenSectionsManagerPage .hssm-order-settings[hidden]{display:none!important}@media(max-width:42em){#homeScreenSectionsManagerPage .hssm-preview-grid{grid-template-columns:1fr}}';
@@ -405,7 +411,7 @@
                     content.innerHTML = items.length ? '<p class="fieldDescription">This collection will include ' + items.length + ' selected media item' + (items.length === 1 ? '' : 's') + '.</p><div class="mcm-collection-member-grid">' + items.map(item => manualPickerItem(item, false)).join('') + '</div>' : '<p class="fieldDescription">No content is currently selected.</p>';
                     return;
                 }
-                if (kind().indexOf('tag') >= 0) {
+                if (isTagType()) {
                     if (!state.sources.length) { content.innerHTML = '<p class="fieldDescription">No metadata tags are currently selected.</p>'; return; }
                     content.innerHTML = '<p class="fieldDescription">Loading matching media…</p>';
                     const selectedTags = state.sources.map(key => { const parts = key.split('|'); return { SourceLibraryId:parts[0], MetadataType:parts[1], MetadataValue:parts.slice(2).join('|'), AdditionalLibraryIds:[], CollectionTitle:state.name, Overview:'', ExistingCollectionAction:'', ArtPreference:'JellyfinDefault' }; });
@@ -414,7 +420,7 @@
                     return;
                 }
                 if (rowMode) {
-                    const selected = (kind().indexOf('collection') >= 0 ? state.collections : state.libraries).filter(value => state.sources.indexOf(String(value.Id || value.ItemId)) >= 0).map(value => ({ Id:value.Id || value.ItemId, Name:value.Name, Type:'', HasPrimaryImage:true }));
+                    const selected = (isCollectionType() ? state.collections : state.libraries).filter(value => state.sources.indexOf(String(value.Id || value.ItemId)) >= 0).map(value => ({ Id:value.Id || value.ItemId, Name:value.Name, Type:'', HasPrimaryImage:true }));
                     content.innerHTML = itemCards(selected, true);
                     return;
                 }
@@ -504,13 +510,13 @@
                 host.innerHTML = '<p class="fieldDescription">Loading section settings…</p>';
                 setupData().then(result => {
                     if (kind() === 'manual-content') host.innerHTML = manualMarkup();
-                    else if (kind().indexOf('collection') >= 0) host.innerHTML = collectionMarkup();
-                    else if (kind().indexOf('tag') >= 0) host.innerHTML = tagMarkup();
+                    else if (isCollectionType()) host.innerHTML = collectionMarkup();
+                    else if (isTagType()) host.innerHTML = tagMarkup();
                     else host.innerHTML = libraryMarkup();
                     if (kind() === 'manual-content') renderManual();
-                    if (kind().indexOf('collection') >= 0) renderCollections();
-                    if (kind().indexOf('tag') >= 0) renderTags();
-                    if (kind().indexOf('library') >= 0) renderLibraries();
+                    if (isCollectionType()) renderCollections();
+                    if (isTagType()) renderTags();
+                    if (isLibraryType()) renderLibraries();
                     renderContent();
                 }, () => { host.innerHTML = '<p class="fieldDescription">Collection Manager must be installed and available before these reused pickers can load.</p>'; });
             }
