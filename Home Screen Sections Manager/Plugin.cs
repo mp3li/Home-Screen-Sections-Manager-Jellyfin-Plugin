@@ -25,6 +25,31 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
     /// <inheritdoc />
     public override Guid Id => Guid.Parse("7948ef78-238c-4a8b-be2b-3ab473e50a1b");
 
+    /// <summary>Replaces only the settings owned by the section layout editor.</summary>
+    public PluginConfiguration UpdateSectionSettings(SectionSettingsRequest request)
+    {
+        var configuration = new PluginConfiguration
+        {
+            JellyfinSectionLabelColor = request.JellyfinSectionLabelColor,
+            ManagerSectionLabelColor = request.ManagerSectionLabelColor,
+            SectionOrder = request.SectionOrder.Where(id => !string.IsNullOrWhiteSpace(id)).Distinct(StringComparer.Ordinal).ToList(),
+            Sections = request.Sections
+                .Where(section => !string.IsNullOrWhiteSpace(section.Id) && !string.IsNullOrWhiteSpace(section.Name) && !string.IsNullOrWhiteSpace(section.Type))
+                .Select(section => new HomeScreenSectionDefinition
+                {
+                    Id = section.Id,
+                    Name = section.Name.Trim(),
+                    Type = section.Type,
+                    SourceIds = section.SourceIds.Where(id => !string.IsNullOrWhiteSpace(id)).Distinct(StringComparer.Ordinal).ToList(),
+                    ItemIds = section.ItemIds.Where(id => !string.IsNullOrWhiteSpace(id)).Distinct(StringComparer.Ordinal).ToList(),
+                })
+                .ToList(),
+        };
+
+        UpdateConfiguration(configuration);
+        return configuration;
+    }
+
     /// <inheritdoc />
     public IEnumerable<PluginPageInfo> GetPages()
     {

@@ -1,10 +1,40 @@
-<div id="homeScreenSectionsManagerPage" data-role="page" class="page type-interior" data-require="emby-button">
+<div id="homeScreenSectionsManagerPage" data-role="page" class="page type-interior" data-require="emby-button,emby-input">
     <style>
+        #homeScreenSectionsManagerPage { --hssm-outline:rgba(255,255,255,.16); --hssm-jellyfin:#00a4dc; --hssm-manager:#aa5cc3; }
         #homeScreenSectionsManagerPage .hssm-tabs { display:flex; flex-wrap:nowrap; gap:.5em; overflow-x:auto; overscroll-behavior-x:contain; margin:1.5em 0; padding-bottom:.15em; }
         #homeScreenSectionsManagerPage .hssm-tab { flex:0 0 auto; white-space:nowrap; border:0; border-radius:.45em .45em 0 0; padding:.85em 1.25em; background:rgba(255,255,255,.08); color:inherit; cursor:pointer; font-size:1em; }
         #homeScreenSectionsManagerPage .hssm-tab.active { background:#00a4dc; color:#fff; font-weight:bold; }
         #homeScreenSectionsManagerPage .hssm-panel { display:none; }
         #homeScreenSectionsManagerPage .hssm-panel.active { display:block; }
+        #homeScreenSectionsManagerPage .hssm-section { border:1px solid var(--hssm-outline); border-radius:.65em; padding:1.25em; margin:0 0 1.25em; }
+        #homeScreenSectionsManagerPage .hssm-section h2 { margin:0 0 .35em; font-size:1.35em; line-height:1.25; }
+        #homeScreenSectionsManagerPage .hssm-section .fieldDescription { margin-top:0; }
+        #homeScreenSectionsManagerPage .hssm-colors, #homeScreenSectionsManagerPage .hssm-actions { display:flex; flex-wrap:wrap; gap:.75em 1em; }
+        #homeScreenSectionsManagerPage .hssm-colors { margin:1em 0 0; }
+        #homeScreenSectionsManagerPage .hssm-actions { margin-top:1em; }
+        #homeScreenSectionsManagerPage .hssm-colors .inputContainer { margin:0; min-width:14em; }
+        #homeScreenSectionsManagerPage .hssm-color { width:3.5em !important; min-width:3.5em; max-width:3.5em; height:3.5em; padding:.1em; }
+        #homeScreenSectionsManagerPage .hssm-section-list { margin-top:1em; border:1px solid var(--hssm-outline); border-radius:.45em; overflow:hidden; }
+        #homeScreenSectionsManagerPage .hssm-section-row { display:flex; align-items:center; gap:.75em; width:100%; min-height:3.3em; padding:.7em .8em; border:0; border-bottom:1px solid var(--hssm-outline); background:transparent; color:inherit; cursor:grab; user-select:none; text-align:left; }
+        #homeScreenSectionsManagerPage .hssm-section-row:last-child { border-bottom:0; }
+        #homeScreenSectionsManagerPage .hssm-section-row:hover { background:rgba(255,255,255,.055); }
+        #homeScreenSectionsManagerPage .hssm-section-row.selected { outline:2px solid #00a4dc; outline-offset:-2px; background:rgba(0,164,220,.13); }
+        #homeScreenSectionsManagerPage .hssm-section-row.dragging { opacity:.42; }
+        #homeScreenSectionsManagerPage .hssm-section-row.locked { cursor:default; }
+        #homeScreenSectionsManagerPage .hssm-drag-handle { color:rgba(255,255,255,.62); font-size:1.25em; line-height:1; }
+        #homeScreenSectionsManagerPage .hssm-section-row.locked .hssm-drag-handle { color:rgba(255,255,255,.4); }
+        #homeScreenSectionsManagerPage .hssm-section-name { flex:1 1 auto; min-width:0; overflow-wrap:anywhere; }
+        #homeScreenSectionsManagerPage .hssm-badge { flex:0 0 auto; border-radius:999px; padding:.28em .7em; color:#fff; font-size:.79em; font-weight:bold; white-space:nowrap; }
+        #homeScreenSectionsManagerPage .hssm-badge-jellyfin { background:var(--hssm-jellyfin); }
+        #homeScreenSectionsManagerPage .hssm-badge-manager { background:var(--hssm-manager); }
+        #homeScreenSectionsManagerPage .hssm-new-settings { border-top:1px solid var(--hssm-outline); margin-top:1.25em; padding-top:1.25em; }
+        #homeScreenSectionsManagerPage .hssm-new-settings[hidden] { display:none !important; }
+        #homeScreenSectionsManagerPage .hssm-type-choice { display:block; position:relative; margin:.75em 0; padding:.85em 1em .85em 2.85em; border:1px solid var(--hssm-outline); border-radius:.45em; cursor:pointer; }
+        #homeScreenSectionsManagerPage .hssm-type-choice.selected { border-color:#00a4dc; background:rgba(0,164,220,.1); }
+        #homeScreenSectionsManagerPage .hssm-type-choice input { position:absolute; top:1.05em; left:1em; }
+        #homeScreenSectionsManagerPage .hssm-type-choice strong { display:block; margin-bottom:.2em; }
+        #homeScreenSectionsManagerPage button:disabled { opacity:.45; cursor:not-allowed; }
+        @media (max-width:38em) { #homeScreenSectionsManagerPage .hssm-section-row { align-items:flex-start; } #homeScreenSectionsManagerPage .hssm-badge { white-space:normal; text-align:center; } }
     </style>
 
     <div class="content-primary">
@@ -18,33 +48,395 @@
         </div>
 
         <div class="hssm-panel active" data-panel="main-settings" role="tabpanel"></div>
-        <div class="hssm-panel" data-panel="create-sections" role="tabpanel"></div>
+        <div class="hssm-panel" data-panel="create-sections" role="tabpanel">
+            <section class="hssm-section">
+                <h2>Existing Home Screen Sections</h2>
+                <p class="fieldDescription">This area shows your current home screen sections. Sections made by/default by Jellyfin are labeled Jellyfin in blue, and sections made by this plugin are labeled in purple. You can change the two colors below. Sections made by this plugin are editable and sections made by Jellyfin are not. Click 'Create Section' to create a new section. Click 'Edit Section' to edit sections made by this plugin. Drag sections to rearrange them. Continue Watching is locked to being the top section media bar.</p>
+                <div class="hssm-colors">
+                    <div class="inputContainer"><label class="inputLabel inputLabelUnfocused" for="hssmJellyfinColor">Jellyfin Label Color</label><input is="emby-input" class="hssm-color" id="hssmJellyfinColor" type="color" value="#00a4dc" /></div>
+                    <div class="inputContainer"><label class="inputLabel inputLabelUnfocused" for="hssmManagerColor">Home Screen Sections Manager Label Color</label><input is="emby-input" class="hssm-color" id="hssmManagerColor" type="color" value="#aa5cc3" /></div>
+                </div>
+                <div id="hssmSectionList" class="hssm-section-list" aria-label="Existing home screen sections"></div>
+                <div class="hssm-actions">
+                    <button is="emby-button" type="button" class="raised button-submit" id="hssmAddSectionButton">Create Section</button>
+                    <button is="emby-button" type="button" class="raised" id="hssmEditSectionButton" disabled>Edit Section</button>
+                    <button is="emby-button" type="button" class="raised" id="hssmDeleteSectionButton" disabled>Delete Section</button>
+                </div>
+
+                <div id="hssmNewSectionSettings" class="hssm-new-settings" hidden>
+                    <div class="inputContainer"><label class="inputLabel inputLabelUnfocused" for="hssmNewSectionName">Section Name:</label><input is="emby-input" id="hssmNewSectionName" type="text" autocomplete="off" /></div>
+                    <h2>New Section Type Settings</h2>
+                    <p class="fieldDescription">Select which type of section you want to create. After this, you can select how you want the content to be organized.</p>
+                    <div id="hssmTypeChoices"></div>
+                    <div class="hssm-actions"><button is="emby-button" type="button" class="raised button-submit" id="hssmFinishSectionButton" disabled>Create Section</button></div>
+                    <p id="hssmCreateStatus" class="fieldDescription" aria-live="polite"></p>
+                    <div id="hssmTypeSpecificSettings"></div>
+                </div>
+            </section>
+        </div>
         <div class="hssm-panel" data-panel="manage-sections" role="tabpanel"></div>
     </div>
 
     <script>
         (() => {
             const page = document.getElementById('homeScreenSectionsManagerPage');
-            if (!page) {
-                return;
+            if (!page) return;
+
+            const nativeNames = { smalllibrarytiles:'My Media', librarybuttons:'My Media', activerecordings:'Active Recordings', resume:'Continue Watching', resumeaudio:'Continue Listening', resumebook:'Continue Reading', latestmedia:'Latest Media', nextup:'Next Up', livetv:'Live TV' };
+            const defaults = ['smalllibrarytiles', 'resume', 'resumeaudio', 'resumebook', 'livetv', 'nextup', 'latestmedia'];
+            const types = [
+                ['manual-content', 'Manual Content', 'Create a section that displays manually selected content.'],
+                ['individual-collection-content', 'Individual Collection Content', 'Create a section that displays all content of one selected collection. For example, all content in the Thrillers Collection.'],
+                ['multiple-collection-content', 'Multiple Collection Content', 'Create a section that displays all content of multiple selected collections. For example, all content in the Thrillers Collection and all content in the Horror Collection.'],
+                ['multiple-collections-in-a-row', 'Multiple Collections in a Row', "Create a section that displays multiple collections in a row, by their image. Similar to Jellyfin's main/big My Media section, but showing selected collections instead. For example, Netflix Collection, Hulu Collection, etc. Or another example: the primary images for multiple collections, like Horror Collection, Thriller Collection, 70s Scary Movies Collection, 80s Scary Movies Collection, 90s Scary Movie Collection, 2000s Scary Movie Collection, 2010s Scary Movie Collection."],
+                ['individual-tag-content', 'Individual Tag Content', 'Create a section that displays all content of one selected tag. For example, all content with a horror genre tag.'],
+                ['multiple-tag-content', 'Multiple Tag Content', 'Create a section that displays all content of multiple selected tags. For example, all content with a horror tag, and all content with a thriller tag, combined all together.'],
+                ['muilti-match-tag-collection-content', 'Muilti-Match Tag Collection Content', "Create a section that displays all content that matches all selected tags. For example, if 'thriller genre' and 'horror genre' tag are both selected, then the content must have BOTH a thriller and horror tag to be in this section. Or if 'thriller genre' and 'M. Night Shyamalan Director' tag are selected, the content must be a thriller directed by M. Night Shyamalan to be in this section."],
+                ['library-content', 'Library Content', 'Create a section that displays all content of one selected library. For example, all content in the Movies library.'],
+                ['multiple-library-content', 'Multiple Library Content', 'Create a section that displays all content of all selected libraries. For example, all content in the Audiobooks and the Books libraries.'],
+                ['libraries-in-a-row', 'Libraries in a Row', "Create a section that displays multiple libraries in a row, by their image. Similar to Jellyfin's main/big My Media section, but showing only selected libraries instead of all."]
+            ];
+            let sections = [], selectedId = null, draftId = null, draggedId = null;
+            const list = page.querySelector('#hssmSectionList');
+            const addButton = page.querySelector('#hssmAddSectionButton');
+            const editButton = page.querySelector('#hssmEditSectionButton');
+            const deleteButton = page.querySelector('#hssmDeleteSectionButton');
+            const newSettings = page.querySelector('#hssmNewSectionSettings');
+            const nameInput = page.querySelector('#hssmNewSectionName');
+            const choices = page.querySelector('#hssmTypeChoices');
+            const finishButton = page.querySelector('#hssmFinishSectionButton');
+            const status = page.querySelector('#hssmCreateStatus');
+            const escape = value => { const element = document.createElement('span'); element.textContent = value == null ? '' : String(value); return element.innerHTML; };
+            const selected = () => sections.find(section => section.id === selectedId);
+            const draft = () => sections.find(section => section.id === draftId);
+
+            function render() {
+                list.innerHTML = sections.map(section => `<button is="emby-button" type="button" class="hssm-section-row${section.id === selectedId ? ' selected' : ''}${section.locked ? ' locked' : ''}" data-section-id="${escape(section.id)}" draggable="${section.locked ? 'false' : 'true'}" aria-pressed="${section.id === selectedId}"><span class="material-icons hssm-drag-handle" aria-hidden="true">${section.locked ? 'lock' : 'drag_indicator'}</span><span class="hssm-section-name">${escape(section.name)}</span><span class="hssm-badge ${section.origin === 'manager' ? 'hssm-badge-manager' : 'hssm-badge-jellyfin'}">${section.origin === 'manager' ? 'Home Screen Sections Manager' : 'Jellyfin'}</span></button>`).join('');
+                deleteButton.disabled = !(selected() && selected().origin === 'manager');
+                editButton.disabled = deleteButton.disabled;
+            }
+
+            function renderChoices() {
+                const activeDraft = draft();
+                choices.innerHTML = types.map(([value, title, description]) => `<label class="hssm-type-choice${activeDraft && activeDraft.type === value ? ' selected' : ''}"><input type="radio" name="hssmType" value="${value}"${activeDraft && activeDraft.type === value ? ' checked' : ''} /><strong>${escape(title)}</strong><span class="fieldDescription">${escape(description)}</span></label>`).join('');
+            }
+
+            function showDraft() {
+                const activeDraft = draft();
+                newSettings.hidden = !activeDraft;
+                if (!activeDraft) return;
+                nameInput.value = activeDraft.name;
+                status.textContent = '';
+                renderChoices();
+                finishButton.disabled = !(activeDraft.name.trim() && activeDraft.type);
+            }
+
+            function nativeSections(preferences) {
+                const prefs = preferences && (preferences.CustomPrefs || preferences.customPrefs) || {};
+                return Array.from({ length:10 }, (_, index) => prefs[`homesection${index}`] || defaults[index] || 'none').filter(type => type !== 'none' && nativeNames[type]).map((type, index) => ({ id:`jellyfin-${index}-${type}`, name:nativeNames[type], origin:'jellyfin', locked:type === 'resume' }));
+            }
+
+            function loadNativeSections() {
+                const fallback = () => { sections = nativeSections(null); render(); };
+                if (!window.ApiClient || typeof ApiClient.getCurrentUserId !== 'function' || typeof ApiClient.getDisplayPreferences !== 'function') return fallback();
+                const userId = ApiClient.getCurrentUserId();
+                if (!userId) return fallback();
+                ApiClient.getDisplayPreferences('usersettings', userId, 'emby').then(result => { sections = nativeSections(result); render(); }, fallback);
             }
 
             page.addEventListener('click', event => {
                 const tab = event.target.closest('[data-tab]');
-                if (!tab || !page.contains(tab)) {
+                if (tab && page.contains(tab)) {
+                    page.querySelectorAll('[data-tab]').forEach(button => { const active = button === tab; button.classList.toggle('active', active); button.setAttribute('aria-selected', String(active)); });
+                    page.querySelectorAll('[data-panel]').forEach(panel => panel.classList.toggle('active', panel.dataset.panel === tab.dataset.tab));
                     return;
                 }
-
-                const tabName = tab.dataset.tab;
-                page.querySelectorAll('[data-tab]').forEach(button => {
-                    const isActive = button.dataset.tab === tabName;
-                    button.classList.toggle('active', isActive);
-                    button.setAttribute('aria-selected', String(isActive));
-                });
-                page.querySelectorAll('[data-panel]').forEach(panel => {
-                    panel.classList.toggle('active', panel.dataset.panel === tabName);
-                });
+                const row = event.target.closest('[data-section-id]');
+                if (row && page.contains(row)) { selectedId = row.dataset.sectionId; render(); }
             });
+
+            page.querySelector('#hssmJellyfinColor').addEventListener('input', event => page.style.setProperty('--hssm-jellyfin', event.target.value));
+            page.querySelector('#hssmManagerColor').addEventListener('input', event => page.style.setProperty('--hssm-manager', event.target.value));
+
+            addButton.addEventListener('click', () => {
+                const id = `manager-${Date.now()}`;
+                const item = { id, name:'New Section', origin:'manager', type:'' };
+                const index = sections.findIndex(section => section.id === selectedId);
+                sections.splice(index < 0 ? sections.length : index + 1, 0, item);
+                selectedId = id;
+                draftId = id;
+                render();
+                showDraft();
+                nameInput.focus();
+                nameInput.select();
+            });
+
+            editButton.addEventListener('click', () => {
+                const item = selected();
+                if (!item || item.origin !== 'manager') return;
+                draftId = item.id;
+                showDraft();
+            });
+
+            deleteButton.addEventListener('click', () => {
+                const item = selected();
+                if (!item || item.origin !== 'manager') return;
+                sections = sections.filter(section => section.id !== item.id);
+                if (draftId === item.id) draftId = null;
+                selectedId = null;
+                render();
+                showDraft();
+            });
+
+            nameInput.addEventListener('input', () => {
+                const item = draft();
+                if (!item) return;
+                item.name = nameInput.value;
+                render();
+                finishButton.disabled = !(item.name.trim() && item.type);
+            });
+            choices.addEventListener('change', event => {
+                const input = event.target.closest('input[name="hssmType"]');
+                const item = draft();
+                if (!input || !item) return;
+                item.type = input.value;
+                renderChoices();
+                finishButton.disabled = !(item.name.trim() && item.type);
+            });
+            finishButton.addEventListener('click', () => {
+                const item = draft();
+                if (!item || !item.name.trim() || !item.type) return;
+                item.name = item.name.trim();
+                render();
+                draftId = null;
+                showDraft();
+            });
+
+            list.addEventListener('dragstart', event => {
+                const row = event.target.closest('[data-section-id]');
+                if (!row || row.classList.contains('locked')) return event.preventDefault();
+                draggedId = row.dataset.sectionId;
+                row.classList.add('dragging');
+                event.dataTransfer.effectAllowed = 'move';
+            });
+            list.addEventListener('dragend', event => { const row = event.target.closest('[data-section-id]'); if (row) row.classList.remove('dragging'); draggedId = null; });
+            list.addEventListener('dragover', event => { if (draggedId) { event.preventDefault(); event.dataTransfer.dropEffect = 'move'; } });
+            list.addEventListener('drop', event => {
+                const target = event.target.closest('[data-section-id]');
+                if (!target || !draggedId || target.dataset.sectionId === draggedId) return;
+                event.preventDefault();
+                const from = sections.findIndex(section => section.id === draggedId), to = sections.findIndex(section => section.id === target.dataset.sectionId);
+                if (from < 0 || to < 0 || sections[from].locked) return;
+                const [item] = sections.splice(from, 1);
+                sections.splice(from < to ? to - 1 : to, 0, item);
+                render();
+            });
+
+            loadNativeSections();
         })();
     </script>
 </div>
+
+    <script>
+        (() => {
+            const page = document.getElementById('homeScreenSectionsManagerPage');
+            const host = page && page.querySelector('#hssmTypeSpecificSettings');
+            if (!page || !host) return;
+            const state = { id:'', name:'', type:'', sources:[], items:{}, libraries:[], collections:[], manual:{} };
+            const esc = value => { const el = document.createElement('span'); el.textContent = value == null ? '' : String(value); return el.innerHTML; };
+            const cm = path => ApiClient.getJSON(ApiClient.getUrl('CollectionManager/' + path));
+            const userId = () => ApiClient.getCurrentUserId();
+            const image = id => ApiClient.getUrl('Items/' + encodeURIComponent(id) + '/Images/Primary');
+            const itemQuery = params => ApiClient.getJSON(ApiClient.getUrl('Users/' + encodeURIComponent(userId()) + '/Items', params));
+            const section = () => page.querySelector('.hssm-section-row.selected');
+            const kind = () => state.type;
+            const rowImage = item => item.HasPrimaryImage || item.ImageTags ? '<img class="hssm-preview-image" src="' + image(item.Id) + '" alt="" />' : '<span class="hssm-preview-image hssm-empty-image"></span>';
+            const styles = document.createElement('style');
+            styles.textContent = '#homeScreenSectionsManagerPage .hssm-conditional-section{border-top:1px solid var(--hssm-outline);margin-top:1.25em;padding-top:1.25em}#homeScreenSectionsManagerPage .hssm-conditional-section h2{margin:0 0 .35em}#homeScreenSectionsManagerPage .hssm-picker-library{border-top:1px solid var(--hssm-outline);margin-top:1em;padding-top:1em}#homeScreenSectionsManagerPage .hssm-picker-heading{display:flex;align-items:center;justify-content:space-between;gap:1em}#homeScreenSectionsManagerPage .hssm-picker-heading h3{margin:0}#homeScreenSectionsManagerPage .hssm-picker-content{margin-top:.8em}#homeScreenSectionsManagerPage .hssm-preview-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1em 1.25em}#homeScreenSectionsManagerPage .hssm-preview-card{display:flex;align-items:flex-start;gap:.55em;min-width:0}#homeScreenSectionsManagerPage .hssm-preview-image{display:block;flex:0 0 auto;width:4em;height:6em;object-fit:cover;border-radius:.35em;background:rgba(255,255,255,.08)}#homeScreenSectionsManagerPage .hssm-row-preview .hssm-preview-image{width:9em;height:5.1em}#homeScreenSectionsManagerPage .hssm-empty-image{border:1px solid var(--hssm-outline)}#homeScreenSectionsManagerPage .hssm-preview-copy{min-width:0;overflow-wrap:anywhere}#homeScreenSectionsManagerPage .hssm-preview-copy strong{display:block}#homeScreenSectionsManagerPage .hssm-tag-choice{border:1px solid var(--hssm-outline);border-radius:.4em;margin:.55em 0;padding:.55em .7em}#homeScreenSectionsManagerPage .hssm-tag-choice .checkboxContainer{margin:0}#homeScreenSectionsManagerPage .hssm-order-settings[hidden]{display:none!important}@media(max-width:42em){#homeScreenSectionsManagerPage .hssm-preview-grid{grid-template-columns:1fr}}';
+            document.head.appendChild(styles);
+
+            function setupData() {
+                return cm('settings/main').then(result => {
+                    state.libraries = result.Libraries || result.libraries || [];
+                    return cm('art/collections');
+                }).then(result => {
+                    state.collections = result || [];
+                });
+            }
+
+            function manualMarkup() {
+                return '<section class="hssm-conditional-section"><h2>Select Media</h2><p class="fieldDescription">Select media from any combination of your Jellyfin libraries to create a manual collection. Every selected media item will be added to one collection draft below. After you finish creating your manual collection, your selections will erase so you can make another manual collection.</p><div data-hssm-manual-libraries></div></section>' + contentMarkup();
+            }
+            function collectionMarkup() {
+                const many = kind() !== 'individual-collection-content';
+                return '<section class="hssm-conditional-section"><h2>Select Collection for Section</h2><p class="fieldDescription">Select collections here to see their content in your new section.</p><div data-hssm-collections></div></section>' + contentMarkup(many && kind() === 'multiple-collections-in-a-row');
+            }
+            function tagMarkup() {
+                return '<section class="hssm-conditional-section"><h2>Select Metadata Tags</h2><p class="fieldDescription">Browse the metadata tags found during the most recent scan and select the tags you want to use in this section.</p><div data-hssm-tags></div></section>' + contentMarkup();
+            }
+            function libraryMarkup() {
+                return '<section class="hssm-conditional-section"><h2>Selected Libraries</h2><p class="fieldDescription">Select the Jellyfin libraries whose content you want to display in this section.</p><div data-hssm-libraries></div></section>' + contentMarkup(kind() === 'libraries-in-a-row');
+            }
+            function contentMarkup(rowMode) {
+                return '<section class="hssm-conditional-section"><h2>Content In Section</h2><p class="fieldDescription">This selected content will be displayed in your section.</p><div data-hssm-content class="' + (rowMode ? 'hssm-row-preview' : '') + '"><p class="fieldDescription">No content is currently selected.</p></div></section><div class="hssm-actions"><button is="emby-button" type="button" class="raised button-submit" data-hssm-save-move>Save and Move On</button></div><p class="fieldDescription" data-hssm-save-status aria-live="polite"></p><section class="hssm-conditional-section hssm-order-settings" data-hssm-order-settings hidden><h2>Section Content Order Settings</h2></section>';
+            }
+            function itemCards(items, rowMode) {
+                if (!items.length) return '<p class="fieldDescription">No content is currently selected.</p>';
+                return '<p class="fieldDescription">This section will include ' + items.length + ' selected media item' + (items.length === 1 ? '' : 's') + '.</p><div class="hssm-preview-grid' + (rowMode ? ' hssm-row-preview' : '') + '">' + items.map(item => '<div class="hssm-preview-card">' + rowImage(item) + '<span class="hssm-preview-copy"><strong>' + esc(item.Name) + '</strong><span class="fieldDescription">' + esc(item.Type || '') + '</span></span></div>').join('') + '</div>';
+            }
+            function renderContent() {
+                const content = host.querySelector('[data-hssm-content]');
+                if (!content) return;
+                const rowMode = kind() === 'multiple-collections-in-a-row' || kind() === 'libraries-in-a-row';
+                if (kind() === 'manual-content') {
+                    content.innerHTML = itemCards(Object.keys(state.items).map(id => state.items[id]), false);
+                    return;
+                }
+                if (kind().indexOf('tag') >= 0) {
+                    const tags = state.sources.map(id => id.split('|').slice(1).join(' — '));
+                    content.innerHTML = tags.length ? '<p class="fieldDescription">This section will use ' + tags.length + ' selected metadata tag' + (tags.length === 1 ? '' : 's') + '.</p><div class="hssm-preview-grid">' + tags.map(tag => '<div class="hssm-preview-card"><span class="hssm-preview-copy"><strong>' + esc(tag) + '</strong></span></div>').join('') + '</div>' : '<p class="fieldDescription">No metadata tags are currently selected.</p>';
+                    return;
+                }
+                if (rowMode) {
+                    const selected = (kind().indexOf('collection') >= 0 ? state.collections : state.libraries).filter(value => state.sources.indexOf(String(value.Id || value.ItemId)) >= 0).map(value => ({ Id:value.Id || value.ItemId, Name:value.Name, Type:'' }));
+                    content.innerHTML = itemCards(selected, true);
+                    return;
+                }
+                if (!state.sources.length) { content.innerHTML = '<p class="fieldDescription">No content is currently selected.</p>'; return; }
+                const requests = state.sources.map(id => itemQuery({ ParentId:id, Recursive:true, Fields:'Overview,PrimaryImageAspectRatio', Limit:100 }));
+                Promise.all(requests).then(results => {
+                    const all = results.flatMap(result => result.Items || result.items || []);
+                    const unique = all.filter((item, index, list) => list.findIndex(candidate => String(candidate.Id) === String(item.Id)) === index);
+                    content.innerHTML = itemCards(unique, false);
+                }, () => { content.innerHTML = '<p class="fieldDescription">The selected content could not be previewed right now.</p>'; });
+            }
+            function renderManual() {
+                const target = host.querySelector('[data-hssm-manual-libraries]');
+                target.innerHTML = state.libraries.map(library => {
+                    const id = String(library.ItemId || library.Id);
+                    return '<div class="hssm-picker-library" data-hssm-manual-library="' + esc(id) + '"><div class="hssm-picker-heading"><h3>' + esc(library.Name) + '</h3><button is="emby-button" type="button" class="raised" data-hssm-manual-open="' + esc(id) + '">Click here to expand</button></div><div class="hssm-picker-content" data-hssm-manual-content="' + esc(id) + '" hidden></div></div>';
+                }).join('') || '<p class="fieldDescription">No Jellyfin libraries were found.</p>';
+            }
+            function renderCollections() {
+                const one = kind() === 'individual-collection-content';
+                const target = host.querySelector('[data-hssm-collections]');
+                target.innerHTML = state.collections.map(collection => {
+                    const id = String(collection.Id), checked = state.sources.indexOf(id) >= 0;
+                    return '<label class="checkboxContainer"><input is="emby-checkbox" type="' + (one ? 'radio' : 'checkbox') + '" name="hssmCollectionSource" data-hssm-collection="' + esc(id) + '"' + (checked ? ' checked' : '') + ' /> <span>' + esc(collection.Name) + ' (' + Number(collection.MediaItems || 0) + ' media items)</span></label>';
+                }).join('') || '<p class="fieldDescription">No collections are available.</p>';
+            }
+            function renderLibraries() {
+                const one = kind() === 'library-content';
+                const target = host.querySelector('[data-hssm-libraries]');
+                target.innerHTML = state.libraries.map(library => {
+                    const id = String(library.ItemId || library.Id), checked = state.sources.indexOf(id) >= 0;
+                    return '<label class="checkboxContainer"><input is="emby-checkbox" type="' + (one ? 'radio' : 'checkbox') + '" name="hssmLibrarySource" data-hssm-library="' + esc(id) + '"' + (checked ? ' checked' : '') + ' /> <span>' + esc(library.Name) + '</span></label>';
+                }).join('') || '<p class="fieldDescription">No Jellyfin libraries were found.</p>';
+            }
+            function renderTags() {
+                const target = host.querySelector('[data-hssm-tags]');
+                const configuration = state.collectionManagerConfiguration || {};
+                const ids = configuration.LibraryIds || configuration.libraryIds || state.libraries.map(library => library.ItemId || library.Id);
+                target.innerHTML = '<p class="fieldDescription">Loading metadata tag types…</p>';
+                Promise.all(ids.map(id => cm('metadata-catalog/types?libraryId=' + encodeURIComponent(id)).then(types => ({ id:String(id), types:types || [] })))).then(groups => {
+                    target.innerHTML = groups.map(group => group.types.map(type => '<div class="hssm-picker-library" data-hssm-tag-type="' + esc(type.Name) + '" data-hssm-tag-library="' + esc(group.id) + '"><div class="hssm-picker-heading"><h3>' + esc(type.Name) + ' (' + Number(type.ValueCount || 0) + ' tags)</h3><button is="emby-button" type="button" class="raised" data-hssm-tag-open>Click here to expand</button></div><div class="hssm-picker-content" hidden></div></div>').join('')).join('') || '<p class="fieldDescription">No metadata tags are available in the most recent Collection Manager scan.</p>';
+                }, () => { target.innerHTML = '<p class="fieldDescription">Run Collection Manager’s metadata tag scan before selecting tags.</p>'; });
+            }
+            function renderEditor() {
+                host.innerHTML = '<p class="fieldDescription">Loading section settings…</p>';
+                setupData().then(result => {
+                    state.collectionManagerConfiguration = result && result.Configuration || {};
+                    if (kind() === 'manual-content') host.innerHTML = manualMarkup();
+                    else if (kind().indexOf('collection') >= 0) host.innerHTML = collectionMarkup();
+                    else if (kind().indexOf('tag') >= 0) host.innerHTML = tagMarkup();
+                    else host.innerHTML = libraryMarkup();
+                    if (kind() === 'manual-content') renderManual();
+                    if (kind().indexOf('collection') >= 0) renderCollections();
+                    if (kind().indexOf('tag') >= 0) renderTags();
+                    if (kind().indexOf('library') >= 0) renderLibraries();
+                    renderContent();
+                }, () => { host.innerHTML = '<p class="fieldDescription">Collection Manager must be installed and available before these reused pickers can load.</p>'; });
+            }
+            function loadManualItems(id) {
+                const content = host.querySelector('[data-hssm-manual-content="' + CSS.escape(id) + '"]');
+                content.hidden = false;
+                content.innerHTML = '<p class="fieldDescription">Loading library media…</p>';
+                cm('manual-collections/library-items?libraryId=' + encodeURIComponent(id)).then(result => {
+                    const items = result.Items || result.items || [];
+                    content.innerHTML = items.length ? '<div class="hssm-preview-grid">' + items.map(item => '<label class="checkboxContainer"><input is="emby-checkbox" type="checkbox" data-hssm-manual-item="' + esc(item.Id) + '" /> <span class="hssm-preview-card">' + rowImage(item) + '<span class="hssm-preview-copy"><strong>' + esc(item.Name) + '</strong><span class="fieldDescription">' + esc(item.Type || '') + '</span></span></span></label>').join('') + '</div>' : '<p class="fieldDescription">No selectable media was found in this library.</p>';
+                }, () => { content.innerHTML = '<p class="fieldDescription">Could not load library media.</p>'; });
+            }
+            function loadTagValues(button) {
+                const group = button.closest('[data-hssm-tag-type]'), content = group.querySelector('.hssm-picker-content'), libraryId = group.dataset.hssmTagLibrary, type = group.dataset.hssmTagType;
+                content.hidden = false;
+                content.innerHTML = '<p class="fieldDescription">Loading metadata tags…</p>';
+                cm('metadata-catalog/values?libraryId=' + encodeURIComponent(libraryId) + '&metadataType=' + encodeURIComponent(type) + '&page=1').then(result => {
+                    const values = result.Values || result.values || [];
+                    const multiple = kind() !== 'individual-tag-content';
+                    content.innerHTML = values.length ? values.map(value => {
+                        const key = libraryId + '|' + type + '|' + value.Value;
+                        return '<label class="checkboxContainer hssm-tag-choice"><input is="emby-checkbox" type="' + (multiple ? 'checkbox' : 'radio') + '" name="hssmTagSource" data-hssm-tag="' + esc(key) + '"' + (state.sources.indexOf(key) >= 0 ? ' checked' : '') + ' /> <span>' + esc(value.Value) + ' (' + Number(value.MatchingItems || 0) + ')</span></label>';
+                    }).join('') : '<p class="fieldDescription">No metadata tags are available.</p>';
+                }, () => { content.innerHTML = '<p class="fieldDescription">Could not load metadata tags.</p>'; });
+            }
+            function saveAndMove() {
+                const order = Array.from(page.querySelectorAll('.hssm-section-row')).map(row => row.dataset.sectionId);
+                const definition = { Id:state.id, Name:state.name, Type:state.type, SourceIds:state.sources, ItemIds:Object.keys(state.items) };
+                ApiClient.getJSON(ApiClient.getUrl('HomeScreenSectionsManager/section-settings')).then(saved => {
+                    const existing = saved.Sections || saved.sections || [];
+                    const sections = existing.filter(item => String(item.Id || item.id) !== state.id);
+                    sections.push(definition);
+                    return ApiClient.ajax({ type:'POST', url:ApiClient.getUrl('HomeScreenSectionsManager/section-settings'), data:JSON.stringify({ JellyfinSectionLabelColor:page.querySelector('#hssmJellyfinColor').value, ManagerSectionLabelColor:page.querySelector('#hssmManagerColor').value, Sections:sections, SectionOrder:order }), contentType:'application/json', dataType:'json' });
+                }).then(() => {
+                    host.querySelector('[data-hssm-save-status]').textContent = 'Section settings saved.';
+                    host.querySelector('[data-hssm-order-settings]').hidden = false;
+                }, () => { host.querySelector('[data-hssm-save-status]').textContent = 'Section settings could not be saved.'; });
+            }
+
+            page.addEventListener('click', event => {
+                const manual = event.target.closest('[data-hssm-manual-open]');
+                if (manual) { loadManualItems(manual.dataset.hssmManualOpen); return; }
+                const tag = event.target.closest('[data-hssm-tag-open]');
+                if (tag) { loadTagValues(tag); return; }
+                if (event.target.closest('[data-hssm-save-move]')) { saveAndMove(); }
+            });
+            host.addEventListener('change', event => {
+                const collection = event.target.closest('[data-hssm-collection]');
+                const library = event.target.closest('[data-hssm-library]');
+                const tag = event.target.closest('[data-hssm-tag]');
+                const manual = event.target.closest('[data-hssm-manual-item]');
+                if (collection) state.sources = collection.type === 'radio' ? [collection.dataset.hssmCollection] : Array.from(host.querySelectorAll('[data-hssm-collection]:checked')).map(input => input.dataset.hssmCollection);
+                if (library) state.sources = library.type === 'radio' ? [library.dataset.hssmLibrary] : Array.from(host.querySelectorAll('[data-hssm-library]:checked')).map(input => input.dataset.hssmLibrary);
+                if (tag) state.sources = tag.type === 'radio' ? [tag.dataset.hssmTag] : Array.from(host.querySelectorAll('[data-hssm-tag]:checked')).map(input => input.dataset.hssmTag);
+                if (manual) {
+                    const card = manual.closest('label'), name = card.querySelector('strong').textContent, item = { Id:manual.dataset.hssmManualItem, Name:name, Type:'' };
+                    if (manual.checked) state.items[item.Id] = item; else delete state.items[item.Id];
+                }
+                renderContent();
+            });
+            page.addEventListener('click', event => {
+                if (!event.target.closest('#hssmFinishSectionButton')) return;
+                window.setTimeout(() => {
+                    const row = section(), type = page.querySelector('input[name="hssmType"]:checked'), name = page.querySelector('#hssmNewSectionName');
+                    if (!row || !type || !name || !name.value.trim()) return;
+                    state.id = row.dataset.sectionId;
+                    state.name = name.value.trim();
+                    state.type = type.value;
+                    state.sources = [];
+                    state.items = {};
+                    page.querySelector('#hssmNewSectionSettings').hidden = false;
+                    renderEditor();
+                }, 0);
+            }, true);
+            page.addEventListener('click', event => {
+                if (!event.target.closest('#hssmEditSectionButton')) return;
+                window.setTimeout(() => {
+                    const row = section(), type = page.querySelector('input[name="hssmType"]:checked'), name = page.querySelector('#hssmNewSectionName');
+                    if (!row || !type || !name) return;
+                    state.id = row.dataset.sectionId;
+                    state.name = name.value.trim();
+                    state.type = type.value;
+                    renderEditor();
+                }, 0);
+            }, true);
+        })();

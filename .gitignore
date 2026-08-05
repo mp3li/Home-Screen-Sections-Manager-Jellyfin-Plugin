@@ -68,3 +68,6 @@ settings.json
 [Bb]rowser [Ss]ession/
 [Cc]ache/
 [Tt]emp/
+
+# Local planning notes are never published.
+plan.txt
