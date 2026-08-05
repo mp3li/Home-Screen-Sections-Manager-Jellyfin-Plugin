@@ -1,0 +1,37 @@
+HOME SCREEN SECTIONS MANAGER — CURRENT RELEASE GOALS
+====================================================
+
+Purpose
+-------
+Home Screen Sections Manager is a Jellyfin 10.11.11 Dashboard plugin. Its
+specific home-screen-section workflows have not been defined yet.
+
+Current scope
+-------------
+The plugin currently provides only the supported Dashboard shell and these
+three intentionally empty tabs:
+
+1. Main Settings
+2. Create Home Screen Sections
+3. Manage Home Screen Sections
+
+No tab currently saves settings, changes Jellyfin home-screen content, creates
+collections, changes media metadata, writes NFO files, calls outside services,
+or starts background work.
+
+Implementation boundary
+-----------------------
+Before a feature is added, its exact Jellyfin 10.11.11 public extension point
+must be verified in both the official Jellyfin source/documentation and the
+local Jellyfin Plugin Base. A feature must not claim to change a Jellyfin home
+screen unless the target-version API supports it and a real-server test records
+the result.
+
+Compatibility and packaging requirements
+----------------------------------------
+- Build against Jellyfin.Controller and Jellyfin.Model 10.11.11 using net9.0.
+- Keep the Dashboard page as an embedded resource registered by IHasWebPages.
+- Preserve the Home Screen Sections Manager Noncommercial License 1.0.
+- Do not create a repository manifest entry until there is a real release ZIP.
+  Its version, target ABI, framework, source URL, MD5 checksum, timestamp, and
+  changelog must all describe that exact ZIP.

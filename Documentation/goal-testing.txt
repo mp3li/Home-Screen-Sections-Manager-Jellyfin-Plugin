@@ -1,0 +1,23 @@
+HOME SCREEN SECTIONS MANAGER — PRIVATE TESTING TRACKER
+=======================================================
+
+Rule
+----
+Only record results observed on a real Jellyfin 10.11.11 server. A clean build
+or source audit is not a live-server result.
+
+Initial plugin-shell checks
+---------------------------
+- [x] Build the Release DLL with the exact Jellyfin 10.11.11 packages.
+- [ ] Install the DLL in a dedicated Jellyfin plugin directory and restart the
+      server without a plugin-load exception.
+- [ ] Confirm Home Screen Sections Manager appears in Dashboard navigation.
+- [ ] Confirm its page is available only to an administrator.
+- [ ] Confirm the header links open the correct repository and Patreon pages.
+- [ ] Confirm all three tabs render, switch correctly, and remain empty.
+- [ ] Confirm the server has no configuration/write activity from opening or
+      switching tabs.
+
+Results log
+-----------
+No live-server results recorded yet.

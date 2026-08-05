@@ -1,0 +1,70 @@
+# Jellyfin Plugin Base is reference-only and must never be part of this plugin repository.
+Jellyfin Plugin Base/
+
+# Build and package output
+**/bin/
+**/obj/
+[Bb]uild/
+[Dd]ist/
+[Aa]rtifacts/
+[Rr]elease/
+*.nupkg
+*.snupkg
+*.zip
+
+# Deliberately tracked Jellyfin catalog test-release artifacts
+!Test Releases/
+!Test Releases/**/*.zip
+
+# Test and diagnostic output
+[Tt]est[Rr]esults/
+[Cc]overage/
+*.coverage
+*.trx
+*.log
+[Ll]ogs/
+
+# IDE workspace files
+.vs/
+.vscode/
+.idea/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# macOS Finder and resource-fork metadata
+.DS_Store
+**/.DS_Store
+.AppleDouble
+**/.AppleDouble
+.LSOverride
+Icon?
+._*
+
+# Local credentials and machine-specific configuration
+.env
+.env.*
+!.env.example
+.envrc
+.direnv/
+appsettings.Local.json
+appsettings.Development.json
+local.settings.json
+secrets.json
+credentials.json
+settings.local.json
+settings.json
+*.private.json
+*.pfx
+*.p12
+*.pem
+*.key
+
+# Jellyfin runtime data copied in during local development
+[Jj]ellyfin[Dd]ata/
+[Ll]ocal[Dd]ata/
+[Ss]essions/
+[Bb]rowser [Ss]ession/
+[Cc]ache/
+[Tt]emp/

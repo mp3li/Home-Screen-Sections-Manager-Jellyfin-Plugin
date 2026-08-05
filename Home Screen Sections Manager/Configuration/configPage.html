@@ -1,0 +1,50 @@
+<div id="homeScreenSectionsManagerPage" data-role="page" class="page type-interior" data-require="emby-button">
+    <style>
+        #homeScreenSectionsManagerPage .hssm-tabs { display:flex; flex-wrap:nowrap; gap:.5em; overflow-x:auto; overscroll-behavior-x:contain; margin:1.5em 0; padding-bottom:.15em; }
+        #homeScreenSectionsManagerPage .hssm-tab { flex:0 0 auto; white-space:nowrap; border:0; border-radius:.45em .45em 0 0; padding:.85em 1.25em; background:rgba(255,255,255,.08); color:inherit; cursor:pointer; font-size:1em; }
+        #homeScreenSectionsManagerPage .hssm-tab.active { background:#00a4dc; color:#fff; font-weight:bold; }
+        #homeScreenSectionsManagerPage .hssm-panel { display:none; }
+        #homeScreenSectionsManagerPage .hssm-panel.active { display:block; }
+    </style>
+
+    <div class="content-primary">
+        <h1>Home Screen Sections Manager</h1>
+        <p>For instructions and more information, check out the repo <a href="https://github.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin" target="_blank" rel="noopener noreferrer">here</a>. To stay up to date with more of the dev's work, check out their Patreon <a href="https://www.patreon.com/cw/mp3li" target="_blank" rel="noopener noreferrer">here</a>.</p>
+
+        <div class="hssm-tabs" role="tablist" aria-label="Home Screen Sections Manager tabs">
+            <button is="emby-button" type="button" class="hssm-tab active" data-tab="main-settings" role="tab" aria-selected="true">Main Settings</button>
+            <button is="emby-button" type="button" class="hssm-tab" data-tab="create-sections" role="tab" aria-selected="false">Create Home Screen Sections</button>
+            <button is="emby-button" type="button" class="hssm-tab" data-tab="manage-sections" role="tab" aria-selected="false">Manage Home Screen Sections</button>
+        </div>
+
+        <div class="hssm-panel active" data-panel="main-settings" role="tabpanel"></div>
+        <div class="hssm-panel" data-panel="create-sections" role="tabpanel"></div>
+        <div class="hssm-panel" data-panel="manage-sections" role="tabpanel"></div>
+    </div>
+
+    <script>
+        (() => {
+            const page = document.getElementById('homeScreenSectionsManagerPage');
+            if (!page) {
+                return;
+            }
+
+            page.addEventListener('click', event => {
+                const tab = event.target.closest('[data-tab]');
+                if (!tab || !page.contains(tab)) {
+                    return;
+                }
+
+                const tabName = tab.dataset.tab;
+                page.querySelectorAll('[data-tab]').forEach(button => {
+                    const isActive = button.dataset.tab === tabName;
+                    button.classList.toggle('active', isActive);
+                    button.setAttribute('aria-selected', String(isActive));
+                });
+                page.querySelectorAll('[data-panel]').forEach(panel => {
+                    panel.classList.toggle('active', panel.dataset.panel === tabName);
+                });
+            });
+        })();
+    </script>
+</div>
