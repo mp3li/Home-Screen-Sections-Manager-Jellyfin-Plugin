@@ -60,13 +60,30 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
     /// <summary>Updates only the saved Abyss CSS generator settings.</summary>
     public PluginConfiguration UpdateCustomizationSettings(CustomizationSettingsRequest request)
     {
-        var configuration = Configuration;
-        configuration.AbyssAccentColor = request.AbyssAccentColor ?? "#f5f5f7";
-        configuration.AbyssRadius = Math.Clamp(request.AbyssRadius, 0, 64);
-        configuration.AbyssIndicatorColor = request.AbyssIndicatorColor ?? "#373737";
-        configuration.AbyssFontImportUrl = (request.AbyssFontImportUrl ?? string.Empty).Trim();
-        configuration.AbyssFontFamily = (request.AbyssFontFamily ?? string.Empty).Trim();
-        configuration.AbyssLiteMode = request.AbyssLiteMode;
+        var previous = Configuration;
+        var configuration = new PluginConfiguration
+        {
+            JellyfinSectionLabelColor = previous.JellyfinSectionLabelColor,
+            ManagerSectionLabelColor = previous.ManagerSectionLabelColor,
+            AbyssAccentColor = request.AbyssAccentColor ?? "#f5f5f7",
+            AbyssRadius = Math.Clamp(request.AbyssRadius, 0, 64),
+            AbyssIndicatorColor = request.AbyssIndicatorColor ?? "#373737",
+            AbyssFontImportUrl = (request.AbyssFontImportUrl ?? string.Empty).Trim(),
+            AbyssFontFamily = (request.AbyssFontFamily ?? string.Empty).Trim(),
+            AbyssLiteMode = request.AbyssLiteMode,
+            SectionOrder = [.. previous.SectionOrder],
+            Sections = previous.Sections
+                .Select(section => new HomeScreenSectionDefinition
+                {
+                    Id = section.Id,
+                    Name = section.Name,
+                    Type = section.Type,
+                    SourceIds = [.. section.SourceIds],
+                    ItemIds = [.. section.ItemIds],
+                })
+                .ToList(),
+        };
+
         UpdateConfiguration(configuration);
         return configuration;
     }

@@ -92,11 +92,13 @@
 
             <section class="hssm-section">
                 <h2>Custom CSS</h2>
-                <p class="fieldDescription">Save and apply these settings to Jellyfin's Custom CSS. Existing unrelated Custom CSS is preserved, and the generated Abyss CSS remains available below for review or copying.</p>
+                <p class="fieldDescription">The CSS generated from this tab is shown here for review or copying. Existing unrelated Jellyfin Custom CSS is preserved when the entire tab is saved.</p>
                 <textarea class="emby-input hssm-css-output" id="hssmAbyssGeneratedCss" readonly aria-label="Generated Abyss Custom CSS"></textarea>
-                <div class="hssm-actions"><button is="emby-button" type="button" class="raised button-submit" id="hssmSaveCustomizationButton">Save &amp; Apply Customization Settings</button><button is="emby-button" type="button" class="raised" id="hssmCopyCustomizationButton">Copy Custom CSS</button></div>
-                <p class="fieldDescription" id="hssmCustomizationStatus" aria-live="polite"></p>
+                <div class="hssm-actions"><button is="emby-button" type="button" class="raised" id="hssmCopyCustomizationButton">Copy Custom CSS</button></div>
             </section>
+
+            <div class="hssm-actions"><button is="emby-button" type="button" class="raised button-submit block" id="hssmSaveCustomizationButton">Save &amp; Apply Customization Settings</button></div>
+            <p class="fieldDescription" id="hssmCustomizationStatus" aria-live="polite"></p>
         </div>
         <div class="hssm-panel" data-panel="create-sections" role="tabpanel">
             <section class="hssm-section">
@@ -161,14 +163,20 @@
             const draft = () => sections.find(section => section.id === draftId);
 
             function render() {
-                list.innerHTML = sections.map(section => { const editing = section.id === draftId; return `<div class="hssm-section-row${section.id === selectedId ? ' selected' : ''}${section.locked ? ' locked' : ''}" data-section-id="${escape(section.id)}" draggable="${section.locked ? 'false' : 'true'}" role="button" tabindex="0" aria-pressed="${section.id === selectedId}"><span class="hssm-drag-handle" aria-hidden="true">${section.locked ? '' : '⠿'}</span><span class="hssm-section-name">${editing ? '<label class="inputLabel inputLabelUnfocused">Section Name:</label><input is="emby-input" type="text" data-hssm-inline-section-name value="' + escape(section.name) + '" autocomplete="off" />' : escape(section.name)}</span><span class="hssm-badge ${section.origin === 'manager' ? 'hssm-badge-manager' : 'hssm-badge-jellyfin'}">${section.origin === 'manager' ? 'Home Screen Sections Manager' : 'Jellyfin'}</span></div>`; }).join('');
+                list.innerHTML = sections.map(function (section) {
+                    const editing = section.id === draftId;
+                    return '<div class="hssm-section-row' + (section.id === selectedId ? ' selected' : '') + (section.locked ? ' locked' : '') + '" data-section-id="' + escape(section.id) + '" draggable="' + (section.locked ? 'false' : 'true') + '" role="button" tabindex="0" aria-pressed="' + (section.id === selectedId) + '"><span class="hssm-drag-handle" aria-hidden="true">' + (section.locked ? '' : '⠿') + '</span><span class="hssm-section-name">' + (editing ? '<label class="inputLabel inputLabelUnfocused">Section Name:</label><input is="emby-input" type="text" data-hssm-inline-section-name value="' + escape(section.name) + '" autocomplete="off" />' : escape(section.name)) + '</span><span class="hssm-badge ' + (section.origin === 'manager' ? 'hssm-badge-manager' : 'hssm-badge-jellyfin') + '">' + (section.origin === 'manager' ? 'Home Screen Sections Manager' : 'Jellyfin') + '</span></div>';
+                }).join('');
                 deleteButton.disabled = !(selected() && selected().origin === 'manager');
                 editButton.disabled = deleteButton.disabled;
             }
 
             function renderChoices() {
                 const activeDraft = draft();
-                choices.innerHTML = types.map(([value, title, description]) => `<label class="hssm-type-choice${activeDraft && activeDraft.type === value ? ' selected' : ''}"><input is="emby-checkbox" type="radio" name="hssmType" value="${value}"${activeDraft && activeDraft.type === value ? ' checked' : ''} /><strong>${escape(title)}</strong><span class="fieldDescription">${escape(description)}</span></label>`).join('');
+                choices.innerHTML = types.map(function (choice) {
+                    const value = choice[0], title = choice[1], description = choice[2];
+                    return '<label class="hssm-type-choice' + (activeDraft && activeDraft.type === value ? ' selected' : '') + '"><input is="emby-checkbox" type="radio" name="hssmType" value="' + escape(value) + '"' + (activeDraft && activeDraft.type === value ? ' checked' : '') + ' /><strong>' + escape(title) + '</strong><span class="fieldDescription">' + escape(description) + '</span></label>';
+                }).join('');
             }
 
             function showDraft() {
@@ -183,7 +191,7 @@
 
             function nativeSections(preferences) {
                 const prefs = preferences && (preferences.CustomPrefs || preferences.customPrefs) || {};
-                return Array.from({ length:10 }, (_, index) => prefs[`homesection${index}`] || defaults[index] || 'none').filter(type => type !== 'none' && nativeNames[type]).map((type, index) => ({ id:`jellyfin-${index}-${type}`, name:nativeNames[type], origin:'jellyfin', locked:type === 'resume' }));
+                return Array.from({ length:10 }, function (_, index) { return prefs['homesection' + index] || defaults[index] || 'none'; }).filter(type => type !== 'none' && nativeNames[type]).map(function (type, index) { return { id:'jellyfin-' + index + '-' + type, name:nativeNames[type], origin:'jellyfin', locked:type === 'resume' }; });
             }
 
             function loadSections() {
@@ -245,7 +253,7 @@
             page.querySelector('#hssmManagerColor').addEventListener('input', event => { page.style.setProperty('--hssm-manager', event.target.value); scheduleLayoutSave(); });
 
             addButton.addEventListener('click', () => {
-                const id = `manager-${Date.now()}`;
+                const id = 'manager-' + Date.now();
                 const item = { id, name:'New Section', origin:'manager', type:'' };
                 const index = sections.findIndex(section => section.id === selectedId);
                 sections.splice(index < 0 ? sections.length : index + 1, 0, item);
@@ -747,6 +755,18 @@
                 return value === undefined || value === null ? fallback : value;
             }
 
+            function errorMessage(error) {
+                const body = error && error.responseJSON;
+                const text = error && error.responseText;
+                const message = body && (body.Detail || body.detail || body.Message || body.message || body.Title || body.title);
+                return message || (text && String(text).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()) || (error && error.message) || (error && error.statusText) || 'Jellyfin returned no error details.';
+            }
+
+            function showFeedback(message) {
+                status.textContent = message;
+                if (window.Dashboard && typeof Dashboard.alert === 'function') Dashboard.alert(message);
+            }
+
             function load() {
                 ApiClient.getJSON(ApiClient.getUrl('HomeScreenSectionsManager/customization-settings')).then(configuration => {
                     accent.value = valueOf(configuration, 'AbyssAccentColor', 'abyssAccentColor', '#f5f5f7');
@@ -764,7 +784,7 @@
 
             function save() {
                 saveButton.disabled = true;
-                status.textContent = 'Saving customization settings…';
+                status.textContent = 'Saving and applying customization settings…';
                 const data = {
                     AbyssAccentColor:accent.value,
                     AbyssRadius:Math.max(0, Math.min(64, Number(radius.value) || 0)),
@@ -773,7 +793,14 @@
                     AbyssFontFamily:fontFamily.value.trim(),
                     AbyssLiteMode:lite.checked
                 };
-                ApiClient.ajax({ type:'POST', url:ApiClient.getUrl('HomeScreenSectionsManager/customization-settings'), data:JSON.stringify(data), contentType:'application/json', dataType:'json' }).then(() => {
+
+                ApiClient.ajax({
+                    type:'POST',
+                    url:ApiClient.getUrl('HomeScreenSectionsManager/customization-settings'),
+                    data:JSON.stringify(data),
+                    contentType:'application/json',
+                    dataType:'json'
+                }).then(() => {
                     radius.value = data.AbyssRadius;
                     refreshCss();
                     return ApiClient.getNamedConfiguration('branding');
@@ -782,10 +809,10 @@
                     branding.CustomCss = mergedCustomCss(branding.CustomCss || branding.customCss || '');
                     return ApiClient.updateNamedConfiguration('branding', branding);
                 }).then(() => {
-                    status.textContent = 'Customization settings saved and applied to Jellyfin Custom CSS.';
-                    saveButton.disabled = false;
-                }, () => {
-                    status.textContent = 'Customization settings could not be completely saved and applied.';
+                    showFeedback('Customization Settings saved and applied. Return to the Jellyfin Home screen and refresh the client to load the updated Abyss CSS.');
+                }, error => {
+                    showFeedback('Customization Settings could not be completely saved and applied. ' + errorMessage(error));
+                }).then(() => {
                     saveButton.disabled = false;
                 });
             }

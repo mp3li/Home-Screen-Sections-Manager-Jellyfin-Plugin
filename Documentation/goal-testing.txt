@@ -15,6 +15,8 @@ Current dashboard checks
 - [ ] Confirm its page is available only to an administrator.
 - [ ] Confirm the header links open the correct repository and Patreon pages.
 - [ ] Confirm all four tabs render and switch correctly.
+- [ ] Confirm no JavaScript expressions or translation-token text appears in
+      the Existing Home Screen Sections list or section-type picker.
 - [ ] Confirm Main Settings and Manage Home Screen Sections remain empty.
 - [ ] Confirm Customization Settings loads, saves, and applies all five
       supported Abyss settings while preserving unrelated Custom CSS.

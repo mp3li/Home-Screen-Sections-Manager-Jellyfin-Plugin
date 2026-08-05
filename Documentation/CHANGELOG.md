@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.1.0.4-test] - 2026-08-05
+
+### Fixed
+
+- Prevents Jellyfin Web 10.11.11's plugin-page translation pass from turning
+  JavaScript template expressions into visible text in the current-section
+  list and section-type picker.
+- Restores real current-section rows, blue and purple ownership labels,
+  single-row selection, plugin-only editing and deletion, inline naming, and
+  all ten conditional section-type flows.
+- Moves **Save & Apply Customization Settings** outside the **Custom CSS**
+  section so it saves the complete Customization Settings tab.
+- Adds the same visible Jellyfin alert feedback used by the preceding plugins,
+  including useful server error details when a save cannot complete.
+- Preserves saved section definitions and hybrid ordering when Customization
+  Settings are updated.
+
+### Test boundary
+
+- This build saves complete section drafts and hybrid ordering but does not yet
+  render those drafts as Jellyfin home-screen sections.
+
 ## [0.1.0.3-test] - 2026-08-04
 
 ### Added
