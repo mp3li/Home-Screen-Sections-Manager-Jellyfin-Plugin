@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.1.0.5-test] - 2026-08-05
+
+### Fixed
+
+- Restores the exact borderless tab styling used by Media Tagging Manager and
+  Collection Manager.
+- Replaces the custom bordered section-type cards with the same native
+  Jellyfin radio/check control structure used by the other two plugins.
+- Adds enough vertical spacing for every section-type description to wrap
+  without overlapping the next option.
+- Keeps **New Section Type Settings** open and the native selected control
+  intact after a section type is chosen.
+- Advances to the correct type-specific picker only after **Create Section** is
+  clicked, using one explicit state transition instead of competing click
+  handlers.
+- Uses the same direct Dashboard alert notification behavior as the other two
+  plugins for successful and failed Customization Settings saves.
+
+### Test boundary
+
+- This build saves complete section drafts and hybrid ordering but does not yet
+  render those drafts as Jellyfin home-screen sections.
+
 ## [0.1.0.4-test] - 2026-08-05
 
 ### Fixed
