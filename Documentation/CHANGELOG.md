@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.1.0.6-test] - 2026-08-05
+
+### Fixed
+
+- Moves every Dashboard handler inside the plugin page root and one embedded script, so Jellyfin Web 10.11.11 retains the type-specific editor and Customization Settings logic when loading the page.
+- Uses the exact plain tab-button structure from Media Tagging Manager and Collection Manager, removing the extra Abyss/Jellyfin action-button spacing and weight.
+- Reduces the section-type spacing and removes the native checkbox container margin so each description sits directly beneath its option without overlapping.
+- Keeps **New Section Type Settings** visible while **Create Section** opens the selected type-specific picker below it.
+- Saves server Custom CSS through Jellyfin 10.11.11 official Branding read and update endpoints while preserving unrelated branding fields and CSS.
+- Shows the same direct `Dashboard.alert` success or failure notification used by the other two plugins.
+
+### Test boundary
+
+- This build saves complete section drafts and hybrid ordering but does not yet render those drafts as Jellyfin home-screen sections.
+
 ## [0.1.0.5-test] - 2026-08-05
 
 ### Fixed

@@ -31,7 +31,8 @@
         #homeScreenSectionsManagerPage .hssm-new-settings[hidden] { display:none !important; }
         #homeScreenSectionsManagerPage .hssm-type-picker { margin-top:.85em; }
         #homeScreenSectionsManagerPage .hssm-type-picker .hssm-type-option { min-width:0; overflow-wrap:anywhere; }
-        #homeScreenSectionsManagerPage .hssm-type-picker .hssm-type-option + .hssm-type-option { margin-top:1.25em; }
+        #homeScreenSectionsManagerPage .hssm-type-picker .hssm-type-option + .hssm-type-option { margin-top:.85em; }
+        #homeScreenSectionsManagerPage .hssm-type-picker .checkboxContainer { margin:0; }
         #homeScreenSectionsManagerPage .hssm-type-option > .fieldDescription { display:block; margin:.1em 0 0 2.4em; overflow-wrap:anywhere; }
         #homeScreenSectionsManagerPage button:disabled { opacity:.45; cursor:not-allowed; }
         #homeScreenSectionsManagerPage .hssm-customization-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(16em,1fr)); gap:1em; align-items:end; }
@@ -47,10 +48,10 @@
         <p>For instructions and more information, check out the repo <a href="https://github.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin" target="_blank" rel="noopener noreferrer">here</a>. To stay up to date with more of the dev's work, check out their Patreon <a href="https://www.patreon.com/cw/mp3li" target="_blank" rel="noopener noreferrer">here</a>.</p>
 
         <div class="hssm-tabs" role="tablist" aria-label="Home Screen Sections Manager tabs">
-            <button is="emby-button" type="button" class="hssm-tab active" data-tab="main-settings" role="tab" aria-selected="true">Main Settings</button>
-            <button is="emby-button" type="button" class="hssm-tab" data-tab="customization-settings" role="tab" aria-selected="false">Customization Settings</button>
-            <button is="emby-button" type="button" class="hssm-tab" data-tab="create-sections" role="tab" aria-selected="false">Create Home Screen Sections</button>
-            <button is="emby-button" type="button" class="hssm-tab" data-tab="manage-sections" role="tab" aria-selected="false">Manage Home Screen Sections</button>
+            <button type="button" class="hssm-tab active" data-tab="main-settings" role="tab" aria-selected="true">Main Settings</button>
+            <button type="button" class="hssm-tab" data-tab="customization-settings" role="tab" aria-selected="false">Customization Settings</button>
+            <button type="button" class="hssm-tab" data-tab="create-sections" role="tab" aria-selected="false">Create Home Screen Sections</button>
+            <button type="button" class="hssm-tab" data-tab="manage-sections" role="tab" aria-selected="false">Manage Home Screen Sections</button>
         </div>
 
         <div class="hssm-panel active" data-panel="main-settings" role="tabpanel"></div>
@@ -312,7 +313,8 @@
                 const created = { id:item.id, name:item.name, type:item.type };
                 draftId = null;
                 render();
-                showDraft();
+                newSettings.hidden = false;
+                status.textContent = 'Loading section settings…';
                 page.dispatchEvent(new CustomEvent('hssm-section-type-created', { detail:created }));
             });
 
@@ -347,10 +349,7 @@
             syncThemeOutlineColor();
             loadSections();
         })();
-    </script>
-</div>
 
-    <script>
         (() => {
             const page = document.getElementById('homeScreenSectionsManagerPage');
             const host = page && page.querySelector('#hssmTypeSpecificSettings');
@@ -690,9 +689,7 @@
                 }, 0);
             }, true);
         })();
-    </script>
 
-    <script>
         (() => {
             const page = document.getElementById('homeScreenSectionsManagerPage');
             if (!page || !window.ApiClient) return;
@@ -760,11 +757,6 @@
                 return message || (text && String(text).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()) || (error && error.message) || (error && error.statusText) || 'Jellyfin returned no error details.';
             }
 
-            function showFeedback(message) {
-                status.textContent = message;
-                Dashboard.alert(message);
-            }
-
             function load() {
                 ApiClient.getJSON(ApiClient.getUrl('HomeScreenSectionsManager/customization-settings')).then(configuration => {
                     accent.value = valueOf(configuration, 'AbyssAccentColor', 'abyssAccentColor', '#f5f5f7');
@@ -801,15 +793,25 @@
                 }).then(() => {
                     radius.value = data.AbyssRadius;
                     refreshCss();
-                    return ApiClient.getNamedConfiguration('branding');
+                    return ApiClient.getJSON(ApiClient.getUrl('Branding/Configuration'));
                 }).then(branding => {
                     branding = branding || {};
-                    branding.CustomCss = mergedCustomCss(branding.CustomCss || branding.customCss || '');
-                    return ApiClient.updateNamedConfiguration('branding', branding);
+                    const customCss = mergedCustomCss(branding.CustomCss || branding.customCss || '');
+                    if (branding.CustomCss !== undefined) branding.CustomCss = customCss;
+                    else branding.customCss = customCss;
+                    return ApiClient.ajax({
+                        type:'POST',
+                        url:ApiClient.getUrl('System/Configuration/Branding'),
+                        data:JSON.stringify(branding),
+                        contentType:'application/json'
+                    });
                 }).then(() => {
-                    showFeedback('Customization Settings saved and applied. Return to the Jellyfin Home screen and refresh the client to load the updated Abyss CSS.');
+                    status.textContent = 'Customization Settings saved and applied. Return to the Jellyfin Home screen and refresh the client to load the updated Abyss CSS.';
+                    Dashboard.alert('Customization Settings saved and applied.');
                 }, error => {
-                    showFeedback('Customization Settings could not be completely saved and applied. ' + errorMessage(error));
+                    const message = 'Customization Settings could not be completely saved and applied. ' + errorMessage(error);
+                    status.textContent = message;
+                    Dashboard.alert(message);
                 }).then(() => {
                     saveButton.disabled = false;
                 });
@@ -834,3 +836,4 @@
             load();
         })();
     </script>
+</div>

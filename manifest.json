@@ -9,13 +9,13 @@
     "imageUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Assets/Branding/home-screen-sections-manager-plugin-photo.png",
     "versions": [
       {
-        "version": "0.1.0.5",
-        "changelog": "Restores the exact tab styling used by the other two plugins, replaces bordered type cards with native Jellyfin radio controls and proper description spacing, keeps the type picker open after selection, advances reliably to every type-specific picker, and uses the standard Jellyfin Dashboard save notification. Test only; it does not yet render actual home-screen sections.",
+        "version": "0.1.0.6",
+        "changelog": "Fixes Jellyfin 10.11.11 page loading so the full section-type editor and Customization Settings handlers run, exactly matches the other plugins plain tab buttons, tightens native type-picker spacing, keeps the picker visible while advancing, applies Abyss CSS through the official Branding endpoints, and restores the standard Dashboard save alert. Test only; it does not yet render actual home-screen sections.",
         "targetAbi": "10.11.11.0",
         "framework": "net9.0",
-        "sourceUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Test%20Releases/0.1.0.5-test/Jellyfin.Plugin.HomeScreenSectionsManager_0.1.0.5-test.zip",
-        "checksum": "ccc39798fcb814caf2ec59230a0a375e",
-        "timestamp": "2026-08-06T05:08:48Z"
+        "sourceUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Test%20Releases/0.1.0.6-test/Jellyfin.Plugin.HomeScreenSectionsManager_0.1.0.6-test.zip",
+        "checksum": "8c60b8bc8144985c704210ac45c3a141",
+        "timestamp": "2026-08-06T05:41:19Z"
       }
     ]
   }
