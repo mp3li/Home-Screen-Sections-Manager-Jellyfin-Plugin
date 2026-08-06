@@ -49,6 +49,8 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
                     Type = section.Type,
                     SourceIds = (section.SourceIds ?? []).Where(id => !string.IsNullOrWhiteSpace(id)).Distinct(StringComparer.Ordinal).ToList(),
                     ItemIds = (section.ItemIds ?? []).Where(id => !string.IsNullOrWhiteSpace(id)).Distinct(StringComparer.Ordinal).ToList(),
+                    ContentOrder = NormalizeContentOrder(section.ContentOrder),
+                    IsApplied = section.IsApplied,
                 })
                 .ToList(),
         };
@@ -80,12 +82,64 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
                     Type = section.Type,
                     SourceIds = [.. section.SourceIds],
                     ItemIds = [.. section.ItemIds],
+                    ContentOrder = NormalizeContentOrder(section.ContentOrder),
+                    IsApplied = section.IsApplied,
                 })
                 .ToList(),
         };
 
         UpdateConfiguration(configuration);
         return configuration;
+    }
+
+    /// <summary>Saves the final ordering selected for one completed home-screen section.</summary>
+    public PluginConfiguration UpdateSectionContentOrder(string sectionId, string contentOrder)
+    {
+        var previous = Configuration;
+        var normalizedId = sectionId?.Trim() ?? string.Empty;
+        var normalizedOrder = NormalizeContentOrder(contentOrder);
+        var configuration = new PluginConfiguration
+        {
+            JellyfinSectionLabelColor = previous.JellyfinSectionLabelColor,
+            ManagerSectionLabelColor = previous.ManagerSectionLabelColor,
+            AbyssAccentColor = previous.AbyssAccentColor,
+            AbyssRadius = previous.AbyssRadius,
+            AbyssIndicatorColor = previous.AbyssIndicatorColor,
+            AbyssFontImportUrl = previous.AbyssFontImportUrl,
+            AbyssFontFamily = previous.AbyssFontFamily,
+            AbyssLiteMode = previous.AbyssLiteMode,
+            SectionOrder = [.. previous.SectionOrder],
+            Sections = previous.Sections.Select(section => new HomeScreenSectionDefinition
+            {
+                Id = section.Id,
+                Name = section.Name,
+                Type = section.Type,
+                SourceIds = [.. section.SourceIds],
+                ItemIds = [.. section.ItemIds],
+                ContentOrder = string.Equals(section.Id, normalizedId, StringComparison.Ordinal)
+                    ? normalizedOrder
+                    : NormalizeContentOrder(section.ContentOrder),
+                IsApplied = string.Equals(section.Id, normalizedId, StringComparison.Ordinal) || section.IsApplied,
+            }).ToList(),
+        };
+
+        UpdateConfiguration(configuration);
+        return configuration;
+    }
+
+    private static string NormalizeContentOrder(string? contentOrder)
+    {
+        return contentOrder switch
+        {
+            "title-descending" => "title-descending",
+            "release-date-ascending" => "release-date-ascending",
+            "release-date-descending" => "release-date-descending",
+            "date-added-descending" => "date-added-descending",
+            "date-added-ascending" => "date-added-ascending",
+            "rating-descending" => "rating-descending",
+            "manual" => "manual",
+            _ => "title-ascending",
+        };
     }
 
     /// <inheritdoc />

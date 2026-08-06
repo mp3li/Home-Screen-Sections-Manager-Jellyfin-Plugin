@@ -1,5 +1,35 @@
 # Changelog
 
+## [0.1.0.8-test] - 2026-08-06
+
+### Added
+
+- Adds the complete **Section Content Order Settings** stage for every section
+  type, with title, release-date, date-added, rating, and manual-order choices.
+- Adds **Add Section to Home Screen**, with normal Jellyfin Dashboard success
+  and failure feedback.
+- Persists each completed section's content order and applied state.
+- Adds an authenticated Jellyfin Web client that renders applied custom rows,
+  fetches their configured media, applies the selected ordering, and combines
+  them with Jellyfin's existing home rows.
+- Registers the client through the File Transformation plugin's supported
+  non-destructive served-web transformation interface.
+
+### Fixed
+
+- Keeps Continue Watching at the top while preserving custom rows around the
+  current native Jellyfin arrangement.
+- Preserves the real `homesection0` through `homesection9` slot number when
+  native settings contain empty slots.
+- Injects the browser CSS and JavaScript only once and leaves Jellyfin's source
+  files unchanged.
+
+### Test boundary
+
+- Source parsing, the Release build, embedded-resource inspection, and the
+  transformation callback smoke test pass. Installed Jellyfin 10.11.11 browser
+  behavior still requires the real-server checks in `goal-testing.txt`.
+
 ## [0.1.0.7-test] - 2026-08-05
 
 ### Changed

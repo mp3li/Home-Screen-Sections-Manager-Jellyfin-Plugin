@@ -47,6 +47,12 @@ public sealed class HomeScreenSectionDefinition
 
     /// <summary>Gets or sets selected manual media item identifiers.</summary>
     public List<string> ItemIds { get; set; } = [];
+
+    /// <summary>Gets or sets the selected ordering applied to the section's displayed content.</summary>
+    public string ContentOrder { get; set; } = "title-ascending";
+
+    /// <summary>Gets or sets whether the completed section has been added to the home screen.</summary>
+    public bool IsApplied { get; set; }
 }
 
 /// <summary>Request body used to replace only Home Screen Manager-owned settings.</summary>
@@ -84,4 +90,11 @@ public sealed class CustomizationSettingsRequest
 
     /// <summary>Gets or sets whether the supported Abyss Lite override is imported.</summary>
     public bool AbyssLiteMode { get; set; }
+}
+
+/// <summary>Request body used when the administrator adds one completed section to the home screen.</summary>
+public sealed class ApplySectionRequest
+{
+    /// <summary>Gets or sets the selected content ordering.</summary>
+    public string ContentOrder { get; set; } = "title-ascending";
 }

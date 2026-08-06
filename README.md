@@ -6,7 +6,7 @@
 
 For instructions and more information, check out the repo [here](https://github.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin). To stay up to date with more of the dev's work, check out their Patreon [here](https://www.patreon.com/cw/mp3li).
 
-<p align="center"><strong>Early testing build:</strong> this release lets you test the complete section-design interface described below. It saves section definitions, but it does not render the saved sections on the Jellyfin home screen yet.</p>
+<p align="center"><strong>Early testing build:</strong> this release lets you design, order, save, and add custom sections to Jellyfin Web's home screen while keeping Jellyfin's native home rows in the same hybrid layout.</p>
 
 ## Current dashboard tabs
 
@@ -29,8 +29,13 @@ content, multiple collections in a row, individual or combined tags,
 multi-match tags, individual or multiple library content, and libraries in a
 row. The media, collection, metadata-tag, and library pickers reuse the same
 interface and preview patterns as Collection Manager. **Save and Move On**
-stores the current definition and reveals the intentionally blank **Section
-Content Order Settings** area for the next design round.
+stores the current definition and reveals **Section Content Order Settings**.
+Each section can be ordered by title, release date, date added, rating, or the
+manual order shown in the editor. **Add Section to Home Screen** saves the
+selected order and enables the section in Jellyfin Web.
+
+Custom rows are added through File Transformation's non-destructive served-web
+transformation. The plugin does not overwrite Jellyfin Web files.
 
 ## Requirements
 
@@ -38,6 +43,7 @@ Content Order Settings** area for the next design round.
 - Administrator access
 - [Abyss](https://github.com/AumGupta/abyss-jellyfin)
 - [Collection Manager](https://github.com/mp3li/Collection-Manager-Jellyfin-Plugin)
+- [File Transformation](https://github.com/IAmParadox27/jellyfin-plugin-file-transformation)
 - .NET SDK 9.0 to build from source
 
 ## Install this testing build
@@ -51,7 +57,9 @@ Content Order Settings** area for the next design round.
 
 3. Refresh the catalog and install the newest **Home Screen Manager**
    testing version.
-4. Restart Jellyfin, then open **Dashboard → Home Screen Manager**.
+4. Install a Jellyfin 10.11-compatible release of **File Transformation** if it
+   is not already installed.
+5. Restart Jellyfin, then open **Dashboard → Home Screen Manager**.
 
 ## Build from source
 

@@ -1,0 +1,35 @@
+.homeSectionsContainer {
+    display: flex;
+    flex-direction: column;
+}
+
+.hssm-client-section[hidden] {
+    display: none !important;
+}
+
+.hssm-client-scroller {
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: thin;
+}
+
+.hssm-client-items {
+    box-sizing: border-box;
+    display: flex;
+    gap: 0.8em;
+    min-width: max-content;
+    padding-left: 3.3%;
+    padding-right: 3.3%;
+}
+
+.hssm-client-card {
+    flex: 0 0 10em;
+    width: 10em;
+}
+
+@media (min-width: 80em) {
+    .hssm-client-card {
+        flex-basis: 11.5em;
+        width: 11.5em;
+    }
+}

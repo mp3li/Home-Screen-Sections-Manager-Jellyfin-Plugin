@@ -2,9 +2,11 @@
 
 ## Scope and method
 
-This audit covers the current dashboard configuration build. Each Jellyfin
-surface was checked against the local read-only Jellyfin Plugin Base and the
-local official Jellyfin Web v10.11.11 source checkout before implementation.
+This audit covers the dashboard configuration and custom home-row renderer.
+Each Jellyfin surface was checked against the local read-only Jellyfin Plugin
+Base and the local official Jellyfin Web v10.11.11 source checkout before
+implementation. The served-web integration follows the same File Transformation
+registration contract used by the local Home Screen Sections reference plugin.
 
 Primary official references:
 
@@ -31,14 +33,16 @@ Primary official references:
 | Jellyfin media previews | Uses the official current-user Items query with ParentId, Recursive, StartIndex, and Limit, continuing through TotalRecordCount. | Supported read path. |
 | Custom CSS | Reads `Branding/Configuration` and updates `System/Configuration/Branding` through Jellyfin Web 10.11.11 authenticated `ApiClient`. Unrelated CSS and branding fields are preserved. | Supported administrator path; live application still requires server testing. |
 | Collection/tag pickers | Reuses the installed Collection Manager plugin's existing settings, art-collection, manual-item, metadata-catalog, and preview routes. | Supported by the required companion plugin; version-pair testing required. |
+| Content ordering | Saves a normalized order value and applies title, premiere date, date created, rating-tag, or manual ID ordering in the browser client. | Supported plugin-owned configuration and official Items fields; live result still requires server testing. |
+| Custom home rows | Serves embedded authenticated client settings and embedded browser assets from plugin controller routes. | Supported plugin-controller pattern; live Jellyfin Web behavior still requires server testing. |
+| Web integration | Registers an `index.html` callback through File Transformation and injects links to the plugin-owned embedded assets without changing files on disk. | Matches the local reference plugin's supported integration contract; File Transformation is a runtime dependency. |
 
 ## Explicit current boundary
 
-This release configures and restores section drafts only. It does not inject
-JavaScript into Jellyfin Web, patch Jellyfin files, replace Jellyfin's ten
-native preferences, or render plugin sections on the home screen. The native
-and plugin row order saved here is plugin-owned planning state for the later
-renderer.
+This release renders plugin-owned custom rows in Jellyfin Web and interleaves
+them with Jellyfin's native rows. It does not write to or replace Jellyfin Web
+files, and it does not replace Jellyfin's ten native home-section preferences.
+The browser assets are added at response time by File Transformation.
 
 No media metadata, collection membership, NFO file, media file, or library
 configuration is changed by the section-design interface.
@@ -46,7 +50,7 @@ configuration is changed by the section-design interface.
 ## Remaining runtime evidence
 
 Source review, JavaScript parsing, Release compilation, catalog checksum
-validation, and archive inspection are separate from installed behavior. The
-real Jellyfin 10.11.11 checks remain in
+validation, transformation-callback testing, and archive inspection are
+separate from installed behavior. The real Jellyfin 10.11.11 checks remain in
 [goal-testing.txt](goal-testing.txt) and must be recorded before any dashboard
 behavior is described as runtime-verified.
