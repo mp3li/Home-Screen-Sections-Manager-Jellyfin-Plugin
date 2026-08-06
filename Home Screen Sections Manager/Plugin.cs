@@ -93,7 +93,7 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
     }
 
     /// <summary>Saves the final ordering selected for one completed home-screen section.</summary>
-    public PluginConfiguration UpdateSectionContentOrder(string sectionId, string contentOrder)
+    public PluginConfiguration UpdateSectionContentOrder(string sectionId, string contentOrder, IReadOnlyList<string>? itemIds)
     {
         var previous = Configuration;
         var normalizedId = sectionId?.Trim() ?? string.Empty;
@@ -115,7 +115,9 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
                 Name = section.Name,
                 Type = section.Type,
                 SourceIds = [.. section.SourceIds],
-                ItemIds = [.. section.ItemIds],
+                ItemIds = string.Equals(section.Id, normalizedId, StringComparison.Ordinal) && itemIds is not null
+                    ? itemIds.Where(id => !string.IsNullOrWhiteSpace(id)).Distinct(StringComparer.Ordinal).ToList()
+                    : [.. section.ItemIds],
                 ContentOrder = string.Equals(section.Id, normalizedId, StringComparison.Ordinal)
                     ? normalizedOrder
                     : NormalizeContentOrder(section.ContentOrder),

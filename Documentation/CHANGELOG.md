@@ -1,5 +1,34 @@
 # Changelog
 
+## [0.1.0.9-test] - 2026-08-06
+
+### Added
+
+- Adds a text-only draggable content list whenever **Manual (Drag to Choose
+  Exact Order)** is selected.
+- Persists the dragged item ID order through **Save and Move On** and **Add
+  Section to Home Screen** for every section type.
+- Adds authenticated integration diagnostics for registration state, transformed
+  index responses, last transformation time, and applied section count.
+
+### Fixed
+
+- Replaces the released File Transformation callback wrapper with its published
+  write-service callback contract, captured at registration time, so serving
+  Jellyfin Web does not depend on a provider that has already been disposed.
+- Uses the visible Jellyfin home-page container selector and bounded retry
+  behavior demonstrated by the reference implementations, including page-view,
+  page-show, route-change, and class-change handling.
+- Reports success only after the section is saved, File Transformation is
+  registered, and the Home Screen Manager browser client can load.
+
+### Test boundary
+
+- The JavaScript sources parse, the Jellyfin 10.11.11 Release build succeeds,
+  and an expandable-stream smoke test confirms the callback injects both
+  embedded browser assets. Installation and visible home-row behavior still
+  require the real-server checks in `goal-testing.txt`.
+
 ## [0.1.0.8-test] - 2026-08-06
 
 ### Added

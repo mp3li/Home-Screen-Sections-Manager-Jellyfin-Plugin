@@ -30,8 +30,8 @@ multi-match tags, individual or multiple library content, and libraries in a
 row. The media, collection, metadata-tag, and library pickers reuse the same
 interface and preview patterns as Collection Manager. **Save and Move On**
 stores the current definition and reveals **Section Content Order Settings**.
-Each section can be ordered by title, release date, date added, rating, or the
-manual order shown in the editor. **Add Section to Home Screen** saves the
+Each section can be ordered by title, release date, date added, rating, or a
+text-only manual list that can be dragged into the exact desired order. **Add Section to Home Screen** saves the
 selected order and enables the section in Jellyfin Web.
 
 Custom rows are added through File Transformation's non-destructive served-web
@@ -57,8 +57,8 @@ transformation. The plugin does not overwrite Jellyfin Web files.
 
 3. Refresh the catalog and install the newest **Home Screen Manager**
    testing version.
-4. Install a Jellyfin 10.11-compatible release of **File Transformation** if it
-   is not already installed.
+4. Install **File Transformation 2.5.11.0**, the catalog release targeting
+   Jellyfin 10.11.11, if it is not already installed.
 5. Restart Jellyfin, then open **Dashboard → Home Screen Manager**.
 
 ## Build from source

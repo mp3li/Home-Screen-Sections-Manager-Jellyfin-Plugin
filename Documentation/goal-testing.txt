@@ -35,10 +35,14 @@ Current dashboard checks
       reveals Section Content Order Settings.
 - [ ] Confirm all eight content-order choices save and restore for every section
       type.
+- [ ] Select Manual ordering and confirm every section item appears as a
+      text-only draggable row, reorders correctly, and restores in that order.
 - [ ] Confirm Add Section to Home Screen reports a clear dependency error when
       File Transformation is not installed.
-- [ ] Install a Jellyfin 10.11-compatible File Transformation release, restart,
+- [ ] Install File Transformation 2.5.11.0 for Jellyfin 10.11.11, restart,
       and confirm the Home Screen Manager transformation registers.
+- [ ] Confirm integration status reports a transformed index response after a
+      hard refresh of Jellyfin Web.
 - [ ] Confirm an applied section appears on Home with its configured media and
       selected content order.
 - [ ] Confirm collection and library content rows refresh their live children;

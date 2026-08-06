@@ -7,10 +7,14 @@
     }
 
     var renderTimer = null;
+    var homeRetryTimer = null;
+    var homeRetryCount = 0;
     var rendering = false;
     var rerenderRequested = false;
     var lastContainer = null;
     var lastSignature = '';
+    var lastError = '';
+    var renderedSectionCount = 0;
     var defaultSections = ['smalllibrarytiles', 'resume', 'resumeaudio', 'resumebook', 'livetv', 'nextup', 'latestmedia'];
 
     function prop(value, pascal, camel, fallback) {
@@ -31,6 +35,8 @@
     }
 
     function activeHomeContainer() {
+        var visibleHome = document.querySelector('.libraryPage:not(.hide) .homeSectionsContainer');
+        if (visibleHome) return visibleHome;
         var candidates = document.querySelectorAll('.homeSectionsContainer');
         for (var index = 0; index < candidates.length; index++) {
             var container = candidates[index];
@@ -235,7 +241,16 @@
             return;
         }
         var container = activeHomeContainer();
-        if (!container) return;
+        if (!container) {
+            if (homeRetryCount < 100) {
+                homeRetryCount += 1;
+                window.clearTimeout(homeRetryTimer);
+                homeRetryTimer = window.setTimeout(renderHome, 100);
+            }
+            return;
+        }
+        homeRetryCount = 0;
+        window.clearTimeout(homeRetryTimer);
         rendering = true;
         rerenderRequested = false;
         Promise.all([getJson('HomeScreenSectionsManager/client-settings'), nativePreferences()]).then(function (values) {
@@ -257,15 +272,20 @@
                 return sectionItems(section).then(function (items) {
                     var node = sectionNode(section, orderItems(uniqueItems(items), section));
                     container.appendChild(node);
-                }, function () {
+                }, function (error) {
+                    var name = String(prop(section, 'Name', 'name', 'Unnamed section'));
+                    console.warn('[Home Screen Manager] Could not load content for section "' + name + '".', error);
                     container.appendChild(sectionNode(section, []));
                 });
             })).then(function () {
                 lastContainer = container;
                 lastSignature = nextSignature;
+                lastError = '';
+                renderedSectionCount = container.querySelectorAll('[data-hssm-section-id]').length;
                 applyHybridOrder(container, settings, preferences);
             });
         }).catch(function (error) {
+            lastError = error && (error.message || error.statusText) ? String(error.message || error.statusText) : String(error || 'Unknown rendering error');
             console.warn('[Home Screen Manager] Could not render custom home-screen sections.', error);
         }).finally(function () {
             rendering = false;
@@ -278,13 +298,27 @@
         renderTimer = window.setTimeout(renderHome, 150);
     }
 
-    var observer = new MutationObserver(scheduleRender);
-    observer.observe(document.body, { childList: true, subtree: true });
-    window.addEventListener('hashchange', scheduleRender);
-    window.addEventListener('home-screen-manager-refresh', function () {
+    function restartHomeSearch() {
+        homeRetryCount = 0;
         lastSignature = '';
         scheduleRender();
-    });
-    window.HomeScreenManagerClient = { refresh: function () { lastSignature = ''; scheduleRender(); } };
+    }
+
+    var observer = new MutationObserver(scheduleRender);
+    observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
+    window.addEventListener('hashchange', restartHomeSearch);
+    window.addEventListener('pageshow', restartHomeSearch);
+    document.addEventListener('viewshow', restartHomeSearch);
+    window.addEventListener('home-screen-manager-refresh', restartHomeSearch);
+    window.HomeScreenManagerClient = {
+        refresh: restartHomeSearch,
+        status: function () {
+            return {
+                containerFound: !!activeHomeContainer(),
+                renderedSectionCount: renderedSectionCount,
+                lastError: lastError
+            };
+        }
+    };
     scheduleRender();
 }());

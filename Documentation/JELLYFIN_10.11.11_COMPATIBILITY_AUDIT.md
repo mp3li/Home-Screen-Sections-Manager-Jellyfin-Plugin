@@ -35,7 +35,7 @@ Primary official references:
 | Collection/tag pickers | Reuses the installed Collection Manager plugin's existing settings, art-collection, manual-item, metadata-catalog, and preview routes. | Supported by the required companion plugin; version-pair testing required. |
 | Content ordering | Saves a normalized order value and applies title, premiere date, date created, rating-tag, or manual ID ordering in the browser client. | Supported plugin-owned configuration and official Items fields; live result still requires server testing. |
 | Custom home rows | Serves embedded authenticated client settings and embedded browser assets from plugin controller routes. | Supported plugin-controller pattern; live Jellyfin Web behavior still requires server testing. |
-| Web integration | Registers an `index.html` callback through File Transformation and injects links to the plugin-owned embedded assets without changing files on disk. | Matches the local reference plugin's supported integration contract; File Transformation is a runtime dependency. |
+| Web integration | Resolves File Transformation's published `IWebFileTransformationWriteService` during registration and installs a direct `TransformFile` callback for `index.html`; the callback injects links to plugin-owned embedded assets without changing files on disk. | Matches File Transformation 2.5.11.0's public write-service contract while avoiding its late callback-service lookup; File Transformation is a runtime dependency. |
 
 ## Explicit current boundary
 
@@ -50,7 +50,7 @@ configuration is changed by the section-design interface.
 ## Remaining runtime evidence
 
 Source review, JavaScript parsing, Release compilation, catalog checksum
-validation, transformation-callback testing, and archive inspection are
+validation, an expandable-stream transformation-callback smoke test, and archive inspection are
 separate from installed behavior. The real Jellyfin 10.11.11 checks remain in
 [goal-testing.txt](goal-testing.txt) and must be recorded before any dashboard
 behavior is described as runtime-verified.

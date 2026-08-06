@@ -1,4 +1,5 @@
 using Jellyfin.Plugin.HomeScreenSectionsManager.Configuration;
+using Jellyfin.Plugin.HomeScreenSectionsManager.Helpers;
 using Jellyfin.Plugin.HomeScreenSectionsManager.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -58,9 +59,30 @@ public sealed class SectionSettingsController : ControllerBase
             return Conflict("File Transformation is required to add custom sections to Jellyfin Web. Install its Jellyfin 10.11-compatible release, restart Jellyfin, and try again.");
         }
 
-        var configuration = Plugin.Instance.UpdateSectionContentOrder(sectionId, request.ContentOrder);
+        var configuration = Plugin.Instance.UpdateSectionContentOrder(sectionId, request.ContentOrder, request.ItemIds);
         var section = configuration.Sections.First(item => string.Equals(item.Id, sectionId, StringComparison.Ordinal));
-        return Ok(new { Applied = true, Section = section, RequiresRefresh = true });
+        return Ok(new
+        {
+            Applied = true,
+            Section = section,
+            RequiresRefresh = true,
+            IntegrationRegistered = _injection.IsRegistered,
+            IndexResponsesTransformed = TransformationPatches.InvocationCount,
+        });
+    }
+
+    /// <summary>Gets the current served-web integration state for troubleshooting.</summary>
+    [HttpGet("integration-status")]
+    public ActionResult<object> GetIntegrationStatus()
+    {
+        return Ok(new
+        {
+            Registered = _injection.IsRegistered,
+            _injection.LastError,
+            IndexResponsesTransformed = TransformationPatches.InvocationCount,
+            LastIndexTransformationUtc = TransformationPatches.LastInvocationUtc,
+            AppliedSections = Plugin.Instance?.Configuration.Sections.Count(section => section.IsApplied) ?? 0,
+        });
     }
 
     /// <summary>Gets the saved Abyss CSS generator settings.</summary>

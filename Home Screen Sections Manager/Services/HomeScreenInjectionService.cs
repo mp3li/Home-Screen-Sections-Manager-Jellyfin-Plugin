@@ -1,6 +1,5 @@
 using System.Reflection;
 using System.Runtime.Loader;
-using System.Text.Json;
 using Jellyfin.Plugin.HomeScreenSectionsManager.Helpers;
 using Microsoft.Extensions.Logging;
 
@@ -11,6 +10,11 @@ public sealed class HomeScreenInjectionService
 {
     private const string TransformationId = "72ab14a5-1e83-4ee9-b1bb-8a52406e2706";
     private readonly ILogger<HomeScreenInjectionService> _logger;
+    private readonly object _registrationLock = new();
+    private object? _writeService;
+    private MethodInfo? _updateTransformation;
+    private Delegate? _callback;
+    private bool _loggedSuccess;
 
     /// <summary>Initializes a new instance of the <see cref="HomeScreenInjectionService"/> class.</summary>
     public HomeScreenInjectionService(ILogger<HomeScreenInjectionService> logger)
@@ -18,43 +22,58 @@ public sealed class HomeScreenInjectionService
         _logger = logger;
     }
 
+    /// <summary>Gets whether the current server run has a registered transformation callback.</summary>
+    public bool IsRegistered { get; private set; }
+
+    /// <summary>Gets the most recent registration failure.</summary>
+    public string? LastError { get; private set; }
+
     /// <summary>Attempts to register the index transformation with File Transformation.</summary>
     public bool TryRegister()
     {
         try
         {
-            var assembly = AssemblyLoadContext.All
-                .SelectMany(context => context.Assemblies)
-                .FirstOrDefault(candidate => candidate.FullName?.Contains(".FileTransformation", StringComparison.Ordinal) == true);
-            var interfaceType = assembly?.GetType("Jellyfin.Plugin.FileTransformation.PluginInterface");
-            var method = interfaceType?.GetMethod("RegisterTransformation", BindingFlags.Public | BindingFlags.Static);
-            var payloadType = method?.GetParameters().SingleOrDefault()?.ParameterType;
-            var parse = payloadType?.GetMethod("Parse", BindingFlags.Public | BindingFlags.Static, [typeof(string)]);
-            if (method is null || payloadType is null || parse is null)
+            lock (_registrationLock)
             {
-                return false;
-            }
+                if (_writeService is null || _updateTransformation is null || _callback is null)
+                {
+                    var assembly = AssemblyLoadContext.All
+                        .SelectMany(context => context.Assemblies)
+                        .FirstOrDefault(candidate => candidate.FullName?.Contains(".FileTransformation", StringComparison.Ordinal) == true);
+                    var pluginType = assembly?.GetType("Jellyfin.Plugin.FileTransformation.FileTransformationPlugin");
+                    var pluginInstance = pluginType?.GetProperty("Instance", BindingFlags.Public | BindingFlags.Static)?.GetValue(null);
+                    var serviceProvider = pluginType?.GetProperty("ServiceProvider", BindingFlags.Public | BindingFlags.Instance)?.GetValue(pluginInstance) as IServiceProvider;
+                    var writeServiceType = assembly?.GetType("Jellyfin.Plugin.FileTransformation.Library.IWebFileTransformationWriteService");
+                    _writeService = writeServiceType is null ? null : serviceProvider?.GetService(writeServiceType);
+                    _updateTransformation = writeServiceType?.GetMethod("UpdateTransformation", BindingFlags.Public | BindingFlags.Instance);
+                    var callbackType = _updateTransformation?.GetParameters().ElementAtOrDefault(2)?.ParameterType;
+                    var callbackMethod = typeof(TransformationPatches).GetMethod(nameof(TransformationPatches.TransformIndexAsync), BindingFlags.Public | BindingFlags.Static);
+                    _callback = callbackType is null || callbackMethod is null ? null : Delegate.CreateDelegate(callbackType, callbackMethod);
+                }
 
-            var json = JsonSerializer.Serialize(new Dictionary<string, string>
-            {
-                ["id"] = TransformationId,
-                ["fileNamePattern"] = "index\\.html",
-                ["callbackAssembly"] = GetType().Assembly.FullName ?? string.Empty,
-                ["callbackClass"] = typeof(TransformationPatches).FullName ?? string.Empty,
-                ["callbackMethod"] = nameof(TransformationPatches.IndexHtml),
-            });
-            var payload = parse.Invoke(null, [json]);
-            var result = method.Invoke(null, [payload]);
-            var success = result is not bool registered || registered;
-            if (success)
-            {
-                _logger.LogInformation("Registered the Home Screen Manager Jellyfin Web transformation.");
-            }
+                if (_writeService is null || _updateTransformation is null || _callback is null)
+                {
+                    IsRegistered = false;
+                    LastError = "File Transformation's write service is not available.";
+                    return false;
+                }
 
-            return success;
+                _updateTransformation.Invoke(_writeService, [Guid.Parse(TransformationId), "index\\.html", _callback]);
+                IsRegistered = true;
+                LastError = null;
+                if (!_loggedSuccess)
+                {
+                    _loggedSuccess = true;
+                    _logger.LogInformation("Registered the Home Screen Manager Jellyfin Web stream transformation.");
+                }
+
+                return true;
+            }
         }
         catch (Exception exception)
         {
+            IsRegistered = false;
+            LastError = exception.GetBaseException().Message;
             _logger.LogWarning(exception, "Could not register the Home Screen Manager Jellyfin Web transformation.");
             return false;
         }

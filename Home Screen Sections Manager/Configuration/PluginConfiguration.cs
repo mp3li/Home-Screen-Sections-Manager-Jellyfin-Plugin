@@ -97,4 +97,7 @@ public sealed class ApplySectionRequest
 {
     /// <summary>Gets or sets the selected content ordering.</summary>
     public string ContentOrder { get; set; } = "title-ascending";
+
+    /// <summary>Gets or sets the item identifiers in their final manual order.</summary>
+    public List<string> ItemIds { get; set; } = [];
 }
