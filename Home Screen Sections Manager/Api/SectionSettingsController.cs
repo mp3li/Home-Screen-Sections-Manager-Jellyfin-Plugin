@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Jellyfin.Plugin.HomeScreenSectionsManager.Api;
 
-/// <summary>Persists the Dashboard's Home Screen Sections Manager-owned layout settings.</summary>
+/// <summary>Persists the Dashboard's Home Screen Manager-owned layout settings.</summary>
 [ApiController]
 [Authorize(Policy = "RequiresElevation")]
 [Route("HomeScreenSectionsManager")]
@@ -24,7 +24,7 @@ public sealed class SectionSettingsController : ControllerBase
     {
         if (Plugin.Instance is null)
         {
-            return StatusCode(StatusCodes.Status503ServiceUnavailable, "Home Screen Sections Manager is not initialized.");
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, "Home Screen Manager is not initialized.");
         }
 
         return Ok(Plugin.Instance.UpdateSectionSettings(request));
@@ -52,7 +52,7 @@ public sealed class SectionSettingsController : ControllerBase
     {
         if (Plugin.Instance is null)
         {
-            return StatusCode(StatusCodes.Status503ServiceUnavailable, "Home Screen Sections Manager is not initialized.");
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, "Home Screen Manager is not initialized.");
         }
 
         var saved = Plugin.Instance.UpdateCustomizationSettings(request);

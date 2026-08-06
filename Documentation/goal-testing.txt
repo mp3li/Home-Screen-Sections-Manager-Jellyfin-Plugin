@@ -1,4 +1,4 @@
-HOME SCREEN SECTIONS MANAGER — TESTING TRACKER
+HOME SCREEN MANAGER — TESTING TRACKER
 =======================================================
 
 Rule
@@ -11,13 +11,13 @@ Current dashboard checks
 - [x] Build the Release DLL with the exact Jellyfin 10.11.11 packages.
 - [ ] Install the DLL in a dedicated Jellyfin plugin directory and restart the
       server without a plugin-load exception.
-- [ ] Confirm Home Screen Sections Manager appears in Dashboard navigation.
+- [ ] Confirm Home Screen Manager appears in Dashboard navigation.
 - [ ] Confirm its page is available only to an administrator.
 - [ ] Confirm the header links open the correct repository and Patreon pages.
-- [ ] Confirm all four tabs render and switch correctly.
+- [ ] Confirm all three tabs render and switch correctly.
 - [ ] Confirm no JavaScript expressions or translation-token text appears in
       the Existing Home Screen Sections list or section-type picker.
-- [ ] Confirm Main Settings and Manage Home Screen Sections remain empty.
+- [ ] Confirm Main Settings remains empty.
 - [ ] Confirm Customization Settings loads, saves, and applies all five
       supported Abyss settings while preserving unrelated Custom CSS.
 - [ ] Confirm current Jellyfin sections appear in their saved order with blue

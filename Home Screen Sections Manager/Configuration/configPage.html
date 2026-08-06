@@ -39,19 +39,17 @@
         #homeScreenSectionsManagerPage .hssm-customization-grid .inputContainer { margin:0; }
         #homeScreenSectionsManagerPage .hssm-customization-grid input { width:100%; }
         #homeScreenSectionsManagerPage .hssm-radius-control { display:flex; align-items:center; gap:.5em; max-width:12em; }
-        #homeScreenSectionsManagerPage .hssm-css-output { box-sizing:border-box; width:100%; min-height:15em; resize:vertical; font-family:ui-monospace,Menlo,Monaco,Consolas,monospace; line-height:1.45; }
         @media (max-width:38em) { #homeScreenSectionsManagerPage .hssm-section-row { align-items:flex-start; } #homeScreenSectionsManagerPage .hssm-badge { white-space:normal; text-align:center; } }
     </style>
 
     <div class="content-primary">
-        <h1>Home Screen Sections Manager</h1>
+        <h1>Home Screen Manager</h1>
         <p>For instructions and more information, check out the repo <a href="https://github.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin" target="_blank" rel="noopener noreferrer">here</a>. To stay up to date with more of the dev's work, check out their Patreon <a href="https://www.patreon.com/cw/mp3li" target="_blank" rel="noopener noreferrer">here</a>.</p>
 
-        <div class="hssm-tabs" role="tablist" aria-label="Home Screen Sections Manager tabs">
+        <div class="hssm-tabs" role="tablist" aria-label="Home Screen Manager tabs">
             <button type="button" class="hssm-tab active" data-tab="main-settings" role="tab" aria-selected="true">Main Settings</button>
             <button type="button" class="hssm-tab" data-tab="customization-settings" role="tab" aria-selected="false">Customization Settings</button>
-            <button type="button" class="hssm-tab" data-tab="create-sections" role="tab" aria-selected="false">Create Home Screen Sections</button>
-            <button type="button" class="hssm-tab" data-tab="manage-sections" role="tab" aria-selected="false">Manage Home Screen Sections</button>
+            <button type="button" class="hssm-tab" data-tab="create-sections" role="tab" aria-selected="false">Create and Manage Home Screen Sections</button>
         </div>
 
         <div class="hssm-panel active" data-panel="main-settings" role="tabpanel"></div>
@@ -91,13 +89,6 @@
                 <label class="checkboxContainer"><input is="emby-checkbox" id="hssmAbyssLiteMode" type="checkbox" /><span>Enable Abyss Lite Mode</span></label>
             </section>
 
-            <section class="hssm-section">
-                <h2>Custom CSS</h2>
-                <p class="fieldDescription">The CSS generated from this tab is shown here for review or copying. Existing unrelated Jellyfin Custom CSS is preserved when the entire tab is saved.</p>
-                <textarea class="emby-input hssm-css-output" id="hssmAbyssGeneratedCss" readonly aria-label="Generated Abyss Custom CSS"></textarea>
-                <div class="hssm-actions"><button is="emby-button" type="button" class="raised" id="hssmCopyCustomizationButton">Copy Custom CSS</button></div>
-            </section>
-
             <div class="hssm-actions"><button is="emby-button" type="button" class="raised button-submit block" id="hssmSaveCustomizationButton">Save &amp; Apply Customization Settings</button></div>
             <p class="fieldDescription" id="hssmCustomizationStatus" aria-live="polite"></p>
         </div>
@@ -107,7 +98,7 @@
                 <p class="fieldDescription">This area shows your current home screen sections. Sections made by/default by Jellyfin are labeled Jellyfin in blue, and sections made by this plugin are labeled in purple. You can change the two colors below. Sections made by this plugin are editable and sections made by Jellyfin are not. Click 'Create Section' to create a new section. Click 'Edit Section' to edit sections made by this plugin. Drag sections to rearrange them. Continue Watching is locked to being the top section media bar.</p>
                 <div class="hssm-colors">
                     <div class="inputContainer"><label class="inputLabel inputLabelUnfocused" for="hssmJellyfinColor">Jellyfin Label Color</label><input is="emby-input" class="hssm-color" id="hssmJellyfinColor" type="color" value="#00a4dc" /></div>
-                    <div class="inputContainer"><label class="inputLabel inputLabelUnfocused" for="hssmManagerColor">Home Screen Sections Manager Label Color</label><input is="emby-input" class="hssm-color" id="hssmManagerColor" type="color" value="#aa5cc3" /></div>
+                    <div class="inputContainer"><label class="inputLabel inputLabelUnfocused" for="hssmManagerColor">Home Screen Manager Label Color</label><input is="emby-input" class="hssm-color" id="hssmManagerColor" type="color" value="#aa5cc3" /></div>
                 </div>
                 <div id="hssmSectionList" class="hssm-section-list" aria-label="Existing home screen sections"></div>
                 <div class="hssm-actions">
@@ -127,7 +118,6 @@
                 </div>
             </section>
         </div>
-        <div class="hssm-panel" data-panel="manage-sections" role="tabpanel"></div>
     </div>
 
     <script>
@@ -166,7 +156,7 @@
             function render() {
                 list.innerHTML = sections.map(function (section) {
                     const editing = section.id === draftId;
-                    return '<div class="hssm-section-row' + (section.id === selectedId ? ' selected' : '') + (section.locked ? ' locked' : '') + '" data-section-id="' + escape(section.id) + '" draggable="' + (section.locked ? 'false' : 'true') + '" role="button" tabindex="0" aria-pressed="' + (section.id === selectedId) + '"><span class="hssm-drag-handle" aria-hidden="true">' + (section.locked ? '' : '⠿') + '</span><span class="hssm-section-name">' + (editing ? '<label class="inputLabel inputLabelUnfocused">Section Name:</label><input is="emby-input" type="text" data-hssm-inline-section-name value="' + escape(section.name) + '" autocomplete="off" />' : escape(section.name)) + '</span><span class="hssm-badge ' + (section.origin === 'manager' ? 'hssm-badge-manager' : 'hssm-badge-jellyfin') + '">' + (section.origin === 'manager' ? 'Home Screen Sections Manager' : 'Jellyfin') + '</span></div>';
+                    return '<div class="hssm-section-row' + (section.id === selectedId ? ' selected' : '') + (section.locked ? ' locked' : '') + '" data-section-id="' + escape(section.id) + '" draggable="' + (section.locked ? 'false' : 'true') + '" role="button" tabindex="0" aria-pressed="' + (section.id === selectedId) + '"><span class="hssm-drag-handle" aria-hidden="true">' + (section.locked ? '' : '⠿') + '</span><span class="hssm-section-name">' + (editing ? '<label class="inputLabel inputLabelUnfocused">Section Name:</label><input is="emby-input" type="text" data-hssm-inline-section-name value="' + escape(section.name) + '" autocomplete="off" />' : escape(section.name)) + '</span><span class="hssm-badge ' + (section.origin === 'manager' ? 'hssm-badge-manager' : 'hssm-badge-jellyfin') + '">' + (section.origin === 'manager' ? 'Home Screen Manager' : 'Jellyfin') + '</span></div>';
                 }).join('');
                 deleteButton.disabled = !(selected() && selected().origin === 'manager');
                 editButton.disabled = deleteButton.disabled;
@@ -311,10 +301,8 @@
                 if (!item || !item.name.trim() || !item.type) return;
                 item.name = item.name.trim();
                 const created = { id:item.id, name:item.name, type:item.type };
-                draftId = null;
                 render();
                 newSettings.hidden = false;
-                status.textContent = 'Loading section settings…';
                 page.dispatchEvent(new CustomEvent('hssm-section-type-created', { detail:created }));
             });
 
@@ -699,10 +687,8 @@
             const fontUrl = page.querySelector('#hssmAbyssFontImportUrl');
             const fontFamily = page.querySelector('#hssmAbyssFontFamily');
             const lite = page.querySelector('#hssmAbyssLiteMode');
-            const output = page.querySelector('#hssmAbyssGeneratedCss');
             const status = page.querySelector('#hssmCustomizationStatus');
             const saveButton = page.querySelector('#hssmSaveCustomizationButton');
-            const copyButton = page.querySelector('#hssmCopyCustomizationButton');
 
             function hexToRgb(value) {
                 const match = String(value || '').match(/^#([0-9a-f]{6})$/i);
@@ -726,18 +712,14 @@
                 return lines.join('\n');
             }
 
-            function refreshCss() {
-                output.value = generatedCss();
-            }
-
             function mergedCustomCss(existingCss) {
-                const startImports = '/* Home Screen Sections Manager Abyss imports start */';
-                const endImports = '/* Home Screen Sections Manager Abyss imports end */';
-                const startSettings = '/* Home Screen Sections Manager Abyss settings start */';
-                const endSettings = '/* Home Screen Sections Manager Abyss settings end */';
+                const startImports = '/* Home Screen Manager Abyss imports start */';
+                const endImports = '/* Home Screen Manager Abyss imports end */';
+                const startSettings = '/* Home Screen Manager Abyss settings start */';
+                const endSettings = '/* Home Screen Manager Abyss settings end */';
                 let existing = String(existingCss || '');
-                existing = existing.replace(/\/\* Home Screen Sections Manager Abyss imports start \*\/[\s\S]*?\/\* Home Screen Sections Manager Abyss imports end \*\//g, '');
-                existing = existing.replace(/\/\* Home Screen Sections Manager Abyss settings start \*\/[\s\S]*?\/\* Home Screen Sections Manager Abyss settings end \*\//g, '');
+                existing = existing.replace(/\/\* Home Screen (?:Sections )?Manager Abyss imports start \*\/[\s\S]*?\/\* Home Screen (?:Sections )?Manager Abyss imports end \*\//g, '');
+                existing = existing.replace(/\/\* Home Screen (?:Sections )?Manager Abyss settings start \*\/[\s\S]*?\/\* Home Screen (?:Sections )?Manager Abyss settings end \*\//g, '');
                 existing = existing.replace(/@import\s+url\(['"]https:\/\/cdn\.jsdelivr\.net\/gh\/AumGupta\/abyss-jellyfin@main\/(?:styles\/abyss-lite\.css|abyss\.css)['"]\);?\s*/gi, '');
                 const lines = generatedCss().split('\n');
                 const imports = lines.filter(line => line.indexOf('@import ') === 0).join('\n');
@@ -765,10 +747,8 @@
                     fontUrl.value = valueOf(configuration, 'AbyssFontImportUrl', 'abyssFontImportUrl', '');
                     fontFamily.value = valueOf(configuration, 'AbyssFontFamily', 'abyssFontFamily', '');
                     lite.checked = !!valueOf(configuration, 'AbyssLiteMode', 'abyssLiteMode', false);
-                    refreshCss();
                 }, () => {
                     status.textContent = 'Customization settings could not be loaded.';
-                    refreshCss();
                 });
             }
 
@@ -792,7 +772,6 @@
                     dataType:'json'
                 }).then(() => {
                     radius.value = data.AbyssRadius;
-                    refreshCss();
                     return ApiClient.getJSON(ApiClient.getUrl('Branding/Configuration'));
                 }).then(branding => {
                     branding = branding || {};
@@ -817,22 +796,7 @@
                 });
             }
 
-            function copy() {
-                refreshCss();
-                const copied = navigator.clipboard && navigator.clipboard.writeText ? navigator.clipboard.writeText(output.value) : Promise.reject();
-                copied.then(() => { status.textContent = 'Custom CSS copied. Paste it into Jellyfin Dashboard > General > Custom CSS.'; }, () => {
-                    output.focus();
-                    output.select();
-                    status.textContent = 'The browser could not copy automatically. The generated CSS is selected so you can copy it.';
-                });
-            }
-
-            [accent, radius, indicator, fontUrl, fontFamily, lite].forEach(input => {
-                input.addEventListener('input', refreshCss);
-                input.addEventListener('change', refreshCss);
-            });
             saveButton.addEventListener('click', save);
-            copyButton.addEventListener('click', copy);
             load();
         })();
     </script>

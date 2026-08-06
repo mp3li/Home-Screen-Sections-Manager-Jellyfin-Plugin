@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="Assets/Branding/home-screen-sections-manager-icon.png" alt="Home Screen Sections Manager icon: retro television with an artist paint palette and paintbrush" width="180" />
+  <img src="Assets/Branding/home-screen-sections-manager-icon.png" alt="Home Screen Manager icon: retro television with an artist paint palette and paintbrush" width="180" />
 </p>
 
-<h1 align="center">Home Screen Sections Manager</h1>
+<h1 align="center">Home Screen Manager</h1>
 
 For instructions and more information, check out the repo [here](https://github.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin). To stay up to date with more of the dev's work, check out their Patreon [here](https://www.patreon.com/cw/mp3li).
 
@@ -12,17 +12,15 @@ For instructions and more information, check out the repo [here](https://github.
 
 - Main Settings
 - Customization Settings
-- Create Home Screen Sections
-- Manage Home Screen Sections
+- Create and Manage Home Screen Sections
 
-**Main Settings** and **Manage Home Screen Sections** remain intentionally
-blank. **Customization Settings** saves and applies the Abyss theme's supported
-accent, global corner radius, indicator-pill color, optional font, and Lite Mode
-settings through Jellyfin's normal Custom CSS branding configuration.
+**Main Settings** remains intentionally blank. **Customization Settings** saves
+and applies the Abyss theme's supported accent, global corner radius,
+indicator-pill color, optional font, and Lite Mode settings through Jellyfin's normal Custom CSS branding configuration.
 
-**Create Home Screen Sections** shows the current ten-slot Jellyfin home
-section arrangement together with saved plugin sections. Jellyfin and plugin
-rows have separately configurable label colors. One row can be selected at a
+**Create and Manage Home Screen Sections** shows the current ten-slot
+Jellyfin home section arrangement together with saved plugin sections. Jellyfin and
+plugin rows have separately configurable label colors. One row can be selected at a
 time; plugin rows can be edited or deleted; all rows can be dragged except
 Continue Watching, which remains the top Abyss media bar.
 
@@ -51,9 +49,9 @@ Content Order Settings** area for the next design round.
    https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/manifest.json
    ```
 
-3. Refresh the catalog and install the newest **Home Screen Sections Manager**
+3. Refresh the catalog and install the newest **Home Screen Manager**
    testing version.
-4. Restart Jellyfin, then open **Dashboard → Home Screen Sections Manager**.
+4. Restart Jellyfin, then open **Dashboard → Home Screen Manager**.
 
 ## Build from source
 
@@ -63,5 +61,5 @@ dotnet build "Home Screen Sections Manager/HomeScreenSectionsManager.csproj" --c
 
 ## License
 
-Home Screen Sections Manager is available under the [Home Screen Sections
-Manager Noncommercial License 1.0](LICENSE).
+Home Screen Manager is available under the [Home Screen Manager
+Noncommercial License 1.0](LICENSE).

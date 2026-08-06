@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.1.0.7-test] - 2026-08-05
+
+### Changed
+
+- Changes the plugin display name to **Home Screen Manager** while retaining the existing repository folders, assembly, namespace, API routes, embedded-resource path, GUID, and asset paths.
+- Replaces the separate **Create Home Screen Sections** and empty **Manage Home Screen Sections** tabs with one **Create and Manage Home Screen Sections** tab.
+- Removes the redundant generated-CSS preview and Copy button from Customization Settings. **Save & Apply Customization Settings** continues generating Abyss CSS behind the scenes and writes it only to Jellyfin's native server Branding Custom CSS field.
+
+### Fixed
+
+- Shows only one **Loading section settings…** message while a selected section-type editor loads.
+- Keeps the new section draft active after **Create Section**, allowing another section type to be selected and created when the user changes their mind.
+- Migrates previously saved Home Screen Sections Manager Abyss CSS marker blocks to the new Home Screen Manager marker name without duplicating imports or overrides.
+
+### Test boundary
+
+- This build saves complete section drafts and hybrid ordering but does not yet render those drafts as Jellyfin home-screen sections.
+
 ## [0.1.0.6-test] - 2026-08-05
 
 ### Fixed

@@ -2,7 +2,7 @@ using MediaBrowser.Model.Plugins;
 
 namespace Jellyfin.Plugin.HomeScreenSectionsManager.Configuration;
 
-/// <summary>Configuration persisted by Jellyfin for Home Screen Sections Manager.</summary>
+/// <summary>Configuration persisted by Jellyfin for Home Screen Manager.</summary>
 public sealed class PluginConfiguration : BasePluginConfiguration
 {
     /// <summary>Gets or sets the dashboard label color for native Jellyfin sections.</summary>
@@ -49,7 +49,7 @@ public sealed class HomeScreenSectionDefinition
     public List<string> ItemIds { get; set; } = [];
 }
 
-/// <summary>Request body used to replace only Home Screen Sections Manager-owned settings.</summary>
+/// <summary>Request body used to replace only Home Screen Manager-owned settings.</summary>
 public sealed class SectionSettingsRequest
 {
     /// <summary>Gets or sets the native Jellyfin label color.</summary>

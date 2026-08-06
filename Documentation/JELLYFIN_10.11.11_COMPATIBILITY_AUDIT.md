@@ -29,7 +29,7 @@ Primary official references:
 | Native section names | Maps only the official 10.11.11 HomeSectionType values. | Supported. |
 | Saved plugin drafts | Elevated plugin controller routes persist only plugin configuration: label colors, hybrid order, section type, source IDs, and manual item IDs. | Supported plugin-owned configuration. |
 | Jellyfin media previews | Uses the official current-user Items query with ParentId, Recursive, StartIndex, and Limit, continuing through TotalRecordCount. | Supported read path. |
-| Custom CSS | Reads and updates the named branding configuration through the same ApiClient.getNamedConfiguration and updateNamedConfiguration methods exposed by Jellyfin Web 10.11.11. Unrelated CSS and branding fields are preserved. | Supported administrator path; live application still requires server testing. |
+| Custom CSS | Reads `Branding/Configuration` and updates `System/Configuration/Branding` through Jellyfin Web 10.11.11 authenticated `ApiClient`. Unrelated CSS and branding fields are preserved. | Supported administrator path; live application still requires server testing. |
 | Collection/tag pickers | Reuses the installed Collection Manager plugin's existing settings, art-collection, manual-item, metadata-catalog, and preview routes. | Supported by the required companion plugin; version-pair testing required. |
 
 ## Explicit current boundary
