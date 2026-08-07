@@ -159,7 +159,7 @@
         <div class="hssm-panel" data-panel="create-sections" role="tabpanel">
             <section class="hssm-section">
                 <h2>Existing Home Screen Sections</h2>
-                <p class="fieldDescription">This area shows your current home screen sections. Sections made by/default by Jellyfin are labeled Jellyfin in blue, and sections made by this plugin are labeled in purple. You can change the two colors below. Sections made by this plugin are editable and sections made by Jellyfin are not. Click 'Create Section' to create a new section. Click 'Edit Section' to edit sections made by this plugin. Drag sections to rearrange them. The section at the top is labeled Media Bar and supplies the content for the top media bar while also remaining visible as a normal section below it.</p>
+                <p class="fieldDescription">This area shows your current home screen sections. Sections made by/default by Jellyfin are labeled Jellyfin in blue, and sections made by this plugin are labeled in purple. You can change the two colors below. Sections made by this plugin are editable and sections made by Jellyfin are not. Click 'Create Section' to create a new section. Click 'Edit Section' to edit sections made by this plugin. Drag sections to rearrange them. The first eligible section is labeled Media Bar and supplies the content for the top media bar while also remaining visible as a normal section below it. My Media and Latest Media cannot be used as the Media Bar.</p>
                 <div class="hssm-colors">
                     <div class="inputContainer"><label class="inputLabel inputLabelUnfocused" for="hssmJellyfinColor">Jellyfin Label Color</label><input is="emby-input" class="hssm-color" id="hssmJellyfinColor" type="color" value="#00a4dc" /></div>
                     <div class="inputContainer"><label class="inputLabel inputLabelUnfocused" for="hssmManagerColor">Home Screen Manager Label Color</label><input is="emby-input" class="hssm-color" id="hssmManagerColor" type="color" value="#aa5cc3" /></div>
@@ -191,6 +191,7 @@
 
             const nativeNames = { smalllibrarytiles:'My Media', librarybuttons:'My Media (small)', activerecordings:'Active Recordings', resume:'Continue Watching', resumeaudio:'Continue Listening', resumebook:'Continue Reading', latestmedia:'Latest Media', nextup:'Next Up', livetv:'Live TV' };
             const defaults = ['smalllibrarytiles', 'resume', 'resumeaudio', 'resumebook', 'livetv', 'nextup', 'latestmedia'];
+            const mediaBarBlockedTypes = new Set(['smalllibrarytiles', 'librarybuttons', 'latestmedia']);
             const types = [
                 ['manual-content', 'Manual Content', 'Create a section that displays manually selected content.'],
                 ['individual-collection-content', 'Individual Collection Content', 'Create a section that displays all content of one selected collection. For example, all content in the Thrillers Collection.'],
@@ -218,11 +219,20 @@
             const escape = value => { const element = document.createElement('span'); element.textContent = value == null ? '' : String(value); return element.innerHTML; };
             const selected = () => sections.find(section => section.id === selectedId);
             const draft = () => sections.find(section => section.id === draftId);
+            const mediaBarEligible = section => !!section && !(section.origin === 'jellyfin' && mediaBarBlockedTypes.has(section.type));
+
+            function normalizeMediaBarOrder(values) {
+                if (!values.length || mediaBarEligible(values[0])) return false;
+                const eligibleIndex = values.findIndex(mediaBarEligible);
+                if (eligibleIndex < 0) return false;
+                values.unshift(values.splice(eligibleIndex, 1)[0]);
+                return true;
+            }
 
             function render() {
                 list.innerHTML = sections.map(function (section, index) {
                     const editing = section.id === draftId;
-                    return '<div class="hssm-section-row' + (section.id === selectedId ? ' selected' : '') + '" data-section-id="' + escape(section.id) + '" draggable="true" role="button" tabindex="0" aria-pressed="' + (section.id === selectedId) + '"><span class="hssm-drag-handle" aria-hidden="true">⠿</span><span class="hssm-section-name">' + (editing ? '<label class="inputLabel inputLabelUnfocused">Section Name:</label><input is="emby-input" type="text" data-hssm-inline-section-name value="' + escape(section.name) + '" autocomplete="off" />' : escape(section.name)) + '</span>' + (index === 0 ? '<span class="hssm-badge hssm-badge-media">Media Bar</span>' : '') + '<span class="hssm-badge ' + (section.origin === 'manager' ? 'hssm-badge-manager' : 'hssm-badge-jellyfin') + '">' + (section.origin === 'manager' ? 'Home Screen Manager' : 'Jellyfin') + '</span></div>';
+                    return '<div class="hssm-section-row' + (section.id === selectedId ? ' selected' : '') + '" data-section-id="' + escape(section.id) + '" draggable="true" role="button" tabindex="0" aria-pressed="' + (section.id === selectedId) + '"><span class="hssm-drag-handle" aria-hidden="true">⠿</span><span class="hssm-section-name">' + (editing ? '<label class="inputLabel inputLabelUnfocused">Section Name:</label><input is="emby-input" type="text" data-hssm-inline-section-name value="' + escape(section.name) + '" autocomplete="off" />' : escape(section.name)) + '</span>' + (index === 0 && mediaBarEligible(section) ? '<span class="hssm-badge hssm-badge-media">Media Bar</span>' : '') + '<span class="hssm-badge ' + (section.origin === 'manager' ? 'hssm-badge-manager' : 'hssm-badge-jellyfin') + '">' + (section.origin === 'manager' ? 'Home Screen Manager' : 'Jellyfin') + '</span></div>';
                 }).join('');
                 deleteButton.disabled = !(selected() && selected().origin === 'manager');
                 editButton.disabled = deleteButton.disabled;
@@ -250,7 +260,7 @@
                 const prefs = preferences && (preferences.CustomPrefs || preferences.customPrefs) || {};
                 return Array.from({ length:10 }, function (_, index) {
                     const type = prefs['homesection' + index] || defaults[index] || 'none';
-                    return type !== 'none' && nativeNames[type] ? { id:'jellyfin-' + index + '-' + type, name:nativeNames[type], origin:'jellyfin', locked:false } : null;
+                    return type !== 'none' && nativeNames[type] ? { id:'jellyfin-' + index + '-' + type, name:nativeNames[type], type:type, origin:'jellyfin', locked:false } : null;
                 }).filter(Boolean);
             }
 
@@ -267,6 +277,7 @@
                     const ordered = [];
                     (saved.SectionOrder || saved.sectionOrder || []).forEach(id => { id = String(id); if (byId[id]) { ordered.push(byId[id]); delete byId[id]; } });
                     rows.forEach(row => { if (byId[row.id]) { ordered.push(row); delete byId[row.id]; } });
+                    const normalized = normalizeMediaBarOrder(ordered);
                     sections = ordered;
                     const jellyfinColor = saved.JellyfinSectionLabelColor || saved.jellyfinSectionLabelColor || '#00a4dc';
                     const managerColor = saved.ManagerSectionLabelColor || saved.managerSectionLabelColor || '#aa5cc3';
@@ -275,6 +286,7 @@
                     page.style.setProperty('--hssm-jellyfin', jellyfinColor);
                     page.style.setProperty('--hssm-manager', managerColor);
                     render();
+                    if (normalized) scheduleLayoutSave();
                 });
             }
 
@@ -388,8 +400,16 @@
                 event.preventDefault();
                 const from = sections.findIndex(section => section.id === draggedId), to = sections.findIndex(section => section.id === target.dataset.sectionId);
                 if (from < 0 || to < 0 || sections[from].locked) return;
-                const [item] = sections.splice(from, 1);
-                sections.splice(from < to ? to - 1 : to, 0, item);
+                const candidate = sections.slice();
+                const [item] = candidate.splice(from, 1);
+                candidate.splice(from < to ? to - 1 : to, 0, item);
+                if (candidate.length && !mediaBarEligible(candidate[0])) {
+                    const message = 'My Media and Latest Media cannot be used as the Media Bar.';
+                    if (window.Dashboard && typeof Dashboard.alert === 'function') Dashboard.alert(message);
+                    else status.textContent = message;
+                    return;
+                }
+                sections = candidate;
                 render();
                 persistLayout();
             });

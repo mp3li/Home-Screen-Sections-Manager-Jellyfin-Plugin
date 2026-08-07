@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.1.0.13-test] - 2026-08-07
+
+### Fixed
+
+- Keeps the original Abyss spotlight frame hidden until Home Screen Manager has
+  fetched, decoded, and rendered the configured first media-bar image, preventing
+  the default Continue Watching artwork from flashing before the selected source.
+
+### Changed
+
+- Prevents My Media, My Media (small), and Latest Media from becoming the
+  media-bar source in both the section editor and the Home-screen runtime.
+- Documents that Continue Watching can supply up to 30 available items to the
+  media bar while remaining present as a normal row below it.
+
 ## [0.1.0.12-test] - 2026-08-07
 
 ### Added

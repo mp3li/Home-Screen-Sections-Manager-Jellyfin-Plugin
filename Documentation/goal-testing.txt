@@ -63,8 +63,14 @@ Current dashboard checks
       selected content order.
 - [ ] Confirm the credited plugin media bar retains Abyss's logo treatment,
       backdrop blending, metadata, buttons, animation, and responsive sizing.
-- [ ] Drag native and plugin sections into the first position; confirm each one
-      supplies the media-bar items and also remains visible as the first normal row.
+- [ ] Confirm the original Continue Watching/artwork slide never flashes before
+      the configured media-bar source and image have fully rendered.
+- [ ] Drag eligible native and plugin sections into the first position; confirm
+      each one supplies the media-bar items and remains visible as the first normal row.
+- [ ] Confirm My Media, My Media (small), and Latest Media cannot be dragged into
+      the Media Bar position and are never selected as its runtime source.
+- [ ] With Continue Watching selected, confirm the media bar can cycle through all
+      available results returned by its 30-item request, not only the first few.
 - [ ] Confirm 1–300 second timing and Backdrop, Primary, Banner, and Thumbnail
       image choices apply without changing the Abyss layout.
 - [ ] Confirm a Rotating Section changes to the next saved draft after its exact

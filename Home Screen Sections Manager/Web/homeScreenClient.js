@@ -384,6 +384,22 @@
         return values;
     }
 
+    function mediaBarTokenEligible(token) {
+        return ['smalllibrarytiles', 'librarybuttons', 'latestmedia'].indexOf(String(token || '')) < 0;
+    }
+
+    function mediaBarNodeEligible(node, preferences) {
+        if (!node) return false;
+        if (node.dataset.hssmSectionId) return true;
+        return mediaBarTokenEligible(nativeTokenForNode(node, preferences));
+    }
+
+    function normalizeMediaBarNodes(nodes, preferences) {
+        var eligibleIndex = nodes.findIndex(function (node) { return mediaBarNodeEligible(node, preferences); });
+        if (eligibleIndex > 0) nodes.unshift(nodes.splice(eligibleIndex, 1)[0]);
+        return nodes;
+    }
+
     function nodesInOrder(container, settings, preferences) {
         var sectionOrder = prop(settings, 'SectionOrder', 'sectionOrder', []).map(String);
         var native = nativeTypes(preferences);
@@ -405,7 +421,7 @@
             if (match) add(container.querySelector('.section' + Number(match[1])));
         });
         Array.from(container.children).forEach(add);
-        return desired;
+        return normalizeMediaBarNodes(desired, preferences);
     }
 
     function applyHybridOrder(container, settings, preferences) {
@@ -527,7 +543,7 @@
     }
 
     function mediaBarSource(settings, preferences, container, sections) {
-        var topNode = nodesInOrder(container, settings, preferences)[0] || null;
+        var topNode = nodesInOrder(container, settings, preferences).find(function (node) { return mediaBarNodeEligible(node, preferences); }) || null;
         if (!topNode) return { key: 'none', items: Promise.resolve([]) };
         var managerId = topNode.dataset.hssmSectionId || '';
         if (managerId) {
@@ -564,9 +580,20 @@
         if (mediaBarMessageBound) return;
         mediaBarMessageBound = true;
         window.addEventListener('message', function (event) {
-            if (event.origin !== window.location.origin || !event.data || event.data.type !== 'home-screen-manager-media-bar' || event.data.action !== 'ready') return;
+            if (event.origin !== window.location.origin || !event.data || event.data.type !== 'home-screen-manager-media-bar') return;
             var frame = document.querySelector('.featurediframe[data-hssm-media-bar="true"]');
-            if (frame && event.source === frame.contentWindow) sendMediaBarPayload(frame);
+            if (!frame || event.source !== frame.contentWindow) return;
+            if (event.data.action === 'ready') sendMediaBarPayload(frame);
+            if (event.data.action === 'rendered') {
+                frame.dataset.hssmMediaBarReady = 'true';
+                delete frame.dataset.hssmMediaBarPending;
+            }
+        });
+    }
+
+    function suppressPendingMediaBar() {
+        Array.from(document.querySelectorAll('.featurediframe')).forEach(function (frame) {
+            if (frame.dataset.hssmMediaBarReady !== 'true') frame.dataset.hssmMediaBarPending = 'true';
         });
     }
 
@@ -580,6 +607,7 @@
         }
         if (!frame.dataset.hssmAbyssSpotlightUrl && frame.src) frame.dataset.hssmAbyssSpotlightUrl = frame.src;
         frame.dataset.hssmMediaBar = 'true';
+        if (frame.dataset.hssmMediaBarReady !== 'true') frame.dataset.hssmMediaBarPending = 'true';
         bindMediaBarMessages();
         var urls = mediaBarUrls(frame);
         if (frame.src !== urls.plugin) {
@@ -616,6 +644,8 @@
             };
             var frame = ensureMediaBarFrame(container);
             if (key !== mediaBarSourceKey) {
+                delete frame.dataset.hssmMediaBarReady;
+                frame.dataset.hssmMediaBarPending = 'true';
                 mediaBarSourceKey = key;
                 sendMediaBarPayload(frame);
             }
@@ -1058,6 +1088,7 @@
 
 
     var observer = new MutationObserver(function () {
+        suppressPendingMediaBar();
         scheduleRender();
         scheduleEnhancements(false);
     });
@@ -1078,6 +1109,7 @@
             };
         }
     };
+    suppressPendingMediaBar();
     scheduleRender();
     scheduleEnhancements(true);
 }());

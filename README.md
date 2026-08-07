@@ -48,10 +48,12 @@ Home Screen** saves these choices and enables the section in Jellyfin Web.
 
 Home Screen Manager uses a credited, MIT-licensed adaptation of Abyss's
 spotlight logic together with the installed Abyss spotlight stylesheet. This
-keeps Abyss's media-bar appearance while allowing the first draggable home row,
+keeps Abyss's media-bar appearance while allowing the first eligible draggable home row,
 saved timing, and selected Backdrop, Primary, Banner, or Thumbnail image type to
 drive the bar. The source row remains visible as a normal row immediately below
-the media bar. Saved
+the media bar. My Media and Latest Media remain normal home rows but cannot be
+used as the media-bar source. Continue Watching supplies up to 30 available items
+to the media bar instead of limiting the spotlight to only a few. Saved
 collection and library sections are read live from Jellyfin. When automatic
 refresh is enabled, saved tag rules are refreshed through Collection Manager's
 existing metadata preview routes.

@@ -378,6 +378,10 @@
                 $('clickzone').onclick = () => navigateTo(detailRoute);
             }
 
+            function notifyRendered() {
+                window.parent.postMessage({ type: 'home-screen-manager-media-bar', action: 'rendered' }, window.location.origin);
+            }
+
             async function renderItem(index) {
                 const item = items[index];
                 if (!item || paused || disposed) return false;
@@ -394,8 +398,14 @@
                     await wait(reducedMotion.matches ? 0 : 260, signal);
                     if (signal.aborted || sequence !== renderSequence) return false;
                     updateContent(item, artwork);
+                    const backdropImage = $('backdrop-img');
+                    if (backdropImage.src && typeof backdropImage.decode === 'function') {
+                        try { await backdropImage.decode(); } catch (_) {}
+                    }
+                    if (signal.aborted || sequence !== renderSequence) return false;
                     $('content').classList.add('visible');
                     queuePreload();
+                    notifyRendered();
                     return true;
                 } catch (error) {
                     if (error.name !== 'AbortError') console.error('[Home Screen Manager media bar] Render failed.', error);
@@ -412,7 +422,8 @@
                 $('empty').style.display = items.length ? 'none' : 'flex';
                 buildDots();
                 stopAuto();
-                if (!paused && items.length) await renderItem(currentIndex);
+                if (!items.length) notifyRendered();
+                else if (!paused) await renderItem(currentIndex);
                 startAuto();
             }
 

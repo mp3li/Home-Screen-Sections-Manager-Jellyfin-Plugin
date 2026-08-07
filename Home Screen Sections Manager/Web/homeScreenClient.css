@@ -1,3 +1,7 @@
+.featurediframe[data-hssm-media-bar-pending="true"] {
+    visibility: hidden !important;
+}
+
 .homeSectionsContainer {
     display: flex;
     flex-direction: column;
