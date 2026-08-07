@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.1.0.12-test] - 2026-08-07
+
+### Added
+
+- Exposes Abyss's shared **Accent Color** as a visible picker for hover states,
+  including top navigation text, play and resume buttons, and sidebar menu items.
+
+- Adds a credited Abyss-compatible media-bar document that uses the installed
+  Abyss spotlight stylesheet and preserves the upstream MIT notice.
+- Makes the saved first hybrid row the real media-bar source and applies the
+  saved interval and Backdrop, Primary, Banner, or Thumbnail image setting.
+
+### Changed
+
+- Keeps the media-bar source row visible as a normal home section beneath the
+  bar instead of hiding or duplicating it.
+- Keeps the uploaded Home logo on every non-playback Jellyfin Web page,
+  including detail pages with breadcrumbs, while preserving Home navigation.
+
+### Validation boundary
+
+- Source, JavaScript, embedded-resource, and Release-build checks are local;
+  exact installed Abyss/Jellyfin behavior still requires the next test build.
+
 ## [0.1.0.11-test] - 2026-08-06
 
 ### Added

@@ -22,8 +22,8 @@ Jellyfin-only search, and header breadcrumbs.
 **Customization Settings** saves and applies Abyss through Jellyfin's normal
 Custom CSS branding configuration. In addition to Abyss's documented global
 corner radius, indicator pill, optional font, and Lite Mode settings, it splits
-the top navigation, play buttons, watched progress, sidebar icons, and My List
-hearts into separate solid or gradient controls. It also supplies the Home
+the shared Abyss hover accent, top navigation, play buttons, watched progress,
+sidebar icons, and My List hearts into explicit controls. It also supplies the Home
 logo, media-bar timing, and media-bar image type.
 
 **Create and Manage Home Screen Sections** shows the current ten-slot
@@ -46,11 +46,19 @@ Large sizing, official Jellyfin image types, poster/wide/square/circle shapes,
 and whether the media name and year appear beneath the art. **Add Section to
 Home Screen** saves these choices and enables the section in Jellyfin Web.
 
-The Home Screen Manager media bar replaces the Abyss spotlight iframe while it
-is active and does not duplicate its source as a normal row below it. Saved
+Home Screen Manager uses a credited, MIT-licensed adaptation of Abyss's
+spotlight logic together with the installed Abyss spotlight stylesheet. This
+keeps Abyss's media-bar appearance while allowing the first draggable home row,
+saved timing, and selected Backdrop, Primary, Banner, or Thumbnail image type to
+drive the bar. The source row remains visible as a normal row immediately below
+the media bar. Saved
 collection and library sections are read live from Jellyfin. When automatic
 refresh is enabled, saved tag rules are refreshed through Collection Manager's
 existing metadata preview routes.
+
+The uploaded Home logo remains present throughout Jellyfin Web, including
+breadcrumbed detail pages, and is hidden on playback screens. It always retains
+Home navigation behavior.
 
 My List intentionally uses Jellyfin's existing per-user Likes field—the same
 working storage path used by the behavioral reference—rather than creating a
@@ -97,4 +105,5 @@ dotnet build "Home Screen Sections Manager/HomeScreenSectionsManager.csproj" --c
 ## License
 
 Home Screen Manager is available under the [Home Screen Manager
-Noncommercial License 1.0](LICENSE).
+Noncommercial License 1.0](LICENSE). The adapted Abyss portion retains its
+original MIT copyright and license in [Third-Party Notices](THIRD-PARTY-NOTICES.md).

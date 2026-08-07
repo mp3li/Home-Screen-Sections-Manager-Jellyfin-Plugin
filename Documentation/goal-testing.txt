@@ -61,8 +61,12 @@ Current dashboard checks
       every pre-existing Injector script remains unchanged.
 - [ ] Confirm an applied section appears on Home with its configured media and
       selected content order.
-- [ ] Confirm the Abyss media bar, its logo treatment, backdrop blending, and the
-      native Continue Watching row remain unchanged after plugin sections load.
+- [ ] Confirm the credited plugin media bar retains Abyss's logo treatment,
+      backdrop blending, metadata, buttons, animation, and responsive sizing.
+- [ ] Drag native and plugin sections into the first position; confirm each one
+      supplies the media-bar items and also remains visible as the first normal row.
+- [ ] Confirm 1–300 second timing and Backdrop, Primary, Banner, and Thumbnail
+      image choices apply without changing the Abyss layout.
 - [ ] Confirm a Rotating Section changes to the next saved draft after its exact
       interval and preserves the shared content-order and art settings.
 - [ ] Confirm a Seasonal Section shows the first matching draft during its
@@ -70,10 +74,13 @@ Current dashboard checks
 - [ ] Confirm collection and library content rows refresh their live children;
       enable Automatic Refresh and confirm saved tag rules gain newly matching
       media after Collection Manager refreshes its metadata catalog.
-- [ ] Confirm the Home logo appears beside the hamburger menu and replaces only
-      the Home icon on other pages while the button still navigates Home.
-- [ ] Confirm each split solid/gradient color changes only its named surface and
-      unrelated Custom CSS remains intact.
+- [ ] Confirm the Home logo stays beside the hamburger menu on Home,
+      libraries, search, settings, and breadcrumbed detail pages, always navigates
+      Home, and is absent only from playback screens.
+- [ ] Confirm Accent Color changes the shared Abyss hover accent on top
+      navigation text, play/resume buttons, and sidebar menu items.
+- [ ] Confirm each split solid/gradient color changes only its named normal-state
+      surface and unrelated Custom CSS remains intact.
 - [ ] Confirm Continue Watching X resets progress without changing played state;
       confirm a dismissed Next Up card disappears without marking it played.
 - [ ] Confirm My List heart changes Jellyfin Likes, the My List tab shows liked

@@ -61,6 +61,18 @@ public sealed class HomeScreenClientController : ControllerBase
     [Produces("text/css")]
     public ActionResult GetClientStyles() => Embedded("Jellyfin.Plugin.HomeScreenSectionsManager.Web.homeScreenClient.css", "text/css");
 
+    /// <summary>Serves the credited Abyss-compatible media-bar document.</summary>
+    [AllowAnonymous]
+    [HttpGet("media-bar.html")]
+    [Produces("text/html")]
+    public ActionResult GetMediaBar() => Embedded("Jellyfin.Plugin.HomeScreenSectionsManager.Web.mediaBar.html", "text/html");
+
+    /// <summary>Serves the license retained with the adapted Abyss spotlight portion.</summary>
+    [AllowAnonymous]
+    [HttpGet("abyss-license.txt")]
+    [Produces("text/plain")]
+    public ActionResult GetAbyssLicense() => Embedded("Jellyfin.Plugin.HomeScreenSectionsManager.ThirdParty.Abyss.LICENSE", "text/plain");
+
     private ActionResult Embedded(string resourceName, string contentType)
     {
         var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(resourceName);

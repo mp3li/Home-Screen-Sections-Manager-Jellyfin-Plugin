@@ -84,11 +84,6 @@
     }
 }
 
-.featurediframe.hssm-media-bar-replaced,
-.hssm-media-source-section {
-    display: none !important;
-}
-
 .hssm-media-bar {
     align-items: flex-end;
     background-color: #111;
@@ -174,23 +169,27 @@
     transform: scale(1.35);
 }
 
+.hssm-header-logo-link {
+    align-items: center;
+    align-self: center;
+    display: flex;
+    flex: 0 0 auto;
+    margin-left: 0.65em;
+    max-width: min(10em, 24vw);
+    text-decoration: none;
+}
+
 .hssm-header-logo {
     display: block;
     max-height: 2.3em;
-    max-width: 10em;
+    max-width: 100%;
     object-fit: contain;
     object-position: left center;
     width: auto;
 }
 
-.hssm-header-logo-standalone {
-    align-self: center;
-    margin-left: 0.65em;
-}
-
-.headerHomeButton .hssm-header-home-logo {
-    height: 1.9em;
-    max-width: 4.4em;
+.headerHomeButton.hssm-native-home-hidden {
+    display: none !important;
 }
 
 .hssm-remove-row-button,
@@ -276,7 +275,10 @@
     color: inherit;
 }
 
-@media (min-width: 768px) { .hssm-breadcrumbs { display: flex; } .skinHeader .headerLeft { overflow: visible; } }
+@media (min-width: 768px) {
+    .hssm-breadcrumbs { display: flex; min-width: 0; }
+    .skinHeader .headerLeft, .headerLeft { overflow: visible; }
+}
 
 .hssm-detail-collections {
     margin-top: 2em;

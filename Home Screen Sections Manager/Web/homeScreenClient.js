@@ -22,6 +22,8 @@
     var mediaBarTimer = null;
     var mediaBarIndex = 0;
     var mediaBarSourceKey = '';
+    var mediaBarPayload = null;
+    var mediaBarMessageBound = false;
     var autoRefreshTimer = null;
     var detailWorkKey = '';
     var collectionsWorkKey = '';
@@ -440,50 +442,46 @@
         return document.querySelector('.libraryPage:not(.hide), .page:not(.hide)');
     }
 
-    function applyLogo(settings) {
-        var dataUrl = String(setting(settings, 'LogoImageDataUrl', '') || '');
-        var onHome = !!activeHomeContainer();
-        var header = document.querySelector('.skinHeader .headerLeft, .headerLeft');
-        var homeButton = document.querySelector('.skinHeader .headerHomeButton, .headerHomeButton');
-        var standalone = document.querySelector('.hssm-header-logo-standalone');
-        if (homeButton && originalHeaderHomeHtml === null && homeButton.dataset.hssmLogo !== 'true') originalHeaderHomeHtml = homeButton.innerHTML;
-        if (!dataUrl) {
-            if (standalone) standalone.remove();
-            if (homeButton && originalHeaderHomeHtml !== null && homeButton.dataset.hssmLogo === 'true') homeButton.innerHTML = originalHeaderHomeHtml;
-            if (homeButton) delete homeButton.dataset.hssmLogo;
-            return;
-        }
-        if (onHome) {
-            if (homeButton && originalHeaderHomeHtml !== null && homeButton.dataset.hssmLogo === 'true') homeButton.innerHTML = originalHeaderHomeHtml;
-            if (homeButton) delete homeButton.dataset.hssmLogo;
-            if (header) {
-                if (!standalone || standalone.parentNode !== header) {
-                    if (standalone) standalone.remove();
-                    standalone = document.createElement('img');
-                    standalone.className = 'hssm-header-logo hssm-header-logo-standalone';
-                    standalone.alt = 'Home';
-                    var drawer = header.querySelector('.mainDrawerButton');
-                    if (drawer && drawer.nextSibling) header.insertBefore(standalone, drawer.nextSibling); else header.prepend(standalone);
-                }
-                if (standalone.src !== dataUrl) standalone.src = dataUrl;
-            }
-        } else {
-            if (standalone) standalone.remove();
-            if (homeButton) {
-                var image = homeButton.querySelector('.hssm-header-home-logo');
-                if (!image) { homeButton.innerHTML = '<img class="hssm-header-logo hssm-header-home-logo" alt="Home" />'; image = homeButton.querySelector('img'); }
-                if (image.src !== dataUrl) image.src = dataUrl;
-                homeButton.dataset.hssmLogo = 'true';
-            }
-        }
+    function isPlaybackScreen() {
+        var hash = String(window.location.hash || '').toLowerCase();
+        if (/^#\/(?:video|audio|nowplaying|livetvplayer)(?:[/?]|$)/.test(hash)) return true;
+        return !!document.querySelector('#videoOsdPage:not(.hide), .videoOsdPage:not(.hide), #nowPlayingPage:not(.hide), .nowPlayingPage:not(.hide)');
     }
 
-    function mediaBarImage(item, requested) {
-        var selected = requested === 'primary' ? 'Primary' : requested === 'banner' ? 'Banner' : requested === 'thumb' ? 'Thumb' : 'Backdrop';
-        var preferred = [selected, 'Backdrop', 'Thumb', 'Banner', 'Primary'];
-        var candidate = null;
-        preferred.some(function (type) { candidate = imageCandidate(item, type); return !!candidate; });
-        return candidate ? ApiClient.getUrl('Items/' + encodeURIComponent(candidate.id) + '/Images/' + candidate.type, { maxWidth: 2560, maxHeight: 1440, quality: 90 }) : '';
+    function applyLogo(settings) {
+        var dataUrl = String(setting(settings, 'LogoImageDataUrl', '') || '');
+        var header = document.querySelector('.skinHeader .headerLeft, .headerLeft');
+        var homeButton = document.querySelector('.skinHeader .headerHomeButton, .headerHomeButton');
+        var logoLink = document.querySelector('.hssm-header-logo-link');
+        var shouldShow = !!dataUrl && !!header && !isPlaybackScreen();
+
+        if (!shouldShow) {
+            if (logoLink) logoLink.remove();
+            if (homeButton) homeButton.classList.remove('hssm-native-home-hidden');
+            return;
+        }
+
+        if (homeButton) homeButton.classList.add('hssm-native-home-hidden');
+        if (!logoLink || logoLink.parentNode !== header) {
+            if (logoLink) logoLink.remove();
+            logoLink = document.createElement('a');
+            logoLink.className = 'hssm-header-logo-link';
+            logoLink.href = '#/home.html';
+            logoLink.setAttribute('aria-label', 'Home');
+            logoLink.innerHTML = '<img class="hssm-header-logo" alt="Home" />';
+            logoLink.addEventListener('click', function (event) {
+                var nativeHome = document.querySelector('.skinHeader .headerHomeButton, .headerHomeButton');
+                if (nativeHome) {
+                    event.preventDefault();
+                    nativeHome.click();
+                }
+            });
+            var drawer = header.querySelector('.mainDrawerButton');
+            if (drawer && drawer.nextSibling) header.insertBefore(logoLink, drawer.nextSibling);
+            else header.prepend(logoLink);
+        }
+        var image = logoLink.querySelector('img');
+        if (image && image.src !== dataUrl) image.src = dataUrl;
     }
 
     function responseItems(response) {
@@ -495,17 +493,23 @@
         var index = native.indexOf(token);
         var row = index >= 0 ? container.querySelector('.section' + index) : null;
         var ids = row ? Array.from(row.querySelectorAll('.card[data-id], [data-id].card')).map(function (node) { return node.getAttribute('data-id'); }).filter(Boolean) : [];
-        if (ids.length) return queryIds(ids);
+        if (ids.length) return queryIds(ids).then(function (items) {
+            return items.map(function (item) { return Object.assign({}, item, { _source: token === 'resume' ? 'resume' : token }); });
+        });
         var userId = currentUserId();
         if (token === 'resume' || token === 'resumeaudio' || token === 'resumebook') {
-            var resumeOptions = { Limit: 30, Recursive: true, Fields: 'Overview,PrimaryImageAspectRatio,DateCreated,PremiereDate,ProductionYear,CommunityRating,SortName,Tags,RunTimeTicks,UserData' };
+            var resumeOptions = { Limit: 30, Recursive: true, Fields: 'Overview,PrimaryImageAspectRatio,DateCreated,PremiereDate,ProductionYear,OfficialRating,CommunityRating,SortName,Tags,RunTimeTicks,UserData,SeriesName,SeriesId,ParentIndexNumber,IndexNumber,PlaybackPositionTicks' };
             if (token === 'resumeaudio') resumeOptions.MediaTypes = 'Audio';
             if (token === 'resumebook') resumeOptions.IncludeItemTypes = 'Book,AudioBook';
-            return getJson('Users/' + encodeURIComponent(userId) + '/Items/Resume', resumeOptions).then(responseItems);
+            return getJson('Users/' + encodeURIComponent(userId) + '/Items/Resume', resumeOptions).then(responseItems).then(function (items) {
+                return items.map(function (item) { return Object.assign({}, item, { _source: 'resume' }); });
+            });
         }
-        if (token === 'nextup') return getJson('Shows/NextUp', { UserId: userId, Limit: 30, Fields: 'Overview,PrimaryImageAspectRatio,PremiereDate,ProductionYear,RunTimeTicks,UserData' }).then(responseItems);
+        if (token === 'nextup') return getJson('Shows/NextUp', { UserId: userId, Limit: 30, Fields: 'Overview,PrimaryImageAspectRatio,PremiereDate,ProductionYear,OfficialRating,CommunityRating,RunTimeTicks,UserData,SeriesName,SeriesId,ParentIndexNumber,IndexNumber,PlaybackPositionTicks' }).then(responseItems).then(function (items) {
+            return items.map(function (item) { return Object.assign({}, item, { _source: 'nextup' }); });
+        });
         if (token === 'latestmedia') return queryItems({ Recursive: true, SortBy: 'DateCreated', SortOrder: 'Descending', Limit: 30 });
-        if (token === 'livetv') return getJson('LiveTv/Channels', { UserId: userId, Limit: 30, Fields: 'Overview,PrimaryImageAspectRatio' }).then(responseItems);
+        if (token === 'livetv') return getJson('LiveTv/Channels', { UserId: userId, Limit: 30, Fields: 'Overview,PrimaryImageAspectRatio,OfficialRating,CommunityRating' }).then(responseItems);
         if (token === 'smalllibrarytiles' || token === 'librarybuttons') {
             var request = typeof ApiClient.getUserViews === 'function' ? ApiClient.getUserViews({}, userId) : getJson('Users/' + encodeURIComponent(userId) + '/Views');
             return request.then(responseItems);
@@ -513,25 +517,113 @@
         return Promise.resolve([]);
     }
 
-    function mediaSourceNode(container, topId, preferences) {
-        var manager = container.querySelector('[data-hssm-section-id="' + CSS.escape(topId) + '"]');
-        if (manager) return manager;
-        var match = topId.match(/^jellyfin-(\d+)-/);
-        return match ? container.querySelector('.section' + Number(match[1])) : null;
+    function nativeTokenForNode(node, preferences) {
+        if (!node) return '';
+        var types = nativeTypes(preferences);
+        for (var index = 0; index < types.length; index++) {
+            if (node.classList.contains('section' + index)) return types[index];
+        }
+        return '';
+    }
+
+    function mediaBarSource(settings, preferences, container, sections) {
+        var topNode = nodesInOrder(container, settings, preferences)[0] || null;
+        if (!topNode) return { key: 'none', items: Promise.resolve([]) };
+        var managerId = topNode.dataset.hssmSectionId || '';
+        if (managerId) {
+            var definition = (sections || []).find(function (section) { return String(prop(section, 'Id', 'id', '')) === managerId; });
+            if (!definition) return { key: managerId, items: Promise.resolve([]) };
+            return {
+                key: managerId,
+                items: sectionItems(definition, setting(settings, 'AutoRefreshSections', true)).then(function (items) {
+                    return orderItems(uniqueItems(items), definition);
+                })
+            };
+        }
+        var token = nativeTokenForNode(topNode, preferences);
+        return { key: 'jellyfin-' + token, items: nativeSectionItems(token, preferences, container) };
+    }
+
+    function mediaBarUrls(frame) {
+        var original = frame.dataset.hssmAbyssSpotlightUrl || '';
+        if (!original || original.indexOf('/HomeScreenSectionsManager/media-bar.html') >= 0) {
+            original = new URL('ui/spotlight.html', document.baseURI).href;
+        }
+        frame.dataset.hssmAbyssSpotlightUrl = original;
+        var cssUrl = new URL('spotlight.css', original).href;
+        var pluginUrl = ApiClient.getUrl('HomeScreenSectionsManager/media-bar.html') + '?abyssCss=' + encodeURIComponent(cssUrl);
+        return { plugin: pluginUrl, css: cssUrl };
+    }
+
+    function sendMediaBarPayload(frame) {
+        if (!frame || !frame.contentWindow || !mediaBarPayload) return;
+        frame.contentWindow.postMessage(mediaBarPayload, window.location.origin);
+    }
+
+    function bindMediaBarMessages() {
+        if (mediaBarMessageBound) return;
+        mediaBarMessageBound = true;
+        window.addEventListener('message', function (event) {
+            if (event.origin !== window.location.origin || !event.data || event.data.type !== 'home-screen-manager-media-bar' || event.data.action !== 'ready') return;
+            var frame = document.querySelector('.featurediframe[data-hssm-media-bar="true"]');
+            if (frame && event.source === frame.contentWindow) sendMediaBarPayload(frame);
+        });
+    }
+
+    function ensureMediaBarFrame(container) {
+        var frame = document.querySelector('.featurediframe');
+        if (!frame) {
+            frame = document.createElement('iframe');
+            frame.className = 'featurediframe';
+            frame.title = 'Home Screen Manager media bar using Abyss';
+            container.parentNode.insertBefore(frame, container);
+        }
+        if (!frame.dataset.hssmAbyssSpotlightUrl && frame.src) frame.dataset.hssmAbyssSpotlightUrl = frame.src;
+        frame.dataset.hssmMediaBar = 'true';
+        bindMediaBarMessages();
+        var urls = mediaBarUrls(frame);
+        if (frame.src !== urls.plugin) {
+            frame.addEventListener('load', function handleLoad() {
+                frame.removeEventListener('load', handleLoad);
+                sendMediaBarPayload(frame);
+            });
+            frame.src = urls.plugin;
+        }
+        return frame;
     }
 
     function clearMediaBar(container) {
         window.clearInterval(mediaBarTimer);
         mediaBarTimer = null;
         mediaBarSourceKey = '';
+        mediaBarPayload = null;
         Array.from(document.querySelectorAll('.hssm-media-bar')).forEach(function (node) { node.remove(); });
-        Array.from(document.querySelectorAll('.featurediframe')).forEach(function (node) { node.classList.remove('hssm-media-bar-replaced'); });
         if (container) Array.from(container.children).forEach(function (node) { node.classList.remove('hssm-media-source-section'); });
     }
 
     function renderMediaBar(settings, preferences, container, sections) {
-        clearMediaBar(container);
-        return Promise.resolve();
+        var source = mediaBarSource(settings, preferences, container, sections);
+        return source.items.then(function (items) {
+            var interval = Math.max(1, Math.min(300, Number(setting(settings, 'MediaBarIntervalSeconds', 5)) || 5));
+            var requestedImage = String(setting(settings, 'MediaBarImageType', 'backdrop'));
+            var key = JSON.stringify([source.key, interval, requestedImage, items]);
+            mediaBarPayload = {
+                type: 'home-screen-manager-media-bar',
+                action: 'configure',
+                items: items,
+                intervalSeconds: interval,
+                imageType: requestedImage
+            };
+            var frame = ensureMediaBarFrame(container);
+            if (key !== mediaBarSourceKey) {
+                mediaBarSourceKey = key;
+                sendMediaBarPayload(frame);
+            }
+        }).catch(function (error) {
+            console.warn('[Home Screen Manager] Could not load the selected media-bar source.', error);
+            mediaBarPayload = { type: 'home-screen-manager-media-bar', action: 'configure', items: [], intervalSeconds: 5, imageType: 'backdrop' };
+            sendMediaBarPayload(ensureMediaBarFrame(container));
+        });
     }
 
     function userDataPath(itemId) {
