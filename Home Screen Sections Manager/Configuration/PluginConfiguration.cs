@@ -23,6 +23,58 @@ public sealed class PluginConfiguration : BasePluginConfiguration
 
     public bool AbyssLiteMode { get; set; }
 
+    public string HeaderTabsColorMode { get; set; } = "solid";
+
+    public string HeaderTabsColorOne { get; set; } = "#f5f5f7";
+
+    public string HeaderTabsColorTwo { get; set; } = "#f5f5f7";
+
+    public string PlayButtonColorMode { get; set; } = "solid";
+
+    public string PlayButtonColorOne { get; set; } = "#f5f5f7";
+
+    public string PlayButtonColorTwo { get; set; } = "#f5f5f7";
+
+    public string ProgressColorMode { get; set; } = "solid";
+
+    public string ProgressColorOne { get; set; } = "#f5f5f7";
+
+    public string ProgressColorTwo { get; set; } = "#f5f5f7";
+
+    public string SidebarIconColorMode { get; set; } = "solid";
+
+    public string SidebarIconColorOne { get; set; } = "#f5f5f7";
+
+    public string SidebarIconColorTwo { get; set; } = "#f5f5f7";
+
+    public string MyListHeartColorMode { get; set; } = "solid";
+
+    public string MyListHeartColorOne { get; set; } = "#f5f5f7";
+
+    public string MyListHeartColorTwo { get; set; } = "#f5f5f7";
+
+    public string LogoImageDataUrl { get; set; } = string.Empty;
+
+    public int MediaBarIntervalSeconds { get; set; } = 5;
+
+    public string MediaBarImageType { get; set; } = "backdrop";
+
+    public bool AutoRefreshSections { get; set; } = true;
+
+    public bool EnableRemoveContinueNextUp { get; set; }
+
+    public bool EnableMyList { get; set; }
+
+    public bool EnableSeriesInfo { get; set; }
+
+    public List<string> InfiniteScrollLibraryIds { get; set; } = [];
+
+    public bool EnableCollectionsOnDetailPage { get; set; }
+
+    public bool EnableEnhancedSearch { get; set; }
+
+    public bool EnableBreadcrumbs { get; set; }
+
     /// <summary>Gets or sets the saved plugin-created home screen sections.</summary>
     public List<HomeScreenSectionDefinition> Sections { get; set; } = [];
 
@@ -50,6 +102,18 @@ public sealed class HomeScreenSectionDefinition
 
     /// <summary>Gets or sets the selected ordering applied to the section's displayed content.</summary>
     public string ContentOrder { get; set; } = "title-ascending";
+
+    /// <summary>Gets or sets the selected home-screen art size.</summary>
+    public string ArtSize { get; set; } = "medium";
+
+    /// <summary>Gets or sets the selected Jellyfin image type.</summary>
+    public string ArtType { get; set; } = "automatic";
+
+    /// <summary>Gets or sets the selected art shape.</summary>
+    public string ArtShape { get; set; } = "poster";
+
+    /// <summary>Gets or sets whether item text is displayed under the art.</summary>
+    public bool ShowText { get; set; } = true;
 
     /// <summary>Gets or sets whether the completed section has been added to the home screen.</summary>
     public bool IsApplied { get; set; }
@@ -90,6 +154,62 @@ public sealed class CustomizationSettingsRequest
 
     /// <summary>Gets or sets whether the supported Abyss Lite override is imported.</summary>
     public bool AbyssLiteMode { get; set; }
+
+    public string HeaderTabsColorMode { get; set; } = "solid";
+
+    public string HeaderTabsColorOne { get; set; } = "#f5f5f7";
+
+    public string HeaderTabsColorTwo { get; set; } = "#f5f5f7";
+
+    public string PlayButtonColorMode { get; set; } = "solid";
+
+    public string PlayButtonColorOne { get; set; } = "#f5f5f7";
+
+    public string PlayButtonColorTwo { get; set; } = "#f5f5f7";
+
+    public string ProgressColorMode { get; set; } = "solid";
+
+    public string ProgressColorOne { get; set; } = "#f5f5f7";
+
+    public string ProgressColorTwo { get; set; } = "#f5f5f7";
+
+    public string SidebarIconColorMode { get; set; } = "solid";
+
+    public string SidebarIconColorOne { get; set; } = "#f5f5f7";
+
+    public string SidebarIconColorTwo { get; set; } = "#f5f5f7";
+
+    public string MyListHeartColorMode { get; set; } = "solid";
+
+    public string MyListHeartColorOne { get; set; } = "#f5f5f7";
+
+    public string MyListHeartColorTwo { get; set; } = "#f5f5f7";
+
+    public string LogoImageDataUrl { get; set; } = string.Empty;
+
+    public int MediaBarIntervalSeconds { get; set; } = 5;
+
+    public string MediaBarImageType { get; set; } = "backdrop";
+}
+
+/// <summary>Request body for browser enhancement settings.</summary>
+public sealed class MainSettingsRequest
+{
+    public bool AutoRefreshSections { get; set; } = true;
+
+    public bool EnableRemoveContinueNextUp { get; set; }
+
+    public bool EnableMyList { get; set; }
+
+    public bool EnableSeriesInfo { get; set; }
+
+    public List<string> InfiniteScrollLibraryIds { get; set; } = [];
+
+    public bool EnableCollectionsOnDetailPage { get; set; }
+
+    public bool EnableEnhancedSearch { get; set; }
+
+    public bool EnableBreadcrumbs { get; set; }
 }
 
 /// <summary>Request body used when the administrator adds one completed section to the home screen.</summary>
@@ -100,4 +220,16 @@ public sealed class ApplySectionRequest
 
     /// <summary>Gets or sets the item identifiers in their final manual order.</summary>
     public List<string> ItemIds { get; set; } = [];
+
+    /// <summary>Gets or sets the selected home-screen art size.</summary>
+    public string ArtSize { get; set; } = "medium";
+
+    /// <summary>Gets or sets the selected Jellyfin image type.</summary>
+    public string ArtType { get; set; } = "automatic";
+
+    /// <summary>Gets or sets the selected art shape.</summary>
+    public string ArtShape { get; set; } = "poster";
+
+    /// <summary>Gets or sets whether item text is displayed under the art.</summary>
+    public bool ShowText { get; set; } = true;
 }

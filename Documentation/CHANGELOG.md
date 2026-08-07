@@ -1,5 +1,63 @@
 # Changelog
 
+## [0.1.0.10-test] - 2026-08-06
+
+### Added
+
+- Adds **Section Art Appearance Settings** after **Section Content Order
+  Settings** and before **Add Section to Home Screen**.
+- Adds Extra Small, Small, Medium, Large, and Extra Large responsive art sizes;
+  Medium preserves the existing Jellyfin-size default.
+- Adds Automatic, Primary/Poster, Art, Backdrop, Banner, Logo, Thumb, Disc, Box,
+  Box Rear, Screenshot, Menu, and Chapter image choices using Jellyfin's
+  official image types.
+- Adds Poster/Tall Rectangle, Wide Rectangle, Square, and Circle shapes, plus a
+  native checkbox for showing or hiding the media name and year.
+- Persists and restores every art setting for each saved section.
+- Adds separate solid, vertical-gradient, horizontal-gradient, and center-gradient controls for the top navigation, play buttons, watched progress, sidebar icons, and My List hearts.
+- Adds an uploaded Home logo beside the menu button and uses the same logo inside Jellyfin's existing Home button on other pages.
+- Adds media-bar timing and Backdrop, Primary/Poster, or Banner image settings.
+- Adds Main Settings for automatic rule refresh, Continue Watching and Next Up removal buttons, My List, series information, selected-library infinite scroll, collections on detail pages, enhanced Jellyfin-only search, and header breadcrumbs.
+- Adds My List as a per-user header tab backed by Jellyfin's existing `UserData.Likes` field and official rating update call.
+- Adds an **Also Part of These Collections** detail-page section and series/season count plus **Ends at** information.
+
+### Home screen behavior
+
+- The first saved hybrid section is labeled **Media Bar**, supplies the media-bar items, and is not duplicated as a normal row below the bar.
+- Native and plugin-created rows can all be dragged into the first position; Continue Watching is no longer forcibly pinned.
+- Collection and library sources are re-read from Jellyfin, while tag rules can be refreshed from Collection Manager on the automatic refresh interval.
+- The Abyss spotlight iframe is suppressed only while Home Screen Manager's own media bar is active.
+
+### Validation
+
+- Adds a local Jellyfin-DOM browser harness covering the loader, media bar, hidden source row, plugin row, My List tab, and logo.
+- The harness renders with one instance of each expected element and no browser page errors.
+
+
+### Changed
+
+- Changes home-screen loading to the same JavaScript Injector configuration path
+  used by KefinTweaks.
+- **Add Section to Home Screen** now creates or updates only the named
+  `Home-Screen-Manager-Loader` entry and preserves every other JavaScript
+  Injector script and setting.
+- Removes the superseded custom File Transformation callback and hosted-service
+  path so the plugin has one authoritative browser loader.
+
+### Fixed
+
+- Fixes saved manual ordering not reaching the Home screen when the previous
+  browser injection path did not load.
+- Applies the saved manual item rank and selected art appearance in the injected
+  Home Screen Manager renderer.
+
+### Test boundary
+
+- The Jellyfin 10.11.11 Release build, dashboard/client JavaScript parsing,
+  named-loader preservation, initialization smoke test, and rendered browser
+  harness pass with zero build warnings and zero page errors. Installed-server
+  behavior still requires the checks in `goal-testing.txt`.
+
 ## [0.1.0.9-test] - 2026-08-06
 
 ### Added

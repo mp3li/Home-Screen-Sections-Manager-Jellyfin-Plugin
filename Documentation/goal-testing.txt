@@ -17,11 +17,15 @@ Current dashboard checks
 - [ ] Confirm all three tabs render and switch correctly.
 - [ ] Confirm no JavaScript expressions or translation-token text appears in
       the Existing Home Screen Sections list or section-type picker.
-- [ ] Confirm Main Settings remains empty.
-- [ ] Confirm Customization Settings loads, saves, and applies all five
-      supported Abyss settings while preserving unrelated Custom CSS.
+- [ ] Confirm all eight Main Settings load, save, display Jellyfin's standard
+      saved notification, and remain restored after the Dashboard page reloads.
+- [ ] Confirm the Infinite Scroll picker lists every accessible user library and
+      both Save buttons preserve the other Main Settings values.
+- [ ] Confirm Customization Settings loads, saves, and applies the supported
+      Abyss settings while preserving unrelated Custom CSS.
 - [ ] Confirm current Jellyfin sections appear in their saved order with blue
-      Jellyfin labels and Continue Watching locked at the top.
+      Jellyfin labels, every row is draggable, and only the first row receives
+      the Media Bar label.
 - [ ] Confirm only one section row highlights at a time and the two label colors
       can be changed and restored after a page reload.
 - [ ] Confirm Create Section inserts below the selected row, or at the bottom
@@ -37,18 +41,42 @@ Current dashboard checks
       type.
 - [ ] Select Manual ordering and confirm every section item appears as a
       text-only draggable row, reorders correctly, and restores in that order.
+- [ ] Confirm Section Art Appearance Settings appears after ordering and before
+      Add Section to Home Screen.
+- [ ] Confirm all five sizes, all image-type choices, all four shapes, and the
+      Show text under the art checkbox save, restore, and render as selected.
 - [ ] Confirm Add Section to Home Screen reports a clear dependency error when
-      File Transformation is not installed.
-- [ ] Install File Transformation 2.5.11.0 for Jellyfin 10.11.11, restart,
-      and confirm the Home Screen Manager transformation registers.
-- [ ] Confirm integration status reports a transformed index response after a
-      hard refresh of Jellyfin Web.
+      JavaScript Injector is not installed.
+- [ ] Install JavaScript Injector and File Transformation 2.5.11.0 for Jellyfin
+      10.11.11, restart, and add a section.
+- [ ] Confirm Home-Screen-Manager-Loader is enabled in JavaScript Injector and
+      every pre-existing Injector script remains unchanged.
 - [ ] Confirm an applied section appears on Home with its configured media and
       selected content order.
+- [ ] Confirm the first hybrid section supplies the media bar and is not also
+      duplicated as a standard row below it.
+- [ ] Drag native and plugin sections into the first position and confirm each
+      becomes the media bar without forcing Continue Watching back to the top.
+- [ ] Confirm media-bar timing and all three selected image types apply, with
+      image fallback when the requested image is absent.
 - [ ] Confirm collection and library content rows refresh their live children;
-      confirm manual and tag rows use the saved selected media snapshot.
+      enable Automatic Refresh and confirm saved tag rules gain newly matching
+      media after Collection Manager refreshes its metadata catalog.
+- [ ] Confirm the Home logo appears beside the hamburger menu and replaces only
+      the Home icon on other pages while the button still navigates Home.
+- [ ] Confirm each split solid/gradient color changes only its named surface and
+      unrelated Custom CSS remains intact.
+- [ ] Confirm Continue Watching X resets progress without changing played state;
+      confirm a dismissed Next Up card disappears without marking it played.
+- [ ] Confirm My List heart changes Jellyfin Likes, the My List tab shows liked
+      items, and unlike removes an item immediately.
+- [ ] Confirm series and season pages show correct counts and Ends at values.
+- [ ] Confirm selected libraries append the next native page near the bottom and
+      preserve the current Jellyfin sort, filters, card type, and scroll place.
+- [ ] Confirm Also Part of These Collections, enhanced Jellyfin-only search, and
+      desktop header breadcrumbs render and navigate correctly.
 - [ ] Confirm native Jellyfin rows remain present and follow the saved hybrid
-      order, with Continue Watching fixed at the top.
+      order.
 - [ ] Confirm no Jellyfin Web source file is modified on disk.
 
 Results log

@@ -27,6 +27,7 @@
         #homeScreenSectionsManagerPage .hssm-badge { flex:0 0 auto; border-radius:999px; padding:.28em .7em; color:#fff; font-size:.79em; font-weight:bold; white-space:nowrap; }
         #homeScreenSectionsManagerPage .hssm-badge-jellyfin { background:var(--hssm-jellyfin); }
         #homeScreenSectionsManagerPage .hssm-badge-manager { background:var(--hssm-manager); }
+        #homeScreenSectionsManagerPage .hssm-badge-media { background:#c78000; }
         #homeScreenSectionsManagerPage .hssm-new-settings { border-top:1px solid var(--hssm-outline); margin-top:1.25em; padding-top:1.25em; }
         #homeScreenSectionsManagerPage .hssm-new-settings[hidden] { display:none !important; }
         #homeScreenSectionsManagerPage .hssm-type-picker { margin-top:.85em; }
@@ -39,6 +40,10 @@
         #homeScreenSectionsManagerPage .hssm-customization-grid .inputContainer { margin:0; }
         #homeScreenSectionsManagerPage .hssm-customization-grid input { width:100%; }
         #homeScreenSectionsManagerPage .hssm-radius-control { display:flex; align-items:center; gap:.5em; max-width:12em; }
+        #homeScreenSectionsManagerPage .hssm-gradient-controls { display:grid; grid-template-columns:minmax(12em,1.35fr) repeat(2,minmax(8em,1fr)); gap:1em; align-items:end; margin-top:1em; }
+        #homeScreenSectionsManagerPage .hssm-gradient-controls .inputContainer { margin:0; }
+        #homeScreenSectionsManagerPage .hssm-library-picker { display:grid; grid-template-columns:repeat(auto-fit,minmax(14em,1fr)); gap:.4em 1em; margin-top:1em; }
+        #homeScreenSectionsManagerPage .hssm-logo-preview { display:block; max-width:18em; max-height:4em; object-fit:contain; object-position:left center; margin:.8em 0; }
         @media (max-width:38em) { #homeScreenSectionsManagerPage .hssm-section-row { align-items:flex-start; } #homeScreenSectionsManagerPage .hssm-badge { white-space:normal; text-align:center; } }
     </style>
 
@@ -52,14 +57,67 @@
             <button type="button" class="hssm-tab" data-tab="create-sections" role="tab" aria-selected="false">Create and Manage Home Screen Sections</button>
         </div>
 
-        <div class="hssm-panel active" data-panel="main-settings" role="tabpanel"></div>
+        <div class="hssm-panel active" data-panel="main-settings" role="tabpanel">
+            <section class="hssm-section">
+                <h2>Automatic Home Screen Section Refresh Settings</h2>
+                <p class="fieldDescription">Automatically refresh rule-based home screen sections when their collections, tags, or libraries gain newly added matching media.</p>
+                <label class="checkboxContainer"><input is="emby-checkbox" id="hssmAutoRefreshSections" type="checkbox" /><span>Automatically refresh Home Screen sections</span></label>
+            </section>
+            <section class="hssm-section">
+                <h2>Remove from Continue Watching and Next Up</h2>
+                <p class="fieldDescription">Add an X button when you hover over items in Continue Watching and Next Up. Click the X to remove that item from the row.</p>
+                <label class="checkboxContainer"><input is="emby-checkbox" id="hssmEnableRemoveContinueNextUp" type="checkbox" /><span>Enable removal buttons</span></label>
+            </section>
+            <section class="hssm-section">
+                <h2>Enable My List</h2>
+                <p class="fieldDescription">Add a per-user My List page and heart buttons for adding or removing media from My List.</p>
+                <label class="checkboxContainer"><input is="emby-checkbox" id="hssmEnableMyList" type="checkbox" /><span>Enable My List</span></label>
+            </section>
+            <section class="hssm-section">
+                <h2>Series Info Settings</h2>
+                <p class="fieldDescription">Show season and episode counts on series and season pages, and add an Ends at time based on the available runtime information.</p>
+                <label class="checkboxContainer"><input is="emby-checkbox" id="hssmEnableSeriesInfo" type="checkbox" /><span>Enable enhanced series information</span></label>
+            </section>
+            <section class="hssm-section">
+                <h2>Infinite Scroll Settings</h2>
+                <p class="fieldDescription">Select the libraries where Jellyfin should automatically load more media as you approach the bottom of the library page.</p>
+                <div id="hssmInfiniteScrollLibraries" class="hssm-library-picker"><p class="fieldDescription">Loading libraries…</p></div>
+                <div class="hssm-actions"><button is="emby-button" type="button" class="raised" id="hssmSaveInfiniteScrollButton">Save Infinite Scroll Libraries</button></div>
+            </section>
+            <section class="hssm-section">
+                <h2>Collections on Detail Page Settings</h2>
+                <p class="fieldDescription">Show an Also Part of These Collections section on supported media detail pages.</p>
+                <label class="checkboxContainer"><input is="emby-checkbox" id="hssmEnableCollectionsOnDetailPage" type="checkbox" /><span>Show collections on detail pages</span></label>
+            </section>
+            <section class="hssm-section">
+                <h2>Enhanced Search Settings</h2>
+                <p class="fieldDescription">Add grouped search modes for Movies and TV, Music, Books, and All Jellyfin media. This does not include Jellyseerr features.</p>
+                <label class="checkboxContainer"><input is="emby-checkbox" id="hssmEnableEnhancedSearch" type="checkbox" /><span>Enable enhanced search</span></label>
+            </section>
+            <section class="hssm-section">
+                <h2>Bread Crumbing Settings</h2>
+                <p class="fieldDescription">Show a clickable location trail in the upper-left header on supported media detail pages.</p>
+                <label class="checkboxContainer"><input is="emby-checkbox" id="hssmEnableBreadcrumbs" type="checkbox" /><span>Enable bread crumbing</span></label>
+            </section>
+            <div class="hssm-actions"><button is="emby-button" type="button" class="raised button-submit block" id="hssmSaveMainSettingsButton">Save Main Settings</button></div>
+            <p class="fieldDescription" id="hssmMainSettingsStatus" aria-live="polite"></p>
+        </div>
         <div class="hssm-panel" data-panel="customization-settings" role="tabpanel">
             <p class="fieldDescription">This plugin uses the <a href="https://github.com/AumGupta/abyss-jellyfin" target="_blank" rel="noopener noreferrer">Abyss theme by AumGupta on GitHub</a>. Their theme includes CSS customization options that have been added here.</p>
 
             <section class="hssm-section">
-                <h2>Accent Color Settings</h2>
-                <p class="fieldDescription">Select your accent color, which will appear on your top Home/Favorites/Watchlist area, on your progress bar when playing media, and on your play button.</p>
-                <div class="inputContainer"><label class="inputLabel inputLabelUnfocused" for="hssmAbyssAccentColor">Accent Color</label><input is="emby-input" class="hssm-color" id="hssmAbyssAccentColor" type="color" value="#f5f5f7" /></div>
+                <h2>Top Navigation Color Settings</h2>
+                <p class="fieldDescription">Customize the centered Home, Favorites, My List, and other page tabs separately from the rest of Abyss.</p>
+                <div class="hssm-gradient-controls"><div class="selectContainer"><label class="selectLabel" for="hssmHeaderTabsColorMode">Color Style</label><select is="emby-select" id="hssmHeaderTabsColorMode"><option value="solid">Solid (Default)</option><option value="vertical-gradient">Vertical Gradient</option><option value="horizontal-gradient">Horizontal Gradient</option><option value="center-gradient">Center Gradient</option></select></div><div class="inputContainer"><label class="inputLabel inputLabelUnfocused" for="hssmHeaderTabsColorOne">First Color</label><input is="emby-input" class="hssm-color" id="hssmHeaderTabsColorOne" type="color" value="#f5f5f7" /></div><div class="inputContainer"><label class="inputLabel inputLabelUnfocused" for="hssmHeaderTabsColorTwo">Second Color</label><input is="emby-input" class="hssm-color" id="hssmHeaderTabsColorTwo" type="color" value="#f5f5f7" /></div></div>
+            </section>
+            <section class="hssm-section"><h2>Play Button Color Settings</h2><p class="fieldDescription">Customize Jellyfin play and resume buttons without changing the top navigation or watched-progress color.</p><div class="hssm-gradient-controls"><div class="selectContainer"><label class="selectLabel" for="hssmPlayButtonColorMode">Color Style</label><select is="emby-select" id="hssmPlayButtonColorMode"><option value="solid">Solid (Default)</option><option value="vertical-gradient">Vertical Gradient</option><option value="horizontal-gradient">Horizontal Gradient</option><option value="center-gradient">Center Gradient</option></select></div><div class="inputContainer"><label class="inputLabel inputLabelUnfocused" for="hssmPlayButtonColorOne">First Color</label><input is="emby-input" class="hssm-color" id="hssmPlayButtonColorOne" type="color" value="#f5f5f7" /></div><div class="inputContainer"><label class="inputLabel inputLabelUnfocused" for="hssmPlayButtonColorTwo">Second Color</label><input is="emby-input" class="hssm-color" id="hssmPlayButtonColorTwo" type="color" value="#f5f5f7" /></div></div></section>
+            <section class="hssm-section"><h2>Watched Progress Color Settings</h2><p class="fieldDescription">Customize watched-progress bars and playback progress separately from the top navigation and play buttons.</p><div class="hssm-gradient-controls"><div class="selectContainer"><label class="selectLabel" for="hssmProgressColorMode">Color Style</label><select is="emby-select" id="hssmProgressColorMode"><option value="solid">Solid (Default)</option><option value="vertical-gradient">Vertical Gradient</option><option value="horizontal-gradient">Horizontal Gradient</option><option value="center-gradient">Center Gradient</option></select></div><div class="inputContainer"><label class="inputLabel inputLabelUnfocused" for="hssmProgressColorOne">First Color</label><input is="emby-input" class="hssm-color" id="hssmProgressColorOne" type="color" value="#f5f5f7" /></div><div class="inputContainer"><label class="inputLabel inputLabelUnfocused" for="hssmProgressColorTwo">Second Color</label><input is="emby-input" class="hssm-color" id="hssmProgressColorTwo" type="color" value="#f5f5f7" /></div></div></section>
+            <section class="hssm-section"><h2>Sidebar Icon Color Settings</h2><p class="fieldDescription">Keep only the sidebar icons in your selected solid color or gradient, both normally and while their menu item is hovered.</p><div class="hssm-gradient-controls"><div class="selectContainer"><label class="selectLabel" for="hssmSidebarIconColorMode">Color Style</label><select is="emby-select" id="hssmSidebarIconColorMode"><option value="solid">Solid (Default)</option><option value="vertical-gradient">Vertical Gradient</option><option value="horizontal-gradient">Horizontal Gradient</option><option value="center-gradient">Center Gradient</option></select></div><div class="inputContainer"><label class="inputLabel inputLabelUnfocused" for="hssmSidebarIconColorOne">First Color</label><input is="emby-input" class="hssm-color" id="hssmSidebarIconColorOne" type="color" value="#f5f5f7" /></div><div class="inputContainer"><label class="inputLabel inputLabelUnfocused" for="hssmSidebarIconColorTwo">Second Color</label><input is="emby-input" class="hssm-color" id="hssmSidebarIconColorTwo" type="color" value="#f5f5f7" /></div></div></section>
+            <section class="hssm-section"><h2>Home Screen Logo Settings</h2><p class="fieldDescription">Add a logo beside the menu button on Home. On other pages, the same logo replaces the upper-left Home icon while keeping its Home button function.</p><input id="hssmLogoImageFile" type="file" accept="image/png,image/jpeg,image/webp,image/gif" /><img id="hssmLogoImagePreview" class="hssm-logo-preview" alt="Selected logo preview" hidden /><div class="hssm-actions"><button is="emby-button" type="button" class="raised" id="hssmRemoveLogoButton">Remove Logo</button></div></section>
+            <section class="hssm-section"><h2>Media Bar Timing Settings</h2><p class="fieldDescription">Choose how many seconds each item remains visible before the top media bar advances. Abyss currently uses 5 seconds by default.</p><div class="inputContainer"><label class="inputLabel inputLabelUnfocused" for="hssmMediaBarIntervalSeconds">Seconds Per Item</label><input is="emby-input" id="hssmMediaBarIntervalSeconds" type="number" min="1" max="300" step="1" value="5" /></div></section>
+            <section class="hssm-section"><h2>Media Bar Image Type Settings</h2><p class="fieldDescription">Choose the Jellyfin image type used behind items in the top media bar. If an item does not have that image, the media bar falls back to another available image.</p><div class="selectContainer"><label class="selectLabel" for="hssmMediaBarImageType">Image Type</label><select is="emby-select" id="hssmMediaBarImageType"><option value="backdrop">Backdrop (Default)</option><option value="primary">Primary / Poster</option><option value="banner">Banner</option></select></div></section>
+            <section class="hssm-section"><h2>My List Heart Color Settings</h2><p class="fieldDescription">Customize the heart buttons used to add media to My List.</p><div class="hssm-gradient-controls"><div class="selectContainer"><label class="selectLabel" for="hssmMyListHeartColorMode">Color Style</label><select is="emby-select" id="hssmMyListHeartColorMode"><option value="solid">Solid (Default)</option><option value="vertical-gradient">Vertical Gradient</option><option value="horizontal-gradient">Horizontal Gradient</option><option value="center-gradient">Center Gradient</option></select></div><div class="inputContainer"><label class="inputLabel inputLabelUnfocused" for="hssmMyListHeartColorOne">First Color</label><input is="emby-input" class="hssm-color" id="hssmMyListHeartColorOne" type="color" value="#f5f5f7" /></div><div class="inputContainer"><label class="inputLabel inputLabelUnfocused" for="hssmMyListHeartColorTwo">Second Color</label><input is="emby-input" class="hssm-color" id="hssmMyListHeartColorTwo" type="color" value="#f5f5f7" /></div></div>
+                <input id="hssmAbyssAccentColor" type="hidden" value="#f5f5f7" />
             </section>
 
             <section class="hssm-section">
@@ -95,7 +153,7 @@
         <div class="hssm-panel" data-panel="create-sections" role="tabpanel">
             <section class="hssm-section">
                 <h2>Existing Home Screen Sections</h2>
-                <p class="fieldDescription">This area shows your current home screen sections. Sections made by/default by Jellyfin are labeled Jellyfin in blue, and sections made by this plugin are labeled in purple. You can change the two colors below. Sections made by this plugin are editable and sections made by Jellyfin are not. Click 'Create Section' to create a new section. Click 'Edit Section' to edit sections made by this plugin. Drag sections to rearrange them. Continue Watching is locked to being the top section media bar.</p>
+                <p class="fieldDescription">This area shows your current home screen sections. Sections made by/default by Jellyfin are labeled Jellyfin in blue, and sections made by this plugin are labeled in purple. You can change the two colors below. Sections made by this plugin are editable and sections made by Jellyfin are not. Click 'Create Section' to create a new section. Click 'Edit Section' to edit sections made by this plugin. Drag sections to rearrange them. The section at the top is labeled Media Bar and supplies the content for the top media bar.</p>
                 <div class="hssm-colors">
                     <div class="inputContainer"><label class="inputLabel inputLabelUnfocused" for="hssmJellyfinColor">Jellyfin Label Color</label><input is="emby-input" class="hssm-color" id="hssmJellyfinColor" type="color" value="#00a4dc" /></div>
                     <div class="inputContainer"><label class="inputLabel inputLabelUnfocused" for="hssmManagerColor">Home Screen Manager Label Color</label><input is="emby-input" class="hssm-color" id="hssmManagerColor" type="color" value="#aa5cc3" /></div>
@@ -154,9 +212,9 @@
             const draft = () => sections.find(section => section.id === draftId);
 
             function render() {
-                list.innerHTML = sections.map(function (section) {
+                list.innerHTML = sections.map(function (section, index) {
                     const editing = section.id === draftId;
-                    return '<div class="hssm-section-row' + (section.id === selectedId ? ' selected' : '') + (section.locked ? ' locked' : '') + '" data-section-id="' + escape(section.id) + '" draggable="' + (section.locked ? 'false' : 'true') + '" role="button" tabindex="0" aria-pressed="' + (section.id === selectedId) + '"><span class="hssm-drag-handle" aria-hidden="true">' + (section.locked ? '' : '⠿') + '</span><span class="hssm-section-name">' + (editing ? '<label class="inputLabel inputLabelUnfocused">Section Name:</label><input is="emby-input" type="text" data-hssm-inline-section-name value="' + escape(section.name) + '" autocomplete="off" />' : escape(section.name)) + '</span><span class="hssm-badge ' + (section.origin === 'manager' ? 'hssm-badge-manager' : 'hssm-badge-jellyfin') + '">' + (section.origin === 'manager' ? 'Home Screen Manager' : 'Jellyfin') + '</span></div>';
+                    return '<div class="hssm-section-row' + (section.id === selectedId ? ' selected' : '') + '" data-section-id="' + escape(section.id) + '" draggable="true" role="button" tabindex="0" aria-pressed="' + (section.id === selectedId) + '"><span class="hssm-drag-handle" aria-hidden="true">⠿</span><span class="hssm-section-name">' + (editing ? '<label class="inputLabel inputLabelUnfocused">Section Name:</label><input is="emby-input" type="text" data-hssm-inline-section-name value="' + escape(section.name) + '" autocomplete="off" />' : escape(section.name)) + '</span>' + (index === 0 ? '<span class="hssm-badge hssm-badge-media">Media Bar</span>' : '') + '<span class="hssm-badge ' + (section.origin === 'manager' ? 'hssm-badge-manager' : 'hssm-badge-jellyfin') + '">' + (section.origin === 'manager' ? 'Home Screen Manager' : 'Jellyfin') + '</span></div>';
                 }).join('');
                 deleteButton.disabled = !(selected() && selected().origin === 'manager');
                 editButton.disabled = deleteButton.disabled;
@@ -184,7 +242,7 @@
                 const prefs = preferences && (preferences.CustomPrefs || preferences.customPrefs) || {};
                 return Array.from({ length:10 }, function (_, index) {
                     const type = prefs['homesection' + index] || defaults[index] || 'none';
-                    return type !== 'none' && nativeNames[type] ? { id:'jellyfin-' + index + '-' + type, name:nativeNames[type], origin:'jellyfin', locked:type === 'resume' } : null;
+                    return type !== 'none' && nativeNames[type] ? { id:'jellyfin-' + index + '-' + type, name:nativeNames[type], origin:'jellyfin', locked:false } : null;
                 }).filter(Boolean);
             }
 
@@ -201,8 +259,6 @@
                     const ordered = [];
                     (saved.SectionOrder || saved.sectionOrder || []).forEach(id => { id = String(id); if (byId[id]) { ordered.push(byId[id]); delete byId[id]; } });
                     rows.forEach(row => { if (byId[row.id]) { ordered.push(row); delete byId[row.id]; } });
-                    const resumeIndex = ordered.findIndex(row => row.origin === 'jellyfin' && row.locked);
-                    if (resumeIndex > 0) ordered.unshift(ordered.splice(resumeIndex, 1)[0]);
                     sections = ordered;
                     const jellyfinColor = saved.JellyfinSectionLabelColor || saved.jellyfinSectionLabelColor || '#00a4dc';
                     const managerColor = saved.ManagerSectionLabelColor || saved.managerSectionLabelColor || '#aa5cc3';
@@ -326,8 +382,6 @@
                 if (from < 0 || to < 0 || sections[from].locked) return;
                 const [item] = sections.splice(from, 1);
                 sections.splice(from < to ? to - 1 : to, 0, item);
-                const lockedIndex = sections.findIndex(section => section.locked);
-                if (lockedIndex > 0) sections.unshift(sections.splice(lockedIndex, 1)[0]);
                 render();
                 persistLayout();
             });
@@ -345,7 +399,7 @@
             const page = document.getElementById('homeScreenSectionsManagerPage');
             const host = page && page.querySelector('#hssmTypeSpecificSettings');
             if (!page || !host) return;
-            const state = { id:'', name:'', type:'', sources:[], items:{}, resolvedItemIds:[], contentItems:[], contentItemOrder:[], draggedContentId:null, contentOrder:'title-ascending', libraries:[], collections:[], manual:{}, manualStates:{}, tagSearch:'', tagSources:{}, tagTypeLoadIds:{} };
+            const state = { id:'', name:'', type:'', sources:[], items:{}, resolvedItemIds:[], contentItems:[], contentItemOrder:[], draggedContentId:null, contentOrder:'title-ascending', artSize:'medium', artType:'automatic', artShape:'poster', showText:true, libraries:[], collections:[], manual:{}, manualStates:{}, tagSearch:'', tagSources:{}, tagTypeLoadIds:{} };
             const esc = value => { const el = document.createElement('span'); el.textContent = value == null ? '' : String(value); return el.innerHTML; };
             const cm = path => ApiClient.getJSON(ApiClient.getUrl('CollectionManager/' + path));
             const cmPost = (path, body) => ApiClient.ajax({ type:'POST', url:ApiClient.getUrl('CollectionManager/' + path), data:JSON.stringify(body), contentType:'application/json', dataType:'json' });
@@ -362,7 +416,7 @@
             const isLibraryType = () => libraryTypes.has(kind());
             const rowImage = item => item.HasPrimaryImage || item.ImageTags ? '<img class="hssm-preview-image" loading="lazy" src="' + image(item.Id) + '" alt="" onerror="this.remove()" />' : '<span class="hssm-preview-image hssm-empty-image"></span>';
             const styles = document.createElement('style');
-            styles.textContent = '#homeScreenSectionsManagerPage .hssm-conditional-section{border-top:1px solid var(--hssm-outline);margin-top:1.25em;padding-top:1.25em}#homeScreenSectionsManagerPage .hssm-conditional-section h2{margin:0 0 .35em}#homeScreenSectionsManagerPage .hssm-picker-library{border-top:1px solid var(--hssm-outline);margin-top:1em;padding-top:1em}#homeScreenSectionsManagerPage .hssm-picker-heading{display:flex;align-items:center;justify-content:space-between;gap:1em}#homeScreenSectionsManagerPage .hssm-picker-heading h3{margin:0}#homeScreenSectionsManagerPage .hssm-picker-content{margin-top:.8em}#homeScreenSectionsManagerPage .hssm-preview-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1em 1.25em}#homeScreenSectionsManagerPage .hssm-preview-card{display:flex;align-items:flex-start;gap:.55em;min-width:0}#homeScreenSectionsManagerPage .hssm-preview-image{display:block;flex:0 0 auto;width:4em;height:6em;object-fit:cover;border-radius:.35em;background:rgba(255,255,255,.08)}#homeScreenSectionsManagerPage .hssm-row-preview .hssm-preview-image{width:9em;height:5.1em}#homeScreenSectionsManagerPage .hssm-empty-image{border:1px solid var(--hssm-outline)}#homeScreenSectionsManagerPage .hssm-preview-copy{min-width:0;overflow-wrap:anywhere}#homeScreenSectionsManagerPage .hssm-preview-copy strong{display:block}#homeScreenSectionsManagerPage .hssm-tag-choice{border:1px solid var(--hssm-outline);border-radius:.4em;margin:.55em 0;padding:.55em .7em}#homeScreenSectionsManagerPage .hssm-tag-choice .checkboxContainer{margin:0}#homeScreenSectionsManagerPage .hssm-order-settings[hidden]{display:none!important}@media(max-width:42em){#homeScreenSectionsManagerPage .hssm-preview-grid{grid-template-columns:1fr}}';
+            styles.textContent = '#homeScreenSectionsManagerPage .hssm-conditional-section{border-top:1px solid var(--hssm-outline);margin-top:1.25em;padding-top:1.25em}#homeScreenSectionsManagerPage .hssm-conditional-section h2{margin:0 0 .35em}#homeScreenSectionsManagerPage .hssm-picker-library{border-top:1px solid var(--hssm-outline);margin-top:1em;padding-top:1em}#homeScreenSectionsManagerPage .hssm-picker-heading{display:flex;align-items:center;justify-content:space-between;gap:1em}#homeScreenSectionsManagerPage .hssm-picker-heading h3{margin:0}#homeScreenSectionsManagerPage .hssm-picker-content{margin-top:.8em}#homeScreenSectionsManagerPage .hssm-preview-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1em 1.25em}#homeScreenSectionsManagerPage .hssm-preview-card{display:flex;align-items:flex-start;gap:.55em;min-width:0}#homeScreenSectionsManagerPage .hssm-preview-image{display:block;flex:0 0 auto;width:4em;height:6em;object-fit:cover;border-radius:.35em;background:rgba(255,255,255,.08)}#homeScreenSectionsManagerPage .hssm-row-preview .hssm-preview-image{width:9em;height:5.1em}#homeScreenSectionsManagerPage .hssm-empty-image{border:1px solid var(--hssm-outline)}#homeScreenSectionsManagerPage .hssm-preview-copy{min-width:0;overflow-wrap:anywhere}#homeScreenSectionsManagerPage .hssm-preview-copy strong{display:block}#homeScreenSectionsManagerPage .hssm-tag-choice{border:1px solid var(--hssm-outline);border-radius:.4em;margin:.55em 0;padding:.55em .7em}#homeScreenSectionsManagerPage .hssm-tag-choice .checkboxContainer{margin:0}#homeScreenSectionsManagerPage .hssm-order-settings[hidden],#homeScreenSectionsManagerPage .hssm-art-settings[hidden]{display:none!important}@media(max-width:42em){#homeScreenSectionsManagerPage .hssm-preview-grid{grid-template-columns:1fr}}';
             styles.textContent += '#homeScreenSectionsManagerPage .mcm-library-overview{margin-top:1em}#homeScreenSectionsManagerPage .mcm-library-overview+.mcm-library-overview{border-top:1px solid var(--hssm-outline);padding-top:1em}#homeScreenSectionsManagerPage .mcm-library-heading{display:flex;align-items:center;justify-content:space-between;gap:1em}#homeScreenSectionsManagerPage .mcm-library-heading h3{margin:0}#homeScreenSectionsManagerPage .mcm-picker-library-content[hidden]{display:none!important}#homeScreenSectionsManagerPage .mcm-manual-picker .checkboxContainer{margin:0 0 .65em}#homeScreenSectionsManagerPage .mcm-manual-picker .emby-checkbox-label{height:auto;min-height:2.35em;align-items:flex-start}#homeScreenSectionsManagerPage .mcm-manual-picker .checkboxOutline{top:.25em}#homeScreenSectionsManagerPage .mcm-manual-picker-details{display:flex;align-items:flex-start;gap:.35em;min-width:0}#homeScreenSectionsManagerPage .mcm-related-poster{width:5.25em;height:7.9em;object-fit:cover;border-radius:.35em;vertical-align:top;margin:0 .55em .45em 0;background:rgba(255,255,255,.08)}#homeScreenSectionsManagerPage .mcm-related-title{display:flex;align-items:flex-start;gap:.35em;margin:0 0 .65em}#homeScreenSectionsManagerPage .mcm-related-title-text{min-width:0}#homeScreenSectionsManagerPage .mcm-manual-remove{margin-left:.55em}#homeScreenSectionsManagerPage .mcm-manual-description{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:5;overflow:hidden;line-height:1.25;min-height:6.25em}#homeScreenSectionsManagerPage .mcm-collection-member-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1em 1.25em}#homeScreenSectionsManagerPage .mcm-collection-member-grid .mcm-related-title{margin:0}#homeScreenSectionsManagerPage .mcm-manual-controls{justify-content:flex-start;display:flex;flex-wrap:wrap}#homeScreenSectionsManagerPage .mcm-pagination-text{font-size:.85em}#homeScreenSectionsManagerPage .mcm-art-picker{max-height:20em;overflow-y:auto;padding:.15em .4em;border:1px solid var(--hssm-outline);border-radius:.4em}#homeScreenSectionsManagerPage .mcm-art-picker .checkboxContainer{display:block;margin:.55em 0}#homeScreenSectionsManagerPage .mcm-library-list{margin:.75em 0 0}#homeScreenSectionsManagerPage .mcm-tag-picker-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.55em 1em;margin-top:.85em}#homeScreenSectionsManagerPage .mcm-tag-picker-grid .checkboxContainer{min-width:0;margin:0;overflow-wrap:anywhere}#homeScreenSectionsManagerPage .mcm-flat-tag-choice{min-width:0}#homeScreenSectionsManagerPage .mcm-flat-tag-choice>.fieldDescription{display:block;margin:.1em 0 0 2.4em;overflow-wrap:anywhere}#homeScreenSectionsManagerPage .mcm-tag-type-content{overflow-anchor:none}#homeScreenSectionsManagerPage .mcm-tag-type+.mcm-tag-type{border-top:1px solid var(--hssm-outline);margin-top:.75em;padding-top:.75em}#homeScreenSectionsManagerPage .mcm-tag-type-content[hidden]{display:none!important}#homeScreenSectionsManagerPage .mcm-tag-source-divider{border:0;border-top:1px solid var(--hssm-outline);margin:1em 0}#homeScreenSectionsManagerPage .mcm-person-image{width:2em;height:2em;vertical-align:middle;object-fit:cover;border-radius:50%;margin-right:.45em}@media(max-width:55em){#homeScreenSectionsManagerPage .mcm-collection-member-grid{grid-template-columns:1fr}}';
             styles.textContent += '#homeScreenSectionsManagerPage .mcm-library-overview>.mcm-library-heading{justify-content:flex-start}#homeScreenSectionsManagerPage .mcm-library-overview>.mcm-library-heading>button{order:-1}';
             styles.textContent += '#homeScreenSectionsManagerPage .hssm-manual-order-editor{margin-top:1em}#homeScreenSectionsManagerPage .hssm-manual-order-editor[hidden]{display:none!important}#homeScreenSectionsManagerPage .hssm-manual-order-list{border:1px solid var(--hssm-outline);border-radius:.45em;overflow:hidden}#homeScreenSectionsManagerPage .hssm-manual-order-row{display:flex;align-items:center;gap:.7em;min-height:2.7em;padding:.55em .75em;border-bottom:1px solid var(--hssm-outline);cursor:grab;user-select:none}#homeScreenSectionsManagerPage .hssm-manual-order-row:last-child{border-bottom:0}#homeScreenSectionsManagerPage .hssm-manual-order-row.dragging{opacity:.45}#homeScreenSectionsManagerPage .hssm-manual-order-handle{opacity:.65;font-size:1.15em}';
@@ -395,7 +449,7 @@
                 return '<section class="hssm-conditional-section"><h2>Selected Libraries</h2><p class="fieldDescription">Choose which Jellyfin ' + (multiple ? 'libraries' : 'library') + ' will provide content for this section.</p><p class="fieldDescription">Select ' + (multiple ? 'one or more libraries' : 'one library') + ' to include in this section.</p><div data-hssm-libraries class="mcm-library-list"></div>' + (multiple ? '<div class="hssm-actions"><button is="emby-button" type="button" class="raised" data-hssm-library-all>Select All</button><button is="emby-button" type="button" class="raised" data-hssm-library-none>Select None</button></div>' : '') + '</section>' + contentMarkup(kind() === 'libraries-in-a-row');
             }
             function contentMarkup(rowMode) {
-                return '<section class="hssm-conditional-section"><h2>Content In Section</h2><p class="fieldDescription">This selected content will be displayed in your section.</p><div data-hssm-content class="' + (rowMode ? 'hssm-row-preview' : '') + '"><p class="fieldDescription">No content is currently selected.</p></div></section><div class="hssm-actions"><button is="emby-button" type="button" class="raised button-submit" data-hssm-save-move>Save and Move On</button></div><p class="fieldDescription" data-hssm-save-status aria-live="polite"></p><section class="hssm-conditional-section hssm-order-settings" data-hssm-order-settings hidden><h2>Section Content Order Settings</h2><p class="fieldDescription">Select which order you want your home screen section content to appear in. Ordering by rating requires ratings to be in your media tags.</p><div class="selectContainer"><label class="selectLabel" for="hssmSectionContentOrder">Content Order</label><select is="emby-select" id="hssmSectionContentOrder" data-hssm-content-order>' + orderOptions() + '</select></div><div class="hssm-manual-order-editor" data-hssm-manual-order hidden><p class="fieldDescription">Drag the content below into the exact order you want it to appear in this home screen section.</p><div class="hssm-manual-order-list" data-hssm-manual-order-list></div></div><div class="hssm-actions"><button is="emby-button" type="button" class="raised button-submit" data-hssm-apply-section>Add Section to Home Screen</button></div><p class="fieldDescription" data-hssm-apply-status aria-live="polite"></p></section>';
+                return '<section class="hssm-conditional-section"><h2>Content In Section</h2><p class="fieldDescription">This selected content will be displayed in your section.</p><div data-hssm-content class="' + (rowMode ? 'hssm-row-preview' : '') + '"><p class="fieldDescription">No content is currently selected.</p></div></section><div class="hssm-actions"><button is="emby-button" type="button" class="raised button-submit" data-hssm-save-move>Save and Move On</button></div><p class="fieldDescription" data-hssm-save-status aria-live="polite"></p><section class="hssm-conditional-section hssm-order-settings" data-hssm-order-settings hidden><h2>Section Content Order Settings</h2><p class="fieldDescription">Select which order you want your home screen section content to appear in. Ordering by rating requires ratings to be in your media tags.</p><div class="selectContainer"><label class="selectLabel" for="hssmSectionContentOrder">Content Order</label><select is="emby-select" id="hssmSectionContentOrder" data-hssm-content-order>' + orderOptions() + '</select></div><div class="hssm-manual-order-editor" data-hssm-manual-order hidden><p class="fieldDescription">Drag the content below into the exact order you want it to appear in this home screen section.</p><div class="hssm-manual-order-list" data-hssm-manual-order-list></div></div></section><section class="hssm-conditional-section hssm-art-settings" data-hssm-art-settings hidden><h2>Section Art Appearance Settings</h2><p class="fieldDescription">Choose the size, Jellyfin image type, shape, and title-text visibility for the art in this home screen section.</p><div class="selectContainer"><label class="selectLabel" for="hssmSectionArtSize">Art Size</label><select is="emby-select" id="hssmSectionArtSize" data-hssm-art-size>' + artSizeOptions() + '</select></div><div class="selectContainer"><label class="selectLabel" for="hssmSectionArtType">Art Type</label><select is="emby-select" id="hssmSectionArtType" data-hssm-art-type>' + artTypeOptions() + '</select></div><div class="selectContainer"><label class="selectLabel" for="hssmSectionArtShape">Art Shape</label><select is="emby-select" id="hssmSectionArtShape" data-hssm-art-shape>' + artShapeOptions() + '</select></div><label class="checkboxContainer"><input is="emby-checkbox" type="checkbox" data-hssm-show-text' + (state.showText ? ' checked' : '') + ' /><span>Show text under the art</span></label><p class="fieldDescription">Show the media name and year beneath each image.</p><div class="hssm-actions"><button is="emby-button" type="button" class="raised button-submit" data-hssm-apply-section>Add Section to Home Screen</button></div><p class="fieldDescription" data-hssm-apply-status aria-live="polite"></p></section>';
             }
             function orderOptions() {
                 return [
@@ -408,6 +462,43 @@
                     ['rating-descending', 'Rating (Highest First)'],
                     ['manual', 'Manual (Drag to Choose Exact Order)']
                 ].map(option => '<option value="' + option[0] + '"' + (state.contentOrder === option[0] ? ' selected' : '') + '>' + option[1] + '</option>').join('');
+            }
+            function selectOptions(options, selected) {
+                return options.map(option => '<option value="' + option[0] + '"' + (selected === option[0] ? ' selected' : '') + '>' + option[1] + '</option>').join('');
+            }
+            function artSizeOptions() {
+                return selectOptions([
+                    ['extra-small', 'Extra Small'],
+                    ['small', 'Small'],
+                    ['medium', 'Medium (Jellyfin Default)'],
+                    ['large', 'Large'],
+                    ['extra-large', 'Extra Large']
+                ], state.artSize);
+            }
+            function artTypeOptions() {
+                return selectOptions([
+                    ['automatic', 'Automatic (Best Available)'],
+                    ['primary', 'Primary (Usually Poster)'],
+                    ['art', 'Art'],
+                    ['backdrop', 'Backdrop'],
+                    ['banner', 'Banner'],
+                    ['logo', 'Logo'],
+                    ['thumb', 'Thumb'],
+                    ['disc', 'Disc'],
+                    ['box', 'Box'],
+                    ['box-rear', 'Box Rear'],
+                    ['screenshot', 'Screenshot'],
+                    ['menu', 'Menu'],
+                    ['chapter', 'Chapter']
+                ], state.artType);
+            }
+            function artShapeOptions() {
+                return selectOptions([
+                    ['poster', 'Poster / Tall Rectangle'],
+                    ['wide', 'Wide Rectangle'],
+                    ['square', 'Square'],
+                    ['circle', 'Circle']
+                ], state.artShape);
             }
             function updateContentItems(items) {
                 const byId = {}, incoming = [];
@@ -636,7 +727,7 @@
                 if (!required || (needsTwo && state.sources.length < 2)) { saveStatus.textContent = needsTwo ? 'Select at least two metadata tags before saving.' : 'Select content before saving.'; return; }
                 const order = Array.from(page.querySelectorAll('.hssm-section-row')).map(row => row.dataset.sectionId);
                 const itemIds = state.contentItemOrder.slice();
-                const definition = { Id:state.id, Name:state.name, Type:state.type, SourceIds:state.sources, ItemIds:itemIds, ContentOrder:state.contentOrder, IsApplied:false };
+                const definition = { Id:state.id, Name:state.name, Type:state.type, SourceIds:state.sources, ItemIds:itemIds, ContentOrder:state.contentOrder, ArtSize:state.artSize, ArtType:state.artType, ArtShape:state.artShape, ShowText:state.showText, IsApplied:false };
                 ApiClient.getJSON(ApiClient.getUrl('HomeScreenSectionsManager/section-settings')).then(saved => {
                     const existing = saved.Sections || saved.sections || [];
                     const sections = existing.filter(item => String(item.Id || item.id) !== state.id);
@@ -645,8 +736,10 @@
                 }).then(() => {
                     host.querySelector('[data-hssm-save-status]').textContent = 'Section settings saved.';
                     const orderSection = host.querySelector('[data-hssm-order-settings]');
+                    const artSection = host.querySelector('[data-hssm-art-settings]');
                     const orderSelect = host.querySelector('[data-hssm-content-order]');
                     orderSection.hidden = false;
+                    artSection.hidden = false;
                     if (orderSelect) orderSelect.value = state.contentOrder;
                     renderManualOrder();
                 }, () => { host.querySelector('[data-hssm-save-status]').textContent = 'Section settings could not be saved.'; });
@@ -676,18 +769,47 @@
                     document.head.appendChild(script);
                 });
             }
+            function homeScreenLoaderScript() {
+                return "(function(){'use strict';function boot(){if(!window.ApiClient||typeof ApiClient.getUrl!=='function'){window.setTimeout(boot,100);return;}if(!document.querySelector('link[data-hssm-client-style]')){var link=document.createElement('link');link.rel='stylesheet';link.href=ApiClient.getUrl('HomeScreenSectionsManager/client.css');link.dataset.hssmClientStyle='true';document.head.appendChild(link);}if(window.HomeScreenManagerClient){window.HomeScreenManagerClient.refresh();return;}if(document.querySelector('script[data-hssm-client-script]'))return;var script=document.createElement('script');script.src=ApiClient.getUrl('HomeScreenSectionsManager/client.js');script.dataset.hssmClientScript='true';script.onerror=function(){console.error('[Home Screen Manager] Could not load the browser client.');};document.head.appendChild(script);}boot();}());";
+            }
+            function ensureJavaScriptInjectorLoader() {
+                return ApiClient.getJSON(ApiClient.getUrl('Plugins')).then(result => {
+                    const plugins = Array.isArray(result) ? result : (result.Items || result.items || []);
+                    const injector = plugins.find(plugin => plugin.Name === 'JavaScript Injector' || plugin.Name === 'JS Injector');
+                    if (!injector) throw new Error('JavaScript Injector plugin not found. Install it, restart Jellyfin, and try again.');
+                    const pluginId = injector.Id || injector.id;
+                    if (!pluginId) throw new Error('JavaScript Injector did not return a plugin ID.');
+                    return ApiClient.getPluginConfiguration(pluginId).then(configuration => {
+                        const scripts = configuration.CustomJavaScripts || configuration.customJavaScripts || [];
+                        const name = 'Home-Screen-Manager-Loader';
+                        const existing = scripts.findIndex(script => script.Name === name || script.name === name);
+                        const loader = { Name:name, Script:homeScreenLoaderScript(), Enabled:true, RequiresAuthentication:false };
+                        if (existing >= 0) scripts[existing] = Object.assign({}, scripts[existing], loader); else scripts.push(loader);
+                        configuration.CustomJavaScripts = scripts;
+                        return ApiClient.updatePluginConfiguration(pluginId, configuration);
+                    });
+                });
+            }
+            window.HSSMEnsureJavaScriptInjectorLoader = ensureJavaScriptInjectorLoader;
             function applySection() {
                 const button = host.querySelector('[data-hssm-apply-section]');
                 const applyStatus = host.querySelector('[data-hssm-apply-status]');
                 const select = host.querySelector('[data-hssm-content-order]');
-                if (!button || !applyStatus || !select) return;
+                const artSize = host.querySelector('[data-hssm-art-size]');
+                const artType = host.querySelector('[data-hssm-art-type]');
+                const artShape = host.querySelector('[data-hssm-art-shape]');
+                const showText = host.querySelector('[data-hssm-show-text]');
+                if (!button || !applyStatus || !select || !artSize || !artType || !artShape || !showText) return;
                 state.contentOrder = select.value;
+                state.artSize = artSize.value;
+                state.artType = artType.value;
+                state.artShape = artShape.value;
+                state.showText = showText.checked;
                 button.disabled = true;
                 applyStatus.textContent = 'Adding section to the home screen…';
-                ApiClient.ajax({ type:'POST', url:ApiClient.getUrl('HomeScreenSectionsManager/sections/' + encodeURIComponent(state.id) + '/apply'), data:JSON.stringify({ ContentOrder:state.contentOrder, ItemIds:state.contentItemOrder }), contentType:'application/json', dataType:'json' }).then(response => loadHomeScreenClient().then(() => response)).then(response => {
-                    if (response && response.IntegrationRegistered === false) throw new Error('The Jellyfin Web integration was not registered.');
-                    applyStatus.textContent = 'Section saved and Home Screen Manager is ready. Open Home and hard-refresh once to see it.';
-                    if (window.Dashboard && typeof Dashboard.alert === 'function') Dashboard.alert('Section saved and Home Screen Manager is ready. Open Home and hard-refresh once to see it.');
+                ensureJavaScriptInjectorLoader().then(() => ApiClient.ajax({ type:'POST', url:ApiClient.getUrl('HomeScreenSectionsManager/sections/' + encodeURIComponent(state.id) + '/apply'), data:JSON.stringify({ ContentOrder:state.contentOrder, ItemIds:state.contentItemOrder, ArtSize:state.artSize, ArtType:state.artType, ArtShape:state.artShape, ShowText:state.showText }), contentType:'application/json', dataType:'json' })).then(response => loadHomeScreenClient().then(() => response)).then(() => {
+                    applyStatus.textContent = 'Section added to the home screen. Open Home and hard-refresh once to see it.';
+                    if (window.Dashboard && typeof Dashboard.alert === 'function') Dashboard.alert('Section added to the home screen through JavaScript Injector. Open Home and hard-refresh once to see it.');
                 }, error => {
                     const message = 'Section could not be added to the home screen: ' + errorMessage(error);
                     applyStatus.textContent = message;
@@ -729,7 +851,15 @@
             });
             host.addEventListener('change', event => {
                 const order = event.target.closest('[data-hssm-content-order]');
+                const artSize = event.target.closest('[data-hssm-art-size]');
+                const artType = event.target.closest('[data-hssm-art-type]');
+                const artShape = event.target.closest('[data-hssm-art-shape]');
+                const showText = event.target.closest('[data-hssm-show-text]');
                 if (order) { state.contentOrder = order.value; renderManualOrder(); return; }
+                if (artSize) { state.artSize = artSize.value; return; }
+                if (artType) { state.artType = artType.value; return; }
+                if (artShape) { state.artShape = artShape.value; return; }
+                if (showText) { state.showText = showText.checked; return; }
                 const collection = event.target.closest('[data-hssm-collection]');
                 const library = event.target.closest('[data-hssm-library]');
                 const tag = event.target.closest('[data-hssm-tag]');
@@ -757,6 +887,10 @@
                 state.contentItems = [];
                 state.contentItemOrder = [];
                 state.contentOrder = 'title-ascending';
+                state.artSize = 'medium';
+                state.artType = 'automatic';
+                state.artShape = 'poster';
+                state.showText = true;
                 state.tagSearch = '';
                 state.tagSources = {};
                 state.tagTypeLoadIds = {};
@@ -781,6 +915,10 @@
                         state.resolvedItemIds = itemIds.slice();
                         state.contentItemOrder = itemIds.slice();
                         state.contentOrder = String(definition.ContentOrder || definition.contentOrder || 'title-ascending');
+                        state.artSize = String(definition.ArtSize || definition.artSize || 'medium');
+                        state.artType = String(definition.ArtType || definition.artType || 'automatic');
+                        state.artShape = String(definition.ArtShape || definition.artShape || 'poster');
+                        state.showText = definition.ShowText !== undefined ? !!definition.ShowText : (definition.showText !== undefined ? !!definition.showText : true);
                         state.items = {};
                         if (!itemIds.length) return null;
                         return itemQuery({ Ids:itemIds.join(','), Fields:'Overview,PrimaryImageAspectRatio' }).then(result => {
@@ -824,6 +962,80 @@
         (() => {
             const page = document.getElementById('homeScreenSectionsManagerPage');
             if (!page || !window.ApiClient) return;
+            const controls = {
+                AutoRefreshSections:page.querySelector('#hssmAutoRefreshSections'),
+                EnableRemoveContinueNextUp:page.querySelector('#hssmEnableRemoveContinueNextUp'),
+                EnableMyList:page.querySelector('#hssmEnableMyList'),
+                EnableSeriesInfo:page.querySelector('#hssmEnableSeriesInfo'),
+                EnableCollectionsOnDetailPage:page.querySelector('#hssmEnableCollectionsOnDetailPage'),
+                EnableEnhancedSearch:page.querySelector('#hssmEnableEnhancedSearch'),
+                EnableBreadcrumbs:page.querySelector('#hssmEnableBreadcrumbs')
+            };
+            const libraryHost = page.querySelector('#hssmInfiniteScrollLibraries');
+            const status = page.querySelector('#hssmMainSettingsStatus');
+            const saveButton = page.querySelector('#hssmSaveMainSettingsButton');
+            const saveLibrariesButton = page.querySelector('#hssmSaveInfiniteScrollButton');
+            let selectedLibraries = new Set();
+            let libraries = [];
+            const esc = value => { const node = document.createElement('span'); node.textContent = value == null ? '' : String(value); return node.innerHTML; };
+            const valueOf = (value, pascal, camel, fallback) => value && value[pascal] !== undefined ? value[pascal] : value && value[camel] !== undefined ? value[camel] : fallback;
+
+            function renderLibraries() {
+                if (!libraries.length) { libraryHost.innerHTML = '<p class="fieldDescription">No accessible Jellyfin libraries were found.</p>'; return; }
+                libraryHost.innerHTML = libraries.map(item => {
+                    const id = String(item.Id || item.id || '');
+                    const name = String(item.Name || item.name || 'Unnamed Library');
+                    return '<label class="checkboxContainer"><input is="emby-checkbox" type="checkbox" data-hssm-infinite-library="' + esc(id) + '"' + (selectedLibraries.has(id) ? ' checked' : '') + ' /><span>' + esc(name) + '</span></label>';
+                }).join('');
+            }
+
+            function load() {
+                const settingsRequest = ApiClient.getJSON(ApiClient.getUrl('HomeScreenSectionsManager/main-settings'));
+                const userId = ApiClient.getCurrentUserId();
+                const librariesRequest = typeof ApiClient.getUserViews === 'function' ? ApiClient.getUserViews({}, userId) : ApiClient.getJSON(ApiClient.getUrl('Users/' + encodeURIComponent(userId) + '/Views'));
+                Promise.all([settingsRequest, librariesRequest]).then(values => {
+                    const settings = values[0] || {};
+                    Object.keys(controls).forEach(key => { controls[key].checked = !!valueOf(settings, key, key.charAt(0).toLowerCase() + key.slice(1), key === 'AutoRefreshSections'); });
+                    selectedLibraries = new Set((valueOf(settings, 'InfiniteScrollLibraryIds', 'infiniteScrollLibraryIds', []) || []).map(String));
+                    libraries = valueOf(values[1], 'Items', 'items', []) || [];
+                    renderLibraries();
+                }, error => {
+                    status.textContent = 'Main Settings could not be loaded. ' + (error && (error.message || error.statusText) || '');
+                    libraryHost.innerHTML = '<p class="fieldDescription">Libraries could not be loaded.</p>';
+                });
+            }
+
+            function save() {
+                saveButton.disabled = true;
+                saveLibrariesButton.disabled = true;
+                status.textContent = 'Saving Main Settings…';
+                selectedLibraries = new Set(Array.from(libraryHost.querySelectorAll('[data-hssm-infinite-library]:checked')).map(input => input.dataset.hssmInfiniteLibrary));
+                const data = { InfiniteScrollLibraryIds:Array.from(selectedLibraries) };
+                Object.keys(controls).forEach(key => { data[key] = controls[key].checked; });
+                const loader = typeof window.HSSMEnsureJavaScriptInjectorLoader === 'function' ? window.HSSMEnsureJavaScriptInjectorLoader() : Promise.resolve();
+                loader.then(() => ApiClient.ajax({ type:'POST', url:ApiClient.getUrl('HomeScreenSectionsManager/main-settings'), data:JSON.stringify(data), contentType:'application/json', dataType:'json' })).then(() => {
+                    if (window.HomeScreenManagerClient) window.HomeScreenManagerClient.refresh();
+                    status.textContent = 'Main Settings saved and applied.';
+                    Dashboard.alert('Main Settings saved and applied.');
+                }, error => {
+                    const message = 'Main Settings could not be saved and applied. ' + (error && (error.responseText || error.message || error.statusText) || 'Jellyfin returned no error details.');
+                    status.textContent = message;
+                    Dashboard.alert(message);
+                }).finally(() => { saveButton.disabled = false; saveLibrariesButton.disabled = false; });
+            }
+
+            libraryHost.addEventListener('change', event => {
+                const input = event.target.closest('[data-hssm-infinite-library]');
+                if (!input) return;
+                if (input.checked) selectedLibraries.add(input.dataset.hssmInfiniteLibrary); else selectedLibraries.delete(input.dataset.hssmInfiniteLibrary);
+            });
+            saveButton.addEventListener('click', save);
+            saveLibrariesButton.addEventListener('click', save);
+            load();
+        })();
+        (() => {
+            const page = document.getElementById('homeScreenSectionsManagerPage');
+            if (!page || !window.ApiClient) return;
             const accent = page.querySelector('#hssmAbyssAccentColor');
             const radius = page.querySelector('#hssmAbyssRadius');
             const indicator = page.querySelector('#hssmAbyssIndicatorColor');
@@ -832,6 +1044,25 @@
             const lite = page.querySelector('#hssmAbyssLiteMode');
             const status = page.querySelector('#hssmCustomizationStatus');
             const saveButton = page.querySelector('#hssmSaveCustomizationButton');
+            const colorControls = {
+                HeaderTabs:{ mode:page.querySelector('#hssmHeaderTabsColorMode'), one:page.querySelector('#hssmHeaderTabsColorOne'), two:page.querySelector('#hssmHeaderTabsColorTwo') },
+                PlayButton:{ mode:page.querySelector('#hssmPlayButtonColorMode'), one:page.querySelector('#hssmPlayButtonColorOne'), two:page.querySelector('#hssmPlayButtonColorTwo') },
+                Progress:{ mode:page.querySelector('#hssmProgressColorMode'), one:page.querySelector('#hssmProgressColorOne'), two:page.querySelector('#hssmProgressColorTwo') },
+                SidebarIcon:{ mode:page.querySelector('#hssmSidebarIconColorMode'), one:page.querySelector('#hssmSidebarIconColorOne'), two:page.querySelector('#hssmSidebarIconColorTwo') },
+                MyListHeart:{ mode:page.querySelector('#hssmMyListHeartColorMode'), one:page.querySelector('#hssmMyListHeartColorOne'), two:page.querySelector('#hssmMyListHeartColorTwo') }
+            };
+            const logoFile = page.querySelector('#hssmLogoImageFile');
+            const logoPreview = page.querySelector('#hssmLogoImagePreview');
+            const removeLogo = page.querySelector('#hssmRemoveLogoButton');
+            const mediaBarSeconds = page.querySelector('#hssmMediaBarIntervalSeconds');
+            const mediaBarImageType = page.querySelector('#hssmMediaBarImageType');
+            let logoImageDataUrl = '';
+            const settingValue = (configuration, name, fallback) => valueOf(configuration, name, name.charAt(0).toLowerCase() + name.slice(1), fallback);
+            function paint(control) {
+                const first = control.one.value, second = control.two.value;
+                return control.mode.value === 'vertical-gradient' ? 'linear-gradient(to bottom, ' + first + ', ' + second + ')' : control.mode.value === 'horizontal-gradient' ? 'linear-gradient(to right, ' + first + ', ' + second + ')' : control.mode.value === 'center-gradient' ? 'radial-gradient(circle at center, ' + first + ' 0%, ' + second + ' 100%)' : first;
+            }
+
 
             function hexToRgb(value) {
                 const match = String(value || '').match(/^#([0-9a-f]{6})$/i);
@@ -851,6 +1082,20 @@
                 const family = safeCssValue(fontFamily.value);
                 if (stylesheetUrl) lines.push("@import url('" + stylesheetUrl + "');");
                 lines.push('', ':root {', '    --abyss-accent: ' + hexToRgb(accent.value) + ';', '    --abyss-radius: ' + Math.max(0, Math.min(64, Number(radius.value) || 0)) + 'px;', '    --abyss-indicator: ' + hexToRgb(indicator.value) + ';', '}');
+                const headerPaint = paint(colorControls.HeaderTabs), playPaint = paint(colorControls.PlayButton), progressPaint = paint(colorControls.Progress), sidebarPaint = paint(colorControls.SidebarIcon), heartPaint = paint(colorControls.MyListHeart);
+                lines.push('', '.headerTabs.sectionTabs .emby-tab-button-active { background: ' + headerPaint + ' !important; }');
+                lines.push('.btnPlay, .btnPlayOrResume, [data-action="play"], [data-action="resume"], .cardOverlayFab-primary, .hssm-media-bar-play { background: ' + playPaint + ' !important; }');
+                lines.push('.itemProgressBarForeground, .playbackProgress > div, #videoOsdPage .sliderMarker.watched, .mdl-slider-background-lower { background: ' + progressPaint + ' !important; }');
+                if (colorControls.SidebarIcon.mode.value === 'solid') {
+                    lines.push('.navMenuOptionIcon, .navMenuOption:hover .navMenuOptionIcon { color: ' + colorControls.SidebarIcon.one.value + ' !important; }');
+                } else {
+                    lines.push('.navMenuOptionIcon, .navMenuOption:hover .navMenuOptionIcon { background-image: ' + sidebarPaint + ', linear-gradient(#cccccf69, #cccccf69) !important; background-clip: text, border-box !important; -webkit-background-clip: text, border-box !important; -webkit-text-fill-color: transparent !important; color: transparent !important; }');
+                }
+                if (colorControls.MyListHeart.mode.value === 'solid') {
+                    lines.push('.hssm-my-list-button .material-icons { color: ' + colorControls.MyListHeart.one.value + ' !important; }');
+                } else {
+                    lines.push('.hssm-my-list-button .material-icons { background: ' + heartPaint + ' !important; background-clip: text !important; -webkit-background-clip: text !important; -webkit-text-fill-color: transparent !important; color: transparent !important; }');
+                }
                 if (family) lines.push('', 'body {', '    font-family: "' + family.replace(/"/g, '') + '", sans-serif;', '    font-optical-sizing: auto;', '    font-style: normal;', '    font-variation-settings: "GRAD" 0;', '}');
                 return lines.join('\n');
             }
@@ -890,6 +1135,16 @@
                     fontUrl.value = valueOf(configuration, 'AbyssFontImportUrl', 'abyssFontImportUrl', '');
                     fontFamily.value = valueOf(configuration, 'AbyssFontFamily', 'abyssFontFamily', '');
                     lite.checked = !!valueOf(configuration, 'AbyssLiteMode', 'abyssLiteMode', false);
+                    Object.keys(colorControls).forEach(name => {
+                        colorControls[name].mode.value = settingValue(configuration, name + 'ColorMode', 'solid');
+                        colorControls[name].one.value = settingValue(configuration, name + 'ColorOne', '#f5f5f7');
+                        colorControls[name].two.value = settingValue(configuration, name + 'ColorTwo', '#f5f5f7');
+                    });
+                    logoImageDataUrl = settingValue(configuration, 'LogoImageDataUrl', '');
+                    logoPreview.src = logoImageDataUrl;
+                    logoPreview.hidden = !logoImageDataUrl;
+                    mediaBarSeconds.value = settingValue(configuration, 'MediaBarIntervalSeconds', 5);
+                    mediaBarImageType.value = settingValue(configuration, 'MediaBarImageType', 'backdrop');
                 }, () => {
                     status.textContent = 'Customization settings could not be loaded.';
                 });
@@ -904,16 +1159,23 @@
                     AbyssIndicatorColor:indicator.value,
                     AbyssFontImportUrl:fontUrl.value.trim(),
                     AbyssFontFamily:fontFamily.value.trim(),
-                    AbyssLiteMode:lite.checked
+                    AbyssLiteMode:lite.checked,
+                    LogoImageDataUrl:logoImageDataUrl,
+                    MediaBarIntervalSeconds:Math.max(1, Math.min(300, Number(mediaBarSeconds.value) || 5)),
+                    MediaBarImageType:mediaBarImageType.value
                 };
+                Object.keys(colorControls).forEach(name => {
+                    data[name + 'ColorMode'] = colorControls[name].mode.value; data[name + 'ColorOne'] = colorControls[name].one.value; data[name + 'ColorTwo'] = colorControls[name].two.value;
+                });
 
-                ApiClient.ajax({
+                const loader = typeof window.HSSMEnsureJavaScriptInjectorLoader === 'function' ? window.HSSMEnsureJavaScriptInjectorLoader() : Promise.resolve();
+                loader.then(() => ApiClient.ajax({
                     type:'POST',
                     url:ApiClient.getUrl('HomeScreenSectionsManager/customization-settings'),
                     data:JSON.stringify(data),
                     contentType:'application/json',
                     dataType:'json'
-                }).then(() => {
+                })).then(() => {
                     radius.value = data.AbyssRadius;
                     return ApiClient.getJSON(ApiClient.getUrl('Branding/Configuration'));
                 }).then(branding => {
@@ -941,6 +1203,29 @@
 
             saveButton.addEventListener('click', save);
             load();
+            logoFile.addEventListener('change', () => {
+                const file = logoFile.files && logoFile.files[0];
+                if (!file) return;
+                if (!/^image\/(?:png|jpeg|webp|gif)$/i.test(file.type) || file.size > 3000000) {
+                    logoFile.value = '';
+                    Dashboard.alert('Choose a PNG, JPEG, WebP, or GIF logo smaller than 3 MB.');
+                    return;
+                }
+                const reader = new FileReader();
+                reader.onload = () => {
+                    logoImageDataUrl = String(reader.result || '');
+                    logoPreview.src = logoImageDataUrl;
+                    logoPreview.hidden = !logoImageDataUrl;
+                };
+                reader.readAsDataURL(file);
+            });
+            removeLogo.addEventListener('click', () => {
+                logoImageDataUrl = '';
+                logoFile.value = '';
+                logoPreview.removeAttribute('src');
+                logoPreview.hidden = true;
+            });
+
         })();
     </script>
 </div>

@@ -1,6 +1,4 @@
 using Jellyfin.Plugin.HomeScreenSectionsManager.Configuration;
-using Jellyfin.Plugin.HomeScreenSectionsManager.Helpers;
-using Jellyfin.Plugin.HomeScreenSectionsManager.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -13,14 +11,6 @@ namespace Jellyfin.Plugin.HomeScreenSectionsManager.Api;
 [Route("HomeScreenSectionsManager")]
 public sealed class SectionSettingsController : ControllerBase
 {
-    private readonly HomeScreenInjectionService _injection;
-
-    /// <summary>Initializes a new instance of the <see cref="SectionSettingsController"/> class.</summary>
-    public SectionSettingsController(HomeScreenInjectionService injection)
-    {
-        _injection = injection;
-    }
-
     /// <summary>Gets the current saved custom sections and hybrid layout order.</summary>
     [HttpGet("section-settings")]
     public ActionResult<PluginConfiguration> Get()
@@ -54,34 +44,54 @@ public sealed class SectionSettingsController : ControllerBase
             return NotFound("Save the section content before adding it to the home screen.");
         }
 
-        if (!_injection.TryRegister())
-        {
-            return Conflict("File Transformation is required to add custom sections to Jellyfin Web. Install its Jellyfin 10.11-compatible release, restart Jellyfin, and try again.");
-        }
-
-        var configuration = Plugin.Instance.UpdateSectionContentOrder(sectionId, request.ContentOrder, request.ItemIds);
+        var configuration = Plugin.Instance.ApplySection(sectionId, request);
         var section = configuration.Sections.First(item => string.Equals(item.Id, sectionId, StringComparison.Ordinal));
         return Ok(new
         {
             Applied = true,
             Section = section,
             RequiresRefresh = true,
-            IntegrationRegistered = _injection.IsRegistered,
-            IndexResponsesTransformed = TransformationPatches.InvocationCount,
         });
     }
 
-    /// <summary>Gets the current served-web integration state for troubleshooting.</summary>
-    [HttpGet("integration-status")]
-    public ActionResult<object> GetIntegrationStatus()
+    /// <summary>Gets the independently switchable browser enhancements.</summary>
+    [HttpGet("main-settings")]
+    public ActionResult<MainSettingsRequest> GetMainSettings()
     {
-        return Ok(new
+        var configuration = Plugin.Instance?.Configuration ?? new PluginConfiguration();
+        return Ok(new MainSettingsRequest
         {
-            Registered = _injection.IsRegistered,
-            _injection.LastError,
-            IndexResponsesTransformed = TransformationPatches.InvocationCount,
-            LastIndexTransformationUtc = TransformationPatches.LastInvocationUtc,
-            AppliedSections = Plugin.Instance?.Configuration.Sections.Count(section => section.IsApplied) ?? 0,
+            AutoRefreshSections = configuration.AutoRefreshSections,
+            EnableRemoveContinueNextUp = configuration.EnableRemoveContinueNextUp,
+            EnableMyList = configuration.EnableMyList,
+            EnableSeriesInfo = configuration.EnableSeriesInfo,
+            InfiniteScrollLibraryIds = [.. configuration.InfiniteScrollLibraryIds],
+            EnableCollectionsOnDetailPage = configuration.EnableCollectionsOnDetailPage,
+            EnableEnhancedSearch = configuration.EnableEnhancedSearch,
+            EnableBreadcrumbs = configuration.EnableBreadcrumbs,
+        });
+    }
+
+    /// <summary>Saves the independently switchable browser enhancements.</summary>
+    [HttpPost("main-settings")]
+    public ActionResult<MainSettingsRequest> SaveMainSettings([FromBody] MainSettingsRequest request)
+    {
+        if (Plugin.Instance is null)
+        {
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, "Home Screen Manager is not initialized.");
+        }
+
+        var configuration = Plugin.Instance.UpdateMainSettings(request);
+        return Ok(new MainSettingsRequest
+        {
+            AutoRefreshSections = configuration.AutoRefreshSections,
+            EnableRemoveContinueNextUp = configuration.EnableRemoveContinueNextUp,
+            EnableMyList = configuration.EnableMyList,
+            EnableSeriesInfo = configuration.EnableSeriesInfo,
+            InfiniteScrollLibraryIds = [.. configuration.InfiniteScrollLibraryIds],
+            EnableCollectionsOnDetailPage = configuration.EnableCollectionsOnDetailPage,
+            EnableEnhancedSearch = configuration.EnableEnhancedSearch,
+            EnableBreadcrumbs = configuration.EnableBreadcrumbs,
         });
     }
 
@@ -98,6 +108,24 @@ public sealed class SectionSettingsController : ControllerBase
             AbyssFontImportUrl = configuration.AbyssFontImportUrl,
             AbyssFontFamily = configuration.AbyssFontFamily,
             AbyssLiteMode = configuration.AbyssLiteMode,
+            HeaderTabsColorMode = configuration.HeaderTabsColorMode,
+            HeaderTabsColorOne = configuration.HeaderTabsColorOne,
+            HeaderTabsColorTwo = configuration.HeaderTabsColorTwo,
+            PlayButtonColorMode = configuration.PlayButtonColorMode,
+            PlayButtonColorOne = configuration.PlayButtonColorOne,
+            PlayButtonColorTwo = configuration.PlayButtonColorTwo,
+            ProgressColorMode = configuration.ProgressColorMode,
+            ProgressColorOne = configuration.ProgressColorOne,
+            ProgressColorTwo = configuration.ProgressColorTwo,
+            SidebarIconColorMode = configuration.SidebarIconColorMode,
+            SidebarIconColorOne = configuration.SidebarIconColorOne,
+            SidebarIconColorTwo = configuration.SidebarIconColorTwo,
+            MyListHeartColorMode = configuration.MyListHeartColorMode,
+            MyListHeartColorOne = configuration.MyListHeartColorOne,
+            MyListHeartColorTwo = configuration.MyListHeartColorTwo,
+            LogoImageDataUrl = configuration.LogoImageDataUrl,
+            MediaBarIntervalSeconds = configuration.MediaBarIntervalSeconds,
+            MediaBarImageType = configuration.MediaBarImageType,
         });
     }
 
@@ -119,6 +147,24 @@ public sealed class SectionSettingsController : ControllerBase
             AbyssFontImportUrl = saved.AbyssFontImportUrl,
             AbyssFontFamily = saved.AbyssFontFamily,
             AbyssLiteMode = saved.AbyssLiteMode,
+            HeaderTabsColorMode = saved.HeaderTabsColorMode,
+            HeaderTabsColorOne = saved.HeaderTabsColorOne,
+            HeaderTabsColorTwo = saved.HeaderTabsColorTwo,
+            PlayButtonColorMode = saved.PlayButtonColorMode,
+            PlayButtonColorOne = saved.PlayButtonColorOne,
+            PlayButtonColorTwo = saved.PlayButtonColorTwo,
+            ProgressColorMode = saved.ProgressColorMode,
+            ProgressColorOne = saved.ProgressColorOne,
+            ProgressColorTwo = saved.ProgressColorTwo,
+            SidebarIconColorMode = saved.SidebarIconColorMode,
+            SidebarIconColorOne = saved.SidebarIconColorOne,
+            SidebarIconColorTwo = saved.SidebarIconColorTwo,
+            MyListHeartColorMode = saved.MyListHeartColorMode,
+            MyListHeartColorOne = saved.MyListHeartColorOne,
+            MyListHeartColorTwo = saved.MyListHeartColorTwo,
+            LogoImageDataUrl = saved.LogoImageDataUrl,
+            MediaBarIntervalSeconds = saved.MediaBarIntervalSeconds,
+            MediaBarImageType = saved.MediaBarImageType,
         });
     }
 }

@@ -16,6 +16,22 @@
     var lastError = '';
     var renderedSectionCount = 0;
     var defaultSections = ['smalllibrarytiles', 'resume', 'resumeaudio', 'resumebook', 'livetv', 'nextup', 'latestmedia'];
+    var settingsCache = null;
+    var settingsCacheAt = 0;
+    var enhancementTimer = null;
+    var mediaBarTimer = null;
+    var mediaBarIndex = 0;
+    var mediaBarSourceKey = '';
+    var autoRefreshTimer = null;
+    var detailWorkKey = '';
+    var collectionsWorkKey = '';
+    var breadcrumbsWorkKey = '';
+    var infiniteLoading = false;
+    var infiniteLibraryKey = '';
+    var myListRenderKey = '';
+    var searchTimer = null;
+    var searchMode = 'core';
+    var originalHeaderHomeHtml = null;
 
     function prop(value, pascal, camel, fallback) {
         if (!value) return fallback;
@@ -35,9 +51,9 @@
     }
 
     function activeHomeContainer() {
-        var visibleHome = document.querySelector('.libraryPage:not(.hide) .homeSectionsContainer');
+        var visibleHome = document.querySelector('.libraryPage:not(.hide) .homeSectionsContainer:not(.hssm-my-list-container)');
         if (visibleHome) return visibleHome;
-        var candidates = document.querySelectorAll('.homeSectionsContainer');
+        var candidates = document.querySelectorAll('.homeSectionsContainer:not(.hssm-my-list-container)');
         for (var index = 0; index < candidates.length; index++) {
             var container = candidates[index];
             var page = container.closest('.libraryPage, .page');
@@ -54,9 +70,9 @@
         var userId = currentUserId();
         if (!userId) return Promise.resolve([]);
         var options = Object.assign({
-            Fields: 'PrimaryImageAspectRatio,DateCreated,PremiereDate,ProductionYear,CommunityRating,SortName,Tags',
+            Fields: 'PrimaryImageAspectRatio,DateCreated,PremiereDate,ProductionYear,CommunityRating,SortName,Tags,Overview,RunTimeTicks,ChildCount,RecursiveItemCount,ParentId,SeriesId,UserData',
             ImageTypeLimit: 1,
-            EnableImageTypes: 'Primary,Backdrop,Thumb'
+            EnableImageTypes: 'Primary,Art,Backdrop,Banner,Logo,Thumb,Disc,Box,BoxRear,Screenshot,Menu,Chapter'
         }, parameters || {});
         return getJson('Users/' + encodeURIComponent(userId) + '/Items', options).then(function (result) {
             return prop(result, 'Items', 'items', []);
@@ -97,11 +113,58 @@
         });
     }
 
-    function sectionItems(section) {
+    function postJson(path, body) {
+        return ApiClient.ajax({
+            type: 'POST',
+            url: ApiClient.getUrl(path),
+            data: JSON.stringify(body),
+            contentType: 'application/json',
+            dataType: 'json'
+        });
+    }
+
+    function tagSource(value, sectionName) {
+        var pieces = String(value || '').split('|');
+        return {
+            SourceLibraryId: pieces.shift() || '',
+            MetadataType: pieces.shift() || '',
+            MetadataValue: pieces.join('|'),
+            AdditionalLibraryIds: [],
+            CollectionTitle: sectionName || '',
+            Overview: '',
+            ExistingCollectionAction: '',
+            ArtPreference: 'JellyfinDefault'
+        };
+    }
+
+    function liveTagItems(section) {
+        var type = String(prop(section, 'Type', 'type', ''));
+        var sources = prop(section, 'SourceIds', 'sourceIds', []).map(function (value) { return tagSource(value, prop(section, 'Name', 'name', '')); });
+        if (!sources.length) return Promise.resolve([]);
+        var request = type === 'individual-tag-content'
+            ? postJson('CollectionManager/individual-collection-drafts/preview', sources[0])
+            : postJson('CollectionManager/tag-collection-drafts/preview', {
+                SelectedTags: sources,
+                AdditionalLibraryIds: [],
+                RequireAllTags: type === 'muilti-match-tag-collection-content',
+                CollectionTitle: prop(section, 'Name', 'name', ''),
+                Overview: '',
+                ExistingCollectionAction: '',
+                ArtPreference: 'JellyfinDefault'
+            });
+        return request.then(function (preview) {
+            return queryIds(prop(preview, 'Items', 'items', []).map(function (item) { return String(prop(item, 'Id', 'id', '')); }));
+        });
+    }
+
+    function sectionItems(section, autoRefresh) {
         var type = String(prop(section, 'Type', 'type', ''));
         var sources = prop(section, 'SourceIds', 'sourceIds', []).map(String);
         var itemIds = prop(section, 'ItemIds', 'itemIds', []).map(String);
-        if (type === 'manual-content' || type === 'individual-tag-content' || type === 'multiple-tag-content' || type === 'muilti-match-tag-collection-content') {
+        if (type === 'individual-tag-content' || type === 'multiple-tag-content' || type === 'muilti-match-tag-collection-content') {
+            return autoRefresh ? liveTagItems(section).catch(function () { return queryIds(itemIds); }) : queryIds(itemIds);
+        }
+        if (type === 'manual-content') {
             return queryIds(itemIds);
         }
         if (type === 'multiple-collections-in-a-row' || type === 'libraries-in-a-row') {
@@ -151,25 +214,109 @@
         return sorted.sort(function (left, right) { return String(prop(left, 'SortName', 'sortName', prop(left, 'Name', 'name', ''))).localeCompare(String(prop(right, 'SortName', 'sortName', prop(right, 'Name', 'name', '')))); });
     }
 
-    function card(item) {
+    function normalizedArtType(section) {
+        var type = String(prop(section, 'ArtType', 'artType', 'automatic')).toLowerCase();
+        var names = {
+            primary: 'Primary',
+            art: 'Art',
+            backdrop: 'Backdrop',
+            banner: 'Banner',
+            logo: 'Logo',
+            thumb: 'Thumb',
+            disc: 'Disc',
+            box: 'Box',
+            'box-rear': 'BoxRear',
+            screenshot: 'Screenshot',
+            menu: 'Menu',
+            chapter: 'Chapter'
+        };
+        return names[type] || 'Automatic';
+    }
+
+    function imageCandidate(item, type) {
+        var id = String(prop(item, 'Id', 'id', ''));
+        var imageTags = prop(item, 'ImageTags', 'imageTags', {}) || {};
+        if (type === 'Backdrop') {
+            var backdrops = prop(item, 'BackdropImageTags', 'backdropImageTags', []) || [];
+            if (backdrops.length) return { id: id, type: type };
+            var parentBackdrops = prop(item, 'ParentBackdropImageTags', 'parentBackdropImageTags', []) || [];
+            var parentBackdropId = prop(item, 'ParentBackdropItemId', 'parentBackdropItemId', '');
+            if (parentBackdrops.length && parentBackdropId) return { id: String(parentBackdropId), type: type };
+            return null;
+        }
+        if (type === 'Thumb') {
+            if (imageTags.Thumb) return { id: id, type: type };
+            var parentThumbTag = prop(item, 'ParentThumbImageTag', 'parentThumbImageTag', '');
+            var parentThumbId = prop(item, 'ParentThumbItemId', 'parentThumbItemId', '');
+            if (parentThumbTag && parentThumbId) return { id: String(parentThumbId), type: type };
+            return null;
+        }
+        if (type === 'Primary') {
+            if (imageTags.Primary) return { id: id, type: type };
+            var seriesTag = prop(item, 'SeriesPrimaryImageTag', 'seriesPrimaryImageTag', '');
+            var seriesId = prop(item, 'SeriesId', 'seriesId', '');
+            if (seriesTag && seriesId) return { id: String(seriesId), type: type };
+            var primaryTag = prop(item, 'PrimaryImageTag', 'primaryImageTag', '');
+            var primaryId = prop(item, 'PrimaryImageItemId', 'primaryImageItemId', id);
+            if (primaryTag) return { id: String(primaryId || id), type: type };
+            return null;
+        }
+        return imageTags[type] ? { id: id, type: type } : null;
+    }
+
+    function cardImage(item, section) {
+        var shape = String(prop(section, 'ArtShape', 'artShape', 'poster'));
+        var selected = normalizedArtType(section);
+        var preferred = selected === 'Automatic'
+            ? (shape === 'wide' ? ['Backdrop', 'Thumb', 'Banner', 'Primary'] : ['Primary', 'Thumb', 'Backdrop'])
+            : [selected, 'Primary', 'Thumb', 'Backdrop'];
+        var candidate = null;
+        preferred.some(function (type) {
+            candidate = imageCandidate(item, type);
+            return !!candidate;
+        });
+        if (!candidate) return '';
+        var dimensions = shape === 'wide'
+            ? { maxWidth: 640, maxHeight: 360, quality: 90 }
+            : (shape === 'poster' ? { maxWidth: 360, maxHeight: 540, quality: 90 } : { maxWidth: 480, maxHeight: 480, quality: 90 });
+        return ApiClient.getUrl('Items/' + encodeURIComponent(candidate.id) + '/Images/' + candidate.type, dimensions);
+    }
+
+    function cardShape(section) {
+        var shape = String(prop(section, 'ArtShape', 'artShape', 'poster'));
+        if (shape === 'wide') return { name: 'wide', card: 'overflowBackdropCard', padder: 'cardPadder-backdrop' };
+        if (shape === 'square') return { name: 'square', card: 'overflowSquareCard', padder: 'cardPadder-square' };
+        if (shape === 'circle') return { name: 'circle', card: 'overflowSquareCard', padder: 'cardPadder-square' };
+        return { name: 'poster', card: 'overflowPortraitCard', padder: 'cardPadder-overflowPortrait' };
+    }
+
+    function card(item, section) {
         var id = String(prop(item, 'Id', 'id', ''));
         var name = String(prop(item, 'Name', 'name', ''));
         var year = prop(item, 'ProductionYear', 'productionYear', '');
         var serverId = typeof ApiClient.serverId === 'function' ? ApiClient.serverId() : '';
         var href = '#/details?id=' + encodeURIComponent(id) + (serverId ? '&serverId=' + encodeURIComponent(serverId) : '');
-        var imageUrl = ApiClient.getUrl('Items/' + encodeURIComponent(id) + '/Images/Primary', { maxHeight: 480, quality: 90 });
-        return '<div class="card overflowPortraitCard card-hoverable card-withuserdata hssm-client-card" data-id="' + escapeHtml(id) + '">' +
-            '<div class="cardBox cardBox-bottompadded"><div class="cardScalable"><div class="cardPadder cardPadder-overflowPortrait"></div>' +
-            '<a is="emby-linkbutton" href="' + escapeHtml(href) + '" class="cardImageContainer coveredImage cardContent itemAction" aria-label="' + escapeHtml(name) + '" style="background-image:url(&quot;' + escapeHtml(imageUrl) + '&quot;)"></a>' +
-            '</div><div class="cardText cardTextCentered cardText-first"><bdi><a is="emby-linkbutton" href="' + escapeHtml(href) + '" class="itemAction textActionButton">' + escapeHtml(name) + '</a></bdi></div>' +
-            (year ? '<div class="cardText cardTextCentered cardText-secondary"><bdi>' + escapeHtml(year) + '</bdi></div>' : '') + '</div></div>';
+        var shape = cardShape(section);
+        var imageUrl = cardImage(item, section);
+        var showText = prop(section, 'ShowText', 'showText', true) !== false;
+        var imageStyle = imageUrl ? ' style="background-image:url(&quot;' + escapeHtml(imageUrl) + '&quot;)"' : '';
+        var footer = showText
+            ? '<div class="cardText cardTextCentered cardText-first"><bdi><a is="emby-linkbutton" href="' + escapeHtml(href) + '" class="itemAction textActionButton">' + escapeHtml(name) + '</a></bdi></div>' + (year ? '<div class="cardText cardTextCentered cardText-secondary"><bdi>' + escapeHtml(year) + '</bdi></div>' : '')
+            : '';
+        return '<div class="card ' + shape.card + ' card-hoverable card-withuserdata hssm-client-card" data-id="' + escapeHtml(id) + '">' +
+            '<div class="cardBox' + (showText ? ' cardBox-bottompadded' : '') + '"><div class="cardScalable"><div class="cardPadder ' + shape.padder + '"></div>' +
+            '<a is="emby-linkbutton" href="' + escapeHtml(href) + '" class="cardImageContainer coveredImage cardContent itemAction" aria-label="' + escapeHtml(name) + '"' + imageStyle + '></a>' +
+            '</div>' + footer + '</div></div>';
     }
 
     function sectionNode(section, items) {
         var node = document.createElement('div');
         var id = String(prop(section, 'Id', 'id', ''));
         var name = String(prop(section, 'Name', 'name', ''));
-        node.className = 'verticalSection hssm-client-section';
+        var artSize = String(prop(section, 'ArtSize', 'artSize', 'medium'));
+        var artShape = cardShape(section).name;
+        var artType = String(prop(section, 'ArtType', 'artType', 'automatic'));
+        node.className = 'verticalSection hssm-client-section hssm-size-' + artSize + ' hssm-shape-' + artShape + ' hssm-art-' + artType;
         node.dataset.hssmSectionId = id;
         if (!items.length) {
             node.hidden = true;
@@ -177,7 +324,7 @@
         }
         node.innerHTML = '<h2 class="sectionTitle sectionTitle-cards padded-left">' + escapeHtml(name) + '</h2>' +
             '<div class="hssm-client-scroller padded-top-focusscale padded-bottom-focusscale"><div class="itemsContainer scrollSlider focuscontainer-x hssm-client-items">' +
-            items.map(card).join('') + '</div></div>';
+            items.map(function (item) { return card(item, section); }).join('') + '</div></div>';
         return node;
     }
 
@@ -200,14 +347,12 @@
         var native = nativeTypes(preferences);
         var desired = [];
         var used = new Set();
-        var resumeIndex = native.indexOf('resume');
         function add(node) {
             if (node && !used.has(node)) {
                 used.add(node);
                 desired.push(node);
             }
         }
-        if (resumeIndex >= 0) add(container.querySelector('.section' + resumeIndex));
         sectionOrder.forEach(function (id) {
             var manager = container.querySelector('[data-hssm-section-id="' + CSS.escape(id) + '"]');
             if (manager) {
@@ -228,10 +373,496 @@
         if (!unchanged) desired.forEach(function (node) { container.appendChild(node); });
     }
 
+    function setting(settings, name, fallback) {
+        return prop(settings, name, name.charAt(0).toLowerCase() + name.slice(1), fallback);
+    }
+
+    function getClientSettings(force) {
+        if (!force && settingsCache && Date.now() - settingsCacheAt < 5000) return Promise.resolve(settingsCache);
+        return getJson('HomeScreenSectionsManager/client-settings').then(function (settings) {
+            settingsCache = settings || {};
+            settingsCacheAt = Date.now();
+            return settingsCache;
+        });
+    }
+
+    function currentItemId() {
+        var match = window.location.hash.match(/[?&]id=([^&]+)/i);
+        return match ? decodeURIComponent(match[1]) : '';
+    }
+
+    function currentTopParentId() {
+        var match = window.location.hash.match(/[?&]topParentId=([^&]+)/i);
+        return match ? decodeURIComponent(match[1]) : '';
+    }
+
+    function activePage() {
+        return document.querySelector('.libraryPage:not(.hide), .page:not(.hide)');
+    }
+
+    function applyLogo(settings) {
+        var dataUrl = String(setting(settings, 'LogoImageDataUrl', '') || '');
+        var onHome = !!activeHomeContainer();
+        var header = document.querySelector('.skinHeader .headerLeft, .headerLeft');
+        var homeButton = document.querySelector('.skinHeader .headerHomeButton, .headerHomeButton');
+        var standalone = document.querySelector('.hssm-header-logo-standalone');
+        if (homeButton && originalHeaderHomeHtml === null && homeButton.dataset.hssmLogo !== 'true') originalHeaderHomeHtml = homeButton.innerHTML;
+        if (!dataUrl) {
+            if (standalone) standalone.remove();
+            if (homeButton && originalHeaderHomeHtml !== null && homeButton.dataset.hssmLogo === 'true') homeButton.innerHTML = originalHeaderHomeHtml;
+            if (homeButton) delete homeButton.dataset.hssmLogo;
+            return;
+        }
+        if (onHome) {
+            if (homeButton && originalHeaderHomeHtml !== null && homeButton.dataset.hssmLogo === 'true') homeButton.innerHTML = originalHeaderHomeHtml;
+            if (homeButton) delete homeButton.dataset.hssmLogo;
+            if (header) {
+                if (!standalone || standalone.parentNode !== header) {
+                    if (standalone) standalone.remove();
+                    standalone = document.createElement('img');
+                    standalone.className = 'hssm-header-logo hssm-header-logo-standalone';
+                    standalone.alt = 'Home';
+                    var drawer = header.querySelector('.mainDrawerButton');
+                    if (drawer && drawer.nextSibling) header.insertBefore(standalone, drawer.nextSibling); else header.prepend(standalone);
+                }
+                if (standalone.src !== dataUrl) standalone.src = dataUrl;
+            }
+        } else {
+            if (standalone) standalone.remove();
+            if (homeButton) {
+                var image = homeButton.querySelector('.hssm-header-home-logo');
+                if (!image) { homeButton.innerHTML = '<img class="hssm-header-logo hssm-header-home-logo" alt="Home" />'; image = homeButton.querySelector('img'); }
+                if (image.src !== dataUrl) image.src = dataUrl;
+                homeButton.dataset.hssmLogo = 'true';
+            }
+        }
+    }
+
+    function mediaBarImage(item, requested) {
+        var selected = requested === 'primary' ? 'Primary' : requested === 'banner' ? 'Banner' : 'Backdrop';
+        var preferred = [selected, 'Backdrop', 'Thumb', 'Banner', 'Primary'];
+        var candidate = null;
+        preferred.some(function (type) { candidate = imageCandidate(item, type); return !!candidate; });
+        return candidate ? ApiClient.getUrl('Items/' + encodeURIComponent(candidate.id) + '/Images/' + candidate.type, { maxWidth: 2560, maxHeight: 1440, quality: 90 }) : '';
+    }
+
+    function responseItems(response) {
+        return prop(response, 'Items', 'items', []);
+    }
+
+    function nativeSectionItems(token, preferences, container) {
+        var native = nativeTypes(preferences);
+        var index = native.indexOf(token);
+        var row = index >= 0 ? container.querySelector('.section' + index) : null;
+        var ids = row ? Array.from(row.querySelectorAll('.card[data-id], [data-id].card')).map(function (node) { return node.getAttribute('data-id'); }).filter(Boolean) : [];
+        if (ids.length) return queryIds(ids);
+        var userId = currentUserId();
+        if (token === 'resume' || token === 'resumeaudio' || token === 'resumebook') {
+            var resumeOptions = { Limit: 30, Recursive: true, Fields: 'Overview,PrimaryImageAspectRatio,DateCreated,PremiereDate,ProductionYear,CommunityRating,SortName,Tags,RunTimeTicks,UserData' };
+            if (token === 'resumeaudio') resumeOptions.MediaTypes = 'Audio';
+            if (token === 'resumebook') resumeOptions.IncludeItemTypes = 'Book,AudioBook';
+            return getJson('Users/' + encodeURIComponent(userId) + '/Items/Resume', resumeOptions).then(responseItems);
+        }
+        if (token === 'nextup') return getJson('Shows/NextUp', { UserId: userId, Limit: 30, Fields: 'Overview,PrimaryImageAspectRatio,PremiereDate,ProductionYear,RunTimeTicks,UserData' }).then(responseItems);
+        if (token === 'latestmedia') return queryItems({ Recursive: true, SortBy: 'DateCreated', SortOrder: 'Descending', Limit: 30 });
+        if (token === 'livetv') return getJson('LiveTv/Channels', { UserId: userId, Limit: 30, Fields: 'Overview,PrimaryImageAspectRatio' }).then(responseItems);
+        if (token === 'smalllibrarytiles' || token === 'librarybuttons') {
+            var request = typeof ApiClient.getUserViews === 'function' ? ApiClient.getUserViews({}, userId) : getJson('Users/' + encodeURIComponent(userId) + '/Views');
+            return request.then(responseItems);
+        }
+        return Promise.resolve([]);
+    }
+
+    function mediaSourceNode(container, topId, preferences) {
+        var manager = container.querySelector('[data-hssm-section-id="' + CSS.escape(topId) + '"]');
+        if (manager) return manager;
+        var match = topId.match(/^jellyfin-(\d+)-/);
+        return match ? container.querySelector('.section' + Number(match[1])) : null;
+    }
+
+    function clearMediaBar(container) {
+        window.clearInterval(mediaBarTimer);
+        mediaBarTimer = null;
+        mediaBarSourceKey = '';
+        Array.from(document.querySelectorAll('.hssm-media-bar')).forEach(function (node) { node.remove(); });
+        Array.from(document.querySelectorAll('.featurediframe')).forEach(function (node) { node.classList.remove('hssm-media-bar-replaced'); });
+        if (container) Array.from(container.children).forEach(function (node) { node.classList.remove('hssm-media-source-section'); });
+    }
+
+    function renderMediaBar(settings, preferences, container, sections) {
+        var order = setting(settings, 'SectionOrder', []).map(String);
+        var topId = order[0] || '';
+        if (!topId) { clearMediaBar(container); return Promise.resolve(); }
+        var section = sections.find(function (entry) { return String(prop(entry, 'Id', 'id', '')) === topId; });
+        var itemsRequest = section ? sectionItems(section, setting(settings, 'AutoRefreshSections', true)) : nativeSectionItems((topId.match(/^jellyfin-\d+-(.*)$/) || [])[1] || '', preferences, container);
+        return itemsRequest.then(function (items) {
+            items = section ? orderItems(uniqueItems(items), section) : uniqueItems(items);
+            if (!items.length) { clearMediaBar(container); return; }
+            var barKey = topId + '|' + setting(settings, 'MediaBarImageType', 'backdrop') + '|' + setting(settings, 'MediaBarIntervalSeconds', 5) + '|' + items.map(function (item) { return String(prop(item, 'Id', 'id', '')); }).join(',');
+            var existingBar = document.querySelector('.hssm-media-bar');
+            if (existingBar && existingBar.dataset.hssmKey === barKey) {
+                var existingSource = mediaSourceNode(container, topId, preferences); if (existingSource) existingSource.classList.add('hssm-media-source-section');
+                Array.from(document.querySelectorAll('.featurediframe')).forEach(function (node) { node.classList.add('hssm-media-bar-replaced'); });
+                return;
+            }
+            clearMediaBar(container);
+            var sourceNode = mediaSourceNode(container, topId, preferences);
+            if (sourceNode) sourceNode.classList.add('hssm-media-source-section');
+            Array.from(document.querySelectorAll('.featurediframe')).forEach(function (node) { node.classList.add('hssm-media-bar-replaced'); });
+            var bar = document.createElement('section');
+            bar.dataset.hssmKey = barKey;
+            bar.className = 'hssm-media-bar';
+            bar.setAttribute('aria-label', 'Home screen media bar');
+            container.parentNode.insertBefore(bar, container);
+            mediaBarSourceKey = topId;
+            mediaBarIndex = 0;
+            function show(index) {
+                if (!bar.isConnected || !items.length) return;
+                mediaBarIndex = (index + items.length) % items.length;
+                var item = items[mediaBarIndex];
+                var id = String(prop(item, 'Id', 'id', ''));
+                var title = String(prop(item, 'SeriesName', 'seriesName', '') || prop(item, 'Name', 'name', ''));
+                var overview = String(prop(item, 'Overview', 'overview', ''));
+                var image = mediaBarImage(item, String(setting(settings, 'MediaBarImageType', 'backdrop')));
+                var detailsId = String(prop(item, 'Type', 'type', '')) === 'Episode' ? String(prop(item, 'SeriesId', 'seriesId', id)) : id;
+                bar.style.backgroundImage = image ? 'linear-gradient(90deg,rgba(0,0,0,.82),rgba(0,0,0,.12)),url("' + image.replace(/"/g, '%22') + '")' : 'linear-gradient(135deg,#1e1e24,#08080b)';
+                bar.innerHTML = '<div class="hssm-media-bar-content"><h1>' + escapeHtml(title) + '</h1>' + (overview ? '<p>' + escapeHtml(overview) + '</p>' : '') + '<div class="hssm-media-bar-actions"><button type="button" class="hssm-media-bar-play raised button-submit emby-button" data-hssm-play-id="' + escapeHtml(id) + '"><span class="material-icons play_arrow" aria-hidden="true"></span>Play</button><a is="emby-linkbutton" class="hssm-media-bar-info raised emby-button" href="#/details?id=' + encodeURIComponent(detailsId) + '"><span class="material-icons info" aria-hidden="true"></span>More Info</a></div></div><div class="hssm-media-bar-dots">' + items.map(function (_, dot) { return '<button type="button" aria-label="Show item ' + (dot + 1) + '" data-hssm-media-dot="' + dot + '" class="' + (dot === mediaBarIndex ? 'active' : '') + '"></button>'; }).join('') + '</div>';
+            }
+            bar.addEventListener('click', function (event) {
+                var dot = event.target.closest('[data-hssm-media-dot]');
+                if (dot) { show(Number(dot.dataset.hssmMediaDot)); return; }
+                var play = event.target.closest('[data-hssm-play-id]');
+                if (!play) return;
+                var id = play.dataset.hssmPlayId;
+                var action = document.querySelector('[data-id="' + CSS.escape(id) + '"] [data-action="resume"], [data-id="' + CSS.escape(id) + '"] [data-action="play"], [data-id="' + CSS.escape(id) + '"][data-action="resume"], [data-id="' + CSS.escape(id) + '"][data-action="play"]');
+                if (action) action.click(); else window.location.hash = '#/video?id=' + encodeURIComponent(id);
+            });
+            show(0);
+            var seconds = Math.max(1, Number(setting(settings, 'MediaBarIntervalSeconds', 5)) || 5);
+            if (items.length > 1) mediaBarTimer = window.setInterval(function () { show(mediaBarIndex + 1); }, seconds * 1000);
+        });
+    }
+
+    function userDataPath(itemId) {
+        return 'UserItems/' + encodeURIComponent(itemId) + '/UserData';
+    }
+
+    function dismissedNextUpKey() {
+        var server = typeof ApiClient.serverId === 'function' ? ApiClient.serverId() : 'server';
+        return 'hssm-dismissed-nextup-' + server + '-' + currentUserId();
+    }
+
+    function dismissedNextUp() {
+        try { return JSON.parse(localStorage.getItem(dismissedNextUpKey()) || '[]'); } catch (_) { return []; }
+    }
+
+    function applyRemoveButtons(settings) {
+        Array.from(document.querySelectorAll('.hssm-remove-row-button')).forEach(function (button) { if (!setting(settings, 'EnableRemoveContinueNextUp', false)) button.remove(); });
+        if (!setting(settings, 'EnableRemoveContinueNextUp', false)) return;
+        var dismissed = dismissedNextUp();
+        Array.from(document.querySelectorAll('.verticalSection, .section')).forEach(function (row) {
+            var heading = row.querySelector('.sectionTitle, h2');
+            var title = heading ? heading.textContent.trim().toLowerCase() : '';
+            var isContinue = title.indexOf('continue watching') >= 0;
+            var isNext = title.indexOf('next up') >= 0;
+            if (!isContinue && !isNext) return;
+            Array.from(row.querySelectorAll('.card[data-id]')).forEach(function (cardNode) {
+                var id = cardNode.getAttribute('data-id');
+                if (!id) return;
+                if (isNext && dismissed.indexOf(id) >= 0) { cardNode.remove(); return; }
+                if (cardNode.querySelector('.hssm-remove-row-button')) return;
+                var holder = cardNode.querySelector('.cardScalable, .cardOverlayContainer') || cardNode;
+                var button = document.createElement('button');
+                button.type = 'button';
+                button.className = 'hssm-remove-row-button emby-button';
+                button.title = isNext ? 'Remove from Next Up' : 'Remove from Continue Watching';
+                button.innerHTML = '<span class="material-icons close" aria-hidden="true"></span>';
+                button.addEventListener('click', function (event) {
+                    event.preventDefault(); event.stopPropagation(); button.disabled = true;
+                    if (isNext && !cardNode.hasAttribute('data-positionticks')) {
+                        var hidden = dismissedNextUp(); if (hidden.indexOf(id) < 0) hidden.push(id);
+                        localStorage.setItem(dismissedNextUpKey(), JSON.stringify(hidden)); cardNode.remove(); return;
+                    }
+                    getJson(userDataPath(id)).then(function (userData) {
+                        userData.PlayedPercentage = 0; userData.PlaybackPositionTicks = 0;
+                        return postJson(userDataPath(id), userData);
+                    }).then(function () { cardNode.remove(); }, function () { button.disabled = false; });
+                });
+                holder.appendChild(button);
+            });
+        });
+    }
+
+    function addMyListButton(cardNode) {
+        if (cardNode.querySelector('.hssm-my-list-button')) return;
+        var id = cardNode.getAttribute('data-id');
+        if (!id) return;
+        var holder = cardNode.querySelector('.cardScalable, .cardOverlayContainer') || cardNode;
+        var button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'hssm-my-list-button emby-button';
+        button.title = 'Add to My List';
+        button.innerHTML = '<span class="material-icons favorite_border" aria-hidden="true"></span>';
+        ApiClient.getItem(currentUserId(), id).then(function (item) {
+            var liked = !!prop(prop(item, 'UserData', 'userData', {}), 'Likes', 'likes', false);
+            button.dataset.liked = liked ? 'true' : 'false';
+            button.title = liked ? 'Remove from My List' : 'Add to My List';
+            button.querySelector('.material-icons').textContent = liked ? 'favorite' : 'favorite_border';
+        }).catch(function () {});
+        button.addEventListener('click', function (event) {
+            event.preventDefault(); event.stopPropagation();
+            var next = button.dataset.liked !== 'true'; button.disabled = true;
+            ApiClient.updateUserItemRating(currentUserId(), id, next).then(function () {
+                button.dataset.liked = next ? 'true' : 'false'; button.title = next ? 'Remove from My List' : 'Add to My List';
+                button.querySelector('.material-icons').textContent = next ? 'favorite' : 'favorite_border';
+                myListRenderKey = '';
+                if (!next && cardNode.closest('.hssm-my-list-container')) cardNode.remove();
+            }).finally(function () { button.disabled = false; });
+        });
+        holder.appendChild(button);
+    }
+
+    function renderMyList(container) {
+        var key = currentUserId() + ':' + Date.now();
+        myListRenderKey = key;
+        container.innerHTML = '<p class="hssm-loading">Loading My List…</p>';
+        return queryItems({ Filters: 'Likes', Recursive: true, Limit: 500, IncludeItemTypes: 'Movie,Series,Season,Episode,Video,BoxSet,Playlist,Audio,MusicAlbum,Book,AudioBook' }).then(function (items) {
+            if (myListRenderKey !== key) return;
+            var definition = { Id: 'my-list', Name: 'My List', ArtSize: 'medium', ArtType: 'automatic', ArtShape: 'poster', ShowText: true };
+            var section = sectionNode(definition, uniqueItems(items)); section.hidden = false;
+            container.innerHTML = ''; container.appendChild(section);
+            Array.from(container.querySelectorAll('.card[data-id]')).forEach(addMyListButton);
+        });
+    }
+
+    function applyMyList(settings) {
+        var enabled = setting(settings, 'EnableMyList', false);
+        Array.from(document.querySelectorAll('.hssm-my-list-button')).forEach(function (node) { if (!enabled) node.remove(); });
+        if (!enabled) Array.from(document.querySelectorAll('.hssm-my-list-detail-button')).forEach(function (node) { node.remove(); });
+        var indexPage = document.getElementById('indexPage');
+        var tabs = document.querySelector('.headerTabs.sectionTabs');
+        if (!enabled) {
+            var oldButton = document.querySelector('.hssm-my-list-tab'); if (oldButton) oldButton.remove();
+            var oldPage = document.querySelector('.hssm-my-list-page'); if (oldPage) oldPage.remove();
+            return;
+        }
+        Array.from(document.querySelectorAll('.card[data-id]')).forEach(addMyListButton);
+        var detail = activePage();
+        var detailId = currentItemId();
+        if (detail && detailId && !detail.querySelector('.hssm-my-list-detail-button')) {
+            var buttons = detail.querySelector('.mainDetailButtons');
+            if (buttons) { var shell = document.createElement('div'); shell.className = 'hssm-my-list-detail-button card'; shell.dataset.id = detailId; buttons.appendChild(shell); addMyListButton(shell); }
+        }
+        if (!indexPage || !tabs) return;
+        var button = tabs.querySelector('.hssm-my-list-tab');
+        if (!button) {
+            button = document.createElement('button'); button.type = 'button'; button.className = 'emby-tab-button hssm-my-list-tab'; button.textContent = 'My List'; tabs.appendChild(button);
+        }
+        var page = indexPage.querySelector('.hssm-my-list-page');
+        if (!page) { page = document.createElement('div'); page.className = 'tabContent pageTabContent hssm-my-list-page'; page.hidden = true; page.innerHTML = '<div class="sections homeSectionsContainer hssm-my-list-container"></div>'; indexPage.appendChild(page); }
+        if (tabs.dataset.hssmMyListBound !== 'true') {
+            tabs.dataset.hssmMyListBound = 'true';
+            tabs.addEventListener('click', function (event) {
+                if (event.target.closest('.hssm-my-list-tab')) return;
+                var customPage = indexPage.querySelector('.hssm-my-list-page'); if (customPage) customPage.hidden = true;
+                var customButton = tabs.querySelector('.hssm-my-list-tab'); if (customButton) customButton.classList.remove('emby-tab-button-active');
+            });
+        }
+        if (button.dataset.hssmBound !== 'true') {
+            button.dataset.hssmBound = 'true';
+            button.addEventListener('click', function () {
+                Array.from(indexPage.querySelectorAll(':scope > .tabContent')).forEach(function (tab) { tab.hidden = tab !== page; tab.classList.toggle('is-active', tab === page); });
+                Array.from(tabs.querySelectorAll('.emby-tab-button')).forEach(function (tabButton) { tabButton.classList.toggle('emby-tab-button-active', tabButton === button); });
+                page.hidden = false; renderMyList(page.querySelector('.hssm-my-list-container'));
+            });
+        }
+    }
+
+    function formatEndTime(ticks) {
+        if (!ticks || ticks <= 0) return '';
+        var end = new Date(Date.now() + ticks / 10000);
+        var time = end.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+        var now = new Date();
+        return now.toDateString() === end.toDateString() ? time : time + ' ' + end.toLocaleDateString([], { month: 'short', day: 'numeric' });
+    }
+
+    function applySeriesInfo(settings) {
+        if (!setting(settings, 'EnableSeriesInfo', false)) { Array.from(document.querySelectorAll('.hssm-series-info')).forEach(function (node) { node.remove(); }); return; }
+        var id = currentItemId(); if (!id || window.location.hash.indexOf('/details') < 0) return;
+        var page = activePage(); if (!page || page.querySelector('.hssm-series-info') || detailWorkKey === id) return;
+        var misc = page.querySelector('.itemMiscInfo'); if (!misc) return;
+        detailWorkKey = id;
+        ApiClient.getItem(currentUserId(), id).then(function (item) {
+            var type = String(prop(item, 'Type', 'type', ''));
+            if (type !== 'Series' && type !== 'Season') return [];
+            return type === 'Season' ? queryItems({ ParentId: id, Recursive: false, IncludeItemTypes: 'Episode', Limit: 1000 }).then(function (episodes) { return [item, episodes]; }) : [item, []];
+        }).then(function (values) {
+            if (!values.length || !misc.isConnected || misc.querySelector('.hssm-series-info')) return;
+            var item = values[0], episodes = values[1], type = String(prop(item, 'Type', 'type', ''));
+            var seasons = Number(prop(item, 'ChildCount', 'childCount', 0)) || 0;
+            var episodeCount = type === 'Season' ? episodes.length : Number(prop(item, 'RecursiveItemCount', 'recursiveItemCount', 0)) || 0;
+            var runtime = type === 'Season' ? episodes.reduce(function (sum, episode) { return sum + (Number(prop(episode, 'RunTimeTicks', 'runTimeTicks', 0)) || 0); }, 0) : (Number(prop(item, 'RunTimeTicks', 'runTimeTicks', 0)) || 0) * episodeCount;
+            var parts = [];
+            if (type === 'Series' && seasons) parts.push(seasons + (seasons === 1 ? ' Season' : ' Seasons'));
+            if (episodeCount) parts.push(episodeCount + (episodeCount === 1 ? ' Episode' : ' Episodes'));
+            var end = formatEndTime(runtime); if (end) parts.push('Ends at: ' + end);
+            if (parts.length) { var node = document.createElement('div'); node.className = 'hssm-series-info'; node.innerHTML = parts.map(function (part) { return '<div class="mediaInfoItem">' + escapeHtml(part) + '</div>'; }).join(''); misc.appendChild(node); misc.classList.remove('hide'); }
+        }).finally(function () { detailWorkKey = ''; });
+    }
+
+    function applyCollections(settings) {
+        if (!setting(settings, 'EnableCollectionsOnDetailPage', false)) { Array.from(document.querySelectorAll('.hssm-detail-collections')).forEach(function (node) { node.remove(); }); return; }
+        var id = currentItemId(); if (!id || window.location.hash.indexOf('/details') < 0) return;
+        var page = activePage(); if (!page || page.querySelector('.hssm-detail-collections') || collectionsWorkKey === id) return;
+        var content = page.querySelector('.detailPageContent'); if (!content) return;
+        collectionsWorkKey = id;
+        queryItems({ IncludeItemTypes: 'BoxSet', Recursive: true, Limit: 1000 }).then(function (collections) {
+            return Promise.all(collections.map(function (collection) { return queryItems({ ParentId: prop(collection, 'Id', 'id', ''), Recursive: false, Limit: 1000 }).then(function (members) { return members.some(function (member) { return String(prop(member, 'Id', 'id', '')) === id; }) ? collection : null; }); }));
+        }).then(function (collections) {
+            collections = collections.filter(Boolean); if (!collections.length || !content.isConnected) return;
+            var definition = { Id: 'detail-collections', Name: 'Also Part of These Collections', ArtSize: 'small', ArtType: 'primary', ArtShape: 'poster', ShowText: true };
+            var node = sectionNode(definition, collections); node.classList.add('hssm-detail-collections'); node.hidden = false;
+            var similar = content.querySelector('#similarCollapsible'); if (similar) content.insertBefore(node, similar); else content.appendChild(node);
+        }).finally(function () { collectionsWorkKey = ''; });
+    }
+
+    function applyBreadcrumbs(settings) {
+        var existing = document.querySelector('.hssm-breadcrumbs');
+        var id = currentItemId();
+        if (!setting(settings, 'EnableBreadcrumbs', false) || !id || window.location.hash.indexOf('/details') < 0) { if (existing) existing.remove(); return; }
+        if (existing && existing.dataset.hssmItemId === id) return;
+        if (existing) existing.remove();
+        var target = document.querySelector('.skinHeader .headerLeft, .headerLeft');
+        if (!target || breadcrumbsWorkKey === id) return;
+        breadcrumbsWorkKey = id;
+        var chain = [];
+        var current = null;
+        function parent(item, depth) {
+            chain.unshift(item); var parentId = String(prop(item, 'ParentId', 'parentId', ''));
+            return parentId && depth < 6 ? ApiClient.getItem(currentUserId(), parentId).then(function (parentItem) { return parent(parentItem, depth + 1); }).catch(function () {}) : Promise.resolve();
+        }
+        ApiClient.getItem(currentUserId(), id).then(function (item) { current = item; return parent(item, 0); }).then(function () {
+            if (!target.isConnected) return;
+            chain = chain.filter(function (item) { return String(prop(item, 'Type', 'type', '')) !== 'UserRootFolder'; });
+            if (chain.length < 2) return;
+            var currentType = String(prop(current, 'Type', 'type', ''));
+            function href(item) {
+                var itemId = String(prop(item, 'Id', 'id', ''));
+                var itemType = String(prop(item, 'Type', 'type', ''));
+                if (itemType === 'CollectionFolder') {
+                    var route = currentType === 'Movie' ? 'movies' : ['Series','Season','Episode'].indexOf(currentType) >= 0 ? 'tv' : ['MusicArtist','MusicAlbum','Audio'].indexOf(currentType) >= 0 ? 'music' : 'home';
+                    return '#/' + route + '?topParentId=' + encodeURIComponent(itemId) + '&tab=0';
+                }
+                return '#/details?id=' + encodeURIComponent(itemId);
+            }
+            var node = document.createElement('nav'); node.className = 'hssm-breadcrumbs'; node.dataset.hssmItemId = id; node.setAttribute('aria-label', 'Breadcrumb');
+            node.innerHTML = chain.map(function (item, index) { var name = String(prop(item, 'Name', 'name', '')); return (index ? '<span aria-hidden="true">›</span>' : '') + (index === chain.length - 1 ? '<span>' + escapeHtml(name) + '</span>' : '<a href="' + escapeHtml(href(item)) + '">' + escapeHtml(name) + '</a>'); }).join('');
+            target.appendChild(node);
+        }).finally(function () { breadcrumbsWorkKey = ''; });
+    }
+
+    function applyInfiniteScroll(settings) {
+        var ids = setting(settings, 'InfiniteScrollLibraryIds', []).map(String);
+        infiniteLibraryKey = ids.indexOf(currentTopParentId()) >= 0 ? currentTopParentId() : '';
+        document.body.classList.toggle('hssm-infinite-scroll-active', !!infiniteLibraryKey);
+    }
+
+    function tryInfiniteScroll() {
+        if (!infiniteLibraryKey || infiniteLoading || window.innerHeight + window.scrollY < document.documentElement.scrollHeight - 900) return;
+        var page = activePage(); if (!page) return;
+        var next = page.querySelector('.btnNextPage:not([disabled])');
+        var container = page.querySelector('.tabContent.is-active .itemsContainer, .itemsContainer');
+        if (!next || !container || !container.children.length) return;
+        infiniteLoading = true;
+        var scrollY = window.scrollY;
+        var previous = Array.from(container.children).map(function (node) { return node.cloneNode(true); });
+        var previousFirst = container.querySelector('[data-id]') ? container.querySelector('[data-id]').getAttribute('data-id') : '';
+        next.click();
+        var attempts = 0;
+        var poll = window.setInterval(function () {
+            attempts += 1;
+            var first = container.querySelector('[data-id]');
+            if ((first && first.getAttribute('data-id') !== previousFirst) || attempts > 80) {
+                window.clearInterval(poll);
+                if (attempts <= 80) {
+                    var currentIds = new Set(Array.from(container.querySelectorAll('[data-id]')).map(function (node) { return node.getAttribute('data-id'); }));
+                    var fragment = document.createDocumentFragment(); previous.forEach(function (node) { var id = node.getAttribute && node.getAttribute('data-id'); if (!id || !currentIds.has(id)) fragment.appendChild(node); });
+                    container.insertBefore(fragment, container.firstChild); window.scrollTo(0, scrollY);
+                }
+                infiniteLoading = false;
+            }
+        }, 100);
+    }
+
+    function runEnhancedSearch(page, term, mode) {
+        var resultHost = page.querySelector('.hssm-search-results'); if (!resultHost) return;
+        if (!term.trim()) { resultHost.innerHTML = ''; page.classList.remove('hssm-search-showing'); return; }
+        page.classList.add('hssm-search-showing'); resultHost.innerHTML = '<p class="hssm-loading">Searching Jellyfin…</p>';
+        var types = mode === 'music' ? 'Audio,MusicAlbum,MusicArtist,MusicVideo' : mode === 'books' ? 'Book,AudioBook' : mode === 'all' ? 'Movie,Series,Season,Episode,Video,BoxSet,Playlist,Audio,MusicAlbum,MusicArtist,MusicVideo,Book,AudioBook' : 'Movie,Series,Season,Episode,Video';
+        queryItems({ SearchTerm: term.trim(), IncludeItemTypes: types, Recursive: true, Limit: 100 }).then(function (items) {
+            if (!resultHost.isConnected) return;
+            var definition = { ArtSize: 'medium', ArtType: 'automatic', ArtShape: 'poster', ShowText: true };
+            resultHost.innerHTML = '<p class="hssm-search-count">' + items.length + (items.length === 1 ? ' result' : ' results') + '</p><div class="hssm-search-grid">' + uniqueItems(items).map(function (item) { return card(item, definition); }).join('') + '</div>';
+            Array.from(resultHost.querySelectorAll('.card[data-id]')).forEach(addMyListButton);
+        }, function () { resultHost.innerHTML = '<p>Jellyfin search could not be completed.</p>'; });
+    }
+
+    function applyEnhancedSearch(settings) {
+        var enabled = setting(settings, 'EnableEnhancedSearch', false);
+        var page = document.getElementById('searchPage') || (window.location.hash.indexOf('/search') >= 0 ? activePage() : null);
+        if (!enabled) { Array.from(document.querySelectorAll('.hssm-search-controls, .hssm-search-results')).forEach(function (node) { node.remove(); }); if (page) page.classList.remove('hssm-search-showing'); return; }
+        if (!page) return;
+        var input = page.querySelector('#searchTextInput'); if (!input || page.querySelector('.hssm-search-controls')) return;
+        var controls = document.createElement('div'); controls.className = 'hssm-search-controls';
+        controls.innerHTML = [['all','All'],['core','Movies & TV'],['music','Music'],['books','Books']].map(function (entry) { return '<button type="button" class="emby-button ' + (entry[0] === searchMode ? 'raised button-submit' : '') + '" data-hssm-search-mode="' + entry[0] + '">' + entry[1] + '</button>'; }).join('');
+        var results = document.createElement('div'); results.className = 'hssm-search-results';
+        var inputContainer = input.closest('.inputContainer, .searchfields') || input; inputContainer.parentNode.insertBefore(controls, inputContainer.nextSibling); controls.parentNode.insertBefore(results, controls.nextSibling);
+        function search() { window.clearTimeout(searchTimer); searchTimer = window.setTimeout(function () { runEnhancedSearch(page, input.value, searchMode); }, 250); }
+        input.addEventListener('input', search);
+        controls.addEventListener('click', function (event) { var button = event.target.closest('[data-hssm-search-mode]'); if (!button) return; searchMode = button.dataset.hssmSearchMode; Array.from(controls.querySelectorAll('button')).forEach(function (entry) { entry.classList.toggle('raised', entry === button); entry.classList.toggle('button-submit', entry === button); }); search(); });
+        if (input.value) search();
+    }
+    function configureAutoRefresh(settings) {
+        var enabled = setting(settings, 'AutoRefreshSections', true);
+        if (!enabled) { window.clearInterval(autoRefreshTimer); autoRefreshTimer = null; return; }
+        if (autoRefreshTimer) return;
+        autoRefreshTimer = window.setInterval(function () {
+            settingsCache = null;
+            settingsCacheAt = 0;
+            lastSignature = '';
+            scheduleRender();
+        }, 60000);
+    }
+
+
+    function applyEnhancements(settings) {
+        applyLogo(settings);
+        applyRemoveButtons(settings);
+        applyMyList(settings);
+        applySeriesInfo(settings);
+        applyCollections(settings);
+        applyBreadcrumbs(settings);
+        applyInfiniteScroll(settings);
+        configureAutoRefresh(settings);
+        applyEnhancedSearch(settings);
+    }
+
+    function scheduleEnhancements(force) {
+        window.clearTimeout(enhancementTimer);
+        enhancementTimer = window.setTimeout(function () {
+            if (!window.ApiClient || !currentUserId()) return;
+            getClientSettings(force).then(applyEnhancements).catch(function (error) { console.warn('[Home Screen Manager] Could not apply browser enhancements.', error); });
+        }, 120);
+    }
     function signature(settings) {
         return JSON.stringify({
             sections: prop(settings, 'Sections', 'sections', []),
-            order: prop(settings, 'SectionOrder', 'sectionOrder', [])
+            order: prop(settings, 'SectionOrder', 'sectionOrder', []),
+            autoRefresh: setting(settings, 'AutoRefreshSections', true),
+            mediaBarInterval: setting(settings, 'MediaBarIntervalSeconds', 5),
+            mediaBarImageType: setting(settings, 'MediaBarImageType', 'backdrop'),
+            logo: setting(settings, 'LogoImageDataUrl', ''),
+            myList: setting(settings, 'EnableMyList', false)
         });
     }
 
@@ -253,7 +884,7 @@
         window.clearTimeout(homeRetryTimer);
         rendering = true;
         rerenderRequested = false;
-        Promise.all([getJson('HomeScreenSectionsManager/client-settings'), nativePreferences()]).then(function (values) {
+        Promise.all([getClientSettings(false), nativePreferences()]).then(function (values) {
             var settings = values[0] || {};
             var preferences = values[1] || {};
             var sections = prop(settings, 'Sections', 'sections', []);
@@ -265,11 +896,12 @@
             });
             if (complete) {
                 applyHybridOrder(container, settings, preferences);
-                return;
+                applyEnhancements(settings);
+                return renderMediaBar(settings, preferences, container, sections);
             }
             existing.forEach(function (node) { node.remove(); });
             return Promise.all(sections.map(function (section) {
-                return sectionItems(section).then(function (items) {
+                return sectionItems(section, setting(settings, 'AutoRefreshSections', true)).then(function (items) {
                     var node = sectionNode(section, orderItems(uniqueItems(items), section));
                     container.appendChild(node);
                 }, function (error) {
@@ -283,6 +915,8 @@
                 lastError = '';
                 renderedSectionCount = container.querySelectorAll('[data-hssm-section-id]').length;
                 applyHybridOrder(container, settings, preferences);
+                applyEnhancements(settings);
+                return renderMediaBar(settings, preferences, container, sections);
             });
         }).catch(function (error) {
             lastError = error && (error.message || error.statusText) ? String(error.message || error.statusText) : String(error || 'Unknown rendering error');
@@ -301,15 +935,24 @@
     function restartHomeSearch() {
         homeRetryCount = 0;
         lastSignature = '';
+        settingsCache = null;
+        settingsCacheAt = 0;
         scheduleRender();
+        scheduleEnhancements(true);
     }
 
-    var observer = new MutationObserver(scheduleRender);
+
+    var observer = new MutationObserver(function () {
+        scheduleRender();
+        scheduleEnhancements(false);
+    });
     observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
     window.addEventListener('hashchange', restartHomeSearch);
     window.addEventListener('pageshow', restartHomeSearch);
     document.addEventListener('viewshow', restartHomeSearch);
     window.addEventListener('home-screen-manager-refresh', restartHomeSearch);
+    window.addEventListener('scroll', tryInfiniteScroll, { passive: true });
+    window.addEventListener('resize', function () { scheduleEnhancements(false); }, { passive: true });
     window.HomeScreenManagerClient = {
         refresh: restartHomeSearch,
         status: function () {
@@ -321,4 +964,5 @@
         }
     };
     scheduleRender();
+    scheduleEnhancements(true);
 }());

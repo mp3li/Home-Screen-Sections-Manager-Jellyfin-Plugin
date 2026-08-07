@@ -22,14 +22,330 @@
     padding-right: 3.3%;
 }
 
+.hssm-client-section {
+    --hssm-card-width: 10em;
+}
+
+.hssm-size-extra-small {
+    --hssm-card-width: 6.5em;
+}
+
+.hssm-size-small {
+    --hssm-card-width: 8em;
+}
+
+.hssm-size-large {
+    --hssm-card-width: 13em;
+}
+
+.hssm-size-extra-large {
+    --hssm-card-width: 16em;
+}
+
 .hssm-client-card {
-    flex: 0 0 10em;
-    width: 10em;
+    flex: 0 0 var(--hssm-card-width);
+    width: var(--hssm-card-width);
+}
+
+.hssm-shape-circle .cardScalable,
+.hssm-shape-circle .cardPadder,
+.hssm-shape-circle .cardImageContainer {
+    border-radius: 50% !important;
+    overflow: hidden;
+}
+
+.hssm-art-logo .cardImageContainer,
+.hssm-art-disc .cardImageContainer,
+.hssm-art-art .cardImageContainer {
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: contain !important;
 }
 
 @media (min-width: 80em) {
-    .hssm-client-card {
-        flex-basis: 11.5em;
-        width: 11.5em;
+    .hssm-client-section {
+        --hssm-card-width: 11.5em;
+    }
+
+    .hssm-size-extra-small {
+        --hssm-card-width: 7.5em;
+    }
+
+    .hssm-size-small {
+        --hssm-card-width: 9.5em;
+    }
+
+    .hssm-size-large {
+        --hssm-card-width: 14.5em;
+    }
+
+    .hssm-size-extra-large {
+        --hssm-card-width: 18em;
+    }
+}
+
+.featurediframe.hssm-media-bar-replaced,
+.hssm-media-source-section {
+    display: none !important;
+}
+
+.hssm-media-bar {
+    align-items: flex-end;
+    background-color: #111;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: cover;
+    box-sizing: border-box;
+    display: flex;
+    height: 70vh;
+    justify-content: space-between;
+    max-height: 760px;
+    min-height: 420px;
+    padding: clamp(2em, 7vw, 7em) 4% clamp(2em, 6vw, 5em);
+    position: relative;
+    width: 100%;
+}
+
+.hssm-media-bar-content {
+    color: #fff;
+    max-width: min(48em, 68vw);
+    position: relative;
+    text-shadow: 0 2px 12px #000;
+    z-index: 1;
+}
+
+.hssm-media-bar-content h1 {
+    font-size: clamp(2.1em, 5vw, 5.2em);
+    line-height: 1;
+    margin: 0 0 0.3em;
+}
+
+.hssm-media-bar-content p {
+    display: -webkit-box;
+    font-size: clamp(1em, 1.35vw, 1.25em);
+    line-height: 1.45;
+    margin: 0 0 1.3em;
+    max-width: 45em;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 4;
+}
+
+.hssm-media-bar-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.7em;
+}
+
+.hssm-media-bar-actions .emby-button {
+    align-items: center;
+    display: inline-flex;
+    gap: 0.35em;
+    margin: 0;
+    min-height: 2.8em;
+    padding: 0.55em 1.1em;
+}
+
+.hssm-media-bar-info {
+    background: rgba(50, 50, 54, 0.82) !important;
+    color: #fff !important;
+}
+
+.hssm-media-bar-dots {
+    align-items: center;
+    display: flex;
+    gap: 0.45em;
+    position: relative;
+    z-index: 1;
+}
+
+.hssm-media-bar-dots button {
+    background: rgba(255, 255, 255, 0.55);
+    border: 0;
+    border-radius: 50%;
+    cursor: pointer;
+    height: 0.65em;
+    padding: 0;
+    width: 0.65em;
+}
+
+.hssm-media-bar-dots button.active {
+    background: #fff;
+    transform: scale(1.35);
+}
+
+.hssm-header-logo {
+    display: block;
+    max-height: 2.3em;
+    max-width: 10em;
+    object-fit: contain;
+    object-position: left center;
+    width: auto;
+}
+
+.hssm-header-logo-standalone {
+    align-self: center;
+    margin-left: 0.65em;
+}
+
+.headerHomeButton .hssm-header-home-logo {
+    height: 1.9em;
+    max-width: 4.4em;
+}
+
+.cardScalable,
+.cardOverlayContainer {
+    position: relative;
+}
+
+.hssm-remove-row-button,
+.hssm-my-list-button {
+    align-items: center;
+    background: rgba(0, 0, 0, 0.72) !important;
+    border-radius: 50% !important;
+    display: flex;
+    height: 2.15em;
+    justify-content: center;
+    margin: 0 !important;
+    min-width: 0 !important;
+    opacity: 0;
+    padding: 0 !important;
+    position: absolute;
+    top: 0.55em;
+    transition: opacity 0.15s ease, transform 0.15s ease;
+    width: 2.15em;
+    z-index: 8;
+}
+
+.hssm-remove-row-button {
+    right: 0.55em;
+}
+
+.hssm-my-list-button {
+    left: 0.55em;
+}
+
+.card:hover .hssm-remove-row-button,
+.card:hover .hssm-my-list-button,
+.hssm-remove-row-button:focus-visible,
+.hssm-my-list-button:focus-visible,
+.hssm-my-list-detail-button .hssm-my-list-button {
+    opacity: 1;
+}
+
+.hssm-remove-row-button:hover {
+    background: rgba(190, 25, 35, 0.95) !important;
+    transform: scale(1.08);
+}
+
+.hssm-my-list-detail-button {
+    display: inline-block;
+    height: 2.8em;
+    margin-left: 0.5em;
+    position: relative;
+    vertical-align: middle;
+    width: 2.8em;
+}
+
+.hssm-my-list-detail-button .hssm-my-list-button {
+    inset: 0;
+    height: 2.8em;
+    width: 2.8em;
+}
+
+.hssm-my-list-page {
+    min-height: 50vh;
+}
+
+.hssm-series-info {
+    display: inline-flex;
+    flex-wrap: wrap;
+}
+
+.hssm-breadcrumbs {
+    align-items: center;
+    background: rgba(0, 0, 0, 0.28);
+    border-radius: 0.55em;
+    display: none;
+    flex-wrap: wrap;
+    gap: 0.45em;
+    margin-left: 0.55em;
+    max-width: min(58vw, 52em);
+    overflow: hidden;
+    padding: 0.48em 0.72em;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.hssm-breadcrumbs a {
+    color: inherit;
+}
+
+@media (min-width: 768px) { .hssm-breadcrumbs { display: flex; } .skinHeader .headerLeft { overflow: visible; } }
+
+.hssm-detail-collections {
+    margin-top: 2em;
+}
+
+body.hssm-infinite-scroll-active .listPaging {
+    display: none !important;
+}
+
+.hssm-search-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.55em;
+    justify-content: center;
+    margin: 1em 3.3%;
+}
+
+.hssm-search-controls .emby-button {
+    margin: 0;
+}
+
+.hssm-search-results {
+    margin: 1em 0 3em;
+}
+
+.hssm-search-count,
+.hssm-loading {
+    padding: 0 3.3%;
+}
+
+.hssm-search-grid {
+    display: grid;
+    gap: 1em;
+    grid-template-columns: repeat(auto-fill, minmax(9em, 1fr));
+    padding: 0 3.3%;
+}
+
+.hssm-search-grid .hssm-client-card {
+    width: 100%;
+}
+
+#searchPage.hssm-search-showing .searchResults:not(.hssm-search-results),
+#searchPage.hssm-search-showing .searchSuggestions {
+    display: none !important;
+}
+
+@media (max-width: 600px) {
+    .hssm-media-bar {
+        height: 76vh;
+        min-height: 360px;
+        padding: 5em 5% 2em;
+    }
+
+    .hssm-media-bar-content {
+        max-width: 100%;
+    }
+
+    .hssm-media-bar-content p {
+        -webkit-line-clamp: 3;
+    }
+
+    .hssm-media-bar-dots {
+        bottom: 1em;
+        left: 5%;
+        position: absolute;
     }
 }
