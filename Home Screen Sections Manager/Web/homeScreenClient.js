@@ -157,10 +157,50 @@
         });
     }
 
+    function activeSectionDraft(section) {
+        var type = String(prop(section, 'Type', 'type', ''));
+        var drafts = prop(section, 'Drafts', 'drafts', []) || [];
+        if (!drafts.length) return null;
+        if (type === 'rotating-sections') {
+            var interval = Math.max(1, Number(prop(section, 'RotationIntervalMinutes', 'rotationIntervalMinutes', 1440)) || 1440);
+            var start = Math.max(0, Number(prop(section, 'RotationStartUnixMilliseconds', 'rotationStartUnixMilliseconds', 0)) || 0);
+            return drafts[Math.floor(Math.max(0, Date.now() - start) / (interval * 60000)) % drafts.length];
+        }
+        if (type === 'seasonal-sections') {
+            var now = new Date();
+            var today = (now.getMonth() + 1) * 100 + now.getDate();
+            return drafts.find(function (draft) {
+                var start = Math.max(1, Number(prop(draft, 'StartMonth', 'startMonth', 1))) * 100 + Math.max(1, Number(prop(draft, 'StartDay', 'startDay', 1)));
+                var end = Math.max(1, Number(prop(draft, 'EndMonth', 'endMonth', 12))) * 100 + Math.max(1, Number(prop(draft, 'EndDay', 'endDay', 31)));
+                return start <= end ? today >= start && today <= end : today >= start || today <= end;
+            }) || null;
+        }
+        return null;
+    }
+
+    function sectionDraftItems(section, draft) {
+        var sourceType = String(prop(draft, 'SourceType', 'sourceType', ''));
+        var sourceId = String(prop(draft, 'SourceId', 'sourceId', ''));
+        if (!sourceId) return Promise.resolve([]);
+        if (sourceType === 'collection') return queryParent(sourceId);
+        if (sourceType === 'tag') {
+            return postJson('CollectionManager/individual-collection-drafts/preview', tagSource(sourceId, prop(section, 'Name', 'name', ''))).then(function (preview) {
+                return queryIds(prop(preview, 'Items', 'items', []).map(function (item) { return String(prop(item, 'Id', 'id', '')); }));
+            });
+        }
+        return Promise.resolve([]);
+    }
+
     function sectionItems(section, autoRefresh) {
         var type = String(prop(section, 'Type', 'type', ''));
+
         var sources = prop(section, 'SourceIds', 'sourceIds', []).map(String);
         var itemIds = prop(section, 'ItemIds', 'itemIds', []).map(String);
+        if (type === 'rotating-sections' || type === 'seasonal-sections') {
+            var activeDraft = activeSectionDraft(section);
+            if (!activeDraft) return Promise.resolve([]);
+            return sectionDraftItems(section, activeDraft).catch(function () { return queryIds(itemIds); });
+        }
         if (type === 'individual-tag-content' || type === 'multiple-tag-content' || type === 'muilti-match-tag-collection-content') {
             return autoRefresh ? liveTagItems(section).catch(function () { return queryIds(itemIds); }) : queryIds(itemIds);
         }
@@ -439,7 +479,7 @@
     }
 
     function mediaBarImage(item, requested) {
-        var selected = requested === 'primary' ? 'Primary' : requested === 'banner' ? 'Banner' : 'Backdrop';
+        var selected = requested === 'primary' ? 'Primary' : requested === 'banner' ? 'Banner' : requested === 'thumb' ? 'Thumb' : 'Backdrop';
         var preferred = [selected, 'Backdrop', 'Thumb', 'Banner', 'Primary'];
         var candidate = null;
         preferred.some(function (type) { candidate = imageCandidate(item, type); return !!candidate; });
@@ -490,57 +530,8 @@
     }
 
     function renderMediaBar(settings, preferences, container, sections) {
-        var order = setting(settings, 'SectionOrder', []).map(String);
-        var topId = order[0] || '';
-        if (!topId) { clearMediaBar(container); return Promise.resolve(); }
-        var section = sections.find(function (entry) { return String(prop(entry, 'Id', 'id', '')) === topId; });
-        var itemsRequest = section ? sectionItems(section, setting(settings, 'AutoRefreshSections', true)) : nativeSectionItems((topId.match(/^jellyfin-\d+-(.*)$/) || [])[1] || '', preferences, container);
-        return itemsRequest.then(function (items) {
-            items = section ? orderItems(uniqueItems(items), section) : uniqueItems(items);
-            if (!items.length) { clearMediaBar(container); return; }
-            var barKey = topId + '|' + setting(settings, 'MediaBarImageType', 'backdrop') + '|' + setting(settings, 'MediaBarIntervalSeconds', 5) + '|' + items.map(function (item) { return String(prop(item, 'Id', 'id', '')); }).join(',');
-            var existingBar = document.querySelector('.hssm-media-bar');
-            if (existingBar && existingBar.dataset.hssmKey === barKey) {
-                var existingSource = mediaSourceNode(container, topId, preferences); if (existingSource) existingSource.classList.add('hssm-media-source-section');
-                Array.from(document.querySelectorAll('.featurediframe')).forEach(function (node) { node.classList.add('hssm-media-bar-replaced'); });
-                return;
-            }
-            clearMediaBar(container);
-            var sourceNode = mediaSourceNode(container, topId, preferences);
-            if (sourceNode) sourceNode.classList.add('hssm-media-source-section');
-            Array.from(document.querySelectorAll('.featurediframe')).forEach(function (node) { node.classList.add('hssm-media-bar-replaced'); });
-            var bar = document.createElement('section');
-            bar.dataset.hssmKey = barKey;
-            bar.className = 'hssm-media-bar';
-            bar.setAttribute('aria-label', 'Home screen media bar');
-            container.parentNode.insertBefore(bar, container);
-            mediaBarSourceKey = topId;
-            mediaBarIndex = 0;
-            function show(index) {
-                if (!bar.isConnected || !items.length) return;
-                mediaBarIndex = (index + items.length) % items.length;
-                var item = items[mediaBarIndex];
-                var id = String(prop(item, 'Id', 'id', ''));
-                var title = String(prop(item, 'SeriesName', 'seriesName', '') || prop(item, 'Name', 'name', ''));
-                var overview = String(prop(item, 'Overview', 'overview', ''));
-                var image = mediaBarImage(item, String(setting(settings, 'MediaBarImageType', 'backdrop')));
-                var detailsId = String(prop(item, 'Type', 'type', '')) === 'Episode' ? String(prop(item, 'SeriesId', 'seriesId', id)) : id;
-                bar.style.backgroundImage = image ? 'linear-gradient(90deg,rgba(0,0,0,.82),rgba(0,0,0,.12)),url("' + image.replace(/"/g, '%22') + '")' : 'linear-gradient(135deg,#1e1e24,#08080b)';
-                bar.innerHTML = '<div class="hssm-media-bar-content"><h1>' + escapeHtml(title) + '</h1>' + (overview ? '<p>' + escapeHtml(overview) + '</p>' : '') + '<div class="hssm-media-bar-actions"><button type="button" class="hssm-media-bar-play raised button-submit emby-button" data-hssm-play-id="' + escapeHtml(id) + '"><span class="material-icons play_arrow" aria-hidden="true"></span>Play</button><a is="emby-linkbutton" class="hssm-media-bar-info raised emby-button" href="#/details?id=' + encodeURIComponent(detailsId) + '"><span class="material-icons info" aria-hidden="true"></span>More Info</a></div></div><div class="hssm-media-bar-dots">' + items.map(function (_, dot) { return '<button type="button" aria-label="Show item ' + (dot + 1) + '" data-hssm-media-dot="' + dot + '" class="' + (dot === mediaBarIndex ? 'active' : '') + '"></button>'; }).join('') + '</div>';
-            }
-            bar.addEventListener('click', function (event) {
-                var dot = event.target.closest('[data-hssm-media-dot]');
-                if (dot) { show(Number(dot.dataset.hssmMediaDot)); return; }
-                var play = event.target.closest('[data-hssm-play-id]');
-                if (!play) return;
-                var id = play.dataset.hssmPlayId;
-                var action = document.querySelector('[data-id="' + CSS.escape(id) + '"] [data-action="resume"], [data-id="' + CSS.escape(id) + '"] [data-action="play"], [data-id="' + CSS.escape(id) + '"][data-action="resume"], [data-id="' + CSS.escape(id) + '"][data-action="play"]');
-                if (action) action.click(); else window.location.hash = '#/video?id=' + encodeURIComponent(id);
-            });
-            show(0);
-            var seconds = Math.max(1, Number(setting(settings, 'MediaBarIntervalSeconds', 5)) || 5);
-            if (items.length > 1) mediaBarTimer = window.setInterval(function () { show(mediaBarIndex + 1); }, seconds * 1000);
-        });
+        clearMediaBar(container);
+        return Promise.resolve();
     }
 
     function userDataPath(itemId) {
@@ -633,6 +624,30 @@
             container.innerHTML = ''; container.appendChild(section);
             Array.from(container.querySelectorAll('.card[data-id]')).forEach(addMyListButton);
         });
+    }
+
+    function validHeartColor(value, fallback) {
+        value = String(value || '');
+        return /^#[0-9a-f]{6}$/i.test(value) ? value : fallback;
+    }
+
+    function applyMyListHeartColor(settings) {
+        var style = document.getElementById('hssm-my-list-heart-style');
+        if (!style) {
+            style = document.createElement('style');
+            style.id = 'hssm-my-list-heart-style';
+            document.head.appendChild(style);
+        }
+        var mode = String(setting(settings, 'MyListHeartColorMode', 'solid'));
+        var first = validHeartColor(setting(settings, 'MyListHeartColorOne', '#f5f5f7'), '#f5f5f7');
+        var second = validHeartColor(setting(settings, 'MyListHeartColorTwo', first), first);
+        var selector = 'body .hssm-my-list-button > .material-icons';
+        if (mode === 'solid') {
+            style.textContent = selector + ' { background-image:none !important; color:' + first + ' !important; -webkit-text-fill-color:' + first + ' !important; }';
+            return;
+        }
+        var paint = mode === 'vertical-gradient' ? 'linear-gradient(to bottom,' + first + ',' + second + ')' : mode === 'horizontal-gradient' ? 'linear-gradient(to right,' + first + ',' + second + ')' : 'radial-gradient(circle at center,' + first + ' 0%,' + second + ' 100%)';
+        style.textContent = selector + ' { background-color:transparent !important; background-image:' + paint + ' !important; background-clip:text !important; -webkit-background-clip:text !important; color:transparent !important; -webkit-text-fill-color:transparent !important; }';
     }
 
     function applyMyList(settings) {
@@ -824,7 +839,11 @@
     }
     function configureAutoRefresh(settings) {
         var enabled = setting(settings, 'AutoRefreshSections', true);
-        if (!enabled) { window.clearInterval(autoRefreshTimer); autoRefreshTimer = null; return; }
+        var dynamic = (prop(settings, 'Sections', 'sections', []) || []).some(function (section) {
+            var type = String(prop(section, 'Type', 'type', ''));
+            return type === 'rotating-sections' || type === 'seasonal-sections';
+        });
+        if (!enabled && !dynamic) { window.clearInterval(autoRefreshTimer); autoRefreshTimer = null; return; }
         if (autoRefreshTimer) return;
         autoRefreshTimer = window.setInterval(function () {
             settingsCache = null;
@@ -838,6 +857,7 @@
     function applyEnhancements(settings) {
         applyLogo(settings);
         applyRemoveButtons(settings);
+        applyMyListHeartColor(settings);
         applyMyList(settings);
         applySeriesInfo(settings);
         applyCollections(settings);
@@ -862,7 +882,10 @@
             mediaBarInterval: setting(settings, 'MediaBarIntervalSeconds', 5),
             mediaBarImageType: setting(settings, 'MediaBarImageType', 'backdrop'),
             logo: setting(settings, 'LogoImageDataUrl', ''),
-            myList: setting(settings, 'EnableMyList', false)
+            myList: setting(settings, 'EnableMyList', false),
+            myListHeartMode: setting(settings, 'MyListHeartColorMode', 'solid'),
+            myListHeartOne: setting(settings, 'MyListHeartColorOne', '#f5f5f7'),
+            myListHeartTwo: setting(settings, 'MyListHeartColorTwo', '#f5f5f7')
         });
     }
 

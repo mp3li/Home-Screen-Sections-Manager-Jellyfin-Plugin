@@ -55,6 +55,9 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
                     ArtType = NormalizeArtType(section.ArtType),
                     ArtShape = NormalizeArtShape(section.ArtShape),
                     ShowText = section.ShowText,
+                    Drafts = NormalizeSectionDrafts(section.Drafts),
+                    RotationIntervalMinutes = Math.Clamp(section.RotationIntervalMinutes, 1, 525600),
+                    RotationStartUnixMilliseconds = Math.Max(0, section.RotationStartUnixMilliseconds),
                     IsApplied = section.IsApplied,
                 })
                 .ToList(),
@@ -106,6 +109,9 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
                     ArtType = NormalizeArtType(section.ArtType),
                     ArtShape = NormalizeArtShape(section.ArtShape),
                     ShowText = section.ShowText,
+                    Drafts = NormalizeSectionDrafts(section.Drafts),
+                    RotationIntervalMinutes = Math.Clamp(section.RotationIntervalMinutes, 1, 525600),
+                    RotationStartUnixMilliseconds = Math.Max(0, section.RotationStartUnixMilliseconds),
                     IsApplied = section.IsApplied,
                 })
                 .ToList(),
@@ -157,6 +163,9 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
                 ShowText = string.Equals(section.Id, normalizedId, StringComparison.Ordinal)
                     ? request.ShowText
                     : section.ShowText,
+                Drafts = NormalizeSectionDrafts(section.Drafts),
+                RotationIntervalMinutes = Math.Clamp(section.RotationIntervalMinutes, 1, 525600),
+                RotationStartUnixMilliseconds = Math.Max(0, section.RotationStartUnixMilliseconds),
                 IsApplied = string.Equals(section.Id, normalizedId, StringComparison.Ordinal) || section.IsApplied,
             }).ToList(),
         };
@@ -199,7 +208,35 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
 
     private static string NormalizeColor(string? value, string fallback) => System.Text.RegularExpressions.Regex.IsMatch(value ?? string.Empty, "^#[0-9a-fA-F]{6}$") ? value! : fallback;
 
-    private static string NormalizeMediaBarImageType(string? value) => value switch { "primary" => "primary", "banner" => "banner", _ => "backdrop" };
+    private static string NormalizeMediaBarImageType(string? value) => value switch { "primary" => "primary", "banner" => "banner", "thumb" => "thumb", _ => "backdrop" };
+
+    private static List<HomeScreenSectionDraft> NormalizeSectionDrafts(IEnumerable<HomeScreenSectionDraft>? drafts)
+    {
+        return (drafts ?? [])
+            .Where(draft => !string.IsNullOrWhiteSpace(draft.Id)
+                && !string.IsNullOrWhiteSpace(draft.SourceId)
+                && (string.Equals(draft.SourceType, "collection", StringComparison.Ordinal)
+                    || string.Equals(draft.SourceType, "tag", StringComparison.Ordinal)))
+            .GroupBy(draft => draft.Id, StringComparer.Ordinal)
+            .Select(group => group.First())
+            .Select(draft =>
+            {
+                var startMonth = Math.Clamp(draft.StartMonth, 1, 12);
+                var endMonth = Math.Clamp(draft.EndMonth, 1, 12);
+                return new HomeScreenSectionDraft
+                {
+                    Id = draft.Id.Trim(),
+                    SourceType = draft.SourceType,
+                    SourceId = draft.SourceId.Trim(),
+                    Name = (draft.Name ?? string.Empty).Trim(),
+                    StartMonth = startMonth,
+                    StartDay = Math.Clamp(draft.StartDay, 1, DateTime.DaysInMonth(2000, startMonth)),
+                    EndMonth = endMonth,
+                    EndDay = Math.Clamp(draft.EndDay, 1, DateTime.DaysInMonth(2000, endMonth)),
+                };
+            })
+            .ToList();
+    }
 
     private static string NormalizeImageDataUrl(string? value)
     {

@@ -40,8 +40,9 @@
         #homeScreenSectionsManagerPage .hssm-customization-grid .inputContainer { margin:0; }
         #homeScreenSectionsManagerPage .hssm-customization-grid input { width:100%; }
         #homeScreenSectionsManagerPage .hssm-radius-control { display:flex; align-items:center; gap:.5em; max-width:12em; }
-        #homeScreenSectionsManagerPage .hssm-gradient-controls { display:grid; grid-template-columns:minmax(12em,1.35fr) repeat(2,minmax(8em,1fr)); gap:1em; align-items:end; margin-top:1em; }
-        #homeScreenSectionsManagerPage .hssm-gradient-controls .inputContainer { margin:0; }
+        #homeScreenSectionsManagerPage .hssm-gradient-controls { display:flex; flex-wrap:wrap; gap:.65em; align-items:flex-end; margin-top:1em; }
+        #homeScreenSectionsManagerPage .hssm-gradient-controls .selectContainer { flex:0 1 18em; margin:0; }
+        #homeScreenSectionsManagerPage .hssm-gradient-controls .inputContainer { flex:0 0 7em; margin:0; }
         #homeScreenSectionsManagerPage .hssm-library-picker { display:grid; grid-template-columns:repeat(auto-fit,minmax(14em,1fr)); gap:.4em 1em; margin-top:1em; }
         #homeScreenSectionsManagerPage .hssm-logo-preview { display:block; max-width:18em; max-height:4em; object-fit:contain; object-position:left center; margin:.8em 0; }
         @media (max-width:38em) { #homeScreenSectionsManagerPage .hssm-section-row { align-items:flex-start; } #homeScreenSectionsManagerPage .hssm-badge { white-space:normal; text-align:center; } }
@@ -64,25 +65,25 @@
                 <label class="checkboxContainer"><input is="emby-checkbox" id="hssmAutoRefreshSections" type="checkbox" /><span>Automatically refresh Home Screen sections</span></label>
             </section>
             <section class="hssm-section">
-                <h2>Remove from Continue Watching and Next Up</h2>
+                <h2>Remove from Continue Watching and Next Up Settings</h2>
                 <p class="fieldDescription">Add an X button when you hover over items in Continue Watching and Next Up. Click the X to remove that item from the row.</p>
                 <label class="checkboxContainer"><input is="emby-checkbox" id="hssmEnableRemoveContinueNextUp" type="checkbox" /><span>Enable removal buttons</span></label>
             </section>
             <section class="hssm-section">
-                <h2>Enable My List</h2>
+                <h2>My List Settings</h2>
                 <p class="fieldDescription">Add a per-user My List page and heart buttons for adding or removing media from My List.</p>
                 <label class="checkboxContainer"><input is="emby-checkbox" id="hssmEnableMyList" type="checkbox" /><span>Enable My List</span></label>
             </section>
             <section class="hssm-section">
                 <h2>Series Info Settings</h2>
-                <p class="fieldDescription">Show season and episode counts on series and season pages, and add an Ends at time based on the available runtime information.</p>
+                <p class="fieldDescription">Display season and episode totals on series and season pages. When runtime details are available, also show the estimated time playback will finish.</p>
                 <label class="checkboxContainer"><input is="emby-checkbox" id="hssmEnableSeriesInfo" type="checkbox" /><span>Enable enhanced series information</span></label>
             </section>
             <section class="hssm-section">
                 <h2>Infinite Scroll Settings</h2>
                 <p class="fieldDescription">Select the libraries where Jellyfin should automatically load more media as you approach the bottom of the library page.</p>
                 <div id="hssmInfiniteScrollLibraries" class="hssm-library-picker"><p class="fieldDescription">Loading libraries…</p></div>
-                <div class="hssm-actions"><button is="emby-button" type="button" class="raised" id="hssmSaveInfiniteScrollButton">Save Infinite Scroll Libraries</button></div>
+                <div class="hssm-actions"><button is="emby-button" type="button" class="raised" id="hssmSaveInfiniteScrollButton">Save Infinite Scroll Settings</button></div>
             </section>
             <section class="hssm-section">
                 <h2>Collections on Detail Page Settings</h2>
@@ -103,19 +104,19 @@
             <p class="fieldDescription" id="hssmMainSettingsStatus" aria-live="polite"></p>
         </div>
         <div class="hssm-panel" data-panel="customization-settings" role="tabpanel">
-            <p class="fieldDescription">This plugin uses the <a href="https://github.com/AumGupta/abyss-jellyfin" target="_blank" rel="noopener noreferrer">Abyss theme by AumGupta on GitHub</a>. Their theme includes CSS customization options that have been added here.</p>
+            <p class="fieldDescription">This plugin uses the <a href="https://github.com/AumGupta/abyss-jellyfin" target="_blank" rel="noopener noreferrer">Abyss theme by AumGupta on GitHub</a>. The Abyss theme includes CSS customization options. Those options have been added here, and some of those options have been changed by this plugin to allow further customization capabilities. Also, new customization options that are not originally part of the Abyss theme have also been added by this plugin.</p>
 
             <section class="hssm-section">
                 <h2>Top Navigation Color Settings</h2>
-                <p class="fieldDescription">Customize the centered Home, Favorites, My List, and other page tabs separately from the rest of Abyss.</p>
+                <p class="fieldDescription">Customize the centered Home, Favorites, My List, and other page tabs.</p>
                 <div class="hssm-gradient-controls"><div class="selectContainer"><label class="selectLabel" for="hssmHeaderTabsColorMode">Color Style</label><select is="emby-select" id="hssmHeaderTabsColorMode"><option value="solid">Solid (Default)</option><option value="vertical-gradient">Vertical Gradient</option><option value="horizontal-gradient">Horizontal Gradient</option><option value="center-gradient">Center Gradient</option></select></div><div class="inputContainer"><label class="inputLabel inputLabelUnfocused" for="hssmHeaderTabsColorOne">First Color</label><input is="emby-input" class="hssm-color" id="hssmHeaderTabsColorOne" type="color" value="#f5f5f7" /></div><div class="inputContainer"><label class="inputLabel inputLabelUnfocused" for="hssmHeaderTabsColorTwo">Second Color</label><input is="emby-input" class="hssm-color" id="hssmHeaderTabsColorTwo" type="color" value="#f5f5f7" /></div></div>
             </section>
-            <section class="hssm-section"><h2>Play Button Color Settings</h2><p class="fieldDescription">Customize Jellyfin play and resume buttons without changing the top navigation or watched-progress color.</p><div class="hssm-gradient-controls"><div class="selectContainer"><label class="selectLabel" for="hssmPlayButtonColorMode">Color Style</label><select is="emby-select" id="hssmPlayButtonColorMode"><option value="solid">Solid (Default)</option><option value="vertical-gradient">Vertical Gradient</option><option value="horizontal-gradient">Horizontal Gradient</option><option value="center-gradient">Center Gradient</option></select></div><div class="inputContainer"><label class="inputLabel inputLabelUnfocused" for="hssmPlayButtonColorOne">First Color</label><input is="emby-input" class="hssm-color" id="hssmPlayButtonColorOne" type="color" value="#f5f5f7" /></div><div class="inputContainer"><label class="inputLabel inputLabelUnfocused" for="hssmPlayButtonColorTwo">Second Color</label><input is="emby-input" class="hssm-color" id="hssmPlayButtonColorTwo" type="color" value="#f5f5f7" /></div></div></section>
-            <section class="hssm-section"><h2>Watched Progress Color Settings</h2><p class="fieldDescription">Customize watched-progress bars and playback progress separately from the top navigation and play buttons.</p><div class="hssm-gradient-controls"><div class="selectContainer"><label class="selectLabel" for="hssmProgressColorMode">Color Style</label><select is="emby-select" id="hssmProgressColorMode"><option value="solid">Solid (Default)</option><option value="vertical-gradient">Vertical Gradient</option><option value="horizontal-gradient">Horizontal Gradient</option><option value="center-gradient">Center Gradient</option></select></div><div class="inputContainer"><label class="inputLabel inputLabelUnfocused" for="hssmProgressColorOne">First Color</label><input is="emby-input" class="hssm-color" id="hssmProgressColorOne" type="color" value="#f5f5f7" /></div><div class="inputContainer"><label class="inputLabel inputLabelUnfocused" for="hssmProgressColorTwo">Second Color</label><input is="emby-input" class="hssm-color" id="hssmProgressColorTwo" type="color" value="#f5f5f7" /></div></div></section>
-            <section class="hssm-section"><h2>Sidebar Icon Color Settings</h2><p class="fieldDescription">Keep only the sidebar icons in your selected solid color or gradient, both normally and while their menu item is hovered.</p><div class="hssm-gradient-controls"><div class="selectContainer"><label class="selectLabel" for="hssmSidebarIconColorMode">Color Style</label><select is="emby-select" id="hssmSidebarIconColorMode"><option value="solid">Solid (Default)</option><option value="vertical-gradient">Vertical Gradient</option><option value="horizontal-gradient">Horizontal Gradient</option><option value="center-gradient">Center Gradient</option></select></div><div class="inputContainer"><label class="inputLabel inputLabelUnfocused" for="hssmSidebarIconColorOne">First Color</label><input is="emby-input" class="hssm-color" id="hssmSidebarIconColorOne" type="color" value="#f5f5f7" /></div><div class="inputContainer"><label class="inputLabel inputLabelUnfocused" for="hssmSidebarIconColorTwo">Second Color</label><input is="emby-input" class="hssm-color" id="hssmSidebarIconColorTwo" type="color" value="#f5f5f7" /></div></div></section>
+            <section class="hssm-section"><h2>Play Button Color Settings</h2><p class="fieldDescription">Customize Jellyfin play and resume buttons.</p><div class="hssm-gradient-controls"><div class="selectContainer"><label class="selectLabel" for="hssmPlayButtonColorMode">Color Style</label><select is="emby-select" id="hssmPlayButtonColorMode"><option value="solid">Solid (Default)</option><option value="vertical-gradient">Vertical Gradient</option><option value="horizontal-gradient">Horizontal Gradient</option><option value="center-gradient">Center Gradient</option></select></div><div class="inputContainer"><label class="inputLabel inputLabelUnfocused" for="hssmPlayButtonColorOne">First Color</label><input is="emby-input" class="hssm-color" id="hssmPlayButtonColorOne" type="color" value="#f5f5f7" /></div><div class="inputContainer"><label class="inputLabel inputLabelUnfocused" for="hssmPlayButtonColorTwo">Second Color</label><input is="emby-input" class="hssm-color" id="hssmPlayButtonColorTwo" type="color" value="#f5f5f7" /></div></div></section>
+            <section class="hssm-section"><h2>Watched Progress Color Settings</h2><p class="fieldDescription">Customize watched-progress bars and playback progress bar colors.</p><div class="hssm-gradient-controls"><div class="selectContainer"><label class="selectLabel" for="hssmProgressColorMode">Color Style</label><select is="emby-select" id="hssmProgressColorMode"><option value="solid">Solid (Default)</option><option value="vertical-gradient">Vertical Gradient</option><option value="horizontal-gradient">Horizontal Gradient</option><option value="center-gradient">Center Gradient</option></select></div><div class="inputContainer"><label class="inputLabel inputLabelUnfocused" for="hssmProgressColorOne">First Color</label><input is="emby-input" class="hssm-color" id="hssmProgressColorOne" type="color" value="#f5f5f7" /></div><div class="inputContainer"><label class="inputLabel inputLabelUnfocused" for="hssmProgressColorTwo">Second Color</label><input is="emby-input" class="hssm-color" id="hssmProgressColorTwo" type="color" value="#f5f5f7" /></div></div></section>
+            <section class="hssm-section"><h2>Sidebar Icon Color Settings</h2><p class="fieldDescription">Cuztomize the sidebar icons.</p><div class="hssm-gradient-controls"><div class="selectContainer"><label class="selectLabel" for="hssmSidebarIconColorMode">Color Style</label><select is="emby-select" id="hssmSidebarIconColorMode"><option value="solid">Solid (Default)</option><option value="vertical-gradient">Vertical Gradient</option><option value="horizontal-gradient">Horizontal Gradient</option><option value="center-gradient">Center Gradient</option></select></div><div class="inputContainer"><label class="inputLabel inputLabelUnfocused" for="hssmSidebarIconColorOne">First Color</label><input is="emby-input" class="hssm-color" id="hssmSidebarIconColorOne" type="color" value="#f5f5f7" /></div><div class="inputContainer"><label class="inputLabel inputLabelUnfocused" for="hssmSidebarIconColorTwo">Second Color</label><input is="emby-input" class="hssm-color" id="hssmSidebarIconColorTwo" type="color" value="#f5f5f7" /></div></div></section>
             <section class="hssm-section"><h2>Home Screen Logo Settings</h2><p class="fieldDescription">Add a logo beside the menu button on Home. On other pages, the same logo replaces the upper-left Home icon while keeping its Home button function.</p><input id="hssmLogoImageFile" type="file" accept="image/png,image/jpeg,image/webp,image/gif" /><img id="hssmLogoImagePreview" class="hssm-logo-preview" alt="Selected logo preview" hidden /><div class="hssm-actions"><button is="emby-button" type="button" class="raised" id="hssmRemoveLogoButton">Remove Logo</button></div></section>
-            <section class="hssm-section"><h2>Media Bar Timing Settings</h2><p class="fieldDescription">Choose how many seconds each item remains visible before the top media bar advances. Abyss currently uses 5 seconds by default.</p><div class="inputContainer"><label class="inputLabel inputLabelUnfocused" for="hssmMediaBarIntervalSeconds">Seconds Per Item</label><input is="emby-input" id="hssmMediaBarIntervalSeconds" type="number" min="1" max="300" step="1" value="5" /></div></section>
-            <section class="hssm-section"><h2>Media Bar Image Type Settings</h2><p class="fieldDescription">Choose the Jellyfin image type used behind items in the top media bar. If an item does not have that image, the media bar falls back to another available image.</p><div class="selectContainer"><label class="selectLabel" for="hssmMediaBarImageType">Image Type</label><select is="emby-select" id="hssmMediaBarImageType"><option value="backdrop">Backdrop (Default)</option><option value="primary">Primary / Poster</option><option value="banner">Banner</option></select></div></section>
+            <section class="hssm-section"><h2>Media Bar Timing Settings</h2><p class="fieldDescription">Choose how many seconds each item remains visible before the top media bar advances. Abyss uses 5 seconds by default.</p><div class="inputContainer"><label class="inputLabel inputLabelUnfocused" for="hssmMediaBarIntervalSeconds">Seconds Per Item</label><input is="emby-input" id="hssmMediaBarIntervalSeconds" type="number" min="1" max="300" step="1" value="5" /></div></section>
+            <section class="hssm-section"><h2>Media Bar Image Type Settings</h2><p class="fieldDescription">Choose the Jellyfin image type used behind items in the top media bar. If an item does not have that image, the media bar falls back to another available image.</p><div class="selectContainer"><label class="selectLabel" for="hssmMediaBarImageType">Image Type</label><select is="emby-select" id="hssmMediaBarImageType"><option value="backdrop">Backdrop (Default)</option><option value="primary">Primary</option><option value="banner">Banner</option><option value="thumb">Thumbnail</option></select></div></section>
             <section class="hssm-section"><h2>My List Heart Color Settings</h2><p class="fieldDescription">Customize the heart buttons used to add media to My List.</p><div class="hssm-gradient-controls"><div class="selectContainer"><label class="selectLabel" for="hssmMyListHeartColorMode">Color Style</label><select is="emby-select" id="hssmMyListHeartColorMode"><option value="solid">Solid (Default)</option><option value="vertical-gradient">Vertical Gradient</option><option value="horizontal-gradient">Horizontal Gradient</option><option value="center-gradient">Center Gradient</option></select></div><div class="inputContainer"><label class="inputLabel inputLabelUnfocused" for="hssmMyListHeartColorOne">First Color</label><input is="emby-input" class="hssm-color" id="hssmMyListHeartColorOne" type="color" value="#f5f5f7" /></div><div class="inputContainer"><label class="inputLabel inputLabelUnfocused" for="hssmMyListHeartColorTwo">Second Color</label><input is="emby-input" class="hssm-color" id="hssmMyListHeartColorTwo" type="color" value="#f5f5f7" /></div></div>
                 <input id="hssmAbyssAccentColor" type="hidden" value="#f5f5f7" />
             </section>
@@ -195,7 +196,9 @@
                 ['muilti-match-tag-collection-content', 'Muilti-Match Tag Collection Content', "Create a section that displays all content that matches all selected tags. For example, if 'thriller genre' and 'horror genre' tag are both selected, then the content must have BOTH a thriller and horror tag to be in this section. Or if 'thriller genre' and 'M. Night Shyamalan Director' tag are selected, the content must be a thriller directed by M. Night Shyamalan to be in this section."],
                 ['library-content', 'Library Content', 'Create a section that displays all content of one selected library. For example, all content in the Movies library.'],
                 ['multiple-library-content', 'Multiple Library Content', 'Create a section that displays all content of all selected libraries. For example, all content in the Audiobooks and the Books libraries.'],
-                ['libraries-in-a-row', 'Libraries in a Row', "Create a section that displays multiple libraries in a row, by their image. Similar to Jellyfin's main/big My Media section, but showing only selected libraries instead of all."]
+                ['libraries-in-a-row', 'Libraries in a Row', "Create a section that displays multiple libraries in a row, by their image. Similar to Jellyfin's main/big My Media section, but showing only selected libraries instead of all."],
+                ['rotating-sections', 'Rotating Sections', 'Create multiple section drafts from selected collections and metadata tags, then rotate which draft appears on the home screen using the schedule you choose.'],
+                ['seasonal-sections', 'Seasonal Sections', 'Create multiple section drafts from selected collections and metadata tags, then choose the recurring date window when each draft appears on the home screen.']
             ];
             let sections = [], selectedId = null, draftId = null, draggedId = null;
             const list = page.querySelector('#hssmSectionList');
@@ -399,7 +402,7 @@
             const page = document.getElementById('homeScreenSectionsManagerPage');
             const host = page && page.querySelector('#hssmTypeSpecificSettings');
             if (!page || !host) return;
-            const state = { id:'', name:'', type:'', sources:[], items:{}, resolvedItemIds:[], contentItems:[], contentItemOrder:[], draggedContentId:null, contentOrder:'title-ascending', artSize:'medium', artType:'automatic', artShape:'poster', showText:true, libraries:[], collections:[], manual:{}, manualStates:{}, tagSearch:'', tagSources:{}, tagTypeLoadIds:{} };
+            const state = { id:'', name:'', type:'', sources:[], items:{}, resolvedItemIds:[], contentItems:[], contentItemOrder:[], draggedContentId:null, contentOrder:'title-ascending', artSize:'medium', artType:'automatic', artShape:'poster', showText:true, libraries:[], collections:[], manual:{}, manualStates:{}, tagSearch:'', tagSources:{}, tagTypeLoadIds:{}, drafts:[], draftLibraryIds:[], draggedDraftId:null, rotationValue:1, rotationUnit:'days', draftPreviewLoadId:0 };
             const esc = value => { const el = document.createElement('span'); el.textContent = value == null ? '' : String(value); return el.innerHTML; };
             const cm = path => ApiClient.getJSON(ApiClient.getUrl('CollectionManager/' + path));
             const cmPost = (path, body) => ApiClient.ajax({ type:'POST', url:ApiClient.getUrl('CollectionManager/' + path), data:JSON.stringify(body), contentType:'application/json', dataType:'json' });
@@ -411,15 +414,19 @@
             const collectionTypes = new Set(['individual-collection-content', 'multiple-collection-content', 'multiple-collections-in-a-row']);
             const tagTypes = new Set(['individual-tag-content', 'multiple-tag-content', 'muilti-match-tag-collection-content']);
             const libraryTypes = new Set(['library-content', 'multiple-library-content', 'libraries-in-a-row']);
+            const draftTypes = new Set(['rotating-sections', 'seasonal-sections']);
             const isCollectionType = () => collectionTypes.has(kind());
             const isTagType = () => tagTypes.has(kind());
             const isLibraryType = () => libraryTypes.has(kind());
+            const isDraftType = () => draftTypes.has(kind());
+            const isSeasonalType = () => kind() === 'seasonal-sections';
             const rowImage = item => item.HasPrimaryImage || item.ImageTags ? '<img class="hssm-preview-image" loading="lazy" src="' + image(item.Id) + '" alt="" onerror="this.remove()" />' : '<span class="hssm-preview-image hssm-empty-image"></span>';
             const styles = document.createElement('style');
             styles.textContent = '#homeScreenSectionsManagerPage .hssm-conditional-section{border-top:1px solid var(--hssm-outline);margin-top:1.25em;padding-top:1.25em}#homeScreenSectionsManagerPage .hssm-conditional-section h2{margin:0 0 .35em}#homeScreenSectionsManagerPage .hssm-picker-library{border-top:1px solid var(--hssm-outline);margin-top:1em;padding-top:1em}#homeScreenSectionsManagerPage .hssm-picker-heading{display:flex;align-items:center;justify-content:space-between;gap:1em}#homeScreenSectionsManagerPage .hssm-picker-heading h3{margin:0}#homeScreenSectionsManagerPage .hssm-picker-content{margin-top:.8em}#homeScreenSectionsManagerPage .hssm-preview-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1em 1.25em}#homeScreenSectionsManagerPage .hssm-preview-card{display:flex;align-items:flex-start;gap:.55em;min-width:0}#homeScreenSectionsManagerPage .hssm-preview-image{display:block;flex:0 0 auto;width:4em;height:6em;object-fit:cover;border-radius:.35em;background:rgba(255,255,255,.08)}#homeScreenSectionsManagerPage .hssm-row-preview .hssm-preview-image{width:9em;height:5.1em}#homeScreenSectionsManagerPage .hssm-empty-image{border:1px solid var(--hssm-outline)}#homeScreenSectionsManagerPage .hssm-preview-copy{min-width:0;overflow-wrap:anywhere}#homeScreenSectionsManagerPage .hssm-preview-copy strong{display:block}#homeScreenSectionsManagerPage .hssm-tag-choice{border:1px solid var(--hssm-outline);border-radius:.4em;margin:.55em 0;padding:.55em .7em}#homeScreenSectionsManagerPage .hssm-tag-choice .checkboxContainer{margin:0}#homeScreenSectionsManagerPage .hssm-order-settings[hidden],#homeScreenSectionsManagerPage .hssm-art-settings[hidden]{display:none!important}@media(max-width:42em){#homeScreenSectionsManagerPage .hssm-preview-grid{grid-template-columns:1fr}}';
             styles.textContent += '#homeScreenSectionsManagerPage .mcm-library-overview{margin-top:1em}#homeScreenSectionsManagerPage .mcm-library-overview+.mcm-library-overview{border-top:1px solid var(--hssm-outline);padding-top:1em}#homeScreenSectionsManagerPage .mcm-library-heading{display:flex;align-items:center;justify-content:space-between;gap:1em}#homeScreenSectionsManagerPage .mcm-library-heading h3{margin:0}#homeScreenSectionsManagerPage .mcm-picker-library-content[hidden]{display:none!important}#homeScreenSectionsManagerPage .mcm-manual-picker .checkboxContainer{margin:0 0 .65em}#homeScreenSectionsManagerPage .mcm-manual-picker .emby-checkbox-label{height:auto;min-height:2.35em;align-items:flex-start}#homeScreenSectionsManagerPage .mcm-manual-picker .checkboxOutline{top:.25em}#homeScreenSectionsManagerPage .mcm-manual-picker-details{display:flex;align-items:flex-start;gap:.35em;min-width:0}#homeScreenSectionsManagerPage .mcm-related-poster{width:5.25em;height:7.9em;object-fit:cover;border-radius:.35em;vertical-align:top;margin:0 .55em .45em 0;background:rgba(255,255,255,.08)}#homeScreenSectionsManagerPage .mcm-related-title{display:flex;align-items:flex-start;gap:.35em;margin:0 0 .65em}#homeScreenSectionsManagerPage .mcm-related-title-text{min-width:0}#homeScreenSectionsManagerPage .mcm-manual-remove{margin-left:.55em}#homeScreenSectionsManagerPage .mcm-manual-description{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:5;overflow:hidden;line-height:1.25;min-height:6.25em}#homeScreenSectionsManagerPage .mcm-collection-member-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1em 1.25em}#homeScreenSectionsManagerPage .mcm-collection-member-grid .mcm-related-title{margin:0}#homeScreenSectionsManagerPage .mcm-manual-controls{justify-content:flex-start;display:flex;flex-wrap:wrap}#homeScreenSectionsManagerPage .mcm-pagination-text{font-size:.85em}#homeScreenSectionsManagerPage .mcm-art-picker{max-height:20em;overflow-y:auto;padding:.15em .4em;border:1px solid var(--hssm-outline);border-radius:.4em}#homeScreenSectionsManagerPage .mcm-art-picker .checkboxContainer{display:block;margin:.55em 0}#homeScreenSectionsManagerPage .mcm-library-list{margin:.75em 0 0}#homeScreenSectionsManagerPage .mcm-tag-picker-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.55em 1em;margin-top:.85em}#homeScreenSectionsManagerPage .mcm-tag-picker-grid .checkboxContainer{min-width:0;margin:0;overflow-wrap:anywhere}#homeScreenSectionsManagerPage .mcm-flat-tag-choice{min-width:0}#homeScreenSectionsManagerPage .mcm-flat-tag-choice>.fieldDescription{display:block;margin:.1em 0 0 2.4em;overflow-wrap:anywhere}#homeScreenSectionsManagerPage .mcm-tag-type-content{overflow-anchor:none}#homeScreenSectionsManagerPage .mcm-tag-type+.mcm-tag-type{border-top:1px solid var(--hssm-outline);margin-top:.75em;padding-top:.75em}#homeScreenSectionsManagerPage .mcm-tag-type-content[hidden]{display:none!important}#homeScreenSectionsManagerPage .mcm-tag-source-divider{border:0;border-top:1px solid var(--hssm-outline);margin:1em 0}#homeScreenSectionsManagerPage .mcm-person-image{width:2em;height:2em;vertical-align:middle;object-fit:cover;border-radius:50%;margin-right:.45em}@media(max-width:55em){#homeScreenSectionsManagerPage .mcm-collection-member-grid{grid-template-columns:1fr}}';
             styles.textContent += '#homeScreenSectionsManagerPage .mcm-library-overview>.mcm-library-heading{justify-content:flex-start}#homeScreenSectionsManagerPage .mcm-library-overview>.mcm-library-heading>button{order:-1}';
             styles.textContent += '#homeScreenSectionsManagerPage .hssm-manual-order-editor{margin-top:1em}#homeScreenSectionsManagerPage .hssm-manual-order-editor[hidden]{display:none!important}#homeScreenSectionsManagerPage .hssm-manual-order-list{border:1px solid var(--hssm-outline);border-radius:.45em;overflow:hidden}#homeScreenSectionsManagerPage .hssm-manual-order-row{display:flex;align-items:center;gap:.7em;min-height:2.7em;padding:.55em .75em;border-bottom:1px solid var(--hssm-outline);cursor:grab;user-select:none}#homeScreenSectionsManagerPage .hssm-manual-order-row:last-child{border-bottom:0}#homeScreenSectionsManagerPage .hssm-manual-order-row.dragging{opacity:.45}#homeScreenSectionsManagerPage .hssm-manual-order-handle{opacity:.65;font-size:1.15em}';
+            styles.textContent += '#homeScreenSectionsManagerPage .hssm-draft-picker-body[hidden]{display:none!important}#homeScreenSectionsManagerPage .hssm-draft-picker{margin-top:1em}#homeScreenSectionsManagerPage .hssm-draft-picker-heading{display:flex;align-items:center;justify-content:flex-start;gap:1em}#homeScreenSectionsManagerPage .hssm-draft-picker-heading h3{margin:0}#homeScreenSectionsManagerPage .hssm-draft-picker-body{margin-top:.8em}#homeScreenSectionsManagerPage .hssm-source-drafts{margin-top:.75em}#homeScreenSectionsManagerPage .mcm-draft-card{border:1px solid var(--hssm-outline);border-radius:.45em;padding:1em;margin:0 0 1em}#homeScreenSectionsManagerPage .mcm-draft-card.dragging{opacity:.45}#homeScreenSectionsManagerPage .hssm-source-draft-heading{display:flex;align-items:flex-start;gap:.7em}#homeScreenSectionsManagerPage .hssm-source-draft-heading h3{flex:1;margin:.1em 0 0}#homeScreenSectionsManagerPage .hssm-source-draft-handle{font-size:1.15em;cursor:grab;opacity:.65}#homeScreenSectionsManagerPage .hssm-draft-window-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.75em}#homeScreenSectionsManagerPage .hssm-rotation-grid{display:grid;grid-template-columns:minmax(8em,12em) minmax(10em,14em);gap:.75em;align-items:end}@media(max-width:42em){#homeScreenSectionsManagerPage .hssm-draft-window-grid,#homeScreenSectionsManagerPage .hssm-rotation-grid{grid-template-columns:1fr}}';
             document.head.appendChild(styles);
 
             function setupData() {
@@ -447,6 +454,19 @@
             function libraryMarkup() {
                 const multiple = kind() !== 'library-content';
                 return '<section class="hssm-conditional-section"><h2>Selected Libraries</h2><p class="fieldDescription">Choose which Jellyfin ' + (multiple ? 'libraries' : 'library') + ' will provide content for this section.</p><p class="fieldDescription">Select ' + (multiple ? 'one or more libraries' : 'one library') + ' to include in this section.</p><div data-hssm-libraries class="mcm-library-list"></div>' + (multiple ? '<div class="hssm-actions"><button is="emby-button" type="button" class="raised" data-hssm-library-all>Select All</button><button is="emby-button" type="button" class="raised" data-hssm-library-none>Select None</button></div>' : '') + '</section>' + contentMarkup(kind() === 'libraries-in-a-row');
+            }
+            function draftPickerMarkup(title, description, key, body) {
+                return '<div class="hssm-draft-picker"><div class="hssm-draft-picker-heading"><button is="emby-button" type="button" class="raised" data-hssm-draft-picker-toggle="' + key + '">Click here to expand</button><h3>' + title + '</h3></div><p class="fieldDescription">' + description + '</p><div class="hssm-draft-picker-body" data-hssm-draft-picker-body="' + key + '" hidden>' + body + '</div></div>';
+            }
+            function dynamicMarkup() {
+                const title = isSeasonalType() ? 'Seasonal Section Drafts' : 'Rotating Section Drafts';
+                const draftDescription = isSeasonalType() ? 'Each selected collection or metadata tag creates one seasonal section draft. Drag drafts to set their priority when date windows overlap.' : 'Each selected collection or metadata tag creates one rotating section draft. Drag drafts to set the order in which they rotate.';
+                const timing = isSeasonalType() ? '' : '<section class="hssm-conditional-section"><h2>Rotation Timing Settings</h2><p class="fieldDescription">Choose how often the home screen changes from one rotating section draft to the next.</p><div class="hssm-rotation-grid"><div class="inputContainer"><label class="inputLabel inputLabelUnfocused">Rotate Every</label><input is="emby-input" type="number" min="1" max="525600" step="1" data-hssm-rotation-value value="' + esc(state.rotationValue) + '" /></div><div class="selectContainer"><label class="selectLabel">Rotation Time Unit</label><select is="emby-select" data-hssm-rotation-unit>' + selectOptions([['hours','Hours'],['days','Days'],['weeks','Weeks']], state.rotationUnit) + '</select></div></div></section>';
+                return '<section class="hssm-conditional-section"><h2>Select Sources for Section Drafts</h2><p class="fieldDescription">Select collections and metadata tags to create the drafts used by this section. Open only the picker you need.</p>'
+                    + draftPickerMarkup('Select Collections', 'Each selected collection creates one section draft containing that collection’s current content.', 'collections', '<div data-hssm-draft-collections class="mcm-art-picker"></div>')
+                    + draftPickerMarkup('Select Libraries for Metadata Tags', 'Select the libraries whose scanned metadata tags you want to browse in the tag picker below. Libraries only control which tags are available; they do not create drafts.', 'libraries', '<div data-hssm-draft-libraries class="mcm-library-list"></div>')
+                    + draftPickerMarkup('Select Metadata Tags', 'Each selected metadata tag creates one section draft containing the media that currently matches that tag.', 'tags', '<div data-hssm-tags></div>')
+                    + '</section><section class="hssm-conditional-section"><h2>' + title + '</h2><p class="fieldDescription">' + draftDescription + '</p><div class="hssm-source-drafts" data-hssm-source-drafts></div></section>' + timing + contentMarkup();
             }
             function contentMarkup(rowMode) {
                 return '<section class="hssm-conditional-section"><h2>Content In Section</h2><p class="fieldDescription">This selected content will be displayed in your section.</p><div data-hssm-content class="' + (rowMode ? 'hssm-row-preview' : '') + '"><p class="fieldDescription">No content is currently selected.</p></div></section><div class="hssm-actions"><button is="emby-button" type="button" class="raised button-submit" data-hssm-save-move>Save and Move On</button></div><p class="fieldDescription" data-hssm-save-status aria-live="polite"></p><section class="hssm-conditional-section hssm-order-settings" data-hssm-order-settings hidden><h2>Section Content Order Settings</h2><p class="fieldDescription">Select which order you want your home screen section content to appear in. Ordering by rating requires ratings to be in your media tags.</p><div class="selectContainer"><label class="selectLabel" for="hssmSectionContentOrder">Content Order</label><select is="emby-select" id="hssmSectionContentOrder" data-hssm-content-order>' + orderOptions() + '</select></div><div class="hssm-manual-order-editor" data-hssm-manual-order hidden><p class="fieldDescription">Drag the content below into the exact order you want it to appear in this home screen section.</p><div class="hssm-manual-order-list" data-hssm-manual-order-list></div></div></section><section class="hssm-conditional-section hssm-art-settings" data-hssm-art-settings hidden><h2>Section Art Appearance Settings</h2><p class="fieldDescription">Choose the size, Jellyfin image type, shape, and title-text visibility for the art in this home screen section.</p><div class="selectContainer"><label class="selectLabel" for="hssmSectionArtSize">Art Size</label><select is="emby-select" id="hssmSectionArtSize" data-hssm-art-size>' + artSizeOptions() + '</select></div><div class="selectContainer"><label class="selectLabel" for="hssmSectionArtType">Art Type</label><select is="emby-select" id="hssmSectionArtType" data-hssm-art-type>' + artTypeOptions() + '</select></div><div class="selectContainer"><label class="selectLabel" for="hssmSectionArtShape">Art Shape</label><select is="emby-select" id="hssmSectionArtShape" data-hssm-art-shape>' + artShapeOptions() + '</select></div><label class="checkboxContainer"><input is="emby-checkbox" type="checkbox" data-hssm-show-text' + (state.showText ? ' checked' : '') + ' /><span>Show text under the art</span></label><p class="fieldDescription">Show the media name and year beneath each image.</p><div class="hssm-actions"><button is="emby-button" type="button" class="raised button-submit" data-hssm-apply-section>Add Section to Home Screen</button></div><p class="fieldDescription" data-hssm-apply-status aria-live="polite"></p></section>';
@@ -477,8 +497,8 @@
             }
             function artTypeOptions() {
                 return selectOptions([
-                    ['automatic', 'Automatic (Best Available)'],
-                    ['primary', 'Primary (Usually Poster)'],
+                    ['automatic', 'Default'],
+                    ['primary', 'Primary'],
                     ['art', 'Art'],
                     ['backdrop', 'Backdrop'],
                     ['banner', 'Banner'],
@@ -500,6 +520,37 @@
                     ['circle', 'Circle']
                 ], state.artShape);
             }
+            function draftKey(sourceType, sourceId) { return sourceType + '|' + sourceId; }
+            function selectedDraft(sourceType, sourceId) { const key = draftKey(sourceType, sourceId); return state.drafts.find(draft => draftKey(draft.SourceType, draft.SourceId) === key); }
+            function createDraft(sourceType, sourceId, name) {
+                if (selectedDraft(sourceType, sourceId)) return;
+                state.drafts.push({ Id:'draft-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8), SourceType:sourceType, SourceId:String(sourceId), Name:String(name || 'Section draft'), StartMonth:1, StartDay:1, EndMonth:12, EndDay:31, PreviewCount:null });
+            }
+            function removeDraft(sourceType, sourceId) { const key = draftKey(sourceType, sourceId); state.drafts = state.drafts.filter(draft => draftKey(draft.SourceType, draft.SourceId) !== key); }
+            function collectionName(id) { const collection = state.collections.find(value => String(value.Id) === String(id)); return collection ? String(collection.Name) : 'Selected collection'; }
+            function tagDraftName(sourceId) { const parts = String(sourceId).split('|'), libraryId = parts.shift() || '', type = parts.shift() || '', value = parts.join('|'); return value + ' — ' + metadataTypeLabel(type) + ' — ' + tagLibraryName(libraryId); }
+            function renderDraftCollections() {
+                const target = host.querySelector('[data-hssm-draft-collections]');
+                if (!target) return;
+                target.innerHTML = state.collections.map(collection => { const id = String(collection.Id), checked = !!selectedDraft('collection', id); return '<label class="checkboxContainer"><input is="emby-checkbox" type="checkbox" data-hssm-draft-collection="' + esc(id) + '"' + (checked ? ' checked' : '') + ' /> <span>' + esc(collection.Name) + ' (' + Number(collection.MediaItems || 0) + ' media items)</span></label>'; }).join('') || '<p class="fieldDescription">No collections are available.</p>';
+            }
+            function renderDraftLibraries() {
+                const target = host.querySelector('[data-hssm-draft-libraries]');
+                if (!target) return;
+                target.innerHTML = state.libraries.map(library => { const id = String(library.ItemId || library.Id), checked = state.draftLibraryIds.indexOf(id) >= 0; return '<label class="checkboxContainer"><input is="emby-checkbox" type="checkbox" data-hssm-draft-library="' + esc(id) + '"' + (checked ? ' checked' : '') + ' /> <span>' + esc(library.Name) + '</span></label>'; }).join('') || '<p class="fieldDescription">No Jellyfin libraries were found.</p>';
+            }
+            function monthOptions(selected) { return ['January','February','March','April','May','June','July','August','September','October','November','December'].map((name, index) => '<option value="' + (index + 1) + '"' + (Number(selected) === index + 1 ? ' selected' : '') + '>' + name + '</option>').join(''); }
+            function renderSourceDrafts() {
+                const target = host.querySelector('[data-hssm-source-drafts]');
+                if (!target) return;
+                target.innerHTML = state.drafts.length ? state.drafts.map((draft, index) => {
+                    const sourceLabel = draft.SourceType === 'collection' ? 'Collection' : 'Metadata Tag';
+                    const preview = draft.PreviewError ? 'This draft’s matching media could not be previewed right now.' : draft.PreviewCount == null ? 'Loading matching media…' : 'This draft currently includes ' + draft.PreviewCount + ' media item' + (draft.PreviewCount === 1 ? '' : 's') + '.';
+                    const dates = isSeasonalType() ? '<div class="hssm-draft-window-grid"><div class="selectContainer"><label class="selectLabel">Start Month</label><select is="emby-select" data-hssm-draft-window="StartMonth">' + monthOptions(draft.StartMonth) + '</select></div><div class="inputContainer"><label class="inputLabel inputLabelUnfocused">Start Day</label><input is="emby-input" type="number" min="1" max="31" data-hssm-draft-window="StartDay" value="' + Number(draft.StartDay) + '" /></div><div class="selectContainer"><label class="selectLabel">End Month</label><select is="emby-select" data-hssm-draft-window="EndMonth">' + monthOptions(draft.EndMonth) + '</select></div><div class="inputContainer"><label class="inputLabel inputLabelUnfocused">End Day</label><input is="emby-input" type="number" min="1" max="31" data-hssm-draft-window="EndDay" value="' + Number(draft.EndDay) + '" /></div></div>' : '';
+                    return '<div class="mcm-draft-card" data-hssm-source-draft="' + esc(draft.Id) + '"><div class="hssm-source-draft-heading"><span class="hssm-source-draft-handle" draggable="true" aria-hidden="true">⠿</span><h3>' + esc(draft.Name) + '</h3><button is="emby-button" type="button" class="raised" data-hssm-remove-draft="' + esc(draft.Id) + '">Remove Draft</button></div><p class="fieldDescription">Draft ' + (index + 1) + '<br />Source type: ' + sourceLabel + '</p><p class="fieldDescription" data-hssm-draft-preview-status>' + preview + '</p>' + dates + '</div>';
+                }).join('') : '<p class="fieldDescription">Select a collection or metadata tag above to create its section draft.</p>';
+            }
+            function rotationIntervalMinutes() { const value = Math.max(1, Math.floor(Number(state.rotationValue) || 1)); return Math.min(525600, value * (state.rotationUnit === 'weeks' ? 10080 : state.rotationUnit === 'hours' ? 60 : 1440)); }
             function updateContentItems(items) {
                 const byId = {}, incoming = [];
                 (items || []).forEach(item => {
@@ -532,11 +583,32 @@
                 if (!rowMode) return '<p class="fieldDescription">This collection will include ' + items.length + ' selected media item' + (items.length === 1 ? '' : 's') + '.</p><div class="mcm-collection-member-grid">' + items.map(item => manualPickerItem(item, false, false)).join('') + '</div>';
                 return '<p class="fieldDescription">This section will include ' + items.length + ' selected item' + (items.length === 1 ? '' : 's') + '.</p><div class="hssm-preview-grid hssm-row-preview">' + items.map(item => '<div class="hssm-preview-card">' + rowImage(item) + '<span class="hssm-preview-copy"><strong>' + esc(item.Name) + '</strong></span></div>').join('') + '</div>';
             }
+            function previewDraft(draft) {
+                if (draft.SourceType === 'collection') return loadAllParentItems(draft.SourceId);
+                const parts = String(draft.SourceId).split('|');
+                const selectedTag = { SourceLibraryId:parts[0], MetadataType:parts[1], MetadataValue:parts.slice(2).join('|'), AdditionalLibraryIds:[], CollectionTitle:state.name, Overview:'', ExistingCollectionAction:'', ArtPreference:'JellyfinDefault' };
+                return cmPost('individual-collection-drafts/preview', selectedTag).then(preview => (preview.Items || preview.items || []).map(item => ({ Id:item.Id || item.id, Name:item.Title || item.title, Type:item.LibraryName || item.libraryName, HasPrimaryImage:true })));
+            }
+            function renderDraftContent(content) {
+                const loadId = ++state.draftPreviewLoadId;
+                if (!state.drafts.length) { updateContentItems([]); renderSourceDrafts(); content.innerHTML = '<p class="fieldDescription">No section drafts are currently selected.</p>'; return; }
+                state.drafts.forEach(draft => { draft.PreviewCount = null; draft.PreviewError = false; });
+                renderSourceDrafts();
+                content.innerHTML = '<p class="fieldDescription">Loading matching media for all section drafts…</p>';
+                Promise.all(state.drafts.map(draft => previewDraft(draft).then(items => { draft.PreviewCount = items.length; return items; }, () => { draft.PreviewCount = 0; draft.PreviewError = true; return []; }))).then(results => {
+                    if (loadId !== state.draftPreviewLoadId || !isDraftType()) return;
+                    const all = results.flatMap(items => items), unique = all.filter((item, index, list) => list.findIndex(candidate => String(candidate.Id || candidate.id) === String(item.Id || item.id)) === index);
+                    updateContentItems(unique);
+                    renderSourceDrafts();
+                    content.innerHTML = itemCards(state.contentItems, false);
+                });
+            }
             function renderContent() {
                 const content = host.querySelector('[data-hssm-content]');
                 if (!content) return;
                 if (kind() !== 'manual-content') state.resolvedItemIds = [];
                 const rowMode = kind() === 'multiple-collections-in-a-row' || kind() === 'libraries-in-a-row';
+                if (isDraftType()) { renderDraftContent(content); return; }
                 if (kind() === 'manual-content') {
                     const items = Object.keys(state.items).map(id => state.items[id]);
                     updateContentItems(items);
@@ -617,6 +689,7 @@
                 return value.replace(/\b\w/g, letter => letter.toUpperCase()) + (String(type || '').indexOf(':') >= 0 ? ' (' + String(type).split(':')[0] + ')' : '');
             }
             function selectedTagLibraryIds() {
+                if (isDraftType()) return state.draftLibraryIds.slice();
                 const configuration = state.collectionManagerConfiguration || {};
                 const saved = configuration.LibraryIds || configuration.libraryIds || [];
                 return (saved.length ? saved : state.libraries.map(library => library.ItemId || library.Id)).map(String);
@@ -653,11 +726,13 @@
                     if (kind() === 'manual-content') host.innerHTML = manualMarkup();
                     else if (isCollectionType()) host.innerHTML = collectionMarkup();
                     else if (isTagType()) host.innerHTML = tagMarkup();
+                    else if (isDraftType()) host.innerHTML = dynamicMarkup();
                     else host.innerHTML = libraryMarkup();
                     if (kind() === 'manual-content') renderManual();
                     if (isCollectionType()) renderCollections();
                     if (isTagType()) renderTags();
                     if (isLibraryType()) renderLibraries();
+                    if (isDraftType()) { renderDraftCollections(); renderDraftLibraries(); renderTags(); renderSourceDrafts(); }
                     renderContent();
                 }, () => { host.innerHTML = '<p class="fieldDescription">Collection Manager must be installed and available before these reused pickers can load.</p>'; });
             }
@@ -670,7 +745,7 @@
                 content.innerHTML = '<p class="fieldDescription">Loading library media…</p>';
                 cm('manual-collections/library-items?libraryId=' + encodeURIComponent(id)).then(result => { state.manual[id] = result.Items || result.items || []; renderManualItems(id); }, () => { content.innerHTML = '<p class="fieldDescription">Could not load library media.</p>'; });
             }            function tagChoiceMarkup(choice) {
-                const libraryId = String(choice.LibraryId), type = choice.MetadataType, value = choice.Value, key = libraryId + '|' + type + '|' + value, selected = state.sources.indexOf(key) >= 0, multiple = kind() !== 'individual-tag-content', imageMarkup = choice.PersonImageUrl ? '<img class="mcm-person-image" src="' + esc(ApiClient.getUrl('Items/' + choice.PersonImageUrl + '/Images/Primary')) + '" alt="" />' : '';
+                const libraryId = String(choice.LibraryId), type = choice.MetadataType, value = choice.Value, key = libraryId + '|' + type + '|' + value, selected = isDraftType() ? !!selectedDraft('tag', key) : state.sources.indexOf(key) >= 0, multiple = isDraftType() || kind() !== 'individual-tag-content', imageMarkup = choice.PersonImageUrl ? '<img class="mcm-person-image" src="' + esc(ApiClient.getUrl('Items/' + choice.PersonImageUrl + '/Images/Primary')) + '" alt="" />' : '';
                 return '<div class="mcm-flat-tag-choice"><label class="checkboxContainer">' + imageMarkup + '<input is="emby-checkbox" type="' + (multiple ? 'checkbox' : 'radio') + '" name="hssmTagSource" data-hssm-tag="' + esc(key) + '"' + (selected ? ' checked' : '') + ' /> <span>' + esc(value) + ' (' + Number(choice.MatchingItems || 0) + ')</span></label><span class="fieldDescription">' + esc(choice.LibraryName) + '</span></div>';
             }
             function loadTagType(type, search, complete) {
@@ -723,11 +798,11 @@
             }            function saveAndMove() {
                 const saveStatus = host.querySelector('[data-hssm-save-status]');
                 const needsTwo = kind() === 'multiple-tag-content' || kind() === 'muilti-match-tag-collection-content';
-                const required = kind() === 'manual-content' ? Object.keys(state.items).length : state.sources.length;
+                const required = isDraftType() ? state.drafts.length : kind() === 'manual-content' ? Object.keys(state.items).length : state.sources.length;
                 if (!required || (needsTwo && state.sources.length < 2)) { saveStatus.textContent = needsTwo ? 'Select at least two metadata tags before saving.' : 'Select content before saving.'; return; }
                 const order = Array.from(page.querySelectorAll('.hssm-section-row')).map(row => row.dataset.sectionId);
                 const itemIds = state.contentItemOrder.slice();
-                const definition = { Id:state.id, Name:state.name, Type:state.type, SourceIds:state.sources, ItemIds:itemIds, ContentOrder:state.contentOrder, ArtSize:state.artSize, ArtType:state.artType, ArtShape:state.artShape, ShowText:state.showText, IsApplied:false };
+                const definition = { Id:state.id, Name:state.name, Type:state.type, SourceIds:state.sources, ItemIds:itemIds, ContentOrder:state.contentOrder, ArtSize:state.artSize, ArtType:state.artType, ArtShape:state.artShape, ShowText:state.showText, Drafts:state.drafts.map(draft => ({ Id:draft.Id, SourceType:draft.SourceType, SourceId:draft.SourceId, Name:draft.Name, StartMonth:draft.StartMonth, StartDay:draft.StartDay, EndMonth:draft.EndMonth, EndDay:draft.EndDay })), RotationIntervalMinutes:rotationIntervalMinutes(), RotationStartUnixMilliseconds:Date.now(), IsApplied:false };
                 ApiClient.getJSON(ApiClient.getUrl('HomeScreenSectionsManager/section-settings')).then(saved => {
                     const existing = saved.Sections || saved.sections || [];
                     const sections = existing.filter(item => String(item.Id || item.id) !== state.id);
@@ -830,12 +905,20 @@
                 if (removeManual) { delete state.items[removeManual.dataset.hssmManualRemove]; renderContent(); return; }
                 if (event.target.closest('[data-hssm-library-all]')) { state.sources = state.libraries.map(library => String(library.ItemId || library.Id)); renderLibraries(); renderContent(); return; }
                 if (event.target.closest('[data-hssm-library-none]')) { state.sources = []; renderLibraries(); renderContent(); return; }
+                const pickerToggle = event.target.closest('[data-hssm-draft-picker-toggle]');
+                if (pickerToggle) { const key = pickerToggle.dataset.hssmDraftPickerToggle, body = host.querySelector('[data-hssm-draft-picker-body="' + CSS.escape(key) + '"]'); if (body) { body.hidden = !body.hidden; pickerToggle.textContent = body.hidden ? 'Click here to expand' : 'Click here to collapse'; } return; }
+                const removeSourceDraft = event.target.closest('[data-hssm-remove-draft]');
+                if (removeSourceDraft) { const draft = state.drafts.find(value => value.Id === removeSourceDraft.dataset.hssmRemoveDraft); if (draft) { removeDraft(draft.SourceType, draft.SourceId); const tagInput = host.querySelector('[data-hssm-tag="' + CSS.escape(draft.SourceId) + '"]'); if (tagInput) tagInput.checked = false; } renderDraftCollections(); renderSourceDrafts(); renderContent(); return; }
                 const tag = event.target.closest('[data-hssm-tag-open]');
                 if (tag) { loadTagValues(tag); return; }
                 if (event.target.closest('[data-hssm-save-move]')) { saveAndMove(); return; }
                 if (event.target.closest('[data-hssm-apply-section]')) { applySection(); }
             });
             host.addEventListener('input', event => {
+                const rotationValue = event.target.closest('[data-hssm-rotation-value]');
+                if (rotationValue) { state.rotationValue = Math.max(1, Math.floor(Number(rotationValue.value) || 1)); return; }
+                const draftWindow = event.target.closest('[data-hssm-draft-window]');
+                if (draftWindow) { const card = draftWindow.closest('[data-hssm-source-draft]'), draft = card && state.drafts.find(value => value.Id === card.dataset.hssmSourceDraft); if (draft) draft[draftWindow.dataset.hssmDraftWindow] = Math.max(1, Math.min(31, Math.floor(Number(draftWindow.value) || 1))); return; }
                 const tagSearch = event.target.closest('[data-hssm-tag-search]');
                 if (tagSearch) { state.tagSearch = tagSearch.value; window.clearTimeout(tagSearchTimer); tagSearchTimer = window.setTimeout(searchTagPicker, 250); return; }
                 const search = event.target.closest('[data-hssm-manual-search]');
@@ -860,12 +943,21 @@
                 if (artType) { state.artType = artType.value; return; }
                 if (artShape) { state.artShape = artShape.value; return; }
                 if (showText) { state.showText = showText.checked; return; }
+                const rotationUnit = event.target.closest('[data-hssm-rotation-unit]');
+                if (rotationUnit) { state.rotationUnit = rotationUnit.value; return; }
+                const draftWindow = event.target.closest('[data-hssm-draft-window]');
+                if (draftWindow) { const card = draftWindow.closest('[data-hssm-source-draft]'), draft = card && state.drafts.find(value => value.Id === card.dataset.hssmSourceDraft); if (draft) draft[draftWindow.dataset.hssmDraftWindow] = Math.max(1, Math.min(draftWindow.dataset.hssmDraftWindow.indexOf('Month') >= 0 ? 12 : 31, Math.floor(Number(draftWindow.value) || 1))); return; }
+                const draftCollection = event.target.closest('[data-hssm-draft-collection]');
+                if (draftCollection) { const id = draftCollection.dataset.hssmDraftCollection; if (draftCollection.checked) createDraft('collection', id, collectionName(id)); else removeDraft('collection', id); state.contentItems = []; state.contentItemOrder = []; renderSourceDrafts(); renderContent(); return; }
+                const draftLibrary = event.target.closest('[data-hssm-draft-library]');
+                if (draftLibrary) { state.draftLibraryIds = Array.from(host.querySelectorAll('[data-hssm-draft-library]:checked')).map(input => input.dataset.hssmDraftLibrary); state.tagSearch = ''; state.tagSources = {}; state.tagTypeLoadIds = {}; renderTags(); return; }
                 const collection = event.target.closest('[data-hssm-collection]');
                 const library = event.target.closest('[data-hssm-library]');
                 const tag = event.target.closest('[data-hssm-tag]');
                 const manual = event.target.closest('[data-hssm-manual-item]');
                 if (collection) state.sources = collection.type === 'radio' ? [collection.dataset.hssmCollection] : Array.from(host.querySelectorAll('[data-hssm-collection]:checked')).map(input => input.dataset.hssmCollection);
                 if (library) state.sources = library.type === 'radio' ? [library.dataset.hssmLibrary] : Array.from(host.querySelectorAll('[data-hssm-library]:checked')).map(input => input.dataset.hssmLibrary);
+                if (tag && isDraftType()) { const key = tag.dataset.hssmTag; if (tag.checked) createDraft('tag', key, tagDraftName(key)); else removeDraft('tag', key); state.contentItems = []; state.contentItemOrder = []; renderSourceDrafts(); renderContent(); return; }
                 if (tag) state.sources = tag.type === 'radio' ? [tag.dataset.hssmTag] : Array.from(host.querySelectorAll('[data-hssm-tag]:checked')).map(input => input.dataset.hssmTag);
                 if (manual) {
                     const id = manual.dataset.hssmManualItem;
@@ -894,6 +986,12 @@
                 state.tagSearch = '';
                 state.tagSources = {};
                 state.tagTypeLoadIds = {};
+                state.drafts = [];
+                state.draftLibraryIds = [];
+                state.draggedDraftId = null;
+                state.rotationValue = 1;
+                state.rotationUnit = 'days';
+                state.draftPreviewLoadId = 0;
                 page.querySelector('#hssmNewSectionSettings').hidden = false;
                 renderEditor();
             });
@@ -919,6 +1017,10 @@
                         state.artType = String(definition.ArtType || definition.artType || 'automatic');
                         state.artShape = String(definition.ArtShape || definition.artShape || 'poster');
                         state.showText = definition.ShowText !== undefined ? !!definition.ShowText : (definition.showText !== undefined ? !!definition.showText : true);
+                        state.drafts = (definition.Drafts || definition.drafts || []).map(draft => ({ Id:String(draft.Id || draft.id), SourceType:String(draft.SourceType || draft.sourceType), SourceId:String(draft.SourceId || draft.sourceId), Name:String(draft.Name || draft.name), StartMonth:Number(draft.StartMonth || draft.startMonth || 1), StartDay:Number(draft.StartDay || draft.startDay || 1), EndMonth:Number(draft.EndMonth || draft.endMonth || 12), EndDay:Number(draft.EndDay || draft.endDay || 31), PreviewCount:null }));
+                        state.draftLibraryIds = state.drafts.filter(draft => draft.SourceType === 'tag').map(draft => String(draft.SourceId).split('|')[0]).filter((id, index, all) => all.indexOf(id) === index);
+                        const interval = Number(definition.RotationIntervalMinutes || definition.rotationIntervalMinutes || 1440);
+                        if (interval % 10080 === 0) { state.rotationValue = interval / 10080; state.rotationUnit = 'weeks'; } else if (interval % 1440 === 0) { state.rotationValue = interval / 1440; state.rotationUnit = 'days'; } else { state.rotationValue = Math.max(1, interval / 60); state.rotationUnit = 'hours'; }
                         state.items = {};
                         if (!itemIds.length) return null;
                         return itemQuery({ Ids:itemIds.join(','), Fields:'Overview,PrimaryImageAspectRatio' }).then(result => {
@@ -928,6 +1030,8 @@
                 }, 0);
             }, true);
             host.addEventListener('dragstart', event => {
+                const draft = event.target.closest('[data-hssm-source-draft]');
+                if (draft) { state.draggedDraftId = draft.dataset.hssmSourceDraft; draft.classList.add('dragging'); event.dataTransfer.effectAllowed = 'move'; return; }
                 const row = event.target.closest('[data-hssm-manual-order-id]');
                 if (!row) return;
                 state.draggedContentId = row.dataset.hssmManualOrderId;
@@ -935,14 +1039,25 @@
                 event.dataTransfer.effectAllowed = 'move';
             });
             host.addEventListener('dragend', event => {
+                const draft = event.target.closest('[data-hssm-source-draft]');
+                if (draft) { draft.classList.remove('dragging'); state.draggedDraftId = null; return; }
                 const row = event.target.closest('[data-hssm-manual-order-id]');
                 if (row) row.classList.remove('dragging');
                 state.draggedContentId = null;
             });
             host.addEventListener('dragover', event => {
+                if (state.draggedDraftId && event.target.closest('[data-hssm-source-draft]')) { event.preventDefault(); return; }
                 if (state.draggedContentId && event.target.closest('[data-hssm-manual-order-id]')) event.preventDefault();
             });
             host.addEventListener('drop', event => {
+                const draftTarget = event.target.closest('[data-hssm-source-draft]');
+                if (draftTarget && state.draggedDraftId && draftTarget.dataset.hssmSourceDraft !== state.draggedDraftId) {
+                    event.preventDefault();
+                    const from = state.drafts.findIndex(draft => draft.Id === state.draggedDraftId), to = state.drafts.findIndex(draft => draft.Id === draftTarget.dataset.hssmSourceDraft);
+                    if (from >= 0 && to >= 0) { const moved = state.drafts.splice(from, 1)[0]; state.drafts.splice(to, 0, moved); renderSourceDrafts(); renderContent(); }
+                    state.draggedDraftId = null;
+                    return;
+                }
                 const target = event.target.closest('[data-hssm-manual-order-id]');
                 if (!target || !state.draggedContentId || target.dataset.hssmManualOrderId === state.draggedContentId) return;
                 event.preventDefault();

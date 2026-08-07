@@ -1,5 +1,34 @@
 # Changelog
 
+## [0.1.0.11-test] - 2026-08-06
+
+### Added
+
+- Adds **Rotating Sections**, with collapsed collection, library, and metadata-tag
+  pickers, one draggable draft per selected collection or tag, and configurable
+  rotation intervals in hours, days, or weeks.
+- Adds **Seasonal Sections** with the same collapsed source pickers and draggable
+  drafts, plus a recurring start and end month/day window for every draft.
+- Gives rotating and seasonal sections the existing content preview, content
+  ordering, manual ordering, art appearance, save, edit, and home-screen apply
+  workflow.
+
+### Changed
+
+- Preserves Abyss's existing media bar, logo treatment, backdrop blending, and
+  Jellyfin's native Continue Watching row while plugin sections load.
+- Applies the saved solid or gradient color directly to My List heart icons.
+- Keeps Jellyfin's hovering play button centered by leaving its native overlay
+  positioning intact for every art size and shape.
+- Places paired color controls closer together, adds Thumbnail to the media-bar
+  image choices, and clarifies Main Settings and Customization Settings wording.
+
+### Validation
+
+- The Dashboard and browser JavaScript parse, rotating and recurring seasonal
+  date-window smoke checks pass, and the Jellyfin 10.11.11 Release build succeeds.
+- Installed-server behavior remains a test-round requirement.
+
 ## [0.1.0.10-test] - 2026-08-06
 
 ### Added

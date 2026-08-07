@@ -115,8 +115,45 @@ public sealed class HomeScreenSectionDefinition
     /// <summary>Gets or sets whether item text is displayed under the art.</summary>
     public bool ShowText { get; set; } = true;
 
+    /// <summary>Gets or sets the ordered source drafts used by rotating and seasonal sections.</summary>
+    public List<HomeScreenSectionDraft> Drafts { get; set; } = [];
+
+    /// <summary>Gets or sets the rotating section interval in minutes.</summary>
+    public int RotationIntervalMinutes { get; set; } = 1440;
+
+    /// <summary>Gets or sets when the current rotating draft sequence began.</summary>
+    public long RotationStartUnixMilliseconds { get; set; }
+
     /// <summary>Gets or sets whether the completed section has been added to the home screen.</summary>
     public bool IsApplied { get; set; }
+}
+
+/// <summary>One collection or tag source within a rotating or seasonal section.</summary>
+public sealed class HomeScreenSectionDraft
+{
+    /// <summary>Gets or sets the stable browser-created draft identifier.</summary>
+    public string Id { get; set; } = string.Empty;
+
+    /// <summary>Gets or sets whether this draft uses a collection or metadata tag.</summary>
+    public string SourceType { get; set; } = string.Empty;
+
+    /// <summary>Gets or sets the collection id or encoded library, metadata type, and tag value.</summary>
+    public string SourceId { get; set; } = string.Empty;
+
+    /// <summary>Gets or sets the source name displayed in the Dashboard draft list.</summary>
+    public string Name { get; set; } = string.Empty;
+
+    /// <summary>Gets or sets the first month when a seasonal draft is active.</summary>
+    public int StartMonth { get; set; } = 1;
+
+    /// <summary>Gets or sets the first day when a seasonal draft is active.</summary>
+    public int StartDay { get; set; } = 1;
+
+    /// <summary>Gets or sets the last month when a seasonal draft is active.</summary>
+    public int EndMonth { get; set; } = 12;
+
+    /// <summary>Gets or sets the last day when a seasonal draft is active.</summary>
+    public int EndDay { get; set; } = 31;
 }
 
 /// <summary>Request body used to replace only Home Screen Manager-owned settings.</summary>

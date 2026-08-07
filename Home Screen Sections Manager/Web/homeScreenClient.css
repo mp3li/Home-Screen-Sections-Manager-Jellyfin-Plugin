@@ -193,11 +193,6 @@
     max-width: 4.4em;
 }
 
-.cardScalable,
-.cardOverlayContainer {
-    position: relative;
-}
-
 .hssm-remove-row-button,
 .hssm-my-list-button {
     align-items: center;

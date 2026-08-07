@@ -31,10 +31,18 @@ Current dashboard checks
 - [ ] Confirm Create Section inserts below the selected row, or at the bottom
       when no row is selected, with an editable inline Section Name field.
 - [ ] Confirm plugin rows drag, edit, delete, and restore after a page reload.
-- [ ] Exercise all ten section types and compare their pickers with the
+- [ ] Exercise all twelve section types and compare their reused pickers with the
       corresponding Collection Manager tabs.
 - [ ] Confirm collection/tag/library choices show the expected Content In
       Section media and row modes show primary images.
+- [ ] Confirm the collection, library, and metadata-tag source pickers for
+      Rotating Sections and Seasonal Sections are all collapsed by default.
+- [ ] Confirm each selected collection or metadata tag creates one visible draft,
+      draft cards show current matching-media counts, and removing or dragging a
+      draft updates the saved draft list and order.
+- [ ] Confirm rotation amount and hour/day/week units save and restore.
+- [ ] Confirm every seasonal draft's start/end month and day save and restore,
+      including a date window that crosses from December into January.
 - [ ] Confirm Save and Move On restores the saved selection when editing and
       reveals Section Content Order Settings.
 - [ ] Confirm all eight content-order choices save and restore for every section
@@ -53,12 +61,12 @@ Current dashboard checks
       every pre-existing Injector script remains unchanged.
 - [ ] Confirm an applied section appears on Home with its configured media and
       selected content order.
-- [ ] Confirm the first hybrid section supplies the media bar and is not also
-      duplicated as a standard row below it.
-- [ ] Drag native and plugin sections into the first position and confirm each
-      becomes the media bar without forcing Continue Watching back to the top.
-- [ ] Confirm media-bar timing and all three selected image types apply, with
-      image fallback when the requested image is absent.
+- [ ] Confirm the Abyss media bar, its logo treatment, backdrop blending, and the
+      native Continue Watching row remain unchanged after plugin sections load.
+- [ ] Confirm a Rotating Section changes to the next saved draft after its exact
+      interval and preserves the shared content-order and art settings.
+- [ ] Confirm a Seasonal Section shows the first matching draft during its
+      inclusive recurring date window and hides when no draft window matches.
 - [ ] Confirm collection and library content rows refresh their live children;
       enable Automatic Refresh and confirm saved tag rules gain newly matching
       media after Collection Manager refreshes its metadata catalog.
