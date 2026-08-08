@@ -26,8 +26,8 @@ Current dashboard checks
 - [ ] Confirm current Jellyfin sections appear in their saved order with blue
       Jellyfin labels, every row is draggable, and only the first row receives
       the Media Bar label.
-- [ ] Confirm only one section row highlights at a time and the two label colors
-      can be changed and restored after a page reload.
+- [ ] Confirm only one section row highlights at a time and the Jellyfin, Home
+      Screen Manager, and Media Bar label colors all save and restore after reload.
 - [ ] Confirm Create Section inserts below the selected row, or at the bottom
       when no row is selected, with an editable inline Section Name field.
 - [ ] Confirm plugin rows drag, edit, delete, and restore after a page reload.
@@ -64,7 +64,8 @@ Current dashboard checks
 - [ ] Confirm the credited plugin media bar retains Abyss's logo treatment,
       backdrop blending, metadata, buttons, animation, and responsive sizing.
 - [ ] Confirm the original Continue Watching/artwork slide never flashes before
-      the configured media-bar source and image have fully rendered.
+      the configured media-bar source and image have fully rendered, including
+      before the external plugin stylesheet finishes loading.
 - [ ] Drag eligible native and plugin sections into the first position; confirm
       each one supplies the media-bar items and remains visible as the first normal row.
 - [ ] Confirm My Media, My Media (small), and Latest Media cannot be dragged into
@@ -73,6 +74,9 @@ Current dashboard checks
       available results returned by its 30-item request, not only the first few.
 - [ ] Confirm 1–300 second timing and Backdrop, Primary, Banner, and Thumbnail
       image choices apply without changing the Abyss layout.
+- [ ] Click every media-bar dot repeatedly and confirm the selected slide renders,
+      autoplay continues, and changing image type cannot leave artwork from the
+      previous image-type setting on screen.
 - [ ] Confirm a Rotating Section changes to the next saved draft after its exact
       interval and preserves the shared content-order and art settings.
 - [ ] Confirm a Seasonal Section shows the first matching draft during its
@@ -85,17 +89,23 @@ Current dashboard checks
       Home, and is absent only from playback screens.
 - [ ] Confirm Accent Color changes the shared Abyss hover accent on top
       navigation text, play/resume buttons, and sidebar menu items.
+- [ ] Confirm Selected Tab Text Color changes only the active top-navigation tab
+      while it is not hovered; hover still uses the Accent Color.
 - [ ] Confirm each split solid/gradient color changes only its named normal-state
       surface and unrelated Custom CSS remains intact.
 - [ ] Confirm Continue Watching X resets progress without changing played state;
       confirm a dismissed Next Up card disappears without marking it played.
-- [ ] Confirm My List heart changes Jellyfin Likes, the My List tab shows liked
-      items, and unlike removes an item immediately.
+- [ ] Confirm My List appears inside the same native top slider as Home and
+      Favorites, one heart changes Jellyfin Likes, the tab shows liked items, and
+      unlike removes an item immediately.
 - [ ] Confirm series and season pages show correct counts and Ends at values.
 - [ ] Confirm selected libraries append the next native page near the bottom and
       preserve the current Jellyfin sort, filters, card type, and scroll place.
-- [ ] Confirm Also Part of These Collections, enhanced Jellyfin-only search, and
-      desktop header breadcrumbs render and navigate correctly.
+- [ ] Confirm plugin-created rows respond to Jellyfin's desktop arrows, mouse
+      wheel, mouse drag, touch, and focus navigation.
+- [ ] Confirm Also Part of These Collections and enhanced Jellyfin-only search work.
+- [ ] Confirm breadcrumbs promptly use Movies/Shows/Music media structure and
+      sibling season, album, and song selectors rather than raw folder paths.
 - [ ] Confirm native Jellyfin rows remain present and follow the saved hybrid
       order.
 - [ ] Confirm no Jellyfin Web source file is modified on disk.

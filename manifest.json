@@ -9,13 +9,13 @@
     "imageUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Assets/Branding/home-screen-sections-manager-plugin-photo.png",
     "versions": [
       {
-        "version": "0.1.0.13",
-        "changelog": "Prevents the original Abyss and Continue Watching artwork from flashing by revealing the media bar only after the configured image renders; prevents My Media, My Media (small), and Latest Media from becoming the media-bar source; and retains up to 30 Continue Watching items in the media bar while keeping the normal row below. Requires Abyss, Collection Manager, and JavaScript Injector; File Transformation 2.5.11.0 is recommended for Jellyfin 10.11.11.",
+        "version": "0.1.0.14",
+        "changelog": "Moves My List into Jellyfin top navigation with one heart; restores native row scrolling and media-aware breadcrumbs; fixes media-bar startup, carousel dots, and image-type switching; adds Media Bar label and selected-tab text color controls; and reorders heart and episode-pill settings. Requires Abyss, Collection Manager, and JavaScript Injector; File Transformation 2.5.11.0 is recommended for Jellyfin 10.11.11.",
         "targetAbi": "10.11.11.0",
         "framework": "net9.0",
-        "sourceUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Test%20Releases/0.1.0.13-test/Jellyfin.Plugin.HomeScreenSectionsManager_0.1.0.13-test.zip",
-        "checksum": "6e06320d91611ac9a4cb50b7bd098f21",
-        "timestamp": "2026-08-07T23:10:36Z"
+        "sourceUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Test%20Releases/0.1.0.14-test/Jellyfin.Plugin.HomeScreenSectionsManager_0.1.0.14-test.zip",
+        "checksum": "41486093dae2c304d2c372a463b10219",
+        "timestamp": "2026-08-08T00:14:11Z"
       }
     ]
   }

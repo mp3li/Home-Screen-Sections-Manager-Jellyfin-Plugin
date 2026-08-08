@@ -23,15 +23,17 @@ Jellyfin-only search, and header breadcrumbs.
 Custom CSS branding configuration. In addition to Abyss's documented global
 corner radius, indicator pill, optional font, and Lite Mode settings, it splits
 the shared Abyss hover accent, top navigation, play buttons, watched progress,
-sidebar icons, and My List hearts into explicit controls. It also supplies the Home
+sidebar icons, and My List hearts into explicit controls, with a separate color
+for the selected top-navigation tab's non-hovered text. It also supplies the Home
 logo, media-bar timing, and media-bar image type.
 
 **Create and Manage Home Screen Sections** shows the current ten-slot
-Jellyfin home section arrangement together with saved plugin sections. Jellyfin and
-plugin rows have separately configurable label colors. One row can be selected at a
-time; plugin rows can be edited or deleted; and every row can be dragged. The
-first row receives the **Media Bar** label and supplies the media shown in the
-top bar, whether that row came from Jellyfin or this plugin.
+Jellyfin home section arrangement together with saved plugin sections. Jellyfin,
+plugin-created, and Media Bar badges have separately configurable label colors.
+One row can be selected at a time; plugin rows can be edited or deleted; and every
+row can be dragged. The first eligible row receives the **Media Bar** label and
+supplies the media shown in the top bar, whether that row came from Jellyfin or
+this plugin.
 
 The current section types are Manual Content, individual or multiple collection
 content, multiple collections in a row, individual or combined tags,
@@ -62,9 +64,14 @@ The uploaded Home logo remains present throughout Jellyfin Web, including
 breadcrumbed detail pages, and is hidden on playback screens. It always retains
 Home navigation behavior.
 
-My List intentionally uses Jellyfin's existing per-user Likes field—the same
-working storage path used by the behavioral reference—rather than creating a
-second watchlist database.
+My List is inserted into Jellyfin's native Home/Favorites header tab slider and
+uses Jellyfin's existing per-user Likes fieldâthe same working storage path used
+by the behavioral referenceârather than creating a second watchlist database.
+Its overlay changes one Material heart icon between outline and filled states.
+Plugin-created rows use Jellyfin's native scroller elements for desktop arrows,
+mouse-wheel scrolling, mouse dragging, touch, and focus navigation. Breadcrumbs
+use media-aware Movies, Shows, seasons, episodes, artists, albums, and songs
+instead of displaying raw parent-folder paths.
 
 Custom rows are loaded through the same JavaScript Injector configuration path
 used by KefinTweaks. Home Screen Manager creates or updates only its named

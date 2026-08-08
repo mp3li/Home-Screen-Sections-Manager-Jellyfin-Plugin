@@ -33,13 +33,14 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
         {
             JellyfinSectionLabelColor = request.JellyfinSectionLabelColor,
             ManagerSectionLabelColor = request.ManagerSectionLabelColor,
+            MediaBarSectionLabelColor = request.MediaBarSectionLabelColor,
             AbyssAccentColor = previous.AbyssAccentColor,
             AbyssRadius = previous.AbyssRadius,
             AbyssIndicatorColor = previous.AbyssIndicatorColor,
             AbyssFontImportUrl = previous.AbyssFontImportUrl,
             AbyssFontFamily = previous.AbyssFontFamily,
             AbyssLiteMode = previous.AbyssLiteMode,
-            HeaderTabsColorMode = previous.HeaderTabsColorMode, HeaderTabsColorOne = previous.HeaderTabsColorOne, HeaderTabsColorTwo = previous.HeaderTabsColorTwo, PlayButtonColorMode = previous.PlayButtonColorMode, PlayButtonColorOne = previous.PlayButtonColorOne, PlayButtonColorTwo = previous.PlayButtonColorTwo, ProgressColorMode = previous.ProgressColorMode, ProgressColorOne = previous.ProgressColorOne, ProgressColorTwo = previous.ProgressColorTwo, SidebarIconColorMode = previous.SidebarIconColorMode, SidebarIconColorOne = previous.SidebarIconColorOne, SidebarIconColorTwo = previous.SidebarIconColorTwo, MyListHeartColorMode = previous.MyListHeartColorMode, MyListHeartColorOne = previous.MyListHeartColorOne, MyListHeartColorTwo = previous.MyListHeartColorTwo, LogoImageDataUrl = previous.LogoImageDataUrl, MediaBarIntervalSeconds = previous.MediaBarIntervalSeconds, MediaBarImageType = previous.MediaBarImageType, AutoRefreshSections = previous.AutoRefreshSections, EnableRemoveContinueNextUp = previous.EnableRemoveContinueNextUp, EnableMyList = previous.EnableMyList, EnableSeriesInfo = previous.EnableSeriesInfo, InfiniteScrollLibraryIds = [.. previous.InfiniteScrollLibraryIds], EnableCollectionsOnDetailPage = previous.EnableCollectionsOnDetailPage, EnableEnhancedSearch = previous.EnableEnhancedSearch, EnableBreadcrumbs = previous.EnableBreadcrumbs,
+            HeaderTabsColorMode = previous.HeaderTabsColorMode, HeaderTabsColorOne = previous.HeaderTabsColorOne, HeaderTabsColorTwo = previous.HeaderTabsColorTwo, SelectedHeaderTabTextColor = previous.SelectedHeaderTabTextColor, PlayButtonColorMode = previous.PlayButtonColorMode, PlayButtonColorOne = previous.PlayButtonColorOne, PlayButtonColorTwo = previous.PlayButtonColorTwo, ProgressColorMode = previous.ProgressColorMode, ProgressColorOne = previous.ProgressColorOne, ProgressColorTwo = previous.ProgressColorTwo, SidebarIconColorMode = previous.SidebarIconColorMode, SidebarIconColorOne = previous.SidebarIconColorOne, SidebarIconColorTwo = previous.SidebarIconColorTwo, MyListHeartColorMode = previous.MyListHeartColorMode, MyListHeartColorOne = previous.MyListHeartColorOne, MyListHeartColorTwo = previous.MyListHeartColorTwo, LogoImageDataUrl = previous.LogoImageDataUrl, MediaBarIntervalSeconds = previous.MediaBarIntervalSeconds, MediaBarImageType = previous.MediaBarImageType, AutoRefreshSections = previous.AutoRefreshSections, EnableRemoveContinueNextUp = previous.EnableRemoveContinueNextUp, EnableMyList = previous.EnableMyList, EnableSeriesInfo = previous.EnableSeriesInfo, InfiniteScrollLibraryIds = [.. previous.InfiniteScrollLibraryIds], EnableCollectionsOnDetailPage = previous.EnableCollectionsOnDetailPage, EnableEnhancedSearch = previous.EnableEnhancedSearch, EnableBreadcrumbs = previous.EnableBreadcrumbs,
             SectionOrder = (request.SectionOrder ?? []).Where(id => !string.IsNullOrWhiteSpace(id)).Distinct(StringComparer.Ordinal).ToList(),
             Sections = (request.Sections ?? [])
                 .Where(section => !string.IsNullOrWhiteSpace(section.Id) && !string.IsNullOrWhiteSpace(section.Name) && !string.IsNullOrWhiteSpace(section.Type))
@@ -75,6 +76,7 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
         {
             JellyfinSectionLabelColor = previous.JellyfinSectionLabelColor,
             ManagerSectionLabelColor = previous.ManagerSectionLabelColor,
+            MediaBarSectionLabelColor = previous.MediaBarSectionLabelColor,
             AbyssAccentColor = request.AbyssAccentColor ?? "#f5f5f7",
             AbyssRadius = Math.Clamp(request.AbyssRadius, 0, 64),
             AbyssIndicatorColor = request.AbyssIndicatorColor ?? "#373737",
@@ -82,7 +84,7 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
             AbyssFontFamily = (request.AbyssFontFamily ?? string.Empty).Trim(),
             AbyssLiteMode = request.AbyssLiteMode,
             HeaderTabsColorMode = NormalizeColorMode(request.HeaderTabsColorMode),
-            HeaderTabsColorOne = NormalizeColor(request.HeaderTabsColorOne, "#f5f5f7"), HeaderTabsColorTwo = NormalizeColor(request.HeaderTabsColorTwo, "#f5f5f7"),
+            HeaderTabsColorOne = NormalizeColor(request.HeaderTabsColorOne, "#f5f5f7"), HeaderTabsColorTwo = NormalizeColor(request.HeaderTabsColorTwo, "#f5f5f7"), SelectedHeaderTabTextColor = NormalizeColor(request.SelectedHeaderTabTextColor, "#121212"),
             PlayButtonColorMode = NormalizeColorMode(request.PlayButtonColorMode),
             PlayButtonColorOne = NormalizeColor(request.PlayButtonColorOne, "#f5f5f7"), PlayButtonColorTwo = NormalizeColor(request.PlayButtonColorTwo, "#f5f5f7"),
             ProgressColorMode = NormalizeColorMode(request.ProgressColorMode),
@@ -131,13 +133,14 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
         {
             JellyfinSectionLabelColor = previous.JellyfinSectionLabelColor,
             ManagerSectionLabelColor = previous.ManagerSectionLabelColor,
+            MediaBarSectionLabelColor = previous.MediaBarSectionLabelColor,
             AbyssAccentColor = previous.AbyssAccentColor,
             AbyssRadius = previous.AbyssRadius,
             AbyssIndicatorColor = previous.AbyssIndicatorColor,
             AbyssFontImportUrl = previous.AbyssFontImportUrl,
             AbyssFontFamily = previous.AbyssFontFamily,
             AbyssLiteMode = previous.AbyssLiteMode,
-            HeaderTabsColorMode = previous.HeaderTabsColorMode, HeaderTabsColorOne = previous.HeaderTabsColorOne, HeaderTabsColorTwo = previous.HeaderTabsColorTwo, PlayButtonColorMode = previous.PlayButtonColorMode, PlayButtonColorOne = previous.PlayButtonColorOne, PlayButtonColorTwo = previous.PlayButtonColorTwo, ProgressColorMode = previous.ProgressColorMode, ProgressColorOne = previous.ProgressColorOne, ProgressColorTwo = previous.ProgressColorTwo, SidebarIconColorMode = previous.SidebarIconColorMode, SidebarIconColorOne = previous.SidebarIconColorOne, SidebarIconColorTwo = previous.SidebarIconColorTwo, MyListHeartColorMode = previous.MyListHeartColorMode, MyListHeartColorOne = previous.MyListHeartColorOne, MyListHeartColorTwo = previous.MyListHeartColorTwo, LogoImageDataUrl = previous.LogoImageDataUrl, MediaBarIntervalSeconds = previous.MediaBarIntervalSeconds, MediaBarImageType = previous.MediaBarImageType, AutoRefreshSections = previous.AutoRefreshSections, EnableRemoveContinueNextUp = previous.EnableRemoveContinueNextUp, EnableMyList = previous.EnableMyList, EnableSeriesInfo = previous.EnableSeriesInfo, InfiniteScrollLibraryIds = [.. previous.InfiniteScrollLibraryIds], EnableCollectionsOnDetailPage = previous.EnableCollectionsOnDetailPage, EnableEnhancedSearch = previous.EnableEnhancedSearch, EnableBreadcrumbs = previous.EnableBreadcrumbs,
+            HeaderTabsColorMode = previous.HeaderTabsColorMode, HeaderTabsColorOne = previous.HeaderTabsColorOne, HeaderTabsColorTwo = previous.HeaderTabsColorTwo, SelectedHeaderTabTextColor = previous.SelectedHeaderTabTextColor, PlayButtonColorMode = previous.PlayButtonColorMode, PlayButtonColorOne = previous.PlayButtonColorOne, PlayButtonColorTwo = previous.PlayButtonColorTwo, ProgressColorMode = previous.ProgressColorMode, ProgressColorOne = previous.ProgressColorOne, ProgressColorTwo = previous.ProgressColorTwo, SidebarIconColorMode = previous.SidebarIconColorMode, SidebarIconColorOne = previous.SidebarIconColorOne, SidebarIconColorTwo = previous.SidebarIconColorTwo, MyListHeartColorMode = previous.MyListHeartColorMode, MyListHeartColorOne = previous.MyListHeartColorOne, MyListHeartColorTwo = previous.MyListHeartColorTwo, LogoImageDataUrl = previous.LogoImageDataUrl, MediaBarIntervalSeconds = previous.MediaBarIntervalSeconds, MediaBarImageType = previous.MediaBarImageType, AutoRefreshSections = previous.AutoRefreshSections, EnableRemoveContinueNextUp = previous.EnableRemoveContinueNextUp, EnableMyList = previous.EnableMyList, EnableSeriesInfo = previous.EnableSeriesInfo, InfiniteScrollLibraryIds = [.. previous.InfiniteScrollLibraryIds], EnableCollectionsOnDetailPage = previous.EnableCollectionsOnDetailPage, EnableEnhancedSearch = previous.EnableEnhancedSearch, EnableBreadcrumbs = previous.EnableBreadcrumbs,
             SectionOrder = [.. previous.SectionOrder],
             Sections = previous.Sections.Select(section => new HomeScreenSectionDefinition
             {
@@ -180,10 +183,10 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
         var previous = Configuration;
         var configuration = new PluginConfiguration
         {
-            JellyfinSectionLabelColor = previous.JellyfinSectionLabelColor, ManagerSectionLabelColor = previous.ManagerSectionLabelColor,
+            JellyfinSectionLabelColor = previous.JellyfinSectionLabelColor, ManagerSectionLabelColor = previous.ManagerSectionLabelColor, MediaBarSectionLabelColor = previous.MediaBarSectionLabelColor,
             AbyssAccentColor = previous.AbyssAccentColor, AbyssRadius = previous.AbyssRadius, AbyssIndicatorColor = previous.AbyssIndicatorColor,
             AbyssFontImportUrl = previous.AbyssFontImportUrl, AbyssFontFamily = previous.AbyssFontFamily, AbyssLiteMode = previous.AbyssLiteMode,
-            HeaderTabsColorMode = previous.HeaderTabsColorMode, HeaderTabsColorOne = previous.HeaderTabsColorOne, HeaderTabsColorTwo = previous.HeaderTabsColorTwo,
+            HeaderTabsColorMode = previous.HeaderTabsColorMode, HeaderTabsColorOne = previous.HeaderTabsColorOne, HeaderTabsColorTwo = previous.HeaderTabsColorTwo, SelectedHeaderTabTextColor = previous.SelectedHeaderTabTextColor,
             PlayButtonColorMode = previous.PlayButtonColorMode, PlayButtonColorOne = previous.PlayButtonColorOne, PlayButtonColorTwo = previous.PlayButtonColorTwo,
             ProgressColorMode = previous.ProgressColorMode, ProgressColorOne = previous.ProgressColorOne, ProgressColorTwo = previous.ProgressColorTwo,
             SidebarIconColorMode = previous.SidebarIconColorMode, SidebarIconColorOne = previous.SidebarIconColorOne, SidebarIconColorTwo = previous.SidebarIconColorTwo,

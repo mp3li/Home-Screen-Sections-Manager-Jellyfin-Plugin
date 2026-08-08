@@ -365,7 +365,7 @@
             return node;
         }
         node.innerHTML = '<h2 class="sectionTitle sectionTitle-cards padded-left">' + escapeHtml(name) + '</h2>' +
-            '<div class="hssm-client-scroller padded-top-focusscale padded-bottom-focusscale"><div class="itemsContainer scrollSlider focuscontainer-x hssm-client-items">' +
+            '<div is="emby-scroller" class="hssm-client-scroller padded-top-focusscale padded-bottom-focusscale" data-centerfocus="true"><div is="emby-itemscontainer" class="itemsContainer scrollSlider focuscontainer-x hssm-client-items">' +
             items.map(function (item) { return card(item, section); }).join('') + '</div></div>';
         return node;
     }
@@ -571,6 +571,18 @@
         return { plugin: pluginUrl, css: cssUrl };
     }
 
+    function mediaBarFrameForContainer(container) {
+        var homeTab = container && container.closest('#homeTab, .tabContent');
+        if (homeTab) {
+            var scoped = homeTab.querySelector('.featurediframe');
+            if (scoped) return scoped;
+        }
+        return Array.from(document.querySelectorAll('.featurediframe')).find(function (frame) {
+            var page = frame.closest('.libraryPage, .page');
+            return !page || (!page.classList.contains('hide') && !page.hidden);
+        }) || null;
+    }
+
     function sendMediaBarPayload(frame) {
         if (!frame || !frame.contentWindow || !mediaBarPayload) return;
         frame.contentWindow.postMessage(mediaBarPayload, window.location.origin);
@@ -581,24 +593,30 @@
         mediaBarMessageBound = true;
         window.addEventListener('message', function (event) {
             if (event.origin !== window.location.origin || !event.data || event.data.type !== 'home-screen-manager-media-bar') return;
-            var frame = document.querySelector('.featurediframe[data-hssm-media-bar="true"]');
+            var frame = Array.from(document.querySelectorAll('.featurediframe[data-hssm-media-bar="true"]')).find(function (candidate) {
+                return event.source === candidate.contentWindow;
+            });
             if (!frame || event.source !== frame.contentWindow) return;
             if (event.data.action === 'ready') sendMediaBarPayload(frame);
             if (event.data.action === 'rendered') {
                 frame.dataset.hssmMediaBarReady = 'true';
                 delete frame.dataset.hssmMediaBarPending;
+                frame.style.removeProperty('visibility');
             }
         });
     }
 
     function suppressPendingMediaBar() {
         Array.from(document.querySelectorAll('.featurediframe')).forEach(function (frame) {
-            if (frame.dataset.hssmMediaBarReady !== 'true') frame.dataset.hssmMediaBarPending = 'true';
+            if (frame.dataset.hssmMediaBarReady !== 'true') {
+                frame.dataset.hssmMediaBarPending = 'true';
+                frame.style.setProperty('visibility', 'hidden', 'important');
+            }
         });
     }
 
     function ensureMediaBarFrame(container) {
-        var frame = document.querySelector('.featurediframe');
+        var frame = mediaBarFrameForContainer(container);
         if (!frame) {
             frame = document.createElement('iframe');
             frame.className = 'featurediframe';
@@ -607,7 +625,10 @@
         }
         if (!frame.dataset.hssmAbyssSpotlightUrl && frame.src) frame.dataset.hssmAbyssSpotlightUrl = frame.src;
         frame.dataset.hssmMediaBar = 'true';
-        if (frame.dataset.hssmMediaBarReady !== 'true') frame.dataset.hssmMediaBarPending = 'true';
+        if (frame.dataset.hssmMediaBarReady !== 'true') {
+            frame.dataset.hssmMediaBarPending = 'true';
+            frame.style.setProperty('visibility', 'hidden', 'important');
+        }
         bindMediaBarMessages();
         var urls = mediaBarUrls(frame);
         if (frame.src !== urls.plugin) {
@@ -646,6 +667,7 @@
             if (key !== mediaBarSourceKey) {
                 delete frame.dataset.hssmMediaBarReady;
                 frame.dataset.hssmMediaBarPending = 'true';
+                frame.style.setProperty('visibility', 'hidden', 'important');
                 mediaBarSourceKey = key;
                 sendMediaBarPayload(frame);
             }
@@ -706,6 +728,14 @@
         });
     }
 
+    function setMyListIcon(button, liked) {
+        var icon = button.querySelector('.material-icons');
+        if (!icon) return;
+        icon.classList.remove('favorite', 'favorite_border');
+        icon.classList.add(liked ? 'favorite' : 'favorite_border');
+        icon.textContent = '';
+    }
+
     function addMyListButton(cardNode) {
         if (cardNode.querySelector('.hssm-my-list-button')) return;
         var id = cardNode.getAttribute('data-id');
@@ -720,14 +750,14 @@
             var liked = !!prop(prop(item, 'UserData', 'userData', {}), 'Likes', 'likes', false);
             button.dataset.liked = liked ? 'true' : 'false';
             button.title = liked ? 'Remove from My List' : 'Add to My List';
-            button.querySelector('.material-icons').textContent = liked ? 'favorite' : 'favorite_border';
+            setMyListIcon(button, liked);
         }).catch(function () {});
         button.addEventListener('click', function (event) {
             event.preventDefault(); event.stopPropagation();
             var next = button.dataset.liked !== 'true'; button.disabled = true;
             ApiClient.updateUserItemRating(currentUserId(), id, next).then(function () {
                 button.dataset.liked = next ? 'true' : 'false'; button.title = next ? 'Remove from My List' : 'Add to My List';
-                button.querySelector('.material-icons').textContent = next ? 'favorite' : 'favorite_border';
+                setMyListIcon(button, next);
                 myListRenderKey = '';
                 if (!next && cardNode.closest('.hssm-my-list-container')) cardNode.remove();
             }).finally(function () { button.disabled = false; });
@@ -777,10 +807,15 @@
         Array.from(document.querySelectorAll('.hssm-my-list-button')).forEach(function (node) { if (!enabled) node.remove(); });
         if (!enabled) Array.from(document.querySelectorAll('.hssm-my-list-detail-button')).forEach(function (node) { node.remove(); });
         var indexPage = document.getElementById('indexPage');
-        var tabs = document.querySelector('.headerTabs.sectionTabs');
+        var headerTabs = document.querySelector('.headerTabs.sectionTabs');
+        var tabsWidget = headerTabs && headerTabs.querySelector('[is="emby-tabs"], .emby-tabs');
+        var tabsSlider = tabsWidget && tabsWidget.querySelector('.emby-tabs-slider');
         if (!enabled) {
-            var oldButton = document.querySelector('.hssm-my-list-tab'); if (oldButton) oldButton.remove();
-            var oldPage = document.querySelector('.hssm-my-list-page'); if (oldPage) oldPage.remove();
+            var oldButton = document.querySelector('.hssm-my-list-tab');
+            var oldPage = document.querySelector('.hssm-my-list-page');
+            if (oldButton) oldButton.remove();
+            if (oldPage) oldPage.remove();
+            if (tabsWidget && typeof tabsWidget.refresh === 'function') tabsWidget.refresh();
             return;
         }
         Array.from(document.querySelectorAll('.card[data-id]')).forEach(addMyListButton);
@@ -788,31 +823,70 @@
         var detailId = currentItemId();
         if (detail && detailId && !detail.querySelector('.hssm-my-list-detail-button')) {
             var buttons = detail.querySelector('.mainDetailButtons');
-            if (buttons) { var shell = document.createElement('div'); shell.className = 'hssm-my-list-detail-button card'; shell.dataset.id = detailId; buttons.appendChild(shell); addMyListButton(shell); }
+            if (buttons) {
+                var shell = document.createElement('div');
+                shell.className = 'hssm-my-list-detail-button card';
+                shell.dataset.id = detailId;
+                buttons.appendChild(shell);
+                addMyListButton(shell);
+            }
         }
-        if (!indexPage || !tabs) return;
-        var button = tabs.querySelector('.hssm-my-list-tab');
+        if (!indexPage || !tabsWidget || !tabsSlider) return;
+        var button = tabsSlider.querySelector('.hssm-my-list-tab');
         if (!button) {
-            button = document.createElement('button'); button.type = 'button'; button.className = 'emby-tab-button hssm-my-list-tab'; button.textContent = 'My List'; tabs.appendChild(button);
+            button = document.createElement('button');
+            button.type = 'button';
+            button.setAttribute('is', 'emby-button');
+            button.className = 'emby-tab-button hssm-my-list-tab';
+            button.innerHTML = '<div class="emby-button-foreground">My List</div>';
+            tabsSlider.appendChild(button);
+            if (window.CustomElements && typeof window.CustomElements.upgradeSubtree === 'function') window.CustomElements.upgradeSubtree(button);
         }
+        var otherIndexes = Array.from(tabsSlider.querySelectorAll('.emby-tab-button:not(.hssm-my-list-tab)')).map(function (entry) { return Number(entry.getAttribute('data-index')); }).filter(Number.isFinite);
+        var myIndex = otherIndexes.length ? Math.max.apply(Math, otherIndexes) + 1 : 2;
+        button.dataset.index = String(myIndex);
         var page = indexPage.querySelector('.hssm-my-list-page');
-        if (!page) { page = document.createElement('div'); page.className = 'tabContent pageTabContent hssm-my-list-page'; page.hidden = true; page.innerHTML = '<div class="sections homeSectionsContainer hssm-my-list-container"></div>'; indexPage.appendChild(page); }
-        if (tabs.dataset.hssmMyListBound !== 'true') {
-            tabs.dataset.hssmMyListBound = 'true';
-            tabs.addEventListener('click', function (event) {
-                if (event.target.closest('.hssm-my-list-tab')) return;
-                var customPage = indexPage.querySelector('.hssm-my-list-page'); if (customPage) customPage.hidden = true;
-                var customButton = tabs.querySelector('.hssm-my-list-tab'); if (customButton) customButton.classList.remove('emby-tab-button-active');
+        if (!page) {
+            page = document.createElement('div');
+            page.className = 'tabContent pageTabContent hssm-my-list-page';
+            page.innerHTML = '<div class="sections homeSectionsContainer hssm-my-list-container"></div>';
+            indexPage.appendChild(page);
+        }
+        page.dataset.index = String(myIndex);
+        page.hidden = false;
+        if (tabsWidget.dataset.hssmMyListBound !== 'true') {
+            tabsWidget.dataset.hssmMyListBound = 'true';
+            tabsWidget.addEventListener('click', function (event) {
+                var customButton = event.target.closest('.hssm-my-list-tab');
+                if (!customButton || !tabsWidget.contains(customButton)) return;
+                event.preventDefault();
+                event.stopImmediatePropagation();
+                var customPage = indexPage.querySelector('.hssm-my-list-page');
+                if (!customPage) return;
+                Array.from(tabsWidget.querySelectorAll('.emby-tab-button')).forEach(function (tabButton) {
+                    tabButton.classList.toggle('emby-tab-button-active', tabButton === customButton);
+                });
+                Array.from(indexPage.querySelectorAll(':scope > .tabContent')).forEach(function (tab) {
+                    tab.classList.toggle('is-active', tab === customPage);
+                });
+                tabsWidget.selectedTabIndex = Number(customButton.dataset.index);
+                renderMyList(customPage.querySelector('.hssm-my-list-container'));
+            }, true);
+            tabsWidget.addEventListener('beforetabchange', function (event) {
+                var customPage = indexPage.querySelector('.hssm-my-list-page');
+                var customButton = tabsWidget.querySelector('.hssm-my-list-tab');
+                if (!customPage || !customButton) return;
+                var selectedIndex = Number(event.detail && event.detail.selectedTabIndex);
+                var customIndex = Number(customButton.dataset.index);
+                if (selectedIndex === customIndex) {
+                    Array.from(indexPage.querySelectorAll(':scope > .tabContent')).forEach(function (tab) { tab.classList.toggle('is-active', tab === customPage); });
+                    renderMyList(customPage.querySelector('.hssm-my-list-container'));
+                } else {
+                    customPage.classList.remove('is-active');
+                }
             });
         }
-        if (button.dataset.hssmBound !== 'true') {
-            button.dataset.hssmBound = 'true';
-            button.addEventListener('click', function () {
-                Array.from(indexPage.querySelectorAll(':scope > .tabContent')).forEach(function (tab) { tab.hidden = tab !== page; tab.classList.toggle('is-active', tab === page); });
-                Array.from(tabs.querySelectorAll('.emby-tab-button')).forEach(function (tabButton) { tabButton.classList.toggle('emby-tab-button-active', tabButton === button); });
-                page.hidden = false; renderMyList(page.querySelector('.hssm-my-list-container'));
-            });
-        }
+        if (typeof tabsWidget.refresh === 'function') tabsWidget.refresh();
     }
 
     function formatEndTime(ticks) {
@@ -863,39 +937,196 @@
         }).finally(function () { collectionsWorkKey = ''; });
     }
 
-    function applyBreadcrumbs(settings) {
-        var existing = document.querySelector('.hssm-breadcrumbs');
-        var id = currentItemId();
-        if (!setting(settings, 'EnableBreadcrumbs', false) || !id || window.location.hash.indexOf('/details') < 0) { if (existing) existing.remove(); return; }
-        if (existing && existing.dataset.hssmItemId === id) return;
-        if (existing) existing.remove();
-        var target = document.querySelector('.skinHeader .headerLeft, .headerLeft');
-        if (!target || breadcrumbsWorkKey === id) return;
-        breadcrumbsWorkKey = id;
-        var chain = [];
-        var current = null;
-        function parent(item, depth) {
-            chain.unshift(item); var parentId = String(prop(item, 'ParentId', 'parentId', ''));
-            return parentId && depth < 6 ? ApiClient.getItem(currentUserId(), parentId).then(function (parentItem) { return parent(parentItem, depth + 1); }).catch(function () {}) : Promise.resolve();
-        }
-        ApiClient.getItem(currentUserId(), id).then(function (item) { current = item; return parent(item, 0); }).then(function () {
-            if (!target.isConnected) return;
-            chain = chain.filter(function (item) { return String(prop(item, 'Type', 'type', '')) !== 'UserRootFolder'; });
-            if (chain.length < 2) return;
-            var currentType = String(prop(current, 'Type', 'type', ''));
-            function href(item) {
+    function breadcrumbDetailHref(id) {
+        var href = '#/details?id=' + encodeURIComponent(String(id || ''));
+        var serverId = typeof ApiClient.serverId === 'function' ? ApiClient.serverId() : '';
+        return serverId ? href + '&serverId=' + encodeURIComponent(serverId) : href;
+    }
+
+    function breadcrumbLibraryHref(route, topParentId) {
+        var params = [];
+        if (topParentId) params.push('topParentId=' + encodeURIComponent(topParentId));
+        var serverId = typeof ApiClient.serverId === 'function' ? ApiClient.serverId() : '';
+        if (serverId) params.push('serverId=' + encodeURIComponent(serverId));
+        params.push('tab=0');
+        return '#/' + route + '?' + params.join('&');
+    }
+
+    function breadcrumbTopParent(ancestors) {
+        var folder = (ancestors || []).find(function (item) { return String(prop(item, 'Type', 'type', '')) === 'CollectionFolder'; });
+        if (!folder) folder = (ancestors || []).find(function (item) { return String(prop(item, 'Type', 'type', '')) === 'UserRootFolder'; });
+        return folder ? String(prop(folder, 'Id', 'id', '')) : '';
+    }
+
+    function breadcrumbItem(id) {
+        return id ? ApiClient.getItem(currentUserId(), id).catch(function () { return null; }) : Promise.resolve(null);
+    }
+
+    function breadcrumbSiblingItems(options) {
+        return queryItems(Object.assign({ Recursive: false, Limit: 500, SortBy: 'SortName', SortOrder: 'Ascending' }, options));
+    }
+
+    function closeBreadcrumbPopover() {
+        var popover = document.querySelector('.hssm-breadcrumb-popover');
+        if (popover) popover.remove();
+    }
+
+    function showBreadcrumbPopover(anchor, loadItems, currentId) {
+        closeBreadcrumbPopover();
+        var wrapper = anchor.closest('.hssm-breadcrumbs-wrapper');
+        if (!wrapper) return;
+        var popover = document.createElement('div');
+        popover.className = 'hssm-breadcrumb-popover';
+        popover.innerHTML = '<p>Loadingâ¦</p>';
+        wrapper.appendChild(popover);
+        loadItems().then(function (items) {
+            if (!popover.isConnected) return;
+            popover.innerHTML = items.length ? items.map(function (item) {
                 var itemId = String(prop(item, 'Id', 'id', ''));
-                var itemType = String(prop(item, 'Type', 'type', ''));
-                if (itemType === 'CollectionFolder') {
-                    var route = currentType === 'Movie' ? 'movies' : ['Series','Season','Episode'].indexOf(currentType) >= 0 ? 'tv' : ['MusicArtist','MusicAlbum','Audio'].indexOf(currentType) >= 0 ? 'music' : 'home';
-                    return '#/' + route + '?topParentId=' + encodeURIComponent(itemId) + '&tab=0';
+                var name = String(prop(item, 'Name', 'name', ''));
+                return '<button type="button" data-hssm-breadcrumb-id="' + escapeHtml(itemId) + '"' + (itemId === String(currentId || '') ? ' class="selected"' : '') + '>' + escapeHtml(name) + '</button>';
+            }).join('') : '<p>No related items are available.</p>';
+            popover.addEventListener('click', function (event) {
+                var itemButton = event.target.closest('[data-hssm-breadcrumb-id]');
+                if (!itemButton) return;
+                window.location.hash = breadcrumbDetailHref(itemButton.dataset.hssmBreadcrumbId).slice(1);
+                closeBreadcrumbPopover();
+            });
+        }, function () {
+            if (popover.isConnected) popover.innerHTML = '<p>Related items could not be loaded.</p>';
+        });
+    }
+
+    function breadcrumbDefinitions(item, ancestors) {
+        var type = String(prop(item, 'Type', 'type', ''));
+        var itemId = String(prop(item, 'Id', 'id', ''));
+        var parentId = String(prop(item, 'ParentId', 'parentId', ''));
+        var seriesId = String(prop(item, 'SeriesId', 'seriesId', ''));
+        var topParentId = breadcrumbTopParent(ancestors);
+        var route = function (name) { return breadcrumbLibraryHref(name, topParentId); };
+        var details = function (id) { return breadcrumbDetailHref(id); };
+        var seasons = function (id) { return function () { return breadcrumbSiblingItems({ ParentId: id, IncludeItemTypes: 'Season' }); }; };
+        var albums = function (artistId) { return function () { return breadcrumbSiblingItems({ ArtistIds: artistId, IncludeItemTypes: 'MusicAlbum', Recursive: true }); }; };
+        var songs = function (albumId) { return function () { return breadcrumbSiblingItems({ ParentId: albumId, IncludeItemTypes: 'Audio' }); }; };
+        if (type === 'Movie') return Promise.resolve([
+            { text: 'Movies', href: route('movies') },
+            { text: String(prop(item, 'Name', 'name', '')) }
+        ]);
+        if (type === 'Series') return Promise.resolve([
+            { text: 'Shows', href: route('tv') },
+            { text: String(prop(item, 'Name', 'name', '')) },
+            { text: 'All Seasons', loadItems: seasons(itemId) }
+        ]);
+        if (type === 'Season') return breadcrumbItem(parentId).then(function (series) {
+            return [
+                { text: 'Shows', href: route('tv') },
+                { text: series ? String(prop(series, 'Name', 'name', 'Unknown Series')) : 'Unknown Series', href: details(parentId) },
+                { text: String(prop(item, 'Name', 'name', 'Season ' + prop(item, 'IndexNumber', 'indexNumber', ''))), loadItems: seasons(parentId), currentId: itemId }
+            ];
+        });
+        if (type === 'Episode') return Promise.all([breadcrumbItem(seriesId), breadcrumbItem(parentId)]).then(function (values) {
+            var series = values[0], season = values[1];
+            var seasonName = season ? String(prop(season, 'Name', 'name', '')) : 'Season ' + String(prop(item, 'ParentIndexNumber', 'parentIndexNumber', ''));
+            var episodeNumber = String(prop(item, 'IndexNumber', 'indexNumber', '')).padStart(2, '0');
+            return [
+                { text: 'Shows', href: route('tv') },
+                { text: series ? String(prop(series, 'Name', 'name', 'Unknown Series')) : 'Unknown Series', href: details(seriesId) },
+                { text: seasonName, loadItems: seasons(seriesId), currentId: parentId },
+                { text: String(prop(item, 'ParentIndexNumber', 'parentIndexNumber', '')) + 'x' + episodeNumber + ' - ' + String(prop(item, 'Name', 'name', '')) }
+            ];
+        });
+        if (type === 'MusicArtist') return Promise.resolve([
+            { text: 'Music', href: route('music') },
+            { text: String(prop(item, 'Name', 'name', '')) },
+            { text: 'All Albums', loadItems: albums(itemId) }
+        ]);
+        if (type === 'MusicAlbum') {
+            var albumArtists = prop(item, 'AlbumArtists', 'albumArtists', []) || [];
+            var albumArtist = albumArtists[0] || null;
+            var artistId = albumArtist ? String(prop(albumArtist, 'Id', 'id', '')) : parentId;
+            var artistName = String(prop(item, 'AlbumArtist', 'albumArtist', 'Unknown Artist'));
+            return Promise.resolve([
+                { text: 'Music', href: route('music') },
+                { text: artistName, href: artistId ? details(artistId) : '' },
+                { text: String(prop(item, 'Name', 'name', '')), loadItems: albums(artistId), currentId: itemId },
+                { text: 'All Songs', loadItems: songs(itemId) }
+            ]);
+        }
+        if (type === 'Audio') return breadcrumbItem(parentId).then(function (album) {
+            var albumArtists = album ? (prop(album, 'AlbumArtists', 'albumArtists', []) || []) : [];
+            var artist = albumArtists[0] || null;
+            var artistId = artist ? String(prop(artist, 'Id', 'id', '')) : '';
+            var artistName = album ? String(prop(album, 'AlbumArtist', 'albumArtist', 'Unknown Artist')) : 'Unknown Artist';
+            return [
+                { text: 'Music', href: route('music') },
+                { text: artistName, href: artistId ? details(artistId) : '' },
+                { text: album ? String(prop(album, 'Name', 'name', 'Unknown Album')) : 'Unknown Album', loadItems: albums(artistId), currentId: parentId },
+                { text: String(prop(item, 'Name', 'name', '')) }
+            ];
+        });
+        return Promise.resolve([]);
+    }
+
+    function applyBreadcrumbs(settings) {
+        var existing = document.querySelector('.hssm-breadcrumbs-wrapper');
+        var id = currentItemId();
+        if (!setting(settings, 'EnableBreadcrumbs', false) || !id || window.location.hash.indexOf('/details') < 0 || window.innerWidth < 768) {
+            if (existing) existing.remove();
+            closeBreadcrumbPopover();
+            return;
+        }
+        if (existing && existing.dataset.hssmItemId === id) return;
+        if (breadcrumbsWorkKey === id) return;
+        breadcrumbsWorkKey = id;
+        var target = document.querySelector('.skinHeader .headerLeft, .headerLeft');
+        if (!target) { breadcrumbsWorkKey = ''; return; }
+        Promise.all([
+            ApiClient.getItem(currentUserId(), id),
+            typeof ApiClient.getAncestorItems === 'function' ? ApiClient.getAncestorItems(id).catch(function () { return []; }) : Promise.resolve([])
+        ]).then(function (values) {
+            return breadcrumbDefinitions(values[0], values[1]);
+        }).then(function (definitions) {
+            if (!definitions.length || currentItemId() !== id || !target.isConnected) return;
+            var old = document.querySelector('.hssm-breadcrumbs-wrapper');
+            if (old) old.remove();
+            var wrapper = document.createElement('div');
+            wrapper.className = 'hssm-breadcrumbs-wrapper';
+            wrapper.dataset.hssmItemId = id;
+            var nav = document.createElement('nav');
+            nav.className = 'hssm-breadcrumbs';
+            nav.setAttribute('aria-label', 'Breadcrumb');
+            definitions.forEach(function (definition, index) {
+                if (index) {
+                    var separator = document.createElement('span');
+                    separator.className = 'hssm-breadcrumb-separator';
+                    separator.textContent = ' / ';
+                    nav.appendChild(separator);
                 }
-                return '#/details?id=' + encodeURIComponent(itemId);
-            }
-            var node = document.createElement('nav'); node.className = 'hssm-breadcrumbs'; node.dataset.hssmItemId = id; node.setAttribute('aria-label', 'Breadcrumb');
-            node.innerHTML = chain.map(function (item, index) { var name = String(prop(item, 'Name', 'name', '')); return (index ? '<span aria-hidden="true">›</span>' : '') + (index === chain.length - 1 ? '<span>' + escapeHtml(name) + '</span>' : '<a href="' + escapeHtml(href(item)) + '">' + escapeHtml(name) + '</a>'); }).join('');
-            target.appendChild(node);
-        }).finally(function () { breadcrumbsWorkKey = ''; });
+                var element;
+                if (definition.href) {
+                    element = document.createElement('a');
+                    element.href = definition.href;
+                } else if (definition.loadItems) {
+                    element = document.createElement('button');
+                    element.type = 'button';
+                    element.addEventListener('click', function (event) {
+                        event.stopPropagation();
+                        showBreadcrumbPopover(element, definition.loadItems, definition.currentId);
+                    });
+                } else {
+                    element = document.createElement('span');
+                }
+                element.className = 'hssm-breadcrumb-element';
+                element.textContent = definition.text;
+                nav.appendChild(element);
+            });
+            wrapper.appendChild(nav);
+            target.appendChild(wrapper);
+        }).catch(function (error) {
+            console.warn('[Home Screen Manager] Could not build Jellyfin breadcrumbs.', error);
+        }).finally(function () {
+            if (breadcrumbsWorkKey === id) breadcrumbsWorkKey = '';
+        });
     }
 
     function applyInfiniteScroll(settings) {

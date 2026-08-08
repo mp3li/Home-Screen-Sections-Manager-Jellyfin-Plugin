@@ -1,6 +1,6 @@
 <div id="homeScreenSectionsManagerPage" data-role="page" class="page type-interior" data-require="emby-button,emby-input,emby-checkbox,emby-select">
     <style>
-        #homeScreenSectionsManagerPage { --hssm-outline:rgba(128,128,128,.55); --hssm-jellyfin:#00a4dc; --hssm-manager:#aa5cc3; }
+        #homeScreenSectionsManagerPage { --hssm-outline:rgba(128,128,128,.55); --hssm-jellyfin:#00a4dc; --hssm-manager:#aa5cc3; --hssm-media-bar:#c78000; }
         #homeScreenSectionsManagerPage .hssm-tabs { display:flex; flex-wrap:nowrap; gap:.5em; overflow-x:auto; overscroll-behavior-x:contain; border-bottom:0; margin:1.5em 0; padding-bottom:.15em; }
         #homeScreenSectionsManagerPage .hssm-tab { flex:0 0 auto; white-space:nowrap; border:0; border-radius:.45em .45em 0 0; padding:.85em 1.25em; background:rgba(255,255,255,.08); color:inherit; cursor:pointer; font-size:1em; }
         #homeScreenSectionsManagerPage .hssm-tab.active { background:#00a4dc; color:#fff; font-weight:bold; }
@@ -27,7 +27,7 @@
         #homeScreenSectionsManagerPage .hssm-badge { flex:0 0 auto; border-radius:999px; padding:.28em .7em; color:#fff; font-size:.79em; font-weight:bold; white-space:nowrap; }
         #homeScreenSectionsManagerPage .hssm-badge-jellyfin { background:var(--hssm-jellyfin); }
         #homeScreenSectionsManagerPage .hssm-badge-manager { background:var(--hssm-manager); }
-        #homeScreenSectionsManagerPage .hssm-badge-media { background:#c78000; }
+        #homeScreenSectionsManagerPage .hssm-badge-media { background:var(--hssm-media-bar); }
         #homeScreenSectionsManagerPage .hssm-new-settings { border-top:1px solid var(--hssm-outline); margin-top:1.25em; padding-top:1.25em; }
         #homeScreenSectionsManagerPage .hssm-new-settings[hidden] { display:none !important; }
         #homeScreenSectionsManagerPage .hssm-type-picker { margin-top:.85em; }
@@ -116,20 +116,12 @@
                 <h2>Top Navigation Color Settings</h2>
                 <p class="fieldDescription">Customize the centered Home, Favorites, My List, and other page tabs.</p>
                 <div class="hssm-gradient-controls"><div class="selectContainer"><label class="selectLabel" for="hssmHeaderTabsColorMode">Color Style</label><select is="emby-select" id="hssmHeaderTabsColorMode"><option value="solid">Solid (Default)</option><option value="vertical-gradient">Vertical Gradient</option><option value="horizontal-gradient">Horizontal Gradient</option><option value="center-gradient">Center Gradient</option></select></div><div class="inputContainer"><label class="inputLabel inputLabelUnfocused" for="hssmHeaderTabsColorOne">First Color</label><input is="emby-input" class="hssm-color" id="hssmHeaderTabsColorOne" type="color" value="#f5f5f7" /></div><div class="inputContainer"><label class="inputLabel inputLabelUnfocused" for="hssmHeaderTabsColorTwo">Second Color</label><input is="emby-input" class="hssm-color" id="hssmHeaderTabsColorTwo" type="color" value="#f5f5f7" /></div></div>
+                <div class="inputContainer"><label class="inputLabel inputLabelUnfocused" for="hssmSelectedHeaderTabTextColor">Selected Tab Text Color</label><input is="emby-input" class="hssm-color" id="hssmSelectedHeaderTabTextColor" type="color" value="#121212" /></div>
             </section>
             <section class="hssm-section"><h2>Play Button Color Settings</h2><p class="fieldDescription">Customize Jellyfin play and resume buttons.</p><div class="hssm-gradient-controls"><div class="selectContainer"><label class="selectLabel" for="hssmPlayButtonColorMode">Color Style</label><select is="emby-select" id="hssmPlayButtonColorMode"><option value="solid">Solid (Default)</option><option value="vertical-gradient">Vertical Gradient</option><option value="horizontal-gradient">Horizontal Gradient</option><option value="center-gradient">Center Gradient</option></select></div><div class="inputContainer"><label class="inputLabel inputLabelUnfocused" for="hssmPlayButtonColorOne">First Color</label><input is="emby-input" class="hssm-color" id="hssmPlayButtonColorOne" type="color" value="#f5f5f7" /></div><div class="inputContainer"><label class="inputLabel inputLabelUnfocused" for="hssmPlayButtonColorTwo">Second Color</label><input is="emby-input" class="hssm-color" id="hssmPlayButtonColorTwo" type="color" value="#f5f5f7" /></div></div></section>
             <section class="hssm-section"><h2>Watched Progress Color Settings</h2><p class="fieldDescription">Customize watched-progress bars and playback progress bar colors.</p><div class="hssm-gradient-controls"><div class="selectContainer"><label class="selectLabel" for="hssmProgressColorMode">Color Style</label><select is="emby-select" id="hssmProgressColorMode"><option value="solid">Solid (Default)</option><option value="vertical-gradient">Vertical Gradient</option><option value="horizontal-gradient">Horizontal Gradient</option><option value="center-gradient">Center Gradient</option></select></div><div class="inputContainer"><label class="inputLabel inputLabelUnfocused" for="hssmProgressColorOne">First Color</label><input is="emby-input" class="hssm-color" id="hssmProgressColorOne" type="color" value="#f5f5f7" /></div><div class="inputContainer"><label class="inputLabel inputLabelUnfocused" for="hssmProgressColorTwo">Second Color</label><input is="emby-input" class="hssm-color" id="hssmProgressColorTwo" type="color" value="#f5f5f7" /></div></div></section>
             <section class="hssm-section"><h2>Sidebar Icon Color Settings</h2><p class="fieldDescription">Cuztomize the sidebar icons.</p><div class="hssm-gradient-controls"><div class="selectContainer"><label class="selectLabel" for="hssmSidebarIconColorMode">Color Style</label><select is="emby-select" id="hssmSidebarIconColorMode"><option value="solid">Solid (Default)</option><option value="vertical-gradient">Vertical Gradient</option><option value="horizontal-gradient">Horizontal Gradient</option><option value="center-gradient">Center Gradient</option></select></div><div class="inputContainer"><label class="inputLabel inputLabelUnfocused" for="hssmSidebarIconColorOne">First Color</label><input is="emby-input" class="hssm-color" id="hssmSidebarIconColorOne" type="color" value="#f5f5f7" /></div><div class="inputContainer"><label class="inputLabel inputLabelUnfocused" for="hssmSidebarIconColorTwo">Second Color</label><input is="emby-input" class="hssm-color" id="hssmSidebarIconColorTwo" type="color" value="#f5f5f7" /></div></div></section>
-            <section class="hssm-section"><h2>Home Screen Logo Settings</h2><p class="fieldDescription">Add a logo beside the menu button on Home. On other pages, the same logo replaces the upper-left Home icon while keeping its Home button function.</p><input id="hssmLogoImageFile" type="file" accept="image/png,image/jpeg,image/webp,image/gif" /><img id="hssmLogoImagePreview" class="hssm-logo-preview" alt="Selected logo preview" hidden /><div class="hssm-actions"><button is="emby-button" type="button" class="raised" id="hssmRemoveLogoButton">Remove Logo</button></div></section>
-            <section class="hssm-section"><h2>Media Bar Timing Settings</h2><p class="fieldDescription">Choose how many seconds each item remains visible before the top media bar advances. Abyss uses 5 seconds by default.</p><div class="inputContainer"><label class="inputLabel inputLabelUnfocused" for="hssmMediaBarIntervalSeconds">Seconds Per Item</label><input is="emby-input" id="hssmMediaBarIntervalSeconds" type="number" min="1" max="300" step="1" value="5" /></div></section>
-            <section class="hssm-section"><h2>Media Bar Image Type Settings</h2><p class="fieldDescription">Choose the Jellyfin image type used behind items in the top media bar. If an item does not have that image, the media bar falls back to another available image.</p><div class="selectContainer"><label class="selectLabel" for="hssmMediaBarImageType">Image Type</label><select is="emby-select" id="hssmMediaBarImageType"><option value="backdrop">Backdrop (Default)</option><option value="primary">Primary</option><option value="banner">Banner</option><option value="thumb">Thumbnail</option></select></div></section>
             <section class="hssm-section"><h2>My List Heart Color Settings</h2><p class="fieldDescription">Customize the heart buttons used to add media to My List.</p><div class="hssm-gradient-controls"><div class="selectContainer"><label class="selectLabel" for="hssmMyListHeartColorMode">Color Style</label><select is="emby-select" id="hssmMyListHeartColorMode"><option value="solid">Solid (Default)</option><option value="vertical-gradient">Vertical Gradient</option><option value="horizontal-gradient">Horizontal Gradient</option><option value="center-gradient">Center Gradient</option></select></div><div class="inputContainer"><label class="inputLabel inputLabelUnfocused" for="hssmMyListHeartColorOne">First Color</label><input is="emby-input" class="hssm-color" id="hssmMyListHeartColorOne" type="color" value="#f5f5f7" /></div><div class="inputContainer"><label class="inputLabel inputLabelUnfocused" for="hssmMyListHeartColorTwo">Second Color</label><input is="emby-input" class="hssm-color" id="hssmMyListHeartColorTwo" type="color" value="#f5f5f7" /></div></div>
-            </section>
-
-            <section class="hssm-section">
-                <h2>Global Corner Rounding Settings</h2>
-                <p class="fieldDescription">Choose how rounded corners appear throughout the Abyss theme. Lower values make cards, buttons, menus, and other interface elements more square; higher values make them more rounded. Abyss uses 24 pixels by default.</p>
-                <div class="inputContainer"><label class="inputLabel inputLabelUnfocused" for="hssmAbyssRadius">Corner Rounding</label><div class="hssm-radius-control"><input is="emby-input" id="hssmAbyssRadius" type="number" min="0" max="64" step="1" value="24" /><span>px</span></div></div>
             </section>
 
             <section class="hssm-section">
@@ -137,6 +129,17 @@
                 <p class="fieldDescription">Select the background color used for Abyss episode-count and indicator pills. Abyss uses dark gray by default.</p>
                 <div class="inputContainer"><label class="inputLabel inputLabelUnfocused" for="hssmAbyssIndicatorColor">Episode Count Pill Color</label><input is="emby-input" class="hssm-color" id="hssmAbyssIndicatorColor" type="color" value="#373737" /></div>
             </section>
+
+            <section class="hssm-section"><h2>Home Screen Logo Settings</h2><p class="fieldDescription">Add a logo beside the menu button on Home. On other pages, the same logo replaces the upper-left Home icon while keeping its Home button function.</p><input id="hssmLogoImageFile" type="file" accept="image/png,image/jpeg,image/webp,image/gif" /><img id="hssmLogoImagePreview" class="hssm-logo-preview" alt="Selected logo preview" hidden /><div class="hssm-actions"><button is="emby-button" type="button" class="raised" id="hssmRemoveLogoButton">Remove Logo</button></div></section>
+            <section class="hssm-section"><h2>Media Bar Timing Settings</h2><p class="fieldDescription">Choose how many seconds each item remains visible before the top media bar advances. Abyss uses 5 seconds by default.</p><div class="inputContainer"><label class="inputLabel inputLabelUnfocused" for="hssmMediaBarIntervalSeconds">Seconds Per Item</label><input is="emby-input" id="hssmMediaBarIntervalSeconds" type="number" min="1" max="300" step="1" value="5" /></div></section>
+            <section class="hssm-section"><h2>Media Bar Image Type Settings</h2><p class="fieldDescription">Choose the Jellyfin image type used behind items in the top media bar. If an item does not have that image, the media bar falls back to another available image.</p><div class="selectContainer"><label class="selectLabel" for="hssmMediaBarImageType">Image Type</label><select is="emby-select" id="hssmMediaBarImageType"><option value="backdrop">Backdrop (Default)</option><option value="primary">Primary</option><option value="banner">Banner</option><option value="thumb">Thumbnail</option></select></div></section>
+
+            <section class="hssm-section">
+                <h2>Global Corner Rounding Settings</h2>
+                <p class="fieldDescription">Choose how rounded corners appear throughout the Abyss theme. Lower values make cards, buttons, menus, and other interface elements more square; higher values make them more rounded. Abyss uses 24 pixels by default.</p>
+                <div class="inputContainer"><label class="inputLabel inputLabelUnfocused" for="hssmAbyssRadius">Corner Rounding</label><div class="hssm-radius-control"><input is="emby-input" id="hssmAbyssRadius" type="number" min="0" max="64" step="1" value="24" /><span>px</span></div></div>
+            </section>
+
 
             <section class="hssm-section">
                 <h2>Font Override Settings</h2>
@@ -159,10 +162,11 @@
         <div class="hssm-panel" data-panel="create-sections" role="tabpanel">
             <section class="hssm-section">
                 <h2>Existing Home Screen Sections</h2>
-                <p class="fieldDescription">This area shows your current home screen sections. Sections made by/default by Jellyfin are labeled Jellyfin in blue, and sections made by this plugin are labeled in purple. You can change the two colors below. Sections made by this plugin are editable and sections made by Jellyfin are not. Click 'Create Section' to create a new section. Click 'Edit Section' to edit sections made by this plugin. Drag sections to rearrange them. The first eligible section is labeled Media Bar and supplies the content for the top media bar while also remaining visible as a normal section below it. My Media and Latest Media cannot be used as the Media Bar.</p>
+                <p class="fieldDescription">This area shows your current home screen sections. Sections made by/default by Jellyfin are labeled Jellyfin in blue, and sections made by this plugin are labeled in purple. You can change the three label colors below. Sections made by this plugin are editable and sections made by Jellyfin are not. Click 'Create Section' to create a new section. Click 'Edit Section' to edit sections made by this plugin. Drag sections to rearrange them. The first eligible section is labeled Media Bar and supplies the content for the top media bar while also remaining visible as a normal section below it. My Media and Latest Media cannot be used as the Media Bar.</p>
                 <div class="hssm-colors">
                     <div class="inputContainer"><label class="inputLabel inputLabelUnfocused" for="hssmJellyfinColor">Jellyfin Label Color</label><input is="emby-input" class="hssm-color" id="hssmJellyfinColor" type="color" value="#00a4dc" /></div>
                     <div class="inputContainer"><label class="inputLabel inputLabelUnfocused" for="hssmManagerColor">Home Screen Manager Label Color</label><input is="emby-input" class="hssm-color" id="hssmManagerColor" type="color" value="#aa5cc3" /></div>
+                    <div class="inputContainer"><label class="inputLabel inputLabelUnfocused" for="hssmMediaBarColor">Media Bar Label Color</label><input is="emby-input" class="hssm-color" id="hssmMediaBarColor" type="color" value="#c78000" /></div>
                 </div>
                 <div id="hssmSectionList" class="hssm-section-list" aria-label="Existing home screen sections"></div>
                 <div class="hssm-actions">
@@ -265,7 +269,7 @@
             }
 
             function loadSections() {
-                const fallbackSaved = { Sections:[], SectionOrder:[], JellyfinSectionLabelColor:'#00a4dc', ManagerSectionLabelColor:'#aa5cc3' };
+                const fallbackSaved = { Sections:[], SectionOrder:[], JellyfinSectionLabelColor:'#00a4dc', ManagerSectionLabelColor:'#aa5cc3', MediaBarSectionLabelColor:'#c78000' };
                 const savedRequest = window.ApiClient ? ApiClient.getJSON(ApiClient.getUrl('HomeScreenSectionsManager/section-settings')).catch(() => fallbackSaved) : Promise.resolve(fallbackSaved);
                 const userId = window.ApiClient && typeof ApiClient.getCurrentUserId === 'function' ? ApiClient.getCurrentUserId() : '';
                 const nativeRequest = userId && typeof ApiClient.getDisplayPreferences === 'function' ? ApiClient.getDisplayPreferences('usersettings', userId, 'emby').catch(() => null) : Promise.resolve(null);
@@ -281,10 +285,13 @@
                     sections = ordered;
                     const jellyfinColor = saved.JellyfinSectionLabelColor || saved.jellyfinSectionLabelColor || '#00a4dc';
                     const managerColor = saved.ManagerSectionLabelColor || saved.managerSectionLabelColor || '#aa5cc3';
+                    const mediaBarColor = saved.MediaBarSectionLabelColor || saved.mediaBarSectionLabelColor || '#c78000';
                     page.querySelector('#hssmJellyfinColor').value = jellyfinColor;
                     page.querySelector('#hssmManagerColor').value = managerColor;
+                    page.querySelector('#hssmMediaBarColor').value = mediaBarColor;
                     page.style.setProperty('--hssm-jellyfin', jellyfinColor);
                     page.style.setProperty('--hssm-manager', managerColor);
+                    page.style.setProperty('--hssm-media-bar', mediaBarColor);
                     render();
                     if (normalized) scheduleLayoutSave();
                 });
@@ -315,12 +322,13 @@
                     const definitions = (saved.Sections || saved.sections || []).filter(item => String(item.Id || item.id) !== String(removeId || ''));
                     const knownManagerIds = definitions.map(item => String(item.Id || item.id));
                     const order = Array.from(list.querySelectorAll('[data-section-id]')).map(row => row.dataset.sectionId).filter(id => id.indexOf('manager-') !== 0 || knownManagerIds.indexOf(id) >= 0);
-                    return ApiClient.ajax({ type:'POST', url:ApiClient.getUrl('HomeScreenSectionsManager/section-settings'), data:JSON.stringify({ JellyfinSectionLabelColor:page.querySelector('#hssmJellyfinColor').value, ManagerSectionLabelColor:page.querySelector('#hssmManagerColor').value, Sections:definitions, SectionOrder:order }), contentType:'application/json', dataType:'json' });
+                    return ApiClient.ajax({ type:'POST', url:ApiClient.getUrl('HomeScreenSectionsManager/section-settings'), data:JSON.stringify({ JellyfinSectionLabelColor:page.querySelector('#hssmJellyfinColor').value, ManagerSectionLabelColor:page.querySelector('#hssmManagerColor').value, MediaBarSectionLabelColor:page.querySelector('#hssmMediaBarColor').value, Sections:definitions, SectionOrder:order }), contentType:'application/json', dataType:'json' });
                 });
             }
             function scheduleLayoutSave() { window.clearTimeout(layoutSaveTimer); layoutSaveTimer = window.setTimeout(() => persistLayout(), 250); }
             page.querySelector('#hssmJellyfinColor').addEventListener('input', event => { page.style.setProperty('--hssm-jellyfin', event.target.value); scheduleLayoutSave(); });
             page.querySelector('#hssmManagerColor').addEventListener('input', event => { page.style.setProperty('--hssm-manager', event.target.value); scheduleLayoutSave(); });
+            page.querySelector('#hssmMediaBarColor').addEventListener('input', event => { page.style.setProperty('--hssm-media-bar', event.target.value); scheduleLayoutSave(); });
 
             addButton.addEventListener('click', () => {
                 const id = 'manager-' + Date.now();
@@ -832,7 +840,7 @@
                     const existing = saved.Sections || saved.sections || [];
                     const sections = existing.filter(item => String(item.Id || item.id) !== state.id);
                     sections.push(definition);
-                    return ApiClient.ajax({ type:'POST', url:ApiClient.getUrl('HomeScreenSectionsManager/section-settings'), data:JSON.stringify({ JellyfinSectionLabelColor:page.querySelector('#hssmJellyfinColor').value, ManagerSectionLabelColor:page.querySelector('#hssmManagerColor').value, Sections:sections, SectionOrder:order }), contentType:'application/json', dataType:'json' });
+                    return ApiClient.ajax({ type:'POST', url:ApiClient.getUrl('HomeScreenSectionsManager/section-settings'), data:JSON.stringify({ JellyfinSectionLabelColor:page.querySelector('#hssmJellyfinColor').value, ManagerSectionLabelColor:page.querySelector('#hssmManagerColor').value, MediaBarSectionLabelColor:page.querySelector('#hssmMediaBarColor').value, Sections:sections, SectionOrder:order }), contentType:'application/json', dataType:'json' });
                 }).then(() => {
                     host.querySelector('[data-hssm-save-status]').textContent = 'Section settings saved.';
                     const orderSection = host.querySelector('[data-hssm-order-settings]');
@@ -870,7 +878,7 @@
                 });
             }
             function homeScreenLoaderScript() {
-                return "(function(){'use strict';function boot(){if(!window.ApiClient||typeof ApiClient.getUrl!=='function'){window.setTimeout(boot,100);return;}if(!document.querySelector('link[data-hssm-client-style]')){var link=document.createElement('link');link.rel='stylesheet';link.href=ApiClient.getUrl('HomeScreenSectionsManager/client.css');link.dataset.hssmClientStyle='true';document.head.appendChild(link);}if(window.HomeScreenManagerClient){window.HomeScreenManagerClient.refresh();return;}if(document.querySelector('script[data-hssm-client-script]'))return;var script=document.createElement('script');script.src=ApiClient.getUrl('HomeScreenSectionsManager/client.js');script.dataset.hssmClientScript='true';script.onerror=function(){console.error('[Home Screen Manager] Could not load the browser client.');};document.head.appendChild(script);}boot();}());";
+                return "(function(){'use strict';function hidePendingBar(){Array.from(document.querySelectorAll('.featurediframe')).forEach(function(frame){if(frame.dataset.hssmMediaBarReady!=='true')frame.style.setProperty('visibility','hidden','important');});}var watcher=new MutationObserver(hidePendingBar);watcher.observe(document.documentElement,{childList:true,subtree:true});hidePendingBar();function boot(){if(!window.ApiClient||typeof ApiClient.getUrl!=='function'){window.setTimeout(boot,100);return;}if(!document.querySelector('link[data-hssm-client-style]')){var link=document.createElement('link');link.rel='stylesheet';link.href=ApiClient.getUrl('HomeScreenSectionsManager/client.css');link.dataset.hssmClientStyle='true';document.head.appendChild(link);}if(window.HomeScreenManagerClient){watcher.disconnect();window.HomeScreenManagerClient.refresh();return;}if(document.querySelector('script[data-hssm-client-script]'))return;var script=document.createElement('script');script.src=ApiClient.getUrl('HomeScreenSectionsManager/client.js');script.dataset.hssmClientScript='true';script.onload=function(){watcher.disconnect();};script.onerror=function(){watcher.disconnect();console.error('[Home Screen Manager] Could not load the browser client.');};document.head.appendChild(script);}boot();}());";
             }
             function ensureJavaScriptInjectorLoader() {
                 return ApiClient.getJSON(ApiClient.getUrl('Plugins')).then(result => {
@@ -1177,6 +1185,7 @@
             const page = document.getElementById('homeScreenSectionsManagerPage');
             if (!page || !window.ApiClient) return;
             const accent = page.querySelector('#hssmAbyssAccentColor');
+            const selectedHeaderTabTextColor = page.querySelector('#hssmSelectedHeaderTabTextColor');
             const radius = page.querySelector('#hssmAbyssRadius');
             const indicator = page.querySelector('#hssmAbyssIndicatorColor');
             const fontUrl = page.querySelector('#hssmAbyssFontImportUrl');
@@ -1224,6 +1233,7 @@
                 lines.push('', ':root {', '    --abyss-accent: ' + hexToRgb(accent.value) + ';', '    --abyss-radius: ' + Math.max(0, Math.min(64, Number(radius.value) || 0)) + 'px;', '    --abyss-indicator: ' + hexToRgb(indicator.value) + ';', '}');
                 const headerPaint = paint(colorControls.HeaderTabs), playPaint = paint(colorControls.PlayButton), progressPaint = paint(colorControls.Progress), sidebarPaint = paint(colorControls.SidebarIcon), heartPaint = paint(colorControls.MyListHeart);
                 lines.push('', '.headerTabs.sectionTabs .emby-tab-button-active { background: ' + headerPaint + ' !important; }');
+                lines.push('.headerTabs.sectionTabs .emby-tab-button-active:not(:hover) { color: ' + selectedHeaderTabTextColor.value + ' !important; }');
                 lines.push('.btnPlay, .btnPlayOrResume, [data-action="play"], [data-action="resume"], .cardOverlayFab-primary, .hssm-media-bar-play { background: ' + playPaint + ' !important; }');
                 lines.push('.itemProgressBarForeground, .playbackProgress > div, #videoOsdPage .sliderMarker.watched, .mdl-slider-background-lower { background: ' + progressPaint + ' !important; }');
                 if (colorControls.SidebarIcon.mode.value === 'solid') {
@@ -1270,6 +1280,7 @@
             function load() {
                 ApiClient.getJSON(ApiClient.getUrl('HomeScreenSectionsManager/customization-settings')).then(configuration => {
                     accent.value = valueOf(configuration, 'AbyssAccentColor', 'abyssAccentColor', '#f5f5f7');
+                    selectedHeaderTabTextColor.value = valueOf(configuration, 'SelectedHeaderTabTextColor', 'selectedHeaderTabTextColor', '#121212');
                     radius.value = valueOf(configuration, 'AbyssRadius', 'abyssRadius', 24);
                     indicator.value = valueOf(configuration, 'AbyssIndicatorColor', 'abyssIndicatorColor', '#373737');
                     fontUrl.value = valueOf(configuration, 'AbyssFontImportUrl', 'abyssFontImportUrl', '');
@@ -1295,6 +1306,7 @@
                 status.textContent = 'Saving and applying customization settings…';
                 const data = {
                     AbyssAccentColor:accent.value,
+                    SelectedHeaderTabTextColor:selectedHeaderTabTextColor.value,
                     AbyssRadius:Math.max(0, Math.min(64, Number(radius.value) || 0)),
                     AbyssIndicatorColor:indicator.value,
                     AbyssFontImportUrl:fontUrl.value.trim(),

@@ -1,5 +1,38 @@
 # Changelog
 
+## [0.1.0.14-test] - 2026-08-07
+
+### Added
+
+- Adds a separately saved **Media Bar Label Color** accessibility control beside
+  the existing Jellyfin and Home Screen Manager badge colors.
+- Adds a **Selected Tab Text Color** control inside Top Navigation Color Settings
+  for the active Home, Favorites, My List, or other top-navigation tab.
+
+### Fixed
+
+- Hides the original Abyss iframe immediately with an inline priority style and
+  reveals it only after the configured first image has rendered, removing the
+  installed-client delay that remained in 0.1.0.13.
+- Places My List inside Jellyfin's native Home/Favorites tab slider instead of
+  appending it beneath the top navigation.
+- Uses one Material heart icon whose class changes between outline and filled
+  states, preventing the duplicate-heart glyph.
+- Builds plugin rows with Jellyfin 10.11.11's native scroller elements so desktop
+  arrows, mouse-wheel scrolling, mouse dragging, touch, and focus navigation work.
+- Replaces raw folder-path breadcrumbs with fast media-aware Jellyfin navigation
+  for movies, shows, seasons, episodes, artists, albums, and songs, including
+  sibling season, album, and song selectors.
+- Keeps the active Abyss frame tied to the visible Home tab, makes every carousel
+  dot directly operable, and cancels stale artwork work before applying a newly
+  selected media-bar image type.
+
+### Changed
+
+- Places **My List Heart Color Settings** directly below **Sidebar Icon Color
+  Settings**, followed by **Episode Count Pill Color Settings**.
+
+
 ## [0.1.0.13-test] - 2026-08-07
 
 ### Fixed

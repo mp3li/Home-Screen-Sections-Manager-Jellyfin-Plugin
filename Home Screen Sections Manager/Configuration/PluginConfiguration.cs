@@ -11,6 +11,9 @@ public sealed class PluginConfiguration : BasePluginConfiguration
     /// <summary>Gets or sets the dashboard label color for plugin-created sections.</summary>
     public string ManagerSectionLabelColor { get; set; } = "#aa5cc3";
 
+    /// <summary>Gets or sets the dashboard label color for the media-bar badge.</summary>
+    public string MediaBarSectionLabelColor { get; set; } = "#c78000";
+
     public string AbyssAccentColor { get; set; } = "#f5f5f7";
 
     public int AbyssRadius { get; set; } = 24;
@@ -28,6 +31,8 @@ public sealed class PluginConfiguration : BasePluginConfiguration
     public string HeaderTabsColorOne { get; set; } = "#f5f5f7";
 
     public string HeaderTabsColorTwo { get; set; } = "#f5f5f7";
+
+    public string SelectedHeaderTabTextColor { get; set; } = "#121212";
 
     public string PlayButtonColorMode { get; set; } = "solid";
 
@@ -165,6 +170,9 @@ public sealed class SectionSettingsRequest
     /// <summary>Gets or sets the plugin section label color.</summary>
     public string ManagerSectionLabelColor { get; set; } = "#aa5cc3";
 
+    /// <summary>Gets or sets the dashboard label color for the media-bar badge.</summary>
+    public string MediaBarSectionLabelColor { get; set; } = "#c78000";
+
     /// <summary>Gets or sets custom sections.</summary>
     public List<HomeScreenSectionDefinition> Sections { get; set; } = [];
 
@@ -197,6 +205,8 @@ public sealed class CustomizationSettingsRequest
     public string HeaderTabsColorOne { get; set; } = "#f5f5f7";
 
     public string HeaderTabsColorTwo { get; set; } = "#f5f5f7";
+
+    public string SelectedHeaderTabTextColor { get; set; } = "#121212";
 
     public string PlayButtonColorMode { get; set; } = "solid";
 

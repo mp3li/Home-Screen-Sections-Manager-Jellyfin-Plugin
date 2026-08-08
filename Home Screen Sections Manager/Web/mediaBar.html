@@ -248,7 +248,11 @@
             }
 
             async function selectItem(index) {
-                if (paused || disposed || items.length < 2) return;
+                if (disposed || items.length < 2) return;
+                // A visible, directly-interacted-with spotlight must remain operable even
+                // if an upstream lifecycle message arrived just before the pointer event.
+                if (paused && !document.hidden) paused = false;
+                if (paused) return;
                 stopAuto();
                 currentIndex = (index + items.length) % items.length;
                 await renderItem(currentIndex);
@@ -264,7 +268,12 @@
                     dot.type = 'button';
                     dot.className = 'dot';
                     dot.setAttribute('aria-label', `Show item ${index + 1}`);
-                    dot.addEventListener('click', event => { event.stopPropagation(); selectItem(index); });
+                    dot.addEventListener('pointerdown', event => event.stopPropagation());
+                    dot.addEventListener('click', event => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        selectItem(index);
+                    });
                     container.appendChild(dot);
                 });
                 updateDots();
@@ -415,8 +424,16 @@
 
             async function configure(data) {
                 const currentId = items[currentIndex] && items[currentIndex].Id;
+                const nextImageType = ['backdrop', 'primary', 'banner', 'thumb'].indexOf(String(data.imageType)) >= 0 ? String(data.imageType) : 'backdrop';
+                const imageTypeChanged = nextImageType !== imageType;
+                if (renderController) renderController.abort();
+                if (preloadController) preloadController.abort();
+                if (preloadTimer) clearTimeout(preloadTimer);
+                preloadTimer = null;
+                renderSequence += 1;
                 intervalMilliseconds = Math.max(1000, Math.min(300000, Number(data.intervalSeconds || 5) * 1000));
-                imageType = ['backdrop', 'primary', 'banner', 'thumb'].indexOf(String(data.imageType)) >= 0 ? String(data.imageType) : 'backdrop';
+                imageType = nextImageType;
+                if (imageTypeChanged) clearImageCache();
                 items = Array.isArray(data.items) ? data.items.filter(item => item && item.Id) : [];
                 currentIndex = Math.max(0, items.findIndex(item => String(item.Id) === String(currentId || '')));
                 $('empty').style.display = items.length ? 'none' : 'flex';

@@ -11,19 +11,13 @@
     display: none !important;
 }
 
-.hssm-client-scroller {
-    overflow-x: auto;
-    overflow-y: hidden;
-    scrollbar-width: thin;
-}
-
 .hssm-client-items {
     box-sizing: border-box;
     display: flex;
     gap: 0.8em;
     min-width: max-content;
-    padding-left: 3.3%;
-    padding-right: 3.3%;
+    padding-left: 0;
+    padding-right: 0;
 }
 
 .hssm-client-section {
@@ -260,29 +254,104 @@
     flex-wrap: wrap;
 }
 
-.hssm-breadcrumbs {
-    align-items: center;
-    background: rgba(0, 0, 0, 0.28);
-    border-radius: 0.55em;
+.hssm-breadcrumbs-wrapper {
     display: none;
-    flex-wrap: wrap;
-    gap: 0.45em;
-    margin-left: 0.55em;
+    flex: 0 1 auto;
+    margin-left: -0.5em;
     max-width: min(58vw, 52em);
+    min-width: 0;
+    position: relative;
+}
+
+.hssm-breadcrumbs {
+    color: rgba(255, 255, 255, 0.8);
+    display: block;
+    font-family: inherit;
+    font-size: 1.17em;
     overflow: hidden;
-    padding: 0.48em 0.72em;
+    padding: 0.5em 0.75em;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
-.hssm-breadcrumbs a {
+.hssm-breadcrumbs-wrapper:hover {
+    background: rgba(0, 0, 0, 0.5);
+    border-radius: 0.5em;
+}
+
+.hssm-breadcrumb-element,
+.hssm-breadcrumbs a,
+.hssm-breadcrumbs button {
     color: inherit;
+    display: inline;
+    font: inherit;
+}
+
+.hssm-breadcrumbs a,
+.hssm-breadcrumbs button {
+    background: none;
+    border: 0;
+    cursor: pointer;
+    padding: 0;
+    text-decoration: none;
+}
+
+.hssm-breadcrumbs a:hover,
+.hssm-breadcrumbs button:hover {
+    color: #fff;
+    text-decoration: underline;
+}
+
+.hssm-breadcrumb-separator {
+    margin: 0 0.5em;
+}
+
+.hssm-breadcrumb-popover {
+    background: rgba(29, 38, 53, 0.97);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 0.4em;
+    left: 0;
+    max-height: 18.75em;
+    min-width: 12.5em;
+    overflow-y: auto;
+    position: absolute;
+    top: calc(100% - 0.2em);
+    z-index: 1001;
+}
+
+.hssm-breadcrumb-popover button {
+    background: transparent;
+    border: 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.82);
+    cursor: pointer;
+    display: block;
+    padding: 0.55em 1em;
+    text-align: left;
+    width: 100%;
+}
+
+.hssm-breadcrumb-popover button:hover,
+.hssm-breadcrumb-popover button.selected {
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+}
+
+.hssm-breadcrumb-popover button.selected {
+    font-weight: bold;
+}
+
+.hssm-breadcrumb-popover p {
+    margin: 0;
+    padding: 0.75em 1em;
 }
 
 @media (min-width: 768px) {
-    .hssm-breadcrumbs { display: flex; min-width: 0; }
+    .hssm-breadcrumbs-wrapper { display: block; }
+    .skinHeader { contain: none; }
     .skinHeader .headerLeft, .headerLeft { overflow: visible; }
 }
+
 
 .hssm-detail-collections {
     margin-top: 2em;
