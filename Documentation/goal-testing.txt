@@ -63,9 +63,9 @@ Current dashboard checks
       selected content order.
 - [ ] Confirm the credited plugin media bar retains Abyss's logo treatment,
       backdrop blending, metadata, buttons, animation, and responsive sizing.
-- [ ] Confirm the original Continue Watching/artwork slide never flashes before
-      the configured media-bar source and image have fully rendered, including
-      before the external plugin stylesheet finishes loading.
+- [ ] Confirm the original Continue Watching/artwork slide never flashes, the configured
+      media-bar title and controls appear promptly without waiting for unrelated
+      custom rows, and its selected artwork replaces the initial black backdrop.
 - [ ] Drag eligible native and plugin sections into the first position; confirm
       each one supplies the media-bar items and remains visible as the first normal row.
 - [ ] Confirm My Media, My Media (small), and Latest Media cannot be dragged into
@@ -89,8 +89,9 @@ Current dashboard checks
       Home, and is absent only from playback screens.
 - [ ] Confirm Accent Color changes the shared Abyss hover accent on top
       navigation text, play/resume buttons, and sidebar menu items.
-- [ ] Confirm Selected Tab Text Color changes only the active top-navigation tab
-      while it is not hovered; hover still uses the Accent Color.
+- [ ] Confirm the standalone Top Navigation Selected Text Color Settings section changes
+      only the active top-navigation tab while it is not hovered; hover still uses
+      the Accent Color.
 - [ ] Confirm each split solid/gradient color changes only its named normal-state
       surface and unrelated Custom CSS remains intact.
 - [ ] Confirm Continue Watching X resets progress without changing played state;
@@ -105,7 +106,8 @@ Current dashboard checks
       wheel, mouse drag, touch, and focus navigation.
 - [ ] Confirm Also Part of These Collections and enhanced Jellyfin-only search work.
 - [ ] Confirm breadcrumbs promptly use Movies/Shows/Music media structure and
-      sibling season, album, and song selectors rather than raw folder paths.
+      sibling season, album, and song selectors rather than raw folder paths, then
+      disappear immediately when returning Home.
 - [ ] Confirm native Jellyfin rows remain present and follow the saved hybrid
       order.
 - [ ] Confirm no Jellyfin Web source file is modified on disk.

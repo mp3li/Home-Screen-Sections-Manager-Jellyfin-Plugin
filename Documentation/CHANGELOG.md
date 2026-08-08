@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.1.0.15-test] - 2026-08-08
+
+### Fixed
+
+- Starts the configured media bar as soon as its own first eligible saved source finishes loading instead of waiting for every custom Home row.
+- Shows the selected media-bar title, controls, and carousel immediately while metadata-confirmed artwork loads, with bounded image requests and no original Abyss/Continue Watching slide flash.
+- Uses Jellyfin Web 10.11.11's supported string rating value for My List, updates the single heart immediately, and prevents a late initial read from undoing a click.
+- Clears detail-page breadcrumbs immediately when returning Home.
+
+### Changed
+
+- Moves **Top Navigation Selected Text Color Settings** into its own full settings section directly below **Top Navigation Color Settings**.
+
 ## [0.1.0.14-test] - 2026-08-07
 
 ### Added

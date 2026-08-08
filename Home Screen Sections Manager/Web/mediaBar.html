@@ -146,15 +146,23 @@
             async function fetchImage(url, signal) {
                 if (!url) return null;
                 if (imageCache.has(url)) return imageCache.get(url);
+                if (signal.aborted) throw new DOMException('Aborted', 'AbortError');
+                const requestController = new AbortController();
+                const abortRequest = () => requestController.abort();
+                const timeout = setTimeout(abortRequest, 5000);
+                signal.addEventListener('abort', abortRequest, { once: true });
                 try {
-                    const response = await fetch(url, { headers, signal });
+                    const response = await fetch(url, { headers, signal: requestController.signal });
                     if (!response.ok) return null;
                     const objectUrl = URL.createObjectURL(await response.blob());
                     imageCache.set(url, objectUrl);
                     return objectUrl;
                 } catch (error) {
-                    if (error.name === 'AbortError') throw error;
+                    if (signal.aborted) throw new DOMException('Aborted', 'AbortError');
                     return null;
+                } finally {
+                    clearTimeout(timeout);
+                    signal.removeEventListener('abort', abortRequest);
                 }
             }
 
@@ -168,32 +176,52 @@
 
             function uniqueCandidates(candidates) {
                 const seen = new Set();
-                return candidates.filter(candidate => candidate.url && !seen.has(candidate.url) && seen.add(candidate.url));
+                return candidates.filter(candidate => candidate && candidate.url && !seen.has(candidate.url) && seen.add(candidate.url));
+            }
+
+            function candidate(itemId, type, index, tag, centered) {
+                return itemId && tag ? { url: imageUrl(itemId, type, index), centered } : null;
             }
 
             function backgroundCandidates(item) {
-                const isEpisode = item.Type === 'Episode';
-                const artworkId = isEpisode ? item.SeriesId || item.Id : item.Id;
-                const primary = { url: imageUrl(item.Id, 'Primary'), centered: true };
-                const parentPrimary = { url: imageUrl(artworkId, 'Primary'), centered: true };
-                const backdrop = { url: imageUrl(artworkId, 'Backdrop', 0), centered: false };
-                const itemBackdrop = { url: imageUrl(item.Id, 'Backdrop', 0), centered: false };
-                const banner = { url: imageUrl(artworkId, 'Banner'), centered: true };
-                const itemBanner = { url: imageUrl(item.Id, 'Banner'), centered: true };
-                const thumb = { url: imageUrl(item.Id, 'Thumb'), centered: true };
-                const parentThumb = { url: imageUrl(artworkId, 'Thumb'), centered: true };
-                if (imageType === 'primary') return uniqueCandidates([primary, parentPrimary, backdrop, itemBackdrop, thumb, banner]);
-                if (imageType === 'banner') return uniqueCandidates([itemBanner, banner, backdrop, itemBackdrop, primary, parentPrimary, thumb]);
-                if (imageType === 'thumb') return uniqueCandidates([thumb, parentThumb, backdrop, itemBackdrop, primary, parentPrimary, banner]);
-                return uniqueCandidates([backdrop, itemBackdrop, isEpisode ? primary : null, parentPrimary, thumb, banner].filter(Boolean));
+                const tags = item.ImageTags || {};
+                const itemId = item.Id;
+                const seriesId = item.SeriesId || '';
+                const backdropTags = item.BackdropImageTags || [];
+                const parentBackdropTags = item.ParentBackdropImageTags || [];
+                const primary = [
+                    candidate(itemId, 'Primary', null, tags.Primary, true),
+                    candidate(seriesId, 'Primary', null, item.SeriesPrimaryImageTag, true),
+                    candidate(item.PrimaryImageItemId || itemId, 'Primary', null, item.PrimaryImageTag, true),
+                    candidate(item.ParentPrimaryImageItemId, 'Primary', null, item.ParentPrimaryImageTag, true)
+                ];
+                const backdrop = [
+                    candidate(itemId, 'Backdrop', 0, backdropTags[0], false),
+                    candidate(item.ParentBackdropItemId || seriesId, 'Backdrop', 0, parentBackdropTags[0], false)
+                ];
+                const thumb = [
+                    candidate(itemId, 'Thumb', null, tags.Thumb, true),
+                    candidate(seriesId, 'Thumb', null, item.SeriesThumbImageTag, true),
+                    candidate(item.ParentThumbItemId, 'Thumb', null, item.ParentThumbImageTag, true)
+                ];
+                const banner = [candidate(itemId, 'Banner', null, tags.Banner, true)];
+                const preferred = imageType === 'primary' ? primary : imageType === 'banner' ? banner : imageType === 'thumb' ? thumb : backdrop;
+                return uniqueCandidates(preferred.concat(backdrop, primary, thumb, banner));
+            }
+
+            function logoCandidate(item) {
+                const tags = item.ImageTags || {};
+                if (tags.Logo) return imageUrl(item.Id, 'Logo');
+                if (item.ParentLogoImageTag && item.ParentLogoItemId) return imageUrl(item.ParentLogoItemId, 'Logo');
+                return '';
             }
 
             async function fetchArtwork(item, signal) {
-                const isEpisode = item.Type === 'Episode';
-                const artworkId = isEpisode ? item.SeriesId || item.Id : item.Id;
-                const logoPromise = fetchImage(imageUrl(artworkId, 'Logo'), signal);
-                const background = await fetchFirst(backgroundCandidates(item), signal);
-                return { backdrop: background.image, logo: await logoPromise, centered: background.centered };
+                const results = await Promise.all([
+                    fetchFirst(backgroundCandidates(item), signal),
+                    fetchImage(logoCandidate(item), signal)
+                ]);
+                return { backdrop: results[0].image, logo: results[1], centered: results[0].centered };
             }
 
             function clearImageCache() {
@@ -399,22 +427,28 @@
                 const signal = renderController.signal;
                 const sequence = ++renderSequence;
                 updateDots();
+                $('content').classList.remove('visible');
+                $('backdrop').classList.remove('loaded');
+                updateContent(item, { backdrop: null, logo: null, centered: false });
+                $('content').classList.add('visible');
+                notifyRendered();
                 try {
                     const artwork = await fetchArtwork(item, signal);
                     if (signal.aborted || sequence !== renderSequence) return false;
-                    $('content').classList.remove('visible');
-                    $('backdrop').classList.remove('loaded');
-                    await wait(reducedMotion.matches ? 0 : 260, signal);
-                    if (signal.aborted || sequence !== renderSequence) return false;
-                    updateContent(item, artwork);
-                    const backdropImage = $('backdrop-img');
-                    if (backdropImage.src && typeof backdropImage.decode === 'function') {
-                        try { await backdropImage.decode(); } catch (_) {}
+                    if (artwork.backdrop || artwork.logo) {
+                        $('content').classList.remove('visible');
+                        $('backdrop').classList.remove('loaded');
+                        await wait(reducedMotion.matches ? 0 : 160, signal);
+                        if (signal.aborted || sequence !== renderSequence) return false;
+                        updateContent(item, artwork);
+                        const backdropImage = $('backdrop-img');
+                        if (backdropImage.src && typeof backdropImage.decode === 'function') {
+                            try { await backdropImage.decode(); } catch (_) {}
+                        }
+                        if (signal.aborted || sequence !== renderSequence) return false;
+                        $('content').classList.add('visible');
                     }
-                    if (signal.aborted || sequence !== renderSequence) return false;
-                    $('content').classList.add('visible');
                     queuePreload();
-                    notifyRendered();
                     return true;
                 } catch (error) {
                     if (error.name !== 'AbortError') console.error('[Home Screen Manager media bar] Render failed.', error);

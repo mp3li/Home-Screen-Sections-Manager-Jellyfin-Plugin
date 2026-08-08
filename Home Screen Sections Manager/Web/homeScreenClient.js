@@ -542,17 +542,46 @@
         return '';
     }
 
-    function mediaBarSource(settings, preferences, container, sections) {
+    function mediaBarSource(settings, preferences, container, sections, sectionItemPromises) {
+        var sectionOrder = prop(settings, 'SectionOrder', 'sectionOrder', []).map(String);
+        var native = nativeTypes(preferences);
+        var orderedSource = null;
+        sectionOrder.some(function (id) {
+            var definition = (sections || []).find(function (section) { return String(prop(section, 'Id', 'id', '')) === id; });
+            if (definition) {
+                orderedSource = { managerId: id, definition: definition };
+                return true;
+            }
+            var match = id.match(/^jellyfin-(\d+)-/);
+            var token = match ? native[Number(match[1])] : '';
+            if (token && mediaBarTokenEligible(token)) {
+                orderedSource = { token: token };
+                return true;
+            }
+            return false;
+        });
+        if (orderedSource && orderedSource.managerId) {
+            var managerPromise = sectionItemPromises && sectionItemPromises[orderedSource.managerId];
+            return {
+                key: orderedSource.managerId,
+                items: managerPromise || sectionItems(orderedSource.definition, setting(settings, 'AutoRefreshSections', true)).then(function (items) {
+                    return orderItems(uniqueItems(items), orderedSource.definition);
+                })
+            };
+        }
+        if (orderedSource && orderedSource.token) {
+            return { key: 'jellyfin-' + orderedSource.token, items: nativeSectionItems(orderedSource.token, preferences, container) };
+        }
         var topNode = nodesInOrder(container, settings, preferences).find(function (node) { return mediaBarNodeEligible(node, preferences); }) || null;
         if (!topNode) return { key: 'none', items: Promise.resolve([]) };
         var managerId = topNode.dataset.hssmSectionId || '';
         if (managerId) {
-            var definition = (sections || []).find(function (section) { return String(prop(section, 'Id', 'id', '')) === managerId; });
-            if (!definition) return { key: managerId, items: Promise.resolve([]) };
+            var fallbackDefinition = (sections || []).find(function (section) { return String(prop(section, 'Id', 'id', '')) === managerId; });
+            if (!fallbackDefinition) return { key: managerId, items: Promise.resolve([]) };
             return {
                 key: managerId,
-                items: sectionItems(definition, setting(settings, 'AutoRefreshSections', true)).then(function (items) {
-                    return orderItems(uniqueItems(items), definition);
+                items: sectionItems(fallbackDefinition, setting(settings, 'AutoRefreshSections', true)).then(function (items) {
+                    return orderItems(uniqueItems(items), fallbackDefinition);
                 })
             };
         }
@@ -650,8 +679,8 @@
         if (container) Array.from(container.children).forEach(function (node) { node.classList.remove('hssm-media-source-section'); });
     }
 
-    function renderMediaBar(settings, preferences, container, sections) {
-        var source = mediaBarSource(settings, preferences, container, sections);
+    function renderMediaBar(settings, preferences, container, sections, sectionItemPromises) {
+        var source = mediaBarSource(settings, preferences, container, sections, sectionItemPromises);
         return source.items.then(function (items) {
             var interval = Math.max(1, Math.min(300, Number(setting(settings, 'MediaBarIntervalSeconds', 5)) || 5));
             var requestedImage = String(setting(settings, 'MediaBarImageType', 'backdrop'));
@@ -744,22 +773,43 @@
         var button = document.createElement('button');
         button.type = 'button';
         button.className = 'hssm-my-list-button emby-button';
+        button.dataset.itemId = id;
+        button.dataset.liked = 'false';
+        button.setAttribute('data-action', 'none');
         button.title = 'Add to My List';
         button.innerHTML = '<span class="material-icons favorite_border" aria-hidden="true"></span>';
         ApiClient.getItem(currentUserId(), id).then(function (item) {
+            if (button.dataset.touched === 'true') return;
             var liked = !!prop(prop(item, 'UserData', 'userData', {}), 'Likes', 'likes', false);
             button.dataset.liked = liked ? 'true' : 'false';
             button.title = liked ? 'Remove from My List' : 'Add to My List';
             setMyListIcon(button, liked);
         }).catch(function () {});
         button.addEventListener('click', function (event) {
-            event.preventDefault(); event.stopPropagation();
-            var next = button.dataset.liked !== 'true'; button.disabled = true;
-            ApiClient.updateUserItemRating(currentUserId(), id, next).then(function () {
-                button.dataset.liked = next ? 'true' : 'false'; button.title = next ? 'Remove from My List' : 'Add to My List';
-                setMyListIcon(button, next);
+            event.preventDefault();
+            event.stopPropagation();
+            event.stopImmediatePropagation();
+            if (button.disabled) return;
+            var previous = button.dataset.liked === 'true';
+            var next = !previous;
+            button.dataset.touched = 'true';
+            button.dataset.liked = next ? 'true' : 'false';
+            button.title = next ? 'Remove from My List' : 'Add to My List';
+            setMyListIcon(button, next);
+            button.disabled = true;
+            ApiClient.updateUserItemRating(currentUserId(), id, next ? 'true' : 'false').then(function (userData) {
+                var savedValue = prop(userData, 'Likes', 'likes', next);
+                var saved = savedValue === true || savedValue === 'true';
+                button.dataset.liked = saved ? 'true' : 'false';
+                button.title = saved ? 'Remove from My List' : 'Add to My List';
+                setMyListIcon(button, saved);
                 myListRenderKey = '';
-                if (!next && cardNode.closest('.hssm-my-list-container')) cardNode.remove();
+                if (!saved && cardNode.closest('.hssm-my-list-container')) cardNode.remove();
+            }).catch(function (error) {
+                button.dataset.liked = previous ? 'true' : 'false';
+                button.title = previous ? 'Remove from My List' : 'Add to My List';
+                setMyListIcon(button, previous);
+                console.warn('[Home Screen Manager] Could not update My List.', error);
             }).finally(function () { button.disabled = false; });
         });
         holder.appendChild(button);
@@ -1276,9 +1326,18 @@
                 return renderMediaBar(settings, preferences, container, sections);
             }
             existing.forEach(function (node) { node.remove(); });
-            return Promise.all(sections.map(function (section) {
-                return sectionItems(section, setting(settings, 'AutoRefreshSections', true)).then(function (items) {
-                    var node = sectionNode(section, orderItems(uniqueItems(items), section));
+            var sectionItemPromises = {};
+            sections.forEach(function (section) {
+                var id = String(prop(section, 'Id', 'id', ''));
+                sectionItemPromises[id] = sectionItems(section, setting(settings, 'AutoRefreshSections', true)).then(function (items) {
+                    return orderItems(uniqueItems(items), section);
+                });
+            });
+            var mediaBarWork = renderMediaBar(settings, preferences, container, sections, sectionItemPromises);
+            var sectionWork = Promise.all(sections.map(function (section) {
+                var id = String(prop(section, 'Id', 'id', ''));
+                return sectionItemPromises[id].then(function (items) {
+                    var node = sectionNode(section, items);
                     container.appendChild(node);
                 }, function (error) {
                     var name = String(prop(section, 'Name', 'name', 'Unnamed section'));
@@ -1292,8 +1351,8 @@
                 renderedSectionCount = container.querySelectorAll('[data-hssm-section-id]').length;
                 applyHybridOrder(container, settings, preferences);
                 applyEnhancements(settings);
-                return renderMediaBar(settings, preferences, container, sections);
             });
+            return Promise.all([mediaBarWork, sectionWork]);
         }).catch(function (error) {
             lastError = error && (error.message || error.statusText) ? String(error.message || error.statusText) : String(error || 'Unknown rendering error');
             console.warn('[Home Screen Manager] Could not render custom home-screen sections.', error);
@@ -1309,6 +1368,12 @@
     }
 
     function restartHomeSearch() {
+        if (window.location.hash.indexOf('/details') < 0 || !currentItemId()) {
+            var oldBreadcrumbs = document.querySelector('.hssm-breadcrumbs-wrapper');
+            if (oldBreadcrumbs) oldBreadcrumbs.remove();
+            closeBreadcrumbPopover();
+            breadcrumbsWorkKey = '';
+        }
         homeRetryCount = 0;
         lastSignature = '';
         settingsCache = null;
