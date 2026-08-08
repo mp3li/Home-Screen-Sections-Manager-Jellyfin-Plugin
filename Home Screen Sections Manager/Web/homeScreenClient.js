@@ -72,7 +72,7 @@
         var userId = currentUserId();
         if (!userId) return Promise.resolve([]);
         var options = Object.assign({
-            Fields: 'PrimaryImageAspectRatio,DateCreated,PremiereDate,ProductionYear,CommunityRating,SortName,Tags,Overview,RunTimeTicks,ChildCount,RecursiveItemCount,ParentId,SeriesId,UserData',
+            Fields: 'PrimaryImageAspectRatio,DateCreated,PremiereDate,ProductionYear,CommunityRating,SortName,Tags,Overview,RunTimeTicks,ChildCount,RecursiveItemCount,ParentId,SeriesId,SeriesName,SeriesPrimaryImageTag,ParentBackdropItemId,ParentBackdropImageTags,ParentThumbItemId,ParentThumbImageTag,UserData',
             ImageTypeLimit: 1,
             EnableImageTypes: 'Primary,Art,Backdrop,Banner,Logo,Thumb,Disc,Box,BoxRear,Screenshot,Menu,Chapter'
         }, parameters || {});
@@ -193,11 +193,48 @@
         return Promise.resolve([]);
     }
 
+    function imdbTaggedRating(item) {
+        var tags = prop(item, 'Tags', 'tags', []);
+        for (var index = 0; index < tags.length; index++) {
+            var match = String(tags[index]).match(/(?:^|\b)IMDb(?:\s+Rating)?\s*[:=-]\s*([0-9]+(?:\.[0-9]+)?)(?:\s*\/\s*10)?/i);
+            if (match) return Number(match[1]);
+        }
+        return null;
+    }
+
+    function topSourceItems(section, source) {
+        var split = String(source).indexOf('|');
+        var sourceType = split < 0 ? '' : String(source).slice(0, split);
+        var sourceId = split < 0 ? '' : String(source).slice(split + 1);
+        if (sourceType === 'collection') return queryParent(sourceId);
+        if (sourceType === 'tag') {
+            return postJson('CollectionManager/individual-collection-drafts/preview', tagSource(sourceId, prop(section, 'Name', 'name', ''))).then(function (preview) {
+                return queryIds(prop(preview, 'Items', 'items', []).map(function (item) { return String(prop(item, 'Id', 'id', '')); }));
+            });
+        }
+        return Promise.resolve([]);
+    }
+
+    function topSectionItems(section, autoRefresh, itemIds) {
+        var limit = [10,20,30,40,50].indexOf(Number(prop(section, 'DisplayTopCount', 'displayTopCount', 10))) >= 0 ? Number(prop(section, 'DisplayTopCount', 'displayTopCount', 10)) : 10;
+        if (!autoRefresh) return queryIds(itemIds).then(function (items) { return items.slice(0, limit); });
+        var sources = prop(section, 'SourceIds', 'sourceIds', []).map(String);
+        return Promise.all(sources.map(function (source) { return topSourceItems(section, source); })).then(function (groups) {
+            return uniqueItems([].concat.apply([], groups)).map(function (item) { return { item:item, rating:imdbTaggedRating(item) }; }).filter(function (entry) { return Number.isFinite(entry.rating); }).sort(function (left, right) { return right.rating - left.rating; }).slice(0, limit).map(function (entry) { return entry.item; });
+        }).catch(function () { return queryIds(itemIds).then(function (items) { return items.slice(0, limit); }); });
+    }
+
     function sectionItems(section, autoRefresh) {
         var type = String(prop(section, 'Type', 'type', ''));
 
         var sources = prop(section, 'SourceIds', 'sourceIds', []).map(String);
         var itemIds = prop(section, 'ItemIds', 'itemIds', []).map(String);
+        if (type === 'top-10-50') return topSectionItems(section, autoRefresh, itemIds);
+        if (type === 'other-users-activity') {
+            return getJson('HomeScreenSectionsManager/other-users-items', { mediaType:prop(section, 'ActivityMediaType', 'activityMediaType', 'movies'), limit:prop(section, 'ActivityMaxItems', 'activityMaxItems', 20) }).then(function (result) {
+                return queryIds(prop(result, 'ItemIds', 'itemIds', []));
+            }).catch(function () { return queryIds(itemIds); });
+        }
         if (type === 'rotating-sections' || type === 'seasonal-sections') {
             var activeDraft = activeSectionDraft(section);
             if (!activeDraft) return Promise.resolve([]);
@@ -252,7 +289,7 @@
         if (order === 'release-date-descending') return sorted.sort(function (left, right) { return dateValue(right, 'release') - dateValue(left, 'release'); });
         if (order === 'date-added-descending') return sorted.sort(function (left, right) { return dateValue(right, 'added') - dateValue(left, 'added'); });
         if (order === 'date-added-ascending') return sorted.sort(function (left, right) { return dateValue(left, 'added') - dateValue(right, 'added'); });
-        if (order === 'rating-descending') return sorted.sort(function (left, right) { return taggedRating(right) - taggedRating(left); });
+        if (order === 'rating-descending') return sorted.sort(function (left, right) { var leftRating = String(prop(section, 'Type', 'type', '')) === 'top-10-50' ? imdbTaggedRating(left) : taggedRating(left); var rightRating = String(prop(section, 'Type', 'type', '')) === 'top-10-50' ? imdbTaggedRating(right) : taggedRating(right); return (rightRating || 0) - (leftRating || 0); });
         return sorted.sort(function (left, right) { return String(prop(left, 'SortName', 'sortName', prop(left, 'Name', 'name', ''))).localeCompare(String(prop(right, 'SortName', 'sortName', prop(right, 'Name', 'name', '')))); });
     }
 
@@ -332,20 +369,30 @@
         return { name: 'poster', card: 'overflowPortraitCard', padder: 'cardPadder-overflowPortrait' };
     }
 
-    function card(item, section) {
+    function card(item, section, rank) {
         var id = String(prop(item, 'Id', 'id', ''));
         var name = String(prop(item, 'Name', 'name', ''));
+        var type = String(prop(item, 'Type', 'type', ''));
+        var isMyList = String(prop(section, 'Id', 'id', '')) === 'my-list';
+        var seriesId = String(prop(item, 'SeriesId', 'seriesId', ''));
+        var seriesName = String(prop(item, 'SeriesName', 'seriesName', ''));
         var year = prop(item, 'ProductionYear', 'productionYear', '');
         var serverId = typeof ApiClient.serverId === 'function' ? ApiClient.serverId() : '';
         var href = '#/details?id=' + encodeURIComponent(id) + (serverId ? '&serverId=' + encodeURIComponent(serverId) : '');
+        var seriesHref = '#/details?id=' + encodeURIComponent(seriesId || id) + (serverId ? '&serverId=' + encodeURIComponent(serverId) : '');
         var shape = cardShape(section);
-        var imageUrl = cardImage(item, section);
+        var imageItem = isMyList && type === 'Episode' && seriesId ? Object.assign({}, item, { Id:seriesId, ImageTags:{ Primary:prop(item, 'SeriesPrimaryImageTag', 'seriesPrimaryImageTag', '') } }) : item;
+        var imageUrl = cardImage(imageItem, section);
         var showText = prop(section, 'ShowText', 'showText', true) !== false;
         var imageStyle = imageUrl ? ' style="background-image:url(&quot;' + escapeHtml(imageUrl) + '&quot;)"' : '';
-        var footer = showText
-            ? '<div class="cardText cardTextCentered cardText-first"><bdi><a is="emby-linkbutton" href="' + escapeHtml(href) + '" class="itemAction textActionButton">' + escapeHtml(name) + '</a></bdi></div>' + (year ? '<div class="cardText cardTextCentered cardText-secondary"><bdi>' + escapeHtml(year) + '</bdi></div>' : '')
-            : '';
-        return '<div class="card ' + shape.card + ' card-hoverable card-withuserdata hssm-client-card" data-id="' + escapeHtml(id) + '">' +
+        var footer = '';
+        if (showText && isMyList && type === 'Episode') {
+            footer = '<div class="cardText cardTextCentered cardText-first"><bdi><a is="emby-linkbutton" href="' + escapeHtml(seriesHref) + '" class="itemAction textActionButton">' + escapeHtml(seriesName || 'Unknown Series') + '</a></bdi></div><div class="cardText cardTextCentered cardText-secondary"><bdi><a is="emby-linkbutton" href="' + escapeHtml(href) + '" class="itemAction textActionButton">' + escapeHtml(name) + '</a></bdi></div>';
+        } else if (showText) {
+            footer = '<div class="cardText cardTextCentered cardText-first"><bdi><a is="emby-linkbutton" href="' + escapeHtml(href) + '" class="itemAction textActionButton">' + escapeHtml(name) + '</a></bdi></div>' + (year ? '<div class="cardText cardTextCentered cardText-secondary"><bdi>' + escapeHtml(year) + '</bdi></div>' : '');
+        }
+        var rankMarkup = rank && prop(section, 'ShowRankNumbers', 'showRankNumbers', true) !== false ? '<span class="hssm-rank-number" aria-hidden="true">' + rank + '</span>' : '';
+        return '<div class="card ' + shape.card + ' card-hoverable card-withuserdata hssm-client-card" data-id="' + escapeHtml(id) + '">' + rankMarkup +
             '<div class="cardBox' + (showText ? ' cardBox-bottompadded' : '') + '"><div class="cardScalable"><div class="cardPadder ' + shape.padder + '"></div>' +
             '<a is="emby-linkbutton" href="' + escapeHtml(href) + '" class="cardImageContainer coveredImage cardContent itemAction" aria-label="' + escapeHtml(name) + '"' + imageStyle + '></a>' +
             '</div>' + footer + '</div></div>';
@@ -358,7 +405,11 @@
         var artSize = String(prop(section, 'ArtSize', 'artSize', 'medium'));
         var artShape = cardShape(section).name;
         var artType = String(prop(section, 'ArtType', 'artType', 'automatic'));
-        node.className = 'verticalSection hssm-client-section hssm-size-' + artSize + ' hssm-shape-' + artShape + ' hssm-art-' + artType;
+        node.className = 'verticalSection hssm-client-section hssm-size-' + artSize + ' hssm-shape-' + artShape + ' hssm-art-' + artType + (String(prop(section, 'Type', 'type', '')) === 'top-10-50' ? ' hssm-top-ranked hssm-rank-' + String(prop(section, 'RankNumberColorMode', 'rankNumberColorMode', 'solid')) : '');
+        node.style.setProperty('--hssm-rank-one', String(prop(section, 'RankNumberColorOne', 'rankNumberColorOne', '#f5f5f7')));
+        node.style.setProperty('--hssm-rank-two', String(prop(section, 'RankNumberColorTwo', 'rankNumberColorTwo', '#f5f5f7')));
+        var rankFont = String(prop(section, 'RankNumberFontDataUrl', 'rankNumberFontDataUrl', ''));
+        if (rankFont && String(prop(section, 'Type', 'type', '')) === 'top-10-50') { var family = 'hssm-rank-' + id.replace(/[^a-z0-9_-]/gi, ''); var styleId = family + '-font'; var fontStyle = document.getElementById(styleId); if (!fontStyle) { fontStyle = document.createElement('style'); fontStyle.id = styleId; document.head.appendChild(fontStyle); } fontStyle.textContent = '@font-face{font-family:"' + family + '";src:url("' + rankFont.replace(/"/g, '') + '")}'; node.style.setProperty('--hssm-rank-font', '"' + family + '"'); }
         node.dataset.hssmSectionId = id;
         if (!items.length) {
             node.hidden = true;
@@ -366,7 +417,7 @@
         }
         node.innerHTML = '<h2 class="sectionTitle sectionTitle-cards padded-left">' + escapeHtml(name) + '</h2>' +
             '<div is="emby-scroller" class="hssm-client-scroller padded-top-focusscale padded-bottom-focusscale" data-centerfocus="true"><div is="emby-itemscontainer" class="itemsContainer scrollSlider focuscontainer-x hssm-client-items">' +
-            items.map(function (item) { return card(item, section); }).join('') + '</div></div>';
+            items.map(function (item, index) { return card(item, section, String(prop(section, 'Type', 'type', '')) === 'top-10-50' ? index + 1 : 0); }).join('') + '</div></div>';
         return node;
     }
 
@@ -562,9 +613,10 @@
         });
         if (orderedSource && orderedSource.managerId) {
             var managerPromise = sectionItemPromises && sectionItemPromises[orderedSource.managerId];
+            var savedIds = prop(orderedSource.definition, 'ItemIds', 'itemIds', []).map(String);
             return {
                 key: orderedSource.managerId,
-                items: managerPromise || sectionItems(orderedSource.definition, setting(settings, 'AutoRefreshSections', true)).then(function (items) {
+                items: savedIds.length ? queryIds(savedIds).then(function (items) { return orderItems(uniqueItems(items), orderedSource.definition); }) : managerPromise || sectionItems(orderedSource.definition, setting(settings, 'AutoRefreshSections', true)).then(function (items) {
                     return orderItems(uniqueItems(items), orderedSource.definition);
                 })
             };
@@ -681,9 +733,18 @@
 
     function renderMediaBar(settings, preferences, container, sections, sectionItemPromises) {
         var source = mediaBarSource(settings, preferences, container, sections, sectionItemPromises);
+        var interval = Math.max(1, Math.min(300, Number(setting(settings, 'MediaBarIntervalSeconds', 5)) || 5));
+        var requestedImage = String(setting(settings, 'MediaBarImageType', 'backdrop'));
+        try {
+            var cached = JSON.parse(localStorage.getItem('hssm-media-bar-payload-v1') || 'null');
+            if (cached && cached.key === source.key && cached.intervalSeconds === interval && cached.imageType === requestedImage && Array.isArray(cached.items) && cached.items.length) {
+                mediaBarPayload = { type:'home-screen-manager-media-bar', action:'configure', items:cached.items, intervalSeconds:interval, imageType:requestedImage };
+                mediaBarSourceKey = JSON.stringify([source.key, interval, requestedImage, cached.items]);
+            }
+        } catch (_) {}
+        var initialFrame = ensureMediaBarFrame(container);
+        if (mediaBarPayload) sendMediaBarPayload(initialFrame);
         return source.items.then(function (items) {
-            var interval = Math.max(1, Math.min(300, Number(setting(settings, 'MediaBarIntervalSeconds', 5)) || 5));
-            var requestedImage = String(setting(settings, 'MediaBarImageType', 'backdrop'));
             var key = JSON.stringify([source.key, interval, requestedImage, items]);
             mediaBarPayload = {
                 type: 'home-screen-manager-media-bar',
@@ -692,6 +753,7 @@
                 intervalSeconds: interval,
                 imageType: requestedImage
             };
+            try { localStorage.setItem('hssm-media-bar-payload-v1', JSON.stringify({ key:source.key, intervalSeconds:interval, imageType:requestedImage, items:items })); } catch (_) {}
             var frame = ensureMediaBarFrame(container);
             if (key !== mediaBarSourceKey) {
                 delete frame.dataset.hssmMediaBarReady;
@@ -1327,22 +1389,39 @@
             }
             existing.forEach(function (node) { node.remove(); });
             var sectionItemPromises = {};
+            var placeholders = {};
             sections.forEach(function (section) {
                 var id = String(prop(section, 'Id', 'id', ''));
+                var placeholder = sectionNode(section, []);
+                placeholder.dataset.hssmLoading = 'true';
+                placeholders[id] = placeholder;
+                container.appendChild(placeholder);
+                var snapshotIds = prop(section, 'ItemIds', 'itemIds', []).map(String);
+                if (snapshotIds.length) {
+                    queryIds(snapshotIds).then(function (items) {
+                        var snapshot = sectionNode(section, orderItems(uniqueItems(items), section));
+                        if (placeholders[id] && placeholders[id].isConnected) placeholders[id].replaceWith(snapshot);
+                        placeholders[id] = snapshot;
+                        applyHybridOrder(container, settings, preferences);
+                        applyEnhancements(settings);
+                    }).catch(function () {});
+                }
                 sectionItemPromises[id] = sectionItems(section, setting(settings, 'AutoRefreshSections', true)).then(function (items) {
                     return orderItems(uniqueItems(items), section);
                 });
             });
+            applyHybridOrder(container, settings, preferences);
+            applyEnhancements(settings);
             var mediaBarWork = renderMediaBar(settings, preferences, container, sections, sectionItemPromises);
             var sectionWork = Promise.all(sections.map(function (section) {
                 var id = String(prop(section, 'Id', 'id', ''));
                 return sectionItemPromises[id].then(function (items) {
                     var node = sectionNode(section, items);
-                    container.appendChild(node);
+                    if (placeholders[id] && placeholders[id].isConnected) placeholders[id].replaceWith(node);
                 }, function (error) {
                     var name = String(prop(section, 'Name', 'name', 'Unnamed section'));
                     console.warn('[Home Screen Manager] Could not load content for section "' + name + '".', error);
-                    container.appendChild(sectionNode(section, []));
+                    if (placeholders[id] && placeholders[id].isConnected) placeholders[id].replaceWith(sectionNode(section, []));
                 });
             })).then(function () {
                 lastContainer = container;

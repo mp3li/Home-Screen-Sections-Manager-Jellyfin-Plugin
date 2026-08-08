@@ -120,6 +120,28 @@ public sealed class HomeScreenSectionDefinition
     /// <summary>Gets or sets whether item text is displayed under the art.</summary>
     public bool ShowText { get; set; } = true;
 
+
+    /// <summary>Gets or sets how many IMDb-tagged items the Top section displays.</summary>
+    public int DisplayTopCount { get; set; } = 10;
+
+    /// <summary>Gets or sets whether oversized ranking numbers are visible.</summary>
+    public bool ShowRankNumbers { get; set; } = true;
+
+    public string RankNumberColorMode { get; set; } = "solid";
+
+    public string RankNumberColorOne { get; set; } = "#f5f5f7";
+
+    public string RankNumberColorTwo { get; set; } = "#f5f5f7";
+
+    /// <summary>Gets or sets an optional TTF or OTF data URL used by ranking numbers.</summary>
+    public string RankNumberFontDataUrl { get; set; } = string.Empty;
+
+    /// <summary>Gets or sets the maximum number of cross-user activity items displayed.</summary>
+    public int ActivityMaxItems { get; set; } = 20;
+
+    /// <summary>Gets or sets the selected cross-user activity media group.</summary>
+    public string ActivityMediaType { get; set; } = "movies";
+
     /// <summary>Gets or sets the ordered source drafts used by rotating and seasonal sections.</summary>
     public List<HomeScreenSectionDraft> Drafts { get; set; } = [];
 
@@ -279,4 +301,20 @@ public sealed class ApplySectionRequest
 
     /// <summary>Gets or sets whether item text is displayed under the art.</summary>
     public bool ShowText { get; set; } = true;
+
+    public int DisplayTopCount { get; set; } = 10;
+
+    public bool ShowRankNumbers { get; set; } = true;
+
+    public string RankNumberColorMode { get; set; } = "solid";
+
+    public string RankNumberColorOne { get; set; } = "#f5f5f7";
+
+    public string RankNumberColorTwo { get; set; } = "#f5f5f7";
+
+    public string RankNumberFontDataUrl { get; set; } = string.Empty;
+
+    public int ActivityMaxItems { get; set; } = 20;
+
+    public string ActivityMediaType { get; set; } = "movies";
 }

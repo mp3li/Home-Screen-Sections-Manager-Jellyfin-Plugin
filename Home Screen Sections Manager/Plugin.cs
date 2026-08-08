@@ -56,6 +56,14 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
                     ArtType = NormalizeArtType(section.ArtType),
                     ArtShape = NormalizeArtShape(section.ArtShape),
                     ShowText = section.ShowText,
+                    DisplayTopCount = NormalizeDisplayTopCount(section.DisplayTopCount),
+                    ShowRankNumbers = section.ShowRankNumbers,
+                    RankNumberColorMode = NormalizeColorMode(section.RankNumberColorMode),
+                    RankNumberColorOne = NormalizeColor(section.RankNumberColorOne, "#f5f5f7"),
+                    RankNumberColorTwo = NormalizeColor(section.RankNumberColorTwo, "#f5f5f7"),
+                    RankNumberFontDataUrl = NormalizeFontDataUrl(section.RankNumberFontDataUrl),
+                    ActivityMaxItems = Math.Clamp(section.ActivityMaxItems, 1, 100),
+                    ActivityMediaType = NormalizeActivityMediaType(section.ActivityMediaType),
                     Drafts = NormalizeSectionDrafts(section.Drafts),
                     RotationIntervalMinutes = Math.Clamp(section.RotationIntervalMinutes, 1, 525600),
                     RotationStartUnixMilliseconds = Math.Max(0, section.RotationStartUnixMilliseconds),
@@ -111,6 +119,14 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
                     ArtType = NormalizeArtType(section.ArtType),
                     ArtShape = NormalizeArtShape(section.ArtShape),
                     ShowText = section.ShowText,
+                    DisplayTopCount = NormalizeDisplayTopCount(section.DisplayTopCount),
+                    ShowRankNumbers = section.ShowRankNumbers,
+                    RankNumberColorMode = NormalizeColorMode(section.RankNumberColorMode),
+                    RankNumberColorOne = NormalizeColor(section.RankNumberColorOne, "#f5f5f7"),
+                    RankNumberColorTwo = NormalizeColor(section.RankNumberColorTwo, "#f5f5f7"),
+                    RankNumberFontDataUrl = NormalizeFontDataUrl(section.RankNumberFontDataUrl),
+                    ActivityMaxItems = Math.Clamp(section.ActivityMaxItems, 1, 100),
+                    ActivityMediaType = NormalizeActivityMediaType(section.ActivityMediaType),
                     Drafts = NormalizeSectionDrafts(section.Drafts),
                     RotationIntervalMinutes = Math.Clamp(section.RotationIntervalMinutes, 1, 525600),
                     RotationStartUnixMilliseconds = Math.Max(0, section.RotationStartUnixMilliseconds),
@@ -166,6 +182,30 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
                 ShowText = string.Equals(section.Id, normalizedId, StringComparison.Ordinal)
                     ? request.ShowText
                     : section.ShowText,
+                DisplayTopCount = string.Equals(section.Id, normalizedId, StringComparison.Ordinal)
+                    ? NormalizeDisplayTopCount(request.DisplayTopCount)
+                    : NormalizeDisplayTopCount(section.DisplayTopCount),
+                ShowRankNumbers = string.Equals(section.Id, normalizedId, StringComparison.Ordinal)
+                    ? request.ShowRankNumbers
+                    : section.ShowRankNumbers,
+                RankNumberColorMode = string.Equals(section.Id, normalizedId, StringComparison.Ordinal)
+                    ? NormalizeColorMode(request.RankNumberColorMode)
+                    : NormalizeColorMode(section.RankNumberColorMode),
+                RankNumberColorOne = string.Equals(section.Id, normalizedId, StringComparison.Ordinal)
+                    ? NormalizeColor(request.RankNumberColorOne, "#f5f5f7")
+                    : NormalizeColor(section.RankNumberColorOne, "#f5f5f7"),
+                RankNumberColorTwo = string.Equals(section.Id, normalizedId, StringComparison.Ordinal)
+                    ? NormalizeColor(request.RankNumberColorTwo, "#f5f5f7")
+                    : NormalizeColor(section.RankNumberColorTwo, "#f5f5f7"),
+                RankNumberFontDataUrl = string.Equals(section.Id, normalizedId, StringComparison.Ordinal)
+                    ? NormalizeFontDataUrl(request.RankNumberFontDataUrl)
+                    : NormalizeFontDataUrl(section.RankNumberFontDataUrl),
+                ActivityMaxItems = string.Equals(section.Id, normalizedId, StringComparison.Ordinal)
+                    ? Math.Clamp(request.ActivityMaxItems, 1, 100)
+                    : Math.Clamp(section.ActivityMaxItems, 1, 100),
+                ActivityMediaType = string.Equals(section.Id, normalizedId, StringComparison.Ordinal)
+                    ? NormalizeActivityMediaType(request.ActivityMediaType)
+                    : NormalizeActivityMediaType(section.ActivityMediaType),
                 Drafts = NormalizeSectionDrafts(section.Drafts),
                 RotationIntervalMinutes = Math.Clamp(section.RotationIntervalMinutes, 1, 525600),
                 RotationStartUnixMilliseconds = Math.Max(0, section.RotationStartUnixMilliseconds),
@@ -209,6 +249,18 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
 
     private static string NormalizeColorMode(string? value) => value switch { "vertical-gradient" => "vertical-gradient", "horizontal-gradient" => "horizontal-gradient", "center-gradient" => "center-gradient", _ => "solid" };
 
+    private static int NormalizeDisplayTopCount(int value) => value is 10 or 20 or 30 or 40 or 50 ? value : 10;
+
+    private static string NormalizeActivityMediaType(string? value) => value switch { "series" => "series", "music-audiobooks" => "music-audiobooks", "books" => "books", _ => "movies" };
+
+    private static string NormalizeFontDataUrl(string? value)
+    {
+        var font = (value ?? string.Empty).Trim();
+        if (font.Length == 0) return string.Empty;
+        if (font.Length > 2_800_000) return string.Empty;
+        return System.Text.RegularExpressions.Regex.IsMatch(font, "^data:(?:font/(?:ttf|otf)|application/(?:x-font-ttf|x-font-opentype|font-sfnt|octet-stream));base64,[A-Za-z0-9+/=]+$") ? font : string.Empty;
+    }
+
     private static string NormalizeColor(string? value, string fallback) => System.Text.RegularExpressions.Regex.IsMatch(value ?? string.Empty, "^#[0-9a-fA-F]{6}$") ? value! : fallback;
 
     private static string NormalizeMediaBarImageType(string? value) => value switch { "primary" => "primary", "banner" => "banner", "thumb" => "thumb", _ => "backdrop" };
@@ -219,7 +271,8 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
             .Where(draft => !string.IsNullOrWhiteSpace(draft.Id)
                 && !string.IsNullOrWhiteSpace(draft.SourceId)
                 && (string.Equals(draft.SourceType, "collection", StringComparison.Ordinal)
-                    || string.Equals(draft.SourceType, "tag", StringComparison.Ordinal)))
+                    || string.Equals(draft.SourceType, "tag", StringComparison.Ordinal)
+                    || string.Equals(draft.SourceType, "top", StringComparison.Ordinal)))
             .GroupBy(draft => draft.Id, StringComparer.Ordinal)
             .Select(group => group.First())
             .Select(draft =>

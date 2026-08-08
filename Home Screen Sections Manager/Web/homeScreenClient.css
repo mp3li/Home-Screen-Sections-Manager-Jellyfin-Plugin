@@ -419,3 +419,73 @@ body.hssm-infinite-scroll-active .listPaging {
         position: absolute;
     }
 }
+
+
+/* Oversized ranking numerals use an original Netflix-inspired left-overlap treatment. */
+.hssm-top-ranked .hssm-client-items {
+    gap: 1.15em;
+}
+
+.hssm-top-ranked .hssm-client-card {
+    box-sizing: content-box;
+    flex-basis: calc(var(--hssm-card-width) * 1.65);
+    padding-left: calc(var(--hssm-card-width) * 0.65);
+    position: relative;
+    width: var(--hssm-card-width);
+}
+
+.hssm-top-ranked .hssm-client-card > .cardBox {
+    position: relative;
+    width: var(--hssm-card-width);
+    z-index: 2;
+}
+
+.hssm-rank-number {
+    bottom: calc(var(--hssm-card-width) * 0.05);
+    color: var(--hssm-rank-one);
+    filter: drop-shadow(0 0.08em 0.06em rgba(0, 0, 0, 0.98)) drop-shadow(0 0 0.025em rgba(255, 255, 255, 0.7));
+    font-family: var(--hssm-rank-font, inherit);
+    font-size: calc(var(--hssm-card-width) * 0.92);
+    font-weight: 900;
+    height: 75%;
+    left: 0;
+    line-height: 0.78;
+    position: absolute;
+    text-align: right;
+    width: calc(var(--hssm-card-width) * 0.92);
+    z-index: 1;
+}
+
+.hssm-rank-vertical-gradient .hssm-rank-number,
+.hssm-rank-horizontal-gradient .hssm-rank-number,
+.hssm-rank-center-gradient .hssm-rank-number {
+    background-clip: text;
+    color: transparent;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.hssm-rank-vertical-gradient .hssm-rank-number {
+    background-image: linear-gradient(to bottom, var(--hssm-rank-one), var(--hssm-rank-two));
+}
+
+.hssm-rank-horizontal-gradient .hssm-rank-number {
+    background-image: linear-gradient(to right, var(--hssm-rank-one), var(--hssm-rank-two));
+}
+
+.hssm-rank-center-gradient .hssm-rank-number {
+    background-image: radial-gradient(circle at center, var(--hssm-rank-one) 0%, var(--hssm-rank-two) 100%);
+}
+
+.hssm-shape-poster .hssm-rank-number {
+    font-size: calc(var(--hssm-card-width) * 1.12);
+}
+
+.hssm-shape-wide .hssm-rank-number {
+    font-size: calc(var(--hssm-card-width) * 0.44);
+}
+
+.hssm-shape-square .hssm-rank-number,
+.hssm-shape-circle .hssm-rank-number {
+    font-size: calc(var(--hssm-card-width) * 0.75);
+}

@@ -213,7 +213,9 @@
                 ['multiple-library-content', 'Multiple Library Content', 'Create a section that displays all content of all selected libraries. For example, all content in the Audiobooks and the Books libraries.'],
                 ['libraries-in-a-row', 'Libraries in a Row', "Create a section that displays multiple libraries in a row, by their image. Similar to Jellyfin's main/big My Media section, but showing only selected libraries instead of all."],
                 ['rotating-sections', 'Rotating Sections', 'Create multiple section drafts from selected collections and metadata tags, then rotate which draft appears on the home screen using the schedule you choose.'],
-                ['seasonal-sections', 'Seasonal Sections', 'Create multiple section drafts from selected collections and metadata tags, then choose the recurring date window when each draft appears on the home screen.']
+                ['seasonal-sections', 'Seasonal Sections', 'Create multiple section drafts from selected collections and metadata tags, then choose the recurring date window when each draft appears on the home screen.'],
+                ['top-10-50', 'Top 10-50', 'Based on IMDB ratings that must already be tagged in your media to use this feature. Select as much media as you’d like and the displayed media and media order will be picked based on your selections.'],
+                ['other-users-activity', 'What Other Users Are Watching/Reading/Listening To', 'Displays a random combination of what all users have recently watched/are currently watching.']
             ];
             let sections = [], selectedId = null, draftId = null, draggedId = null;
             const list = page.querySelector('#hssmSectionList');
@@ -440,7 +442,7 @@
             const page = document.getElementById('homeScreenSectionsManagerPage');
             const host = page && page.querySelector('#hssmTypeSpecificSettings');
             if (!page || !host) return;
-            const state = { id:'', name:'', type:'', sources:[], items:{}, resolvedItemIds:[], contentItems:[], contentItemOrder:[], draggedContentId:null, contentOrder:'title-ascending', artSize:'medium', artType:'automatic', artShape:'poster', showText:true, libraries:[], collections:[], manual:{}, manualStates:{}, tagSearch:'', tagSources:{}, tagTypeLoadIds:{}, drafts:[], draftLibraryIds:[], draggedDraftId:null, rotationValue:1, rotationUnit:'days', draftPreviewLoadId:0 };
+            const state = { id:'', name:'', type:'', sources:[], items:{}, resolvedItemIds:[], contentItems:[], contentItemOrder:[], draggedContentId:null, contentPage:1, contentOrder:'title-ascending', artSize:'medium', artType:'automatic', artShape:'poster', showText:true, libraries:[], collections:[], manual:{}, manualStates:{}, tagSearch:'', tagSources:{}, tagTypeLoadIds:{}, drafts:[], draftLibraryIds:[], draggedDraftId:null, rotationValue:1, rotationUnit:'days', draftPreviewLoadId:0, displayTop:10, showRankNumbers:true, rankNumberColorMode:'solid', rankNumberColorOne:'#f5f5f7', rankNumberColorTwo:'#f5f5f7', rankNumberFontDataUrl:'', activityMaxItems:20, activityMediaType:'movies', activityPreviewLoadId:0 };
             const esc = value => { const el = document.createElement('span'); el.textContent = value == null ? '' : String(value); return el.innerHTML; };
             const cm = path => ApiClient.getJSON(ApiClient.getUrl('CollectionManager/' + path));
             const cmPost = (path, body) => ApiClient.ajax({ type:'POST', url:ApiClient.getUrl('CollectionManager/' + path), data:JSON.stringify(body), contentType:'application/json', dataType:'json' });
@@ -458,13 +460,16 @@
             const isLibraryType = () => libraryTypes.has(kind());
             const isDraftType = () => draftTypes.has(kind());
             const isSeasonalType = () => kind() === 'seasonal-sections';
+            const isTopType = () => kind() === 'top-10-50';
+            const isActivityType = () => kind() === 'other-users-activity';
+            const usesDraftSourcePicker = () => isDraftType() || isTopType();
             const rowImage = item => item.HasPrimaryImage || item.ImageTags ? '<img class="hssm-preview-image" loading="lazy" src="' + image(item.Id) + '" alt="" onerror="this.remove()" />' : '<span class="hssm-preview-image hssm-empty-image"></span>';
             const styles = document.createElement('style');
             styles.textContent = '#homeScreenSectionsManagerPage .hssm-conditional-section{border-top:1px solid var(--hssm-outline);margin-top:1.25em;padding-top:1.25em}#homeScreenSectionsManagerPage .hssm-conditional-section h2{margin:0 0 .35em}#homeScreenSectionsManagerPage .hssm-picker-library{border-top:1px solid var(--hssm-outline);margin-top:1em;padding-top:1em}#homeScreenSectionsManagerPage .hssm-picker-heading{display:flex;align-items:center;justify-content:space-between;gap:1em}#homeScreenSectionsManagerPage .hssm-picker-heading h3{margin:0}#homeScreenSectionsManagerPage .hssm-picker-content{margin-top:.8em}#homeScreenSectionsManagerPage .hssm-preview-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1em 1.25em}#homeScreenSectionsManagerPage .hssm-preview-card{display:flex;align-items:flex-start;gap:.55em;min-width:0}#homeScreenSectionsManagerPage .hssm-preview-image{display:block;flex:0 0 auto;width:4em;height:6em;object-fit:cover;border-radius:.35em;background:rgba(255,255,255,.08)}#homeScreenSectionsManagerPage .hssm-row-preview .hssm-preview-image{width:9em;height:5.1em}#homeScreenSectionsManagerPage .hssm-empty-image{border:1px solid var(--hssm-outline)}#homeScreenSectionsManagerPage .hssm-preview-copy{min-width:0;overflow-wrap:anywhere}#homeScreenSectionsManagerPage .hssm-preview-copy strong{display:block}#homeScreenSectionsManagerPage .hssm-tag-choice{border:1px solid var(--hssm-outline);border-radius:.4em;margin:.55em 0;padding:.55em .7em}#homeScreenSectionsManagerPage .hssm-tag-choice .checkboxContainer{margin:0}#homeScreenSectionsManagerPage .hssm-order-settings[hidden],#homeScreenSectionsManagerPage .hssm-art-settings[hidden]{display:none!important}@media(max-width:42em){#homeScreenSectionsManagerPage .hssm-preview-grid{grid-template-columns:1fr}}';
             styles.textContent += '#homeScreenSectionsManagerPage .mcm-library-overview{margin-top:1em}#homeScreenSectionsManagerPage .mcm-library-overview+.mcm-library-overview{border-top:1px solid var(--hssm-outline);padding-top:1em}#homeScreenSectionsManagerPage .mcm-library-heading{display:flex;align-items:center;justify-content:space-between;gap:1em}#homeScreenSectionsManagerPage .mcm-library-heading h3{margin:0}#homeScreenSectionsManagerPage .mcm-picker-library-content[hidden]{display:none!important}#homeScreenSectionsManagerPage .mcm-manual-picker .checkboxContainer{margin:0 0 .65em}#homeScreenSectionsManagerPage .mcm-manual-picker .emby-checkbox-label{height:auto;min-height:2.35em;align-items:flex-start}#homeScreenSectionsManagerPage .mcm-manual-picker .checkboxOutline{top:.25em}#homeScreenSectionsManagerPage .mcm-manual-picker-details{display:flex;align-items:flex-start;gap:.35em;min-width:0}#homeScreenSectionsManagerPage .mcm-related-poster{width:5.25em;height:7.9em;object-fit:cover;border-radius:.35em;vertical-align:top;margin:0 .55em .45em 0;background:rgba(255,255,255,.08)}#homeScreenSectionsManagerPage .mcm-related-title{display:flex;align-items:flex-start;gap:.35em;margin:0 0 .65em}#homeScreenSectionsManagerPage .mcm-related-title-text{min-width:0}#homeScreenSectionsManagerPage .mcm-manual-remove{margin-left:.55em}#homeScreenSectionsManagerPage .mcm-manual-description{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:5;overflow:hidden;line-height:1.25;min-height:6.25em}#homeScreenSectionsManagerPage .mcm-collection-member-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1em 1.25em}#homeScreenSectionsManagerPage .mcm-collection-member-grid .mcm-related-title{margin:0}#homeScreenSectionsManagerPage .mcm-manual-controls{justify-content:flex-start;display:flex;flex-wrap:wrap}#homeScreenSectionsManagerPage .mcm-pagination-text{font-size:.85em}#homeScreenSectionsManagerPage .mcm-art-picker{max-height:20em;overflow-y:auto;padding:.15em .4em;border:1px solid var(--hssm-outline);border-radius:.4em}#homeScreenSectionsManagerPage .mcm-art-picker .checkboxContainer{display:block;margin:.55em 0}#homeScreenSectionsManagerPage .mcm-library-list{margin:.75em 0 0}#homeScreenSectionsManagerPage .mcm-tag-picker-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.55em 1em;margin-top:.85em}#homeScreenSectionsManagerPage .mcm-tag-picker-grid .checkboxContainer{min-width:0;margin:0;overflow-wrap:anywhere}#homeScreenSectionsManagerPage .mcm-flat-tag-choice{min-width:0}#homeScreenSectionsManagerPage .mcm-flat-tag-choice>.fieldDescription{display:block;margin:.1em 0 0 2.4em;overflow-wrap:anywhere}#homeScreenSectionsManagerPage .mcm-tag-type-content{overflow-anchor:none}#homeScreenSectionsManagerPage .mcm-tag-type+.mcm-tag-type{border-top:1px solid var(--hssm-outline);margin-top:.75em;padding-top:.75em}#homeScreenSectionsManagerPage .mcm-tag-type-content[hidden]{display:none!important}#homeScreenSectionsManagerPage .mcm-tag-source-divider{border:0;border-top:1px solid var(--hssm-outline);margin:1em 0}#homeScreenSectionsManagerPage .mcm-person-image{width:2em;height:2em;vertical-align:middle;object-fit:cover;border-radius:50%;margin-right:.45em}@media(max-width:55em){#homeScreenSectionsManagerPage .mcm-collection-member-grid{grid-template-columns:1fr}}';
             styles.textContent += '#homeScreenSectionsManagerPage .mcm-library-overview>.mcm-library-heading{justify-content:flex-start}#homeScreenSectionsManagerPage .mcm-library-overview>.mcm-library-heading>button{order:-1}';
             styles.textContent += '#homeScreenSectionsManagerPage .hssm-manual-order-editor{margin-top:1em}#homeScreenSectionsManagerPage .hssm-manual-order-editor[hidden]{display:none!important}#homeScreenSectionsManagerPage .hssm-manual-order-list{border:1px solid var(--hssm-outline);border-radius:.45em;overflow:hidden}#homeScreenSectionsManagerPage .hssm-manual-order-row{display:flex;align-items:center;gap:.7em;min-height:2.7em;padding:.55em .75em;border-bottom:1px solid var(--hssm-outline);cursor:grab;user-select:none}#homeScreenSectionsManagerPage .hssm-manual-order-row:last-child{border-bottom:0}#homeScreenSectionsManagerPage .hssm-manual-order-row.dragging{opacity:.45}#homeScreenSectionsManagerPage .hssm-manual-order-handle{opacity:.65;font-size:1.15em}';
-            styles.textContent += '#homeScreenSectionsManagerPage .hssm-draft-picker-body[hidden]{display:none!important}#homeScreenSectionsManagerPage .hssm-draft-picker{margin-top:1em}#homeScreenSectionsManagerPage .hssm-draft-picker-heading{display:flex;align-items:center;justify-content:flex-start;gap:1em}#homeScreenSectionsManagerPage .hssm-draft-picker-heading h3{margin:0}#homeScreenSectionsManagerPage .hssm-draft-picker-body{margin-top:.8em}#homeScreenSectionsManagerPage .hssm-source-drafts{margin-top:.75em}#homeScreenSectionsManagerPage .mcm-draft-card{border:1px solid var(--hssm-outline);border-radius:.45em;padding:1em;margin:0 0 1em}#homeScreenSectionsManagerPage .mcm-draft-card.dragging{opacity:.45}#homeScreenSectionsManagerPage .hssm-source-draft-heading{display:flex;align-items:flex-start;gap:.7em}#homeScreenSectionsManagerPage .hssm-source-draft-heading h3{flex:1;margin:.1em 0 0}#homeScreenSectionsManagerPage .hssm-source-draft-handle{font-size:1.15em;cursor:grab;opacity:.65}#homeScreenSectionsManagerPage .hssm-draft-window-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.75em}#homeScreenSectionsManagerPage .hssm-rotation-grid{display:grid;grid-template-columns:minmax(8em,12em) minmax(10em,14em);gap:.75em;align-items:end}@media(max-width:42em){#homeScreenSectionsManagerPage .hssm-draft-window-grid,#homeScreenSectionsManagerPage .hssm-rotation-grid{grid-template-columns:1fr}}';
+            styles.textContent += '#homeScreenSectionsManagerPage .hssm-draft-picker-body[hidden]{display:none!important}#homeScreenSectionsManagerPage .hssm-draft-picker{margin-top:1em}#homeScreenSectionsManagerPage .hssm-draft-picker-heading{display:flex;align-items:center;justify-content:flex-start;gap:1em}#homeScreenSectionsManagerPage .hssm-draft-picker-heading h3{margin:0}#homeScreenSectionsManagerPage .hssm-draft-picker-body{margin-top:.8em}#homeScreenSectionsManagerPage .hssm-source-drafts{margin-top:.75em}#homeScreenSectionsManagerPage .mcm-draft-card{border:1px solid var(--hssm-outline);border-radius:.45em;padding:1em;margin:0 0 1em}#homeScreenSectionsManagerPage .mcm-draft-card.dragging{opacity:.45}#homeScreenSectionsManagerPage .hssm-source-draft-heading{display:flex;align-items:flex-start;gap:.7em}#homeScreenSectionsManagerPage .hssm-source-draft-heading h3{flex:1;margin:.1em 0 0}#homeScreenSectionsManagerPage .hssm-source-draft-handle{font-size:1.15em;cursor:grab;opacity:.65}#homeScreenSectionsManagerPage .hssm-draft-window-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.75em}#homeScreenSectionsManagerPage .hssm-rotation-grid{display:grid;grid-template-columns:minmax(8em,12em) minmax(10em,14em);gap:.75em;align-items:end}#homeScreenSectionsManagerPage .hssm-content-pagination{display:flex;align-items:center;flex-wrap:wrap;gap:.65em;margin:.75em 0 1em}#homeScreenSectionsManagerPage .hssm-numbering-settings{border-top:1px solid var(--hssm-outline);margin-top:1.25em;padding-top:1.25em}#homeScreenSectionsManagerPage .hssm-numbering-settings h3{margin:0 0 .35em}#homeScreenSectionsManagerPage .hssm-yes-no{display:flex;flex-wrap:wrap;gap:1.25em;margin:.8em 0}#homeScreenSectionsManagerPage .hssm-numbering-colors{display:grid;grid-template-columns:minmax(11em,16em) repeat(2,minmax(7em,10em));gap:.65em;align-items:end}@media(max-width:42em){#homeScreenSectionsManagerPage .hssm-draft-window-grid,#homeScreenSectionsManagerPage .hssm-rotation-grid,#homeScreenSectionsManagerPage .hssm-numbering-colors{grid-template-columns:1fr}}';
             document.head.appendChild(styles);
 
             function setupData() {
@@ -496,18 +501,39 @@
             function draftPickerMarkup(title, description, key, body) {
                 return '<div class="hssm-draft-picker"><div class="hssm-draft-picker-heading"><button is="emby-button" type="button" class="raised" data-hssm-draft-picker-toggle="' + key + '">Click here to expand</button><h3>' + title + '</h3></div><p class="fieldDescription">' + description + '</p><div class="hssm-draft-picker-body" data-hssm-draft-picker-body="' + key + '" hidden>' + body + '</div></div>';
             }
-            function dynamicMarkup() {
-                const title = isSeasonalType() ? 'Seasonal Section Drafts' : 'Rotating Section Drafts';
-                const draftDescription = isSeasonalType() ? 'Each selected collection or metadata tag creates one seasonal section draft. Drag drafts to set their priority when date windows overlap.' : 'Each selected collection or metadata tag creates one rotating section draft. Drag drafts to set the order in which they rotate.';
-                const timing = isSeasonalType() ? '' : '<section class="hssm-conditional-section"><h2>Rotation Timing Settings</h2><p class="fieldDescription">Choose how often the home screen changes from one rotating section draft to the next.</p><div class="hssm-rotation-grid"><div class="inputContainer"><label class="inputLabel inputLabelUnfocused">Rotate Every</label><input is="emby-input" type="number" min="1" max="525600" step="1" data-hssm-rotation-value value="' + esc(state.rotationValue) + '" /></div><div class="selectContainer"><label class="selectLabel">Rotation Time Unit</label><select is="emby-select" data-hssm-rotation-unit>' + selectOptions([['hours','Hours'],['days','Days'],['weeks','Weeks']], state.rotationUnit) + '</select></div></div></section>';
+            function sourceDraftPickerMarkup() {
                 return '<section class="hssm-conditional-section"><h2>Select Sources for Section Drafts</h2><p class="fieldDescription">Select collections and metadata tags to create the drafts used by this section. Open only the picker you need.</p>'
                     + draftPickerMarkup('Select Collections', 'Each selected collection creates one section draft containing that collection’s current content.', 'collections', '<div data-hssm-draft-collections class="mcm-art-picker"></div>')
                     + draftPickerMarkup('Select Libraries for Metadata Tags', 'Select the libraries whose scanned metadata tags you want to browse in the tag picker below. Libraries only control which tags are available; they do not create drafts.', 'libraries', '<div data-hssm-draft-libraries class="mcm-library-list"></div>')
                     + draftPickerMarkup('Select Metadata Tags', 'Each selected metadata tag creates one section draft containing the media that currently matches that tag.', 'tags', '<div data-hssm-tags></div>')
-                    + '</section><section class="hssm-conditional-section"><h2>' + title + '</h2><p class="fieldDescription">' + draftDescription + '</p><div class="hssm-source-drafts" data-hssm-source-drafts></div></section>' + timing + contentMarkup();
+                    + '</section>';
+            }
+            function topMarkup() {
+                return '<section class="hssm-conditional-section"><h2>Top 10-50 Settings</h2><p class="fieldDescription">Choose how many of the highest IMDb-tagged items from your selected sources will appear.</p><div class="selectContainer"><label class="selectLabel">Display Top:</label><select is="emby-select" data-hssm-display-top>' + selectOptions([[10,'10'],[20,'20'],[30,'30'],[40,'40'],[50,'50']], state.displayTop) + '</select></div></section>'
+                    + sourceDraftPickerMarkup()
+                    + '<section class="hssm-conditional-section"><h2>Top Section Draft</h2><p class="fieldDescription">All selected collections and metadata tags are combined into this one draft. You can edit its title.</p><div class="hssm-source-drafts" data-hssm-source-drafts></div></section>'
+                    + contentMarkup();
+            }
+            function activitySectionName(value) {
+                if (value === 'books') return 'What Other Users Are Reading';
+                if (value === 'music-audiobooks') return 'What Other Users Are Listening To';
+                return 'What Other Users Are Watching';
+            }
+            function activityMarkup() {
+                return '<section class="hssm-conditional-section"><h2>Other Users Activity Settings</h2><p class="fieldDescription">Choose the media type and maximum number of items that can appear from recent and current activity across Jellyfin users.</p><div class="selectContainer"><label class="selectLabel">Media Types:</label><select is="emby-select" data-hssm-activity-media-type>' + selectOptions([['movies','Movies'],['series','Series'],['music-audiobooks','Music/Audiobooks'],['books','Books']], state.activityMediaType) + '</select></div><div class="inputContainer"><label class="inputLabel inputLabelUnfocused">Maximum Media Items</label><input is="emby-input" type="number" min="1" max="100" step="1" data-hssm-activity-max value="' + esc(state.activityMaxItems) + '" /></div></section>' + contentMarkup();
+            }
+            function numberingMarkup() {
+                if (!isTopType()) return '';
+                return '<div class="hssm-numbering-settings"><h3>Numbering Settings</h3><p class="fieldDescription">Select your preferences for if you want visible numbers on your Top 10-50 section, and their color(s).</p><div class="hssm-yes-no"><label class="checkboxContainer"><input is="emby-checkbox" type="radio" name="hssmRankNumbers" value="yes" data-hssm-rank-numbers' + (state.showRankNumbers ? ' checked' : '') + ' /><span>Yes</span></label><label class="checkboxContainer"><input is="emby-checkbox" type="radio" name="hssmRankNumbers" value="no" data-hssm-rank-numbers' + (!state.showRankNumbers ? ' checked' : '') + ' /><span>No</span></label></div><h4>Numbering Color(s):</h4><div class="hssm-numbering-colors"><div class="selectContainer"><label class="selectLabel">Color Style</label><select is="emby-select" data-hssm-rank-color-mode>' + selectOptions([['solid','Solid (Default)'],['vertical-gradient','Vertical Gradient'],['horizontal-gradient','Horizontal Gradient'],['center-gradient','Center Gradient']], state.rankNumberColorMode) + '</select></div><div class="inputContainer"><label class="inputLabel inputLabelUnfocused">First Color</label><input is="emby-input" type="color" data-hssm-rank-color-one value="' + esc(state.rankNumberColorOne) + '" /></div><div class="inputContainer"><label class="inputLabel inputLabelUnfocused">Second Color</label><input is="emby-input" type="color" data-hssm-rank-color-two value="' + esc(state.rankNumberColorTwo) + '" /></div></div><div class="inputContainer"><label class="inputLabel inputLabelUnfocused">Import Numbering Font</label><input is="emby-input" type="file" accept=".ttf,.otf,font/ttf,font/otf,application/x-font-ttf,application/x-font-opentype" data-hssm-rank-font /></div><p class="fieldDescription">The default Abyss theme font will be used unless you import a .ttf or .otf font file.</p><p class="fieldDescription" data-hssm-rank-font-status>' + (state.rankNumberFontDataUrl ? 'A custom numbering font is imported.' : 'Using the default Abyss theme font.') + '</p>' + (state.rankNumberFontDataUrl ? '<button is="emby-button" type="button" class="raised" data-hssm-remove-rank-font>Remove Imported Font</button>' : '') + '</div>';
+            }
+            function dynamicMarkup() {
+                const title = isSeasonalType() ? 'Seasonal Section Drafts' : 'Rotating Section Drafts';
+                const draftDescription = isSeasonalType() ? 'Each selected collection or metadata tag creates one seasonal section draft. Drag drafts to set their priority when date windows overlap.' : 'Each selected collection or metadata tag creates one rotating section draft. Drag drafts to set the order in which they rotate.';
+                const timing = isSeasonalType() ? '' : '<section class="hssm-conditional-section"><h2>Rotation Timing Settings</h2><p class="fieldDescription">Choose how often the home screen changes from one rotating section draft to the next.</p><div class="hssm-rotation-grid"><div class="inputContainer"><label class="inputLabel inputLabelUnfocused">Rotate Every</label><input is="emby-input" type="number" min="1" max="525600" step="1" data-hssm-rotation-value value="' + esc(state.rotationValue) + '" /></div><div class="selectContainer"><label class="selectLabel">Rotation Time Unit</label><select is="emby-select" data-hssm-rotation-unit>' + selectOptions([['hours','Hours'],['days','Days'],['weeks','Weeks']], state.rotationUnit) + '</select></div></div></section>';
+                return sourceDraftPickerMarkup() + '<section class="hssm-conditional-section"><h2>' + title + '</h2><p class="fieldDescription">' + draftDescription + '</p><div class="hssm-source-drafts" data-hssm-source-drafts></div></section>' + timing + contentMarkup();
             }
             function contentMarkup(rowMode) {
-                return '<section class="hssm-conditional-section"><h2>Content In Section</h2><p class="fieldDescription">This selected content will be displayed in your section.</p><div data-hssm-content class="' + (rowMode ? 'hssm-row-preview' : '') + '"><p class="fieldDescription">No content is currently selected.</p></div></section><div class="hssm-actions"><button is="emby-button" type="button" class="raised button-submit" data-hssm-save-move>Save and Move On</button></div><p class="fieldDescription" data-hssm-save-status aria-live="polite"></p><section class="hssm-conditional-section hssm-order-settings" data-hssm-order-settings hidden><h2>Section Content Order Settings</h2><p class="fieldDescription">Select which order you want your home screen section content to appear in. Ordering by rating requires ratings to be in your media tags.</p><div class="selectContainer"><label class="selectLabel" for="hssmSectionContentOrder">Content Order</label><select is="emby-select" id="hssmSectionContentOrder" data-hssm-content-order>' + orderOptions() + '</select></div><div class="hssm-manual-order-editor" data-hssm-manual-order hidden><p class="fieldDescription">Drag the content below into the exact order you want it to appear in this home screen section.</p><div class="hssm-manual-order-list" data-hssm-manual-order-list></div></div></section><section class="hssm-conditional-section hssm-art-settings" data-hssm-art-settings hidden><h2>Section Art Appearance Settings</h2><p class="fieldDescription">Choose the size, Jellyfin image type, shape, and title-text visibility for the art in this home screen section.</p><div class="selectContainer"><label class="selectLabel" for="hssmSectionArtSize">Art Size</label><select is="emby-select" id="hssmSectionArtSize" data-hssm-art-size>' + artSizeOptions() + '</select></div><div class="selectContainer"><label class="selectLabel" for="hssmSectionArtType">Art Type</label><select is="emby-select" id="hssmSectionArtType" data-hssm-art-type>' + artTypeOptions() + '</select></div><div class="selectContainer"><label class="selectLabel" for="hssmSectionArtShape">Art Shape</label><select is="emby-select" id="hssmSectionArtShape" data-hssm-art-shape>' + artShapeOptions() + '</select></div><label class="checkboxContainer"><input is="emby-checkbox" type="checkbox" data-hssm-show-text' + (state.showText ? ' checked' : '') + ' /><span>Show text under the art</span></label><p class="fieldDescription">Show the media name and year beneath each image.</p><div class="hssm-actions"><button is="emby-button" type="button" class="raised button-submit" data-hssm-apply-section>Add Section to Home Screen</button></div><p class="fieldDescription" data-hssm-apply-status aria-live="polite"></p></section>';
+                return '<section class="hssm-conditional-section"><h2>Content In Section</h2><p class="fieldDescription">This selected content will be displayed in your section.</p><div data-hssm-content class="' + (rowMode ? 'hssm-row-preview' : '') + '"><p class="fieldDescription">No content is currently selected.</p></div></section><div class="hssm-actions"><button is="emby-button" type="button" class="raised button-submit" data-hssm-save-move>Save and Move On</button></div><p class="fieldDescription" data-hssm-save-status aria-live="polite"></p><section class="hssm-conditional-section hssm-order-settings" data-hssm-order-settings hidden><h2>Section Content Order Settings</h2><p class="fieldDescription">Select which order you want your home screen section content to appear in. Ordering by rating requires ratings to be in your media tags.</p><div class="selectContainer"><label class="selectLabel" for="hssmSectionContentOrder">Content Order</label><select is="emby-select" id="hssmSectionContentOrder" data-hssm-content-order>' + orderOptions() + '</select></div><div class="hssm-manual-order-editor" data-hssm-manual-order hidden><p class="fieldDescription">Drag the content below into the exact order you want it to appear in this home screen section.</p><div class="hssm-manual-order-list" data-hssm-manual-order-list></div></div></section><section class="hssm-conditional-section hssm-art-settings" data-hssm-art-settings hidden><h2>Section Art Appearance Settings</h2><p class="fieldDescription">Choose the size, Jellyfin image type, shape, and title-text visibility for the art in this home screen section.</p><div class="selectContainer"><label class="selectLabel" for="hssmSectionArtSize">Art Size</label><select is="emby-select" id="hssmSectionArtSize" data-hssm-art-size>' + artSizeOptions() + '</select></div><div class="selectContainer"><label class="selectLabel" for="hssmSectionArtType">Art Type</label><select is="emby-select" id="hssmSectionArtType" data-hssm-art-type>' + artTypeOptions() + '</select></div><div class="selectContainer"><label class="selectLabel" for="hssmSectionArtShape">Art Shape</label><select is="emby-select" id="hssmSectionArtShape" data-hssm-art-shape>' + artShapeOptions() + '</select></div><label class="checkboxContainer"><input is="emby-checkbox" type="checkbox" data-hssm-show-text' + (state.showText ? ' checked' : '') + ' /><span>Show text under the art</span></label><p class="fieldDescription">Show the media name and year beneath each image.</p>' + numberingMarkup() + '<div class="hssm-actions"><button is="emby-button" type="button" class="raised button-submit" data-hssm-apply-section>Add Section to Home Screen</button></div><p class="fieldDescription" data-hssm-apply-status aria-live="polite"></p></section>';
             }
             function orderOptions() {
                 return [
@@ -566,11 +592,23 @@
             }
             function removeDraft(sourceType, sourceId) { const key = draftKey(sourceType, sourceId); state.drafts = state.drafts.filter(draft => draftKey(draft.SourceType, draft.SourceId) !== key); }
             function collectionName(id) { const collection = state.collections.find(value => String(value.Id) === String(id)); return collection ? String(collection.Name) : 'Selected collection'; }
+            function setSectionName(value) {
+                const name = value == null ? '' : String(value);
+                state.name = name;
+                const hidden = page.querySelector('#hssmNewSectionName');
+                if (hidden) hidden.value = name;
+                const row = page.querySelector('[data-section-id="' + CSS.escape(state.id) + '"]');
+                const input = row && row.querySelector('[data-hssm-inline-section-name]');
+                if (input && input.value !== name) {
+                    input.value = name;
+                    input.dispatchEvent(new Event('input', { bubbles:true }));
+                }
+            }
             function tagDraftName(sourceId) { const parts = String(sourceId).split('|'), libraryId = parts.shift() || '', type = parts.shift() || '', value = parts.join('|'); return value + ' — ' + metadataTypeLabel(type) + ' — ' + tagLibraryName(libraryId); }
             function renderDraftCollections() {
                 const target = host.querySelector('[data-hssm-draft-collections]');
                 if (!target) return;
-                target.innerHTML = state.collections.map(collection => { const id = String(collection.Id), checked = !!selectedDraft('collection', id); return '<label class="checkboxContainer"><input is="emby-checkbox" type="checkbox" data-hssm-draft-collection="' + esc(id) + '"' + (checked ? ' checked' : '') + ' /> <span>' + esc(collection.Name) + ' (' + Number(collection.MediaItems || 0) + ' media items)</span></label>'; }).join('') || '<p class="fieldDescription">No collections are available.</p>';
+                target.innerHTML = state.collections.map(collection => { const id = String(collection.Id), checked = isTopType() ? state.sources.indexOf('collection|' + id) >= 0 : !!selectedDraft('collection', id); return '<label class="checkboxContainer"><input is="emby-checkbox" type="checkbox" data-hssm-draft-collection="' + esc(id) + '"' + (checked ? ' checked' : '') + ' /> <span>' + esc(collection.Name) + ' (' + Number(collection.MediaItems || 0) + ' media items)</span></label>'; }).join('') || '<p class="fieldDescription">No collections are available.</p>';
             }
             function renderDraftLibraries() {
                 const target = host.querySelector('[data-hssm-draft-libraries]');
@@ -581,6 +619,12 @@
             function renderSourceDrafts() {
                 const target = host.querySelector('[data-hssm-source-drafts]');
                 if (!target) return;
+                if (isTopType()) {
+                    const draft = state.drafts[0];
+                    const preview = !draft ? 'Select at least one collection or metadata tag above.' : draft.PreviewError ? 'The selected IMDb-tagged media could not be previewed right now.' : draft.PreviewCount == null ? 'Loading matching IMDb-tagged media…' : 'This draft currently includes ' + draft.PreviewCount + ' ranked media item' + (draft.PreviewCount === 1 ? '' : 's') + '.';
+                    target.innerHTML = '<div class="mcm-draft-card" data-hssm-source-draft="' + esc(draft ? draft.Id : 'top-draft') + '"><div class="inputContainer"><label class="inputLabel inputLabelUnfocused">Section Title</label><input is="emby-input" type="text" data-hssm-top-draft-name value="' + esc(draft ? draft.Name : state.name) + '" autocomplete="off" /></div><p class="fieldDescription">All selected sources are combined into one Top ' + state.displayTop + ' draft. Media without an IMDb rating tag is excluded.</p><p class="fieldDescription" data-hssm-draft-preview-status>' + preview + '</p></div>';
+                    return;
+                }
                 target.innerHTML = state.drafts.length ? state.drafts.map((draft, index) => {
                     const sourceLabel = draft.SourceType === 'collection' ? 'Collection' : 'Metadata Tag';
                     const preview = draft.PreviewError ? 'This draft’s matching media could not be previewed right now.' : draft.PreviewCount == null ? 'Loading matching media…' : 'This draft currently includes ' + draft.PreviewCount + ' media item' + (draft.PreviewCount === 1 ? '' : 's') + '.';
@@ -616,16 +660,81 @@
                     return '<div class="hssm-manual-order-row" draggable="true" data-hssm-manual-order-id="' + esc(id) + '"><span class="hssm-manual-order-handle" aria-hidden="true">⠿</span><span>' + esc(name) + '</span></div>';
                 }).join('') : '<p class="fieldDescription" style="padding:.75em">No content is currently available to order.</p>';
             }
-            function itemCards(items, rowMode) {
+            function itemCards(items, rowMode, allowRemove) {
                 if (!items.length) return '<p class="fieldDescription">No content is currently selected.</p>';
-                if (!rowMode) return '<p class="fieldDescription">This collection will include ' + items.length + ' selected media item' + (items.length === 1 ? '' : 's') + '.</p><div class="mcm-collection-member-grid">' + items.map(item => manualPickerItem(item, false, false)).join('') + '</div>';
-                return '<p class="fieldDescription">This section will include ' + items.length + ' selected item' + (items.length === 1 ? '' : 's') + '.</p><div class="hssm-preview-grid hssm-row-preview">' + items.map(item => '<div class="hssm-preview-card">' + rowImage(item) + '<span class="hssm-preview-copy"><strong>' + esc(item.Name) + '</strong></span></div>').join('') + '</div>';
+                const pageSize = 20, pages = Math.max(1, Math.ceil(items.length / pageSize));
+                state.contentPage = Math.min(Math.max(1, Number(state.contentPage) || 1), pages);
+                const visible = items.slice((state.contentPage - 1) * pageSize, state.contentPage * pageSize);
+                const pagination = pages > 1 ? '<div class="hssm-content-pagination"><button is="emby-button" type="button" class="raised" data-hssm-content-page="' + (state.contentPage - 1) + '"' + (state.contentPage <= 1 ? ' disabled' : '') + '>Previous Page</button><button is="emby-button" type="button" class="raised" data-hssm-content-page="' + (state.contentPage + 1) + '"' + (state.contentPage >= pages ? ' disabled' : '') + '>Next Page</button><span class="fieldDescription mcm-pagination-text">Page ' + state.contentPage + ' out of ' + pages + '</span></div>' : '';
+                if (!rowMode) return '<p class="fieldDescription">This collection will include ' + items.length + ' selected media item' + (items.length === 1 ? '' : 's') + '.</p>' + pagination + '<div class="mcm-collection-member-grid">' + visible.map(item => manualPickerItem(item, false, allowRemove === true)).join('') + '</div>';
+                return '<p class="fieldDescription">This section will include ' + items.length + ' selected item' + (items.length === 1 ? '' : 's') + '.</p>' + pagination + '<div class="hssm-preview-grid hssm-row-preview">' + visible.map(item => '<div class="hssm-preview-card">' + rowImage(item) + '<span class="hssm-preview-copy"><strong>' + esc(item.Name) + '</strong></span></div>').join('') + '</div>';
             }
             function previewDraft(draft) {
                 if (draft.SourceType === 'collection') return loadAllParentItems(draft.SourceId);
                 const parts = String(draft.SourceId).split('|');
                 const selectedTag = { SourceLibraryId:parts[0], MetadataType:parts[1], MetadataValue:parts.slice(2).join('|'), AdditionalLibraryIds:[], CollectionTitle:state.name, Overview:'', ExistingCollectionAction:'', ArtPreference:'JellyfinDefault' };
                 return cmPost('individual-collection-drafts/preview', selectedTag).then(preview => (preview.Items || preview.items || []).map(item => ({ Id:item.Id || item.id, Name:item.Title || item.title, Type:item.LibraryName || item.libraryName, HasPrimaryImage:true })));
+            }
+            function loadItemIds(ids) {
+                const values = (ids || []).map(String).filter(Boolean), chunks = [];
+                for (let index = 0; index < values.length; index += 100) chunks.push(values.slice(index, index + 100));
+                return Promise.all(chunks.map(chunk => itemQuery({ Ids:chunk.join(','), Fields:'Overview,PrimaryImageAspectRatio,Tags,CommunityRating,SortName,SeriesName,SeriesId' }).then(result => result.Items || result.items || []))).then(groups => {
+                    const byId = {};
+                    groups.flat().forEach(item => { byId[String(item.Id || item.id)] = item; });
+                    return values.map(id => byId[id]).filter(Boolean);
+                });
+            }
+            function imdbTaggedRating(item) {
+                const tags = item.Tags || item.tags || [];
+                for (let index = 0; index < tags.length; index += 1) {
+                    const match = String(tags[index]).match(/(?:^|\b)IMDb(?:\s+Rating)?\s*[:=-]\s*([0-9]+(?:\.[0-9]+)?)(?:\s*\/\s*10)?/i);
+                    if (match) return Number(match[1]);
+                }
+                return null;
+            }
+            function ensureTopDraft() {
+                if (!state.drafts.length) state.drafts = [{ Id:'top-draft-' + state.id, SourceType:'top', SourceId:'combined', Name:state.name || ('Top ' + state.displayTop), StartMonth:1, StartDay:1, EndMonth:12, EndDay:31, PreviewCount:null }];
+                return state.drafts[0];
+            }
+            function topSourceItems(source) {
+                const split = String(source).indexOf('|'), sourceType = split < 0 ? '' : String(source).slice(0, split), sourceId = split < 0 ? '' : String(source).slice(split + 1);
+                if (sourceType === 'collection') return loadAllParentItems(sourceId);
+                if (sourceType === 'tag') {
+                    return previewDraft({ SourceType:'tag', SourceId:sourceId }).then(items => loadItemIds(items.map(item => String(item.Id || item.id))));
+                }
+                return Promise.resolve([]);
+            }
+            function renderTopContent(content) {
+                const loadId = ++state.draftPreviewLoadId, draft = ensureTopDraft();
+                if (!state.sources.length) { updateContentItems([]); draft.PreviewCount = 0; renderSourceDrafts(); content.innerHTML = '<p class="fieldDescription">Select at least one collection or metadata tag above.</p>'; return; }
+                draft.PreviewCount = null; draft.PreviewError = false; renderSourceDrafts();
+                content.innerHTML = '<p class="fieldDescription">Loading and ranking IMDb-tagged media…</p>';
+                Promise.all(state.sources.map(topSourceItems)).then(groups => {
+                    if (loadId !== state.draftPreviewLoadId || !isTopType()) return;
+                    const unique = groups.flat().filter((item, index, all) => all.findIndex(candidate => String(candidate.Id || candidate.id) === String(item.Id || item.id)) === index);
+                    const rated = unique.map(item => ({ item:item, rating:imdbTaggedRating(item) })).filter(entry => Number.isFinite(entry.rating)).sort((left, right) => right.rating - left.rating).slice(0, state.displayTop).map(entry => entry.item);
+                    draft.PreviewCount = rated.length;
+                    updateContentItems(rated);
+                    renderSourceDrafts();
+                    content.innerHTML = itemCards(state.contentItems, false);
+                }, () => {
+                    if (loadId !== state.draftPreviewLoadId || !isTopType()) return;
+                    draft.PreviewCount = 0; draft.PreviewError = true; updateContentItems([]); renderSourceDrafts();
+                    content.innerHTML = '<p class="fieldDescription">The selected IMDb-tagged content could not be previewed right now.</p>';
+                });
+            }
+            function renderActivityContent(content) {
+                const loadId = ++state.activityPreviewLoadId;
+                content.innerHTML = '<p class="fieldDescription">Loading recent and current activity…</p>';
+                ApiClient.getJSON(ApiClient.getUrl('HomeScreenSectionsManager/other-users-items', { mediaType:state.activityMediaType, limit:state.activityMaxItems })).then(result => loadItemIds(result.ItemIds || result.itemIds || [])).then(items => {
+                    if (loadId !== state.activityPreviewLoadId || !isActivityType()) return;
+                    updateContentItems(items);
+                    content.innerHTML = itemCards(state.contentItems, false);
+                }, () => {
+                    if (loadId !== state.activityPreviewLoadId || !isActivityType()) return;
+                    updateContentItems([]);
+                    content.innerHTML = '<p class="fieldDescription">No matching recent or current activity is available to preview right now.</p>';
+                });
             }
             function renderDraftContent(content) {
                 const loadId = ++state.draftPreviewLoadId;
@@ -646,11 +755,13 @@
                 if (!content) return;
                 if (kind() !== 'manual-content') state.resolvedItemIds = [];
                 const rowMode = kind() === 'multiple-collections-in-a-row' || kind() === 'libraries-in-a-row';
+                if (isTopType()) { renderTopContent(content); return; }
+                if (isActivityType()) { renderActivityContent(content); return; }
                 if (isDraftType()) { renderDraftContent(content); return; }
                 if (kind() === 'manual-content') {
                     const items = Object.keys(state.items).map(id => state.items[id]);
                     updateContentItems(items);
-                    content.innerHTML = state.contentItems.length ? '<p class="fieldDescription">This collection will include ' + state.contentItems.length + ' selected media item' + (state.contentItems.length === 1 ? '' : 's') + '.</p><div class="mcm-collection-member-grid">' + state.contentItems.map(item => manualPickerItem(item, false)).join('') + '</div>' : '<p class="fieldDescription">No content is currently selected.</p>';
+                    content.innerHTML = itemCards(state.contentItems, false, true);
                     return;
                 }
                 if (isTagType()) {
@@ -685,7 +796,7 @@
             }
             function loadAllParentItems(parentId, startIndex, accumulated) {
                 const start = startIndex || 0, all = accumulated || [];
-                return itemQuery({ ParentId:parentId, Recursive:true, Fields:'Overview,PrimaryImageAspectRatio', StartIndex:start, Limit:200 }).then(result => {
+                return itemQuery({ ParentId:parentId, Recursive:true, Fields:'Overview,PrimaryImageAspectRatio,Tags,CommunityRating,SortName,SeriesName,SeriesId', StartIndex:start, Limit:200 }).then(result => {
                     const items = result.Items || result.items || [], total = Number(result.TotalRecordCount || result.totalRecordCount || items.length), next = start + items.length;
                     all.push(...items);
                     return items.length && next < total ? loadAllParentItems(parentId, next, all) : all;
@@ -727,7 +838,7 @@
                 return value.replace(/\b\w/g, letter => letter.toUpperCase()) + (String(type || '').indexOf(':') >= 0 ? ' (' + String(type).split(':')[0] + ')' : '');
             }
             function selectedTagLibraryIds() {
-                if (isDraftType()) return state.draftLibraryIds.slice();
+                if (usesDraftSourcePicker()) return state.draftLibraryIds.slice();
                 const configuration = state.collectionManagerConfiguration || {};
                 const saved = configuration.LibraryIds || configuration.libraryIds || [];
                 return (saved.length ? saved : state.libraries.map(library => library.ItemId || library.Id)).map(String);
@@ -760,17 +871,23 @@
                 }, () => { target.innerHTML = '<p class="fieldDescription">Run Collection Manager’s metadata tag scan before selecting tags.</p>'; });
             }            function renderEditor() {
                 host.innerHTML = '<p class="fieldDescription">Loading section settings…</p>';
-                setupData().then(result => {
+                if (isActivityType()) {
+                    host.innerHTML = activityMarkup();
+                    renderContent();
+                    return;
+                }
+                setupData().then(() => {
                     if (kind() === 'manual-content') host.innerHTML = manualMarkup();
                     else if (isCollectionType()) host.innerHTML = collectionMarkup();
                     else if (isTagType()) host.innerHTML = tagMarkup();
                     else if (isDraftType()) host.innerHTML = dynamicMarkup();
+                    else if (isTopType()) host.innerHTML = topMarkup();
                     else host.innerHTML = libraryMarkup();
                     if (kind() === 'manual-content') renderManual();
                     if (isCollectionType()) renderCollections();
                     if (isTagType()) renderTags();
                     if (isLibraryType()) renderLibraries();
-                    if (isDraftType()) { renderDraftCollections(); renderDraftLibraries(); renderTags(); renderSourceDrafts(); }
+                    if (usesDraftSourcePicker()) { renderDraftCollections(); renderDraftLibraries(); renderTags(); renderSourceDrafts(); }
                     renderContent();
                 }, () => { host.innerHTML = '<p class="fieldDescription">Collection Manager must be installed and available before these reused pickers can load.</p>'; });
             }
@@ -783,7 +900,7 @@
                 content.innerHTML = '<p class="fieldDescription">Loading library media…</p>';
                 cm('manual-collections/library-items?libraryId=' + encodeURIComponent(id)).then(result => { state.manual[id] = result.Items || result.items || []; renderManualItems(id); }, () => { content.innerHTML = '<p class="fieldDescription">Could not load library media.</p>'; });
             }            function tagChoiceMarkup(choice) {
-                const libraryId = String(choice.LibraryId), type = choice.MetadataType, value = choice.Value, key = libraryId + '|' + type + '|' + value, selected = isDraftType() ? !!selectedDraft('tag', key) : state.sources.indexOf(key) >= 0, multiple = isDraftType() || kind() !== 'individual-tag-content', imageMarkup = choice.PersonImageUrl ? '<img class="mcm-person-image" src="' + esc(ApiClient.getUrl('Items/' + choice.PersonImageUrl + '/Images/Primary')) + '" alt="" />' : '';
+                const libraryId = String(choice.LibraryId), type = choice.MetadataType, value = choice.Value, key = libraryId + '|' + type + '|' + value, selected = isTopType() ? state.sources.indexOf('tag|' + key) >= 0 : isDraftType() ? !!selectedDraft('tag', key) : state.sources.indexOf(key) >= 0, multiple = usesDraftSourcePicker() || kind() !== 'individual-tag-content', imageMarkup = choice.PersonImageUrl ? '<img class="mcm-person-image" src="' + esc(ApiClient.getUrl('Items/' + choice.PersonImageUrl + '/Images/Primary')) + '" alt="" />' : '';
                 return '<div class="mcm-flat-tag-choice"><label class="checkboxContainer">' + imageMarkup + '<input is="emby-checkbox" type="' + (multiple ? 'checkbox' : 'radio') + '" name="hssmTagSource" data-hssm-tag="' + esc(key) + '"' + (selected ? ' checked' : '') + ' /> <span>' + esc(value) + ' (' + Number(choice.MatchingItems || 0) + ')</span></label><span class="fieldDescription">' + esc(choice.LibraryName) + '</span></div>';
             }
             function loadTagType(type, search, complete) {
@@ -836,11 +953,13 @@
             }            function saveAndMove() {
                 const saveStatus = host.querySelector('[data-hssm-save-status]');
                 const needsTwo = kind() === 'multiple-tag-content' || kind() === 'muilti-match-tag-collection-content';
-                const required = isDraftType() ? state.drafts.length : kind() === 'manual-content' ? Object.keys(state.items).length : state.sources.length;
-                if (!required || (needsTwo && state.sources.length < 2)) { saveStatus.textContent = needsTwo ? 'Select at least two metadata tags before saving.' : 'Select content before saving.'; return; }
+                if (!state.name.trim()) { saveStatus.textContent = 'Enter a section name before saving.'; return; }
+                state.name = state.name.trim();
+                const required = isActivityType() ? 1 : isTopType() ? state.sources.length && state.contentItemOrder.length : isDraftType() ? state.drafts.length : kind() === 'manual-content' ? Object.keys(state.items).length : state.sources.length;
+                if (!required || (needsTwo && state.sources.length < 2)) { saveStatus.textContent = needsTwo ? 'Select at least two metadata tags before saving.' : isTopType() && state.sources.length ? 'No selected media has an IMDb rating tag to rank.' : 'Select content before saving.'; return; }
                 const order = Array.from(page.querySelectorAll('.hssm-section-row')).map(row => row.dataset.sectionId);
                 const itemIds = state.contentItemOrder.slice();
-                const definition = { Id:state.id, Name:state.name, Type:state.type, SourceIds:state.sources, ItemIds:itemIds, ContentOrder:state.contentOrder, ArtSize:state.artSize, ArtType:state.artType, ArtShape:state.artShape, ShowText:state.showText, Drafts:state.drafts.map(draft => ({ Id:draft.Id, SourceType:draft.SourceType, SourceId:draft.SourceId, Name:draft.Name, StartMonth:draft.StartMonth, StartDay:draft.StartDay, EndMonth:draft.EndMonth, EndDay:draft.EndDay })), RotationIntervalMinutes:rotationIntervalMinutes(), RotationStartUnixMilliseconds:Date.now(), IsApplied:false };
+                const definition = { Id:state.id, Name:state.name, Type:state.type, SourceIds:state.sources, ItemIds:itemIds, ContentOrder:state.contentOrder, ArtSize:state.artSize, ArtType:state.artType, ArtShape:state.artShape, ShowText:state.showText, Drafts:state.drafts.map(draft => ({ Id:draft.Id, SourceType:draft.SourceType, SourceId:draft.SourceId, Name:draft.Name, StartMonth:draft.StartMonth, StartDay:draft.StartDay, EndMonth:draft.EndMonth, EndDay:draft.EndDay })), RotationIntervalMinutes:rotationIntervalMinutes(), RotationStartUnixMilliseconds:Date.now(), DisplayTopCount:state.displayTop, ShowRankNumbers:state.showRankNumbers, RankNumberColorMode:state.rankNumberColorMode, RankNumberColorOne:state.rankNumberColorOne, RankNumberColorTwo:state.rankNumberColorTwo, RankNumberFontDataUrl:state.rankNumberFontDataUrl, ActivityMaxItems:state.activityMaxItems, ActivityMediaType:state.activityMediaType, IsApplied:false };
                 ApiClient.getJSON(ApiClient.getUrl('HomeScreenSectionsManager/section-settings')).then(saved => {
                     const existing = saved.Sections || saved.sections || [];
                     const sections = existing.filter(item => String(item.Id || item.id) !== state.id);
@@ -920,7 +1039,7 @@
                 state.showText = showText.checked;
                 button.disabled = true;
                 applyStatus.textContent = 'Adding section to the home screen…';
-                ensureJavaScriptInjectorLoader().then(() => ApiClient.ajax({ type:'POST', url:ApiClient.getUrl('HomeScreenSectionsManager/sections/' + encodeURIComponent(state.id) + '/apply'), data:JSON.stringify({ ContentOrder:state.contentOrder, ItemIds:state.contentItemOrder, ArtSize:state.artSize, ArtType:state.artType, ArtShape:state.artShape, ShowText:state.showText }), contentType:'application/json', dataType:'json' })).then(response => loadHomeScreenClient().then(() => response)).then(() => {
+                ensureJavaScriptInjectorLoader().then(() => ApiClient.ajax({ type:'POST', url:ApiClient.getUrl('HomeScreenSectionsManager/sections/' + encodeURIComponent(state.id) + '/apply'), data:JSON.stringify({ ContentOrder:state.contentOrder, ItemIds:state.contentItemOrder, ArtSize:state.artSize, ArtType:state.artType, ArtShape:state.artShape, ShowText:state.showText, DisplayTopCount:state.displayTop, ShowRankNumbers:state.showRankNumbers, RankNumberColorMode:state.rankNumberColorMode, RankNumberColorOne:state.rankNumberColorOne, RankNumberColorTwo:state.rankNumberColorTwo, RankNumberFontDataUrl:state.rankNumberFontDataUrl, ActivityMaxItems:state.activityMaxItems, ActivityMediaType:state.activityMediaType }), contentType:'application/json', dataType:'json' })).then(response => loadHomeScreenClient().then(() => response)).then(() => {
                     applyStatus.textContent = 'Section added to the home screen. Open Home and hard-refresh once to see it.';
                     if (window.Dashboard && typeof Dashboard.alert === 'function') Dashboard.alert('Section added to the home screen through JavaScript Injector. Open Home and hard-refresh once to see it.');
                 }, error => {
@@ -939,6 +1058,15 @@
                 if (manualPage && manualId) { manualState(manualId).page = Number(manualPage.dataset.hssmManualPage); renderManualItems(manualId); return; }
                 if (event.target.closest('[data-hssm-manual-all]') && manualId) { (state.manual[manualId] || []).forEach(item => { state.items[String(item.Id)] = item; }); renderManualItems(manualId); renderContent(); return; }
                 if (event.target.closest('[data-hssm-manual-none]') && manualId) { (state.manual[manualId] || []).forEach(item => { delete state.items[String(item.Id)]; }); renderManualItems(manualId); renderContent(); return; }
+                const contentPage = event.target.closest('[data-hssm-content-page]');
+                if (contentPage) {
+                    state.contentPage = Number(contentPage.dataset.hssmContentPage) || 1;
+                    const content = host.querySelector('[data-hssm-content]');
+                    if (content) content.innerHTML = itemCards(state.contentItems, kind() === 'multiple-collections-in-a-row' || kind() === 'libraries-in-a-row', kind() === 'manual-content');
+                    return;
+                }
+                const removeRankFont = event.target.closest('[data-hssm-remove-rank-font]');
+                if (removeRankFont) { state.rankNumberFontDataUrl = ''; const status = host.querySelector('[data-hssm-rank-font-status]'); if (status) status.textContent = 'Using the default Abyss theme font.'; removeRankFont.remove(); return; }
                 const removeManual = event.target.closest('[data-hssm-manual-remove]');
                 if (removeManual) { delete state.items[removeManual.dataset.hssmManualRemove]; renderContent(); return; }
                 if (event.target.closest('[data-hssm-library-all]')) { state.sources = state.libraries.map(library => String(library.ItemId || library.Id)); renderLibraries(); renderContent(); return; }
@@ -953,6 +1081,10 @@
                 if (event.target.closest('[data-hssm-apply-section]')) { applySection(); }
             });
             host.addEventListener('input', event => {
+                const topName = event.target.closest('[data-hssm-top-draft-name]');
+                if (topName) { const draft = ensureTopDraft(); draft.Name = topName.value; setSectionName(topName.value); return; }
+                const activityMax = event.target.closest('[data-hssm-activity-max]');
+                if (activityMax) { state.activityMaxItems = Math.max(1, Math.min(100, Math.floor(Number(activityMax.value) || 20))); return; }
                 const rotationValue = event.target.closest('[data-hssm-rotation-value]');
                 if (rotationValue) { state.rotationValue = Math.max(1, Math.floor(Number(rotationValue.value) || 1)); return; }
                 const draftWindow = event.target.closest('[data-hssm-draft-window]');
@@ -971,6 +1103,36 @@
                 if (restored) { restored.focus(); restored.setSelectionRange(restored.value.length, restored.value.length); }
             });
             host.addEventListener('change', event => {
+                const displayTop = event.target.closest('[data-hssm-display-top]');
+                const activityType = event.target.closest('[data-hssm-activity-media-type]');
+                const activityMax = event.target.closest('[data-hssm-activity-max]');
+                const rankNumbers = event.target.closest('[data-hssm-rank-numbers]');
+                const rankMode = event.target.closest('[data-hssm-rank-color-mode]');
+                const rankOne = event.target.closest('[data-hssm-rank-color-one]');
+                const rankTwo = event.target.closest('[data-hssm-rank-color-two]');
+                const rankFont = event.target.closest('[data-hssm-rank-font]');
+                if (displayTop) {
+                    const oldAutomatic = /^Top (10|20|30|40|50)$/.test(state.name);
+                    state.displayTop = [10,20,30,40,50].includes(Number(displayTop.value)) ? Number(displayTop.value) : 10;
+                    const draft = ensureTopDraft();
+                    if (oldAutomatic || /^Top (10|20|30|40|50)$/.test(draft.Name)) { draft.Name = 'Top ' + state.displayTop; setSectionName(draft.Name); }
+                    state.contentPage = 1; renderSourceDrafts(); renderContent(); return;
+                }
+                if (activityType) { state.activityMediaType = activityType.value; setSectionName(activitySectionName(state.activityMediaType)); state.contentPage = 1; renderContent(); return; }
+                if (activityMax) { state.activityMaxItems = Math.max(1, Math.min(100, Math.floor(Number(activityMax.value) || 20))); state.contentPage = 1; renderContent(); return; }
+                if (rankNumbers) { state.showRankNumbers = rankNumbers.value === 'yes'; return; }
+                if (rankMode) { state.rankNumberColorMode = rankMode.value; return; }
+                if (rankOne) { state.rankNumberColorOne = rankOne.value; return; }
+                if (rankTwo) { state.rankNumberColorTwo = rankTwo.value; return; }
+                if (rankFont) {
+                    const file = rankFont.files && rankFont.files[0], status = host.querySelector('[data-hssm-rank-font-status]');
+                    if (!file) return;
+                    if (!/\.(?:ttf|otf)$/i.test(file.name) || file.size > 2000000) { rankFont.value = ''; if (status) status.textContent = 'Choose a .ttf or .otf font file no larger than 2 MB.'; return; }
+                    const reader = new FileReader();
+                    reader.onload = () => { state.rankNumberFontDataUrl = String(reader.result || ''); if (status) status.textContent = 'Custom numbering font imported.'; };
+                    reader.onerror = () => { state.rankNumberFontDataUrl = ''; if (status) status.textContent = 'The font file could not be read.'; };
+                    reader.readAsDataURL(file); return;
+                }
                 const order = event.target.closest('[data-hssm-content-order]');
                 const artSize = event.target.closest('[data-hssm-art-size]');
                 const artType = event.target.closest('[data-hssm-art-type]');
@@ -986,7 +1148,16 @@
                 const draftWindow = event.target.closest('[data-hssm-draft-window]');
                 if (draftWindow) { const card = draftWindow.closest('[data-hssm-source-draft]'), draft = card && state.drafts.find(value => value.Id === card.dataset.hssmSourceDraft); if (draft) draft[draftWindow.dataset.hssmDraftWindow] = Math.max(1, Math.min(draftWindow.dataset.hssmDraftWindow.indexOf('Month') >= 0 ? 12 : 31, Math.floor(Number(draftWindow.value) || 1))); return; }
                 const draftCollection = event.target.closest('[data-hssm-draft-collection]');
-                if (draftCollection) { const id = draftCollection.dataset.hssmDraftCollection; if (draftCollection.checked) createDraft('collection', id, collectionName(id)); else removeDraft('collection', id); state.contentItems = []; state.contentItemOrder = []; renderSourceDrafts(); renderContent(); return; }
+                if (draftCollection) {
+                    const id = draftCollection.dataset.hssmDraftCollection;
+                    if (isTopType()) {
+                        const source = 'collection|' + id;
+                        if (draftCollection.checked && state.sources.indexOf(source) < 0) state.sources.push(source);
+                        if (!draftCollection.checked) state.sources = state.sources.filter(value => value !== source);
+                        ensureTopDraft();
+                    } else if (draftCollection.checked) createDraft('collection', id, collectionName(id)); else removeDraft('collection', id);
+                    state.contentPage = 1; state.contentItems = []; state.contentItemOrder = []; renderSourceDrafts(); renderContent(); return;
+                }
                 const draftLibrary = event.target.closest('[data-hssm-draft-library]');
                 if (draftLibrary) { state.draftLibraryIds = Array.from(host.querySelectorAll('[data-hssm-draft-library]:checked')).map(input => input.dataset.hssmDraftLibrary); state.tagSearch = ''; state.tagSources = {}; state.tagTypeLoadIds = {}; renderTags(); return; }
                 const collection = event.target.closest('[data-hssm-collection]');
@@ -995,14 +1166,23 @@
                 const manual = event.target.closest('[data-hssm-manual-item]');
                 if (collection) state.sources = collection.type === 'radio' ? [collection.dataset.hssmCollection] : Array.from(host.querySelectorAll('[data-hssm-collection]:checked')).map(input => input.dataset.hssmCollection);
                 if (library) state.sources = library.type === 'radio' ? [library.dataset.hssmLibrary] : Array.from(host.querySelectorAll('[data-hssm-library]:checked')).map(input => input.dataset.hssmLibrary);
-                if (tag && isDraftType()) { const key = tag.dataset.hssmTag; if (tag.checked) createDraft('tag', key, tagDraftName(key)); else removeDraft('tag', key); state.contentItems = []; state.contentItemOrder = []; renderSourceDrafts(); renderContent(); return; }
+                if (tag && usesDraftSourcePicker()) {
+                    const key = tag.dataset.hssmTag;
+                    if (isTopType()) {
+                        const source = 'tag|' + key;
+                        if (tag.checked && state.sources.indexOf(source) < 0) state.sources.push(source);
+                        if (!tag.checked) state.sources = state.sources.filter(value => value !== source);
+                        ensureTopDraft();
+                    } else if (tag.checked) createDraft('tag', key, tagDraftName(key)); else removeDraft('tag', key);
+                    state.contentPage = 1; state.contentItems = []; state.contentItemOrder = []; renderSourceDrafts(); renderContent(); return;
+                }
                 if (tag) state.sources = tag.type === 'radio' ? [tag.dataset.hssmTag] : Array.from(host.querySelectorAll('[data-hssm-tag]:checked')).map(input => input.dataset.hssmTag);
                 if (manual) {
                     const id = manual.dataset.hssmManualItem;
                     const item = Object.values(state.manual).flat().find(candidate => String(candidate.Id) === String(id));
                     if (manual.checked && item) state.items[id] = item; else delete state.items[id];
                 }
-                if (collection || library || tag) { state.contentItems = []; state.contentItemOrder = []; }
+                if (collection || library || tag) { state.contentPage = 1; state.contentItems = []; state.contentItemOrder = []; }
                 renderContent();
             });
             page.addEventListener('hssm-section-type-created', event => {
@@ -1016,7 +1196,8 @@
                 state.resolvedItemIds = [];
                 state.contentItems = [];
                 state.contentItemOrder = [];
-                state.contentOrder = 'title-ascending';
+                state.contentPage = 1;
+                state.contentOrder = state.type === 'top-10-50' ? 'rating-descending' : 'title-ascending';
                 state.artSize = 'medium';
                 state.artType = 'automatic';
                 state.artShape = 'poster';
@@ -1030,6 +1211,17 @@
                 state.rotationValue = 1;
                 state.rotationUnit = 'days';
                 state.draftPreviewLoadId = 0;
+                state.displayTop = 10;
+                state.showRankNumbers = true;
+                state.rankNumberColorMode = 'solid';
+                state.rankNumberColorOne = '#f5f5f7';
+                state.rankNumberColorTwo = '#f5f5f7';
+                state.rankNumberFontDataUrl = '';
+                state.activityMaxItems = 20;
+                state.activityMediaType = 'movies';
+                state.activityPreviewLoadId = 0;
+                if (isTopType()) { setSectionName('Top 10'); ensureTopDraft().Name = 'Top 10'; }
+                if (isActivityType()) setSectionName(activitySectionName(state.activityMediaType));
                 page.querySelector('#hssmNewSectionSettings').hidden = false;
                 renderEditor();
             });
@@ -1055,13 +1247,23 @@
                         state.artType = String(definition.ArtType || definition.artType || 'automatic');
                         state.artShape = String(definition.ArtShape || definition.artShape || 'poster');
                         state.showText = definition.ShowText !== undefined ? !!definition.ShowText : (definition.showText !== undefined ? !!definition.showText : true);
+                        state.contentPage = 1;
+                        state.displayTop = Number(definition.DisplayTopCount || definition.displayTopCount || 10);
+                        state.showRankNumbers = definition.ShowRankNumbers !== undefined ? !!definition.ShowRankNumbers : (definition.showRankNumbers !== undefined ? !!definition.showRankNumbers : true);
+                        state.rankNumberColorMode = String(definition.RankNumberColorMode || definition.rankNumberColorMode || 'solid');
+                        state.rankNumberColorOne = String(definition.RankNumberColorOne || definition.rankNumberColorOne || '#f5f5f7');
+                        state.rankNumberColorTwo = String(definition.RankNumberColorTwo || definition.rankNumberColorTwo || '#f5f5f7');
+                        state.rankNumberFontDataUrl = String(definition.RankNumberFontDataUrl || definition.rankNumberFontDataUrl || '');
+                        state.activityMaxItems = Number(definition.ActivityMaxItems || definition.activityMaxItems || 20);
+                        state.activityMediaType = String(definition.ActivityMediaType || definition.activityMediaType || 'movies');
                         state.drafts = (definition.Drafts || definition.drafts || []).map(draft => ({ Id:String(draft.Id || draft.id), SourceType:String(draft.SourceType || draft.sourceType), SourceId:String(draft.SourceId || draft.sourceId), Name:String(draft.Name || draft.name), StartMonth:Number(draft.StartMonth || draft.startMonth || 1), StartDay:Number(draft.StartDay || draft.startDay || 1), EndMonth:Number(draft.EndMonth || draft.endMonth || 12), EndDay:Number(draft.EndDay || draft.endDay || 31), PreviewCount:null }));
-                        state.draftLibraryIds = state.drafts.filter(draft => draft.SourceType === 'tag').map(draft => String(draft.SourceId).split('|')[0]).filter((id, index, all) => all.indexOf(id) === index);
+                        if (isTopType()) ensureTopDraft();
+                        state.draftLibraryIds = isTopType() ? state.sources.filter(value => value.indexOf('tag|') === 0).map(value => String(value).slice(4).split('|')[0]).filter((id, index, all) => all.indexOf(id) === index) : state.drafts.filter(draft => draft.SourceType === 'tag').map(draft => String(draft.SourceId).split('|')[0]).filter((id, index, all) => all.indexOf(id) === index);
                         const interval = Number(definition.RotationIntervalMinutes || definition.rotationIntervalMinutes || 1440);
                         if (interval % 10080 === 0) { state.rotationValue = interval / 10080; state.rotationUnit = 'weeks'; } else if (interval % 1440 === 0) { state.rotationValue = interval / 1440; state.rotationUnit = 'days'; } else { state.rotationValue = Math.max(1, interval / 60); state.rotationUnit = 'hours'; }
                         state.items = {};
                         if (!itemIds.length) return null;
-                        return itemQuery({ Ids:itemIds.join(','), Fields:'Overview,PrimaryImageAspectRatio' }).then(result => {
+                        return itemQuery({ Ids:itemIds.join(','), Fields:'Overview,PrimaryImageAspectRatio,Tags,CommunityRating,SortName,SeriesName,SeriesId' }).then(result => {
                             (result.Items || result.items || []).forEach(item => { state.items[String(item.Id)] = item; });
                         });
                     }).then(renderEditor, renderEditor);

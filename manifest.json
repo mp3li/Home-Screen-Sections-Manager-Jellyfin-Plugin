@@ -9,13 +9,13 @@
     "imageUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Assets/Branding/home-screen-sections-manager-plugin-photo.png",
     "versions": [
       {
-        "version": "0.1.0.15",
-        "changelog": "Loads the configured media bar without waiting for unrelated custom rows; fixes My List heart updates and lingering Home breadcrumbs; bounds artwork requests while preserving the no-wrong-slide startup; and moves selected top-navigation text color into its own settings section.",
+        "version": "0.1.0.16",
+        "changelog": "Adds Top 10-50 with IMDb-tag ranking, one combined source draft, optional numbered art and imported fonts; adds randomized cross-user activity sections; pages image previews at 20; renders saved rows and the media bar immediately; and gives liked episodes series-first My List cards.",
         "targetAbi": "10.11.11.0",
         "framework": "net9.0",
-        "sourceUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Test%20Releases/0.1.0.15-test/Jellyfin.Plugin.HomeScreenSectionsManager_0.1.0.15-test.zip",
-        "checksum": "5ffe8587827d9349bffda58f36a0c671",
-        "timestamp": "2026-08-08T23:06:46Z"
+        "sourceUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Test%20Releases/0.1.0.16-test/Jellyfin.Plugin.HomeScreenSectionsManager_0.1.0.16-test.zip",
+        "checksum": "1307a3b1e64979e6eb17202ae844d5d9",
+        "timestamp": "2026-08-08T23:48:49Z"
       }
     ]
   }

@@ -1,5 +1,40 @@
 # Changelog
 
+## [0.1.0.16-test] - 2026-08-08
+
+### Added
+
+- Adds **Top 10-50** at the end of the section-type picker, reusing the exact
+  collapsed collection/library/tag source-picker interface and combining all
+  selected collections and metadata tags into one editable draft.
+- Ranks only media with explicit IMDb rating tags, supports Top 10, 20, 30, 40,
+  or 50, and adds optional oversized solid/gradient ranking numbers with a
+  user-imported TTF or OTF font.
+- Adds **What Other Users Are Watching/Reading/Listening To**, with Movies,
+  Series, Music/Audiobooks, and Books modes, an editable maximum item count,
+  type-aware default names, and a randomized combination of recent/current
+  activity without exposing user identities.
+- Adds 20-item paging to every image-based **Content In Section** preview while
+  retaining the complete text-only list for manual ordering.
+
+### Fixed
+
+- Renders each saved custom-row snapshot independently and immediately while its
+  live collection, tag, library, rotation, seasonal, or activity rule refreshes
+  in the background.
+- Starts the configured media bar from its saved item snapshot and reuses a
+  matching locally cached payload on reload, preventing multi-minute blank
+  media-bar waits without restoring the original Continue Watching flash.
+- Displays liked episodes in My List with their series art and series name as
+  the primary identity and the episode title beneath it, matching the established
+  behavioral reference while retaining Jellyfin's per-user Likes storage.
+
+### Validation
+
+- Dashboard and browser JavaScript parse successfully.
+- The Release build succeeds with zero warnings against Jellyfin 10.11.11.
+- Installed Jellyfin Web behavior remains part of the current testing round.
+
 ## [0.1.0.15-test] - 2026-08-08
 
 ### Fixed

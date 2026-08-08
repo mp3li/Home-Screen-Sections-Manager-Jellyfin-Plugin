@@ -37,10 +37,17 @@ this plugin.
 
 The current section types are Manual Content, individual or multiple collection
 content, multiple collections in a row, individual or combined tags,
-multi-match tags, individual or multiple library content, and libraries in a
-row. The media, collection, metadata-tag, and library pickers reuse the same
-interface and preview patterns as Collection Manager. **Save and Move On**
-stores the current definition and reveals **Section Content Order Settings**.
+multi-match tags, individual or multiple library content, libraries in a row,
+Rotating Sections, Seasonal Sections, Top 10–50, and What Other Users Are
+Watching/Reading/Listening To. Top 10–50 combines selected collections and
+metadata tags into one editable draft, ranks only media with an IMDb rating tag,
+and supports optional oversized solid or gradient numbering with an imported
+TTF or OTF font. The activity section combines randomized current and recent
+activity without displaying user identities. The media, collection,
+metadata-tag, and library pickers reuse the same interface and preview patterns
+as Collection Manager. Poster-based Content In Section previews show 20 items
+per page. **Save and Move On** stores the current definition and reveals
+**Section Content Order Settings**.
 Each section can be ordered by title, release date, date added, rating, or a
 text-only manual list that can be dragged into the exact desired order.
 **Section Art Appearance Settings** then controls Extra Small through Extra
@@ -55,8 +62,7 @@ saved timing, and selected Backdrop, Primary, Banner, or Thumbnail image type to
 drive the bar. The source row remains visible as a normal row immediately below
 the media bar. My Media and Latest Media remain normal home rows but cannot be
 used as the media-bar source. Continue Watching supplies up to 30 available items
-to the media bar instead of limiting the spotlight to only a few. Saved
-collection and library sections are read live from Jellyfin. When automatic
+to the media bar instead of limiting the spotlight to only a few. Saved section snapshots render immediately while collection, library, tag, and activity rules refresh in the background. When automatic
 refresh is enabled, saved tag rules are refreshed through Collection Manager's
 existing metadata preview routes.
 
@@ -65,9 +71,9 @@ breadcrumbed detail pages, and is hidden on playback screens. It always retains
 Home navigation behavior.
 
 My List is inserted into Jellyfin's native Home/Favorites header tab slider and
-uses Jellyfin's existing per-user Likes fieldâthe same working storage path used
-by the behavioral referenceârather than creating a second watchlist database.
-Its overlay changes one Material heart icon between outline and filled states.
+uses Jellyfin's existing per-user Likes field—the same working storage path used
+by the behavioral reference—rather than creating a second watchlist database.
+Its overlay changes one Material heart icon between outline and filled states. Liked episodes remain episode entries while using their series art and series name as the primary card identity, followed by the episode title.
 Plugin-created rows use Jellyfin's native scroller elements for desktop arrows,
 mouse-wheel scrolling, mouse dragging, touch, and focus navigation. Breadcrumbs
 use media-aware Movies, Shows, seasons, episodes, artists, albums, and songs
