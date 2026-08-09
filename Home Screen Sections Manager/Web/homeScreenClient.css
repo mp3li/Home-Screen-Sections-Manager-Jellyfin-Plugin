@@ -1,10 +1,15 @@
-.featurediframe[data-hssm-media-bar-pending="true"] {
-    visibility: hidden !important;
-}
-
-.homeSectionsContainer {
+body.hssm-home-active .homeSectionsContainer {
     display: flex;
     flex-direction: column;
+}
+
+.hssm-section-loading {
+    box-sizing: border-box;
+    margin: 0;
+    min-height: 5.5em;
+    opacity: 0.72;
+    padding-bottom: 2em;
+    padding-top: 1em;
 }
 
 .hssm-client-section[hidden] {

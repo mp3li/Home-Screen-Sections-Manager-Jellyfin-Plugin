@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.1.0.19-test] - 2026-08-08
+
+### Rebuilt
+
+- Replaces the emergency-disabled browser client with a route-isolated runtime. Dashboard and playback routes cannot initialize Home sections, My List card scanning, media-bar reads, or Home observers, even when Jellyfin leaves an old Home view in the DOM.
+- Renders cached custom rows, My List controls, and cached media-bar data independently. Home rows no longer wait for the media bar or Jellyfin's display-preferences request before appearing.
+- Limits Home item reads to two concurrent requests, media-bar reads to one, and My List status reads to one. Section content loads in 40-item pages as the row is scrolled instead of fetching every saved ID at startup.
+- Rebuilds the media bar without blob downloads, sequential image timeouts, synthetic Jellyfin button clicks, raw video routes, or session playback commands. It uses Jellyfin image URLs with immediate image fallbacks and only the supported Jellyfin Web playback contracts.
+- Scopes the only DOM observer to the active visible view and disconnects it on route changes. It observes added nodes only and never watches the document body, document root, classes, or attributes.
+
+### Fixed
+
+- Keeps the uploaded logo and breadcrumbs isolated from Home and playback work.
+- Makes My List hearts appear without waiting for the full list, performs one explicit Jellyfin Likes write per click, caches the returned item, and displays liked episodes with their series as the primary card identity.
+- Recognizes common IMDb rating-tag formats and Jellyfin's native Community Rating field for Top 10-50 ranking.
+- Maps episode activity to its parent series for the Series form of What Other Users Are Watching/Reading/Listening To.
+- Adds Random (New Order on Every Reload) and the separate Poster art choice to every section type.
+
+### Safety and validation
+
+- The only playback-progress reset is the administrator-enabled, user-clicked remove button on Continue Watching or Next Up. The client contains no background playback-progress writes.
+- Browser scripts parse successfully, the Release build succeeds with zero warnings against Jellyfin 10.11.11, and the release archive and catalog checksum are verified locally. Installed Jellyfin Web behavior remains part of this testing round.
+
 ## [0.1.0.18-test] - 2026-08-08
 
 ### Emergency recovery

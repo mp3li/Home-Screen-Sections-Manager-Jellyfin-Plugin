@@ -50,7 +50,6 @@
 
             const $ = id => document.getElementById(id);
             const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
-            const imageCache = new Map();
             let items = [];
             let currentIndex = 0;
             let intervalMilliseconds = 5000;
@@ -58,7 +57,7 @@
             let autoTimer = null;
             let preloadTimer = null;
             let renderController = null;
-            let preloadController = null;
+            let preloadImage = null;
             let zoomAnimation = null;
             let renderSequence = 0;
             let paused = true;
@@ -92,19 +91,7 @@
                 }
             }
 
-            function getAuth(baseUrl) {
-                try {
-                    const credentials = JSON.parse(localStorage.getItem('jellyfin_credentials'));
-                    const servers = credentials && credentials.Servers || [];
-                    const matchesBase = server => [server.ManualAddress, server.LocalAddress, server.RemoteAddress].some(address => normalizeAddress(address) === baseUrl);
-                    const server = servers.find(entry => entry.AccessToken && entry.UserId && matchesBase(entry)) || servers.find(entry => entry.AccessToken && entry.UserId);
-                    return { token: server && server.AccessToken, userId: server && server.UserId };
-                } catch (_) { return {}; }
-            }
-
             const base = getBaseUrl();
-            const auth = getAuth(base);
-            const headers = auth.token ? { Authorization: `MediaBrowser Client="Jellyfin Web", Device="Home Screen Manager Abyss Media Bar", DeviceId="home-screen-manager-media-bar", Version="1.0", Token="${auth.token}"` } : {};
 
             function formatRuntime(ticks) {
                 if (!ticks) return null;
@@ -140,38 +127,19 @@
                 if (!itemId || !base) return '';
                 const dimensions = imageDimensions(type);
                 const suffix = index === undefined || index === null ? '' : `/${index}`;
-                return `${base}/Items/${encodeURIComponent(itemId)}/Images/${type}${suffix}?quality=88&maxWidth=${dimensions.width}&maxHeight=${dimensions.height}`;
-            }
-
-            async function fetchImage(url, signal) {
-                if (!url) return null;
-                if (imageCache.has(url)) return imageCache.get(url);
-                if (signal.aborted) throw new DOMException('Aborted', 'AbortError');
-                const requestController = new AbortController();
-                const abortRequest = () => requestController.abort();
-                const timeout = setTimeout(abortRequest, 5000);
-                signal.addEventListener('abort', abortRequest, { once: true });
+                const path = `Items/${encodeURIComponent(itemId)}/Images/${type}${suffix}`;
+                const parameters = { type, quality: 88, maxWidth: dimensions.width, maxHeight: dimensions.height };
+                if (index !== undefined && index !== null) parameters.index = index;
                 try {
-                    const response = await fetch(url, { headers, signal: requestController.signal });
-                    if (!response.ok) return null;
-                    const objectUrl = URL.createObjectURL(await response.blob());
-                    imageCache.set(url, objectUrl);
-                    return objectUrl;
-                } catch (error) {
-                    if (signal.aborted) throw new DOMException('Aborted', 'AbortError');
-                    return null;
-                } finally {
-                    clearTimeout(timeout);
-                    signal.removeEventListener('abort', abortRequest);
-                }
+                    if (window.top.ApiClient && typeof window.top.ApiClient.getScaledImageUrl === 'function') return window.top.ApiClient.getScaledImageUrl(itemId, parameters);
+                    if (window.top.ApiClient && typeof window.top.ApiClient.getImageUrl === 'function') return window.top.ApiClient.getImageUrl(itemId, parameters);
+                    if (window.top.ApiClient && typeof window.top.ApiClient.getUrl === 'function') return window.top.ApiClient.getUrl(path, parameters);
+                } catch (_) { /* Fall back to the same-origin server address below. */ }
+                return `${base}/${path}?quality=88&maxWidth=${dimensions.width}&maxHeight=${dimensions.height}`;
             }
 
-            async function fetchFirst(candidates, signal) {
-                for (const candidate of candidates) {
-                    const image = await fetchImage(candidate.url, signal);
-                    if (image) return { image, centered: candidate.centered };
-                }
-                return { image: null, centered: false };
+            function firstCandidate(candidates) {
+                return candidates.length ? { image: candidates[0].url, centered: candidates[0].centered } : { image: null, centered: false };
             }
 
             function uniqueCandidates(candidates) {
@@ -216,28 +184,11 @@
                 return '';
             }
 
-            async function fetchArtwork(item, signal) {
-                const results = await Promise.all([
-                    fetchFirst(backgroundCandidates(item), signal),
-                    fetchImage(logoCandidate(item), signal)
-                ]);
-                return { backdrop: results[0].image, logo: results[1], centered: results[0].centered };
-            }
-
-            function clearImageCache() {
-                for (const objectUrl of imageCache.values()) URL.revokeObjectURL(objectUrl);
-                imageCache.clear();
-            }
-
-            function wait(milliseconds, signal) {
-                if (!milliseconds) return Promise.resolve();
-                return new Promise((resolve, reject) => {
-                    const timer = setTimeout(resolve, milliseconds);
-                    signal.addEventListener('abort', () => {
-                        clearTimeout(timer);
-                        reject(new DOMException('Aborted', 'AbortError'));
-                    }, { once: true });
-                });
+            function fetchArtwork(item, signal) {
+                if (signal.aborted) return Promise.reject(new DOMException('Aborted', 'AbortError'));
+                const candidates = backgroundCandidates(item);
+                const background = firstCandidate(candidates);
+                return Promise.resolve({ backdrop: background.image, logo: logoCandidate(item), centered: background.centered, candidates });
             }
 
             function startZoom(image) {
@@ -309,11 +260,14 @@
 
             function queuePreload() {
                 if (preloadTimer) clearTimeout(preloadTimer);
-                if (preloadController) preloadController.abort();
                 if (paused || items.length <= 1) return;
-                preloadController = new AbortController();
                 const next = items[(currentIndex + 1) % items.length];
-                preloadTimer = setTimeout(() => { fetchArtwork(next, preloadController.signal).catch(() => {}); }, 250);
+                const candidate = backgroundCandidates(next)[0];
+                preloadTimer = setTimeout(() => {
+                    if (!candidate) return;
+                    preloadImage = new Image();
+                    preloadImage.src = candidate.url;
+                }, 250);
             }
 
             function setButtonContent(button, icon, label) {
@@ -325,32 +279,53 @@
                 }
             }
 
-            function triggerPlayback(item, route) {
+            async function triggerPlayback(item) {
+                const startPositionTicks = Number(item.UserData && item.UserData.PlaybackPositionTicks || item.PlaybackPositionTicks || 0);
+                let serverId = String(item.ServerId || '');
                 try {
-                    const parentDocument = window.top.document;
-                    const escapedId = window.CSS && CSS.escape ? CSS.escape(String(item.Id)) : String(item.Id).replace(/["\\]/g, '\\$&');
-                    const action = parentDocument.querySelector(`[data-id="${escapedId}"][data-action="resume"], [data-id="${escapedId}"] [data-action="resume"], [data-id="${escapedId}"][data-action="play"], [data-id="${escapedId}"] [data-action="play"]`);
-                    if (action) { action.click(); return; }
-                    const card = parentDocument.querySelector(`[data-id="${escapedId}"]`);
-                    if (card) { card.click(); return; }
-                } catch (error) { console.warn('[Home Screen Manager media bar] Could not trigger playback.', error); }
-                navigateTo(route);
+                    if (!serverId && window.top.ApiClient && typeof window.top.ApiClient.serverId === 'function') serverId = String(window.top.ApiClient.serverId() || '');
+                } catch (_) { /* Playback still works on the active server without an explicit ID. */ }
+                try {
+                    if (window.top.PlaybackManager && typeof window.top.PlaybackManager.play === 'function') {
+                        await window.top.PlaybackManager.play({ items: [item], startPositionTicks, serverId });
+                        return;
+                    }
+                    if (window.top.ApiClient && typeof window.top.ApiClient.play === 'function') {
+                        await window.top.ApiClient.play({ ids: [String(item.Id)], startPositionTicks, serverId });
+                        return;
+                    }
+                } catch (error) {
+                    console.warn('[Home Screen Manager media bar] Jellyfin playback could not start.', error);
+                }
+                navigateTo(`/details?id=${item.SeriesId || item.Id}`);
             }
 
             function updateContent(item, artwork) {
                 const isEpisode = item.Type === 'Episode';
                 const detailId = isEpisode ? item.SeriesId || item.Id : item.Id;
                 const detailRoute = `/details?id=${detailId}`;
-                const playRoute = `/video?id=${item.Id}`;
                 const title = isEpisode ? item.SeriesName || item.Name : item.Name;
                 const backdropImage = $('backdrop-img');
 
                 if (artwork.backdrop) {
-                    backdropImage.src = artwork.backdrop;
-                    backdropImage.style.objectPosition = artwork.centered ? 'center center' : 'center 20%';
+                    const candidates = artwork.candidates || [{ url: artwork.backdrop, centered: artwork.centered }];
+                    let candidateIndex = 0;
+                    const applyCandidate = () => {
+                        const candidate = candidates[candidateIndex];
+                        if (!candidate) {
+                            backdropImage.onerror = null;
+                            backdropImage.removeAttribute('src');
+                            return;
+                        }
+                        backdropImage.style.objectPosition = candidate.centered ? 'center center' : 'center 20%';
+                        backdropImage.src = candidate.url;
+                    };
+                    backdropImage.onerror = () => { candidateIndex += 1; applyCandidate(); };
+                    applyCandidate();
                     $('backdrop').classList.add('loaded');
                     startZoom(backdropImage);
                 } else {
+                    backdropImage.onerror = null;
                     if (zoomAnimation) zoomAnimation.cancel();
                     zoomAnimation = null;
                     backdropImage.removeAttribute('src');
@@ -391,7 +366,7 @@
                 playButton.type = 'button';
                 playButton.className = 'btn btn-play';
                 setButtonContent(playButton, SVG_PLAY, playLabel);
-                playButton.addEventListener('click', () => triggerPlayback(item, playRoute));
+                playButton.addEventListener('click', () => triggerPlayback(item));
                 const infoButton = document.createElement('button');
                 infoButton.type = 'button';
                 infoButton.className = 'btn btn-info';
@@ -429,25 +404,12 @@
                 updateDots();
                 $('content').classList.remove('visible');
                 $('backdrop').classList.remove('loaded');
-                updateContent(item, { backdrop: null, logo: null, centered: false });
-                $('content').classList.add('visible');
-                notifyRendered();
                 try {
                     const artwork = await fetchArtwork(item, signal);
                     if (signal.aborted || sequence !== renderSequence) return false;
-                    if (artwork.backdrop || artwork.logo) {
-                        $('content').classList.remove('visible');
-                        $('backdrop').classList.remove('loaded');
-                        await wait(reducedMotion.matches ? 0 : 160, signal);
-                        if (signal.aborted || sequence !== renderSequence) return false;
-                        updateContent(item, artwork);
-                        const backdropImage = $('backdrop-img');
-                        if (backdropImage.src && typeof backdropImage.decode === 'function') {
-                            try { await backdropImage.decode(); } catch (_) {}
-                        }
-                        if (signal.aborted || sequence !== renderSequence) return false;
-                        $('content').classList.add('visible');
-                    }
+                    updateContent(item, artwork);
+                    $('content').classList.add('visible');
+                    notifyRendered();
                     queuePreload();
                     return true;
                 } catch (error) {
@@ -459,15 +421,12 @@
             async function configure(data) {
                 const currentId = items[currentIndex] && items[currentIndex].Id;
                 const nextImageType = ['backdrop', 'primary', 'banner', 'thumb'].indexOf(String(data.imageType)) >= 0 ? String(data.imageType) : 'backdrop';
-                const imageTypeChanged = nextImageType !== imageType;
                 if (renderController) renderController.abort();
-                if (preloadController) preloadController.abort();
                 if (preloadTimer) clearTimeout(preloadTimer);
                 preloadTimer = null;
                 renderSequence += 1;
                 intervalMilliseconds = Math.max(1000, Math.min(300000, Number(data.intervalSeconds || 5) * 1000));
                 imageType = nextImageType;
-                if (imageTypeChanged) clearImageCache();
                 items = Array.isArray(data.items) ? data.items.filter(item => item && item.Id) : [];
                 currentIndex = Math.max(0, items.findIndex(item => String(item.Id) === String(currentId || '')));
                 $('empty').style.display = items.length ? 'none' : 'flex';
@@ -484,7 +443,7 @@
                 stopAuto();
                 if (preloadTimer) clearTimeout(preloadTimer);
                 if (renderController) renderController.abort();
-                if (preloadController) preloadController.abort();
+                preloadImage = null;
                 if (zoomAnimation) zoomAnimation.cancel();
                 zoomAnimation = null;
             }
@@ -504,9 +463,8 @@
                 stopAuto();
                 if (preloadTimer) clearTimeout(preloadTimer);
                 if (renderController) renderController.abort();
-                if (preloadController) preloadController.abort();
+                preloadImage = null;
                 if (zoomAnimation) zoomAnimation.cancel();
-                clearImageCache();
             }
 
             let touchStartX = 0;
@@ -546,6 +504,10 @@
                 }
             });
 
+            try {
+                const cached = JSON.parse(window.parent.localStorage.getItem('hssm-media-bar-payload-v3') || window.parent.localStorage.getItem('hssm-media-bar-payload-v2') || 'null');
+                if (cached && Array.isArray(cached.items) && cached.items.length) configure(cached);
+            } catch (_) { /* A missing cache only affects the first render after installation. */ }
             window.parent.postMessage({ type: 'home-screen-manager-media-bar', action: 'ready' }, window.location.origin);
             if (!document.hidden) resume();
         })();

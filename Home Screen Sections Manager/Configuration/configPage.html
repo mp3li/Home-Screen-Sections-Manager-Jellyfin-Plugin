@@ -689,8 +689,11 @@
             function imdbTaggedRating(item) {
                 const tags = item.Tags || item.tags || [];
                 for (let index = 0; index < tags.length; index += 1) {
-                    const match = String(tags[index]).match(/(?:^|\b)IMDb(?:\s+Rating)?(?:\s*[:=-]\s*|\s+)([0-9]+(?:\.[0-9]+)?)(?:\s*\/\s*10)?/i);
-                    if (match) return Number(match[1]);
+                    const text = String(tags[index]);
+                    const match = text.match(/(?:^|\b)IMDb(?:\s+Rating)?[^0-9]{0,12}([0-9]+(?:\.[0-9]+)?)(?:\s*\/\s*10)?/i)
+                        || text.match(/(?:^|\b)(?:Community\s+)?Rating[^0-9]{0,12}([0-9]+(?:\.[0-9]+)?)(?:\s*\/\s*10)?/i);
+                    const tagged = match ? Number(match[1]) : NaN;
+                    if (Number.isFinite(tagged) && tagged > 0 && tagged <= 10) return tagged;
                 }
                 const nativeRating = Number(item.CommunityRating ?? item.communityRating);
                 return Number.isFinite(nativeRating) && nativeRating > 0 ? nativeRating : null;
@@ -959,7 +962,7 @@
                 if (!state.name.trim()) { saveStatus.textContent = 'Enter a section name before saving.'; return; }
                 state.name = state.name.trim();
                 const required = isActivityType() ? 1 : isTopType() ? state.sources.length && state.contentItemOrder.length : isDraftType() ? state.drafts.length : kind() === 'manual-content' ? Object.keys(state.items).length : state.sources.length;
-                if (!required || (needsTwo && state.sources.length < 2)) { saveStatus.textContent = needsTwo ? 'Select at least two metadata tags before saving.' : isTopType() && state.sources.length ? 'No selected media has an IMDb rating tag to rank.' : 'Select content before saving.'; return; }
+                if (!required || (needsTwo && state.sources.length < 2)) { saveStatus.textContent = needsTwo ? 'Select at least two metadata tags before saving.' : isTopType() && state.sources.length ? 'No selected media has a recognized IMDb or Jellyfin community rating to rank.' : 'Select content before saving.'; return; }
                 const order = Array.from(page.querySelectorAll('.hssm-section-row')).map(row => row.dataset.sectionId);
                 const itemIds = state.contentItemOrder.slice();
                 const definition = { Id:state.id, Name:state.name, Type:state.type, SourceIds:state.sources, ItemIds:itemIds, ContentOrder:state.contentOrder, ArtSize:state.artSize, ArtType:state.artType, ArtShape:state.artShape, ShowText:state.showText, Drafts:state.drafts.map(draft => ({ Id:draft.Id, SourceType:draft.SourceType, SourceId:draft.SourceId, Name:draft.Name, StartMonth:draft.StartMonth, StartDay:draft.StartDay, EndMonth:draft.EndMonth, EndDay:draft.EndDay })), RotationIntervalMinutes:rotationIntervalMinutes(), RotationStartUnixMilliseconds:Date.now(), DisplayTopCount:state.displayTop, ShowRankNumbers:state.showRankNumbers, RankNumberColorMode:state.rankNumberColorMode, RankNumberColorOne:state.rankNumberColorOne, RankNumberColorTwo:state.rankNumberColorTwo, RankNumberFontDataUrl:state.rankNumberFontDataUrl, ActivityMaxItems:state.activityMaxItems, ActivityMediaType:state.activityMediaType, IsApplied:false };
@@ -1005,7 +1008,7 @@
                 });
             }
             function homeScreenLoaderScript() {
-                return "(function(){'use strict';function hidePendingBar(){Array.from(document.querySelectorAll('.featurediframe')).forEach(function(frame){if(frame.dataset.hssmMediaBarReady!=='true')frame.style.setProperty('visibility','hidden','important');});}var watcher=new MutationObserver(hidePendingBar);watcher.observe(document.documentElement,{childList:true,subtree:true});hidePendingBar();function boot(){if(!window.ApiClient||typeof ApiClient.getUrl!=='function'){window.setTimeout(boot,100);return;}if(!document.querySelector('link[data-hssm-client-style]')){var link=document.createElement('link');link.rel='stylesheet';link.href=ApiClient.getUrl('HomeScreenSectionsManager/client.css');link.dataset.hssmClientStyle='true';document.head.appendChild(link);}if(window.HomeScreenManagerClient){watcher.disconnect();window.HomeScreenManagerClient.refresh();return;}if(document.querySelector('script[data-hssm-client-script]'))return;var script=document.createElement('script');script.src=ApiClient.getUrl('HomeScreenSectionsManager/client.js');script.dataset.hssmClientScript='true';script.onload=function(){watcher.disconnect();};script.onerror=function(){watcher.disconnect();console.error('[Home Screen Manager] Could not load the browser client.');};document.head.appendChild(script);}boot();}());";
+                return "(function(){'use strict';function boot(){if(!window.ApiClient||typeof ApiClient.getUrl!=='function'||!ApiClient.getCurrentUserId()){window.setTimeout(boot,100);return;}if(!document.querySelector('link[data-hssm-client-style]')){var link=document.createElement('link');link.rel='stylesheet';link.href=ApiClient.getUrl('HomeScreenSectionsManager/client.css');link.dataset.hssmClientStyle='true';document.head.appendChild(link);}if(window.HomeScreenManagerClient){window.HomeScreenManagerClient.refresh();return;}if(document.querySelector('script[data-hssm-client-script]'))return;var script=document.createElement('script');script.src=ApiClient.getUrl('HomeScreenSectionsManager/client.js');script.dataset.hssmClientScript='true';script.onerror=function(){console.error('[Home Screen Manager] Could not load the browser client.');};document.head.appendChild(script);}boot();}());";
             }
             function ensureJavaScriptInjectorLoader() {
                 return ApiClient.getJSON(ApiClient.getUrl('Plugins')).then(result => {
@@ -1018,7 +1021,7 @@
                         const scripts = configuration.CustomJavaScripts || configuration.customJavaScripts || [];
                         const name = 'Home-Screen-Manager-Loader';
                         const existing = scripts.findIndex(script => script.Name === name || script.name === name);
-                        const loader = { Name:name, Script:homeScreenLoaderScript(), Enabled:true, RequiresAuthentication:false };
+                        const loader = { Name:name, Script:homeScreenLoaderScript(), Enabled:true, RequiresAuthentication:true };
                         if (existing >= 0) scripts[existing] = Object.assign({}, scripts[existing], loader); else scripts.push(loader);
                         configuration.CustomJavaScripts = scripts;
                         return ApiClient.updatePluginConfiguration(pluginId, configuration);

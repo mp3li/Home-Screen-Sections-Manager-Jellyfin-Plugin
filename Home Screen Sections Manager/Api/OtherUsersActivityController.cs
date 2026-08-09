@@ -1,6 +1,7 @@
 using Jellyfin.Data.Enums;
 using Jellyfin.Database.Implementations.Enums;
 using MediaBrowser.Controller.Entities;
+using MediaBrowser.Controller.Entities.TV;
 using MediaBrowser.Controller.Library;
 using MediaBrowser.Controller.Session;
 using MediaBrowser.Model.Entities;
@@ -89,6 +90,11 @@ public sealed class OtherUsersActivityController : ControllerBase
         if (mediaType != "series")
         {
             return fallbackId;
+        }
+
+        if (item is Episode episode && episode.Series is not null)
+        {
+            return episode.Series.Id;
         }
 
         var value = item.GetType().GetProperty("SeriesId")?.GetValue(item);
