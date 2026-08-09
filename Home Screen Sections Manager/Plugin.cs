@@ -318,6 +318,7 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
     {
         return artType switch
         {
+            "poster" => "poster",
             "primary" => "primary",
             "art" => "art",
             "backdrop" => "backdrop",
@@ -355,6 +356,7 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
             "date-added-descending" => "date-added-descending",
             "date-added-ascending" => "date-added-ascending",
             "rating-descending" => "rating-descending",
+            "random" => "random",
             "manual" => "manual",
             _ => "title-ascending",
         };

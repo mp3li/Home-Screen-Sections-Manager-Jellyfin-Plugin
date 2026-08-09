@@ -25,6 +25,9 @@
     var mediaBarPayload = null;
     var mediaBarMessageBound = false;
     var autoRefreshTimer = null;
+    var backgroundRefreshRunning = false;
+    var backgroundRefreshCursor = 0;
+    var renderGeneration = 0;
     var detailWorkKey = '';
     var collectionsWorkKey = '';
     var breadcrumbsWorkKey = '';
@@ -85,9 +88,14 @@
         var usable = (ids || []).map(String).filter(Boolean);
         var chunks = [];
         for (var index = 0; index < usable.length; index += 100) chunks.push(usable.slice(index, index + 100));
-        return Promise.all(chunks.map(function (chunk) {
-            return queryItems({ Ids: chunk.join(',') });
-        })).then(function (groups) {
+        return chunks.reduce(function (work, chunk) {
+            return work.then(function (groups) {
+                return queryItems({ Ids: chunk.join(',') }).then(function (items) {
+                    groups.push(items);
+                    return groups;
+                });
+            });
+        }, Promise.resolve([])).then(function (groups) {
             var byId = {};
             groups.forEach(function (items) {
                 items.forEach(function (item) { byId[String(prop(item, 'Id', 'id', ''))] = item; });
@@ -103,6 +111,17 @@
             all.push.apply(all, items);
             return items.length === 200 ? queryParent(parentId, start + items.length, all) : all;
         });
+    }
+
+    function mapSequential(values, mapper) {
+        return (values || []).reduce(function (work, value, index) {
+            return work.then(function (results) {
+                return mapper(value, index).then(function (result) {
+                    results.push(result);
+                    return results;
+                });
+            });
+        }, Promise.resolve([]));
     }
 
     function uniqueItems(items) {
@@ -196,10 +215,11 @@
     function imdbTaggedRating(item) {
         var tags = prop(item, 'Tags', 'tags', []);
         for (var index = 0; index < tags.length; index++) {
-            var match = String(tags[index]).match(/(?:^|\b)IMDb(?:\s+Rating)?\s*[:=-]\s*([0-9]+(?:\.[0-9]+)?)(?:\s*\/\s*10)?/i);
+            var match = String(tags[index]).match(/(?:^|\b)IMDb(?:\s+Rating)?(?:\s*[:=-]\s*|\s+)([0-9]+(?:\.[0-9]+)?)(?:\s*\/\s*10)?/i);
             if (match) return Number(match[1]);
         }
-        return null;
+        var nativeRating = Number(prop(item, 'CommunityRating', 'communityRating', NaN));
+        return Number.isFinite(nativeRating) && nativeRating > 0 ? nativeRating : null;
     }
 
     function topSourceItems(section, source) {
@@ -219,7 +239,7 @@
         var limit = [10,20,30,40,50].indexOf(Number(prop(section, 'DisplayTopCount', 'displayTopCount', 10))) >= 0 ? Number(prop(section, 'DisplayTopCount', 'displayTopCount', 10)) : 10;
         if (!autoRefresh) return queryIds(itemIds).then(function (items) { return items.slice(0, limit); });
         var sources = prop(section, 'SourceIds', 'sourceIds', []).map(String);
-        return Promise.all(sources.map(function (source) { return topSourceItems(section, source); })).then(function (groups) {
+        return mapSequential(sources, function (source) { return topSourceItems(section, source); }).then(function (groups) {
             return uniqueItems([].concat.apply([], groups)).map(function (item) { return { item:item, rating:imdbTaggedRating(item) }; }).filter(function (entry) { return Number.isFinite(entry.rating); }).sort(function (left, right) { return right.rating - left.rating; }).slice(0, limit).map(function (entry) { return entry.item; });
         }).catch(function () { return queryIds(itemIds).then(function (items) { return items.slice(0, limit); }); });
     }
@@ -249,7 +269,7 @@
         if (type === 'multiple-collections-in-a-row' || type === 'libraries-in-a-row') {
             return queryIds(sources);
         }
-        return Promise.all(sources.map(function (id) { return queryParent(id); })).then(function (groups) {
+        return mapSequential(sources, function (id) { return queryParent(id); }).then(function (groups) {
             var live = uniqueItems([].concat.apply([], groups));
             return live.length ? live : queryIds(itemIds);
         });
@@ -279,6 +299,15 @@
         var ranks = {};
         (manualIds.length ? manualIds : sourceIds).forEach(function (id, index) { ranks[id] = index; });
         var sorted = items.slice();
+        if (order === 'random') {
+            for (var randomIndex = sorted.length - 1; randomIndex > 0; randomIndex--) {
+                var swapIndex = Math.floor(Math.random() * (randomIndex + 1));
+                var swapValue = sorted[randomIndex];
+                sorted[randomIndex] = sorted[swapIndex];
+                sorted[swapIndex] = swapValue;
+            }
+            return sorted;
+        }
         if (order === 'manual') {
             return sorted.sort(function (left, right) {
                 return (ranks[String(prop(left, 'Id', 'id', ''))] ?? Number.MAX_SAFE_INTEGER) - (ranks[String(prop(right, 'Id', 'id', ''))] ?? Number.MAX_SAFE_INTEGER);
@@ -296,6 +325,7 @@
     function normalizedArtType(section) {
         var type = String(prop(section, 'ArtType', 'artType', 'automatic')).toLowerCase();
         var names = {
+            poster: 'Primary',
             primary: 'Primary',
             art: 'Art',
             backdrop: 'Backdrop',
@@ -616,9 +646,7 @@
             var savedIds = prop(orderedSource.definition, 'ItemIds', 'itemIds', []).map(String);
             return {
                 key: orderedSource.managerId,
-                items: savedIds.length ? queryIds(savedIds).then(function (items) { return orderItems(uniqueItems(items), orderedSource.definition); }) : managerPromise || sectionItems(orderedSource.definition, setting(settings, 'AutoRefreshSections', true)).then(function (items) {
-                    return orderItems(uniqueItems(items), orderedSource.definition);
-                })
+                items: managerPromise || (savedIds.length ? queryIds(savedIds).then(function (items) { return orderItems(uniqueItems(items), orderedSource.definition); }) : Promise.resolve([]))
             };
         }
         if (orderedSource && orderedSource.token) {
@@ -630,11 +658,11 @@
         if (managerId) {
             var fallbackDefinition = (sections || []).find(function (section) { return String(prop(section, 'Id', 'id', '')) === managerId; });
             if (!fallbackDefinition) return { key: managerId, items: Promise.resolve([]) };
+            var fallbackPromise = sectionItemPromises && sectionItemPromises[managerId];
+            var fallbackIds = prop(fallbackDefinition, 'ItemIds', 'itemIds', []).map(String);
             return {
                 key: managerId,
-                items: sectionItems(fallbackDefinition, setting(settings, 'AutoRefreshSections', true)).then(function (items) {
-                    return orderItems(uniqueItems(items), fallbackDefinition);
-                })
+                items: fallbackPromise || (fallbackIds.length ? queryIds(fallbackIds).then(function (items) { return orderItems(uniqueItems(items), fallbackDefinition); }) : Promise.resolve([]))
             };
         }
         var token = nativeTokenForNode(topNode, preferences);
@@ -1302,19 +1330,54 @@
         controls.addEventListener('click', function (event) { var button = event.target.closest('[data-hssm-search-mode]'); if (!button) return; searchMode = button.dataset.hssmSearchMode; Array.from(controls.querySelectorAll('button')).forEach(function (entry) { entry.classList.toggle('raised', entry === button); entry.classList.toggle('button-submit', entry === button); }); search(); });
         if (input.value) search();
     }
+    function refreshNextSection(settings) {
+        if (backgroundRefreshRunning) return;
+        var container = activeHomeContainer();
+        var autoRefresh = setting(settings, 'AutoRefreshSections', true);
+        var sections = (prop(settings, 'Sections', 'sections', []) || []).filter(function (section) {
+            var type = String(prop(section, 'Type', 'type', ''));
+            return !!prop(section, 'IsApplied', 'isApplied', true) && (autoRefresh || type === 'rotating-sections' || type === 'seasonal-sections');
+        });
+        if (!container || !sections.length) return;
+        var section = sections[backgroundRefreshCursor % sections.length];
+        backgroundRefreshCursor = (backgroundRefreshCursor + 1) % sections.length;
+        var id = String(prop(section, 'Id', 'id', ''));
+        backgroundRefreshRunning = true;
+        sectionItems(section, true).then(function (items) {
+            var current = container.querySelector('[data-hssm-section-id="' + CSS.escape(id) + '"]');
+            if (!current || container !== activeHomeContainer()) return;
+            var refreshed = sectionNode(section, orderItems(uniqueItems(items), section));
+            current.replaceWith(refreshed);
+            applyMyListHeartColor(settings);
+            if (setting(settings, 'EnableMyList', false)) Array.from(refreshed.querySelectorAll('.card[data-id]')).forEach(addMyListButton);
+            return nativePreferences().then(function (preferences) {
+                applyHybridOrder(container, settings, preferences || {});
+                var promises = {};
+                promises[id] = Promise.resolve(orderItems(uniqueItems(items), section));
+                renderMediaBar(settings, preferences || {}, container, sections, promises);
+            });
+        }).catch(function (error) {
+            console.warn('[Home Screen Manager] A bounded background section refresh failed.', error);
+        }).finally(function () {
+            backgroundRefreshRunning = false;
+        });
+    }
+
     function configureAutoRefresh(settings) {
         var enabled = setting(settings, 'AutoRefreshSections', true);
         var dynamic = (prop(settings, 'Sections', 'sections', []) || []).some(function (section) {
             var type = String(prop(section, 'Type', 'type', ''));
             return type === 'rotating-sections' || type === 'seasonal-sections';
         });
-        if (!enabled && !dynamic) { window.clearInterval(autoRefreshTimer); autoRefreshTimer = null; return; }
+        if (!enabled && !dynamic) {
+            window.clearInterval(autoRefreshTimer);
+            autoRefreshTimer = null;
+            backgroundRefreshRunning = false;
+            return;
+        }
         if (autoRefreshTimer) return;
         autoRefreshTimer = window.setInterval(function () {
-            settingsCache = null;
-            settingsCacheAt = 0;
-            lastSignature = '';
-            scheduleRender();
+            getClientSettings(false).then(refreshNextSection).catch(function () {});
         }, 60000);
     }
 
@@ -1354,11 +1417,47 @@
         });
     }
 
-    function renderHome() {
-        if (rendering || !window.ApiClient || !currentUserId()) {
-            rerenderRequested = true;
-            return;
+    function prioritizedSections(settings, sections) {
+        var byId = {};
+        sections.forEach(function (section) { byId[String(prop(section, 'Id', 'id', ''))] = section; });
+        var ordered = [];
+        prop(settings, 'SectionOrder', 'sectionOrder', []).map(String).forEach(function (id) {
+            if (byId[id]) { ordered.push(byId[id]); delete byId[id]; }
+        });
+        sections.forEach(function (section) {
+            var id = String(prop(section, 'Id', 'id', ''));
+            if (byId[id]) { ordered.push(section); delete byId[id]; }
+        });
+        return ordered;
+    }
+
+    function queuedSnapshotPromises(settings, sections) {
+        var pending = prioritizedSections(settings, sections);
+        var promises = {};
+        var resolvers = {};
+        var nextIndex = 0;
+        pending.forEach(function (section) {
+            var id = String(prop(section, 'Id', 'id', ''));
+            promises[id] = new Promise(function (resolve) { resolvers[id] = resolve; });
+        });
+        function worker() {
+            if (nextIndex >= pending.length) return Promise.resolve();
+            var section = pending[nextIndex++];
+            var id = String(prop(section, 'Id', 'id', ''));
+            var ids = prop(section, 'ItemIds', 'itemIds', []).map(String);
+            return (ids.length ? queryIds(ids) : Promise.resolve([])).then(function (items) {
+                resolvers[id](orderItems(uniqueItems(items), section));
+            }, function () {
+                resolvers[id]([]);
+            }).then(worker);
         }
+        var workerCount = Math.min(3, pending.length);
+        for (var workerIndex = 0; workerIndex < workerCount; workerIndex++) worker();
+        return promises;
+    }
+
+    function renderHome() {
+        if (rendering || !window.ApiClient || !currentUserId()) return;
         var container = activeHomeContainer();
         if (!container) {
             if (homeRetryCount < 100) {
@@ -1372,7 +1471,9 @@
         window.clearTimeout(homeRetryTimer);
         rendering = true;
         rerenderRequested = false;
+        var generation = ++renderGeneration;
         Promise.all([getClientSettings(false), nativePreferences()]).then(function (values) {
+            if (generation !== renderGeneration || container !== activeHomeContainer()) return;
             var settings = values[0] || {};
             var preferences = values[1] || {};
             var sections = prop(settings, 'Sections', 'sections', []);
@@ -1382,13 +1483,13 @@
             var complete = container === lastContainer && nextSignature === lastSignature && existing.length === expectedIds.length && expectedIds.every(function (id) {
                 return container.querySelector('[data-hssm-section-id="' + CSS.escape(id) + '"]');
             });
+            applyEnhancements(settings);
             if (complete) {
                 applyHybridOrder(container, settings, preferences);
-                applyEnhancements(settings);
-                return renderMediaBar(settings, preferences, container, sections);
+                renderMediaBar(settings, preferences, container, sections);
+                return;
             }
             existing.forEach(function (node) { node.remove(); });
-            var sectionItemPromises = {};
             var placeholders = {};
             sections.forEach(function (section) {
                 var id = String(prop(section, 'Id', 'id', ''));
@@ -1396,48 +1497,31 @@
                 placeholder.dataset.hssmLoading = 'true';
                 placeholders[id] = placeholder;
                 container.appendChild(placeholder);
-                var snapshotIds = prop(section, 'ItemIds', 'itemIds', []).map(String);
-                if (snapshotIds.length) {
-                    queryIds(snapshotIds).then(function (items) {
-                        var snapshot = sectionNode(section, orderItems(uniqueItems(items), section));
-                        if (placeholders[id] && placeholders[id].isConnected) placeholders[id].replaceWith(snapshot);
-                        placeholders[id] = snapshot;
-                        applyHybridOrder(container, settings, preferences);
-                        applyEnhancements(settings);
-                    }).catch(function () {});
-                }
-                sectionItemPromises[id] = sectionItems(section, setting(settings, 'AutoRefreshSections', true)).then(function (items) {
-                    return orderItems(uniqueItems(items), section);
-                });
             });
+            lastContainer = container;
+            lastSignature = nextSignature;
+            lastError = '';
+            renderedSectionCount = sections.length;
             applyHybridOrder(container, settings, preferences);
-            applyEnhancements(settings);
-            var mediaBarWork = renderMediaBar(settings, preferences, container, sections, sectionItemPromises);
-            var sectionWork = Promise.all(sections.map(function (section) {
+            var sectionItemPromises = queuedSnapshotPromises(settings, sections);
+            renderMediaBar(settings, preferences, container, sections, sectionItemPromises);
+            sections.forEach(function (section) {
                 var id = String(prop(section, 'Id', 'id', ''));
-                return sectionItemPromises[id].then(function (items) {
+                sectionItemPromises[id].then(function (items) {
+                    if (generation !== renderGeneration || container !== activeHomeContainer()) return;
                     var node = sectionNode(section, items);
                     if (placeholders[id] && placeholders[id].isConnected) placeholders[id].replaceWith(node);
-                }, function (error) {
-                    var name = String(prop(section, 'Name', 'name', 'Unnamed section'));
-                    console.warn('[Home Screen Manager] Could not load content for section "' + name + '".', error);
-                    if (placeholders[id] && placeholders[id].isConnected) placeholders[id].replaceWith(sectionNode(section, []));
+                    placeholders[id] = node;
+                    applyHybridOrder(container, settings, preferences);
+                    applyMyListHeartColor(settings);
+                    if (setting(settings, 'EnableMyList', false)) Array.from(node.querySelectorAll('.card[data-id]')).forEach(addMyListButton);
                 });
-            })).then(function () {
-                lastContainer = container;
-                lastSignature = nextSignature;
-                lastError = '';
-                renderedSectionCount = container.querySelectorAll('[data-hssm-section-id]').length;
-                applyHybridOrder(container, settings, preferences);
-                applyEnhancements(settings);
             });
-            return Promise.all([mediaBarWork, sectionWork]);
         }).catch(function (error) {
             lastError = error && (error.message || error.statusText) ? String(error.message || error.statusText) : String(error || 'Unknown rendering error');
             console.warn('[Home Screen Manager] Could not render custom home-screen sections.', error);
         }).finally(function () {
             rendering = false;
-            if (rerenderRequested) scheduleRender();
         });
     }
 
@@ -1463,8 +1547,8 @@
 
 
     var observer = new MutationObserver(function () {
-        suppressPendingMediaBar();
-        scheduleRender();
+        var container = activeHomeContainer();
+        if (container && (container !== lastContainer || !lastSignature)) scheduleRender();
         scheduleEnhancements(false);
     });
     observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });

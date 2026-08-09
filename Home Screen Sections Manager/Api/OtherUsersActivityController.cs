@@ -17,6 +17,8 @@ public sealed class OtherUsersActivityController : ControllerBase
 {
     private readonly ILibraryManager _libraryManager;
     private readonly IUserManager _userManager;
+    private static readonly object CacheLock = new();
+    private static readonly Dictionary<string, ActivityCacheEntry> Cache = [];
     private readonly ISessionManager _sessionManager;
 
     /// <summary>Initializes a new instance of the <see cref="OtherUsersActivityController"/> class.</summary>
@@ -32,7 +34,17 @@ public sealed class OtherUsersActivityController : ControllerBase
     public ActionResult<object> GetOtherUsersItems([FromQuery] string mediaType = "movies", [FromQuery] int limit = 20)
     {
         var normalizedLimit = Math.Clamp(limit, 1, 100);
-        var includeTypes = IncludedTypes(mediaType);
+        var normalizedMediaType = NormalizeMediaType(mediaType);
+        var cacheKey = normalizedMediaType + ":" + normalizedLimit;
+        lock (CacheLock)
+        {
+            if (Cache.TryGetValue(cacheKey, out var cached) && DateTimeOffset.UtcNow - cached.CreatedAt < TimeSpan.FromSeconds(60))
+            {
+                return Ok(new { ItemIds = cached.ItemIds });
+            }
+        }
+
+        var includeTypes = IncludedTypes(normalizedMediaType);
         var ids = new HashSet<Guid>();
 
         foreach (var session in _sessionManager.Sessions)
@@ -40,7 +52,7 @@ public sealed class OtherUsersActivityController : ControllerBase
             var item = session.NowPlayingItem;
             if (item is not null && includeTypes.Contains(item.Type))
             {
-                ids.Add(item.Id);
+                ids.Add(ActivityItemId(normalizedMediaType, item.Id, item));
             }
         }
 
@@ -59,13 +71,47 @@ public sealed class OtherUsersActivityController : ControllerBase
 
             foreach (var item in result.Items)
             {
-                ids.Add(item.Id);
+                ids.Add(ActivityItemId(normalizedMediaType, item.Id, item));
             }
         }
 
-        var randomized = ids.OrderBy(_ => Random.Shared.Next()).Take(normalizedLimit).Select(id => id.ToString("N")).ToArray();
+        var randomized = ids.Where(id => id != Guid.Empty).OrderBy(_ => Random.Shared.Next()).Take(normalizedLimit).Select(id => id.ToString("N")).ToArray();
+        lock (CacheLock)
+        {
+            Cache[cacheKey] = new ActivityCacheEntry(DateTimeOffset.UtcNow, randomized);
+        }
+
         return Ok(new { ItemIds = randomized });
     }
+
+    private static Guid ActivityItemId(string mediaType, Guid fallbackId, object item)
+    {
+        if (mediaType != "series")
+        {
+            return fallbackId;
+        }
+
+        var value = item.GetType().GetProperty("SeriesId")?.GetValue(item);
+        if (value is Guid seriesId && seriesId != Guid.Empty)
+        {
+            return seriesId;
+        }
+
+        return Guid.TryParse(Convert.ToString(value, System.Globalization.CultureInfo.InvariantCulture), out seriesId) && seriesId != Guid.Empty ? seriesId : fallbackId;
+    }
+
+    private static string NormalizeMediaType(string? mediaType)
+    {
+        return mediaType switch
+        {
+            "series" => "series",
+            "music-audiobooks" => "music-audiobooks",
+            "books" => "books",
+            _ => "movies",
+        };
+    }
+
+    private sealed record ActivityCacheEntry(DateTimeOffset CreatedAt, string[] ItemIds);
 
     private static BaseItemKind[] IncludedTypes(string? mediaType)
     {

@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.1.0.17-test] - 2026-08-08
+
+### Added
+
+- Adds **Random (New Order on Every Reload)** to Section Content Order Settings for every section type.
+- Adds **Poster** to Section Art Appearance Settings. Jellyfin 10.11.11 exposes poster artwork through its Primary image contract, so Poster uses that supported image while remaining a distinct saved plugin choice.
+
+### Fixed
+
+- Removes the recursive all-section startup refresh and the DOM-mutation rerender loop that could delay Home, My List, hearts, playback, the media bar, and Dashboard requests for minutes.
+- Applies non-media-bar enhancements immediately, renders saved custom-section snapshots through a bounded three-worker queue, and lets the media bar use the same saved source instead of blocking the rest of Home.
+- Refreshes at most one live section per minute in the background and serializes multi-source and paged item reads; rotating and seasonal timing still re-evaluates when automatic newly-added-media refresh is disabled.
+- Caches the privacy-preserving cross-user activity result for 60 seconds and maps episode activity to its parent series when Series is selected.
+- Recognizes additional IMDb tag text formats and falls back to Jellyfin's supported CommunityRating field so existing rated media is no longer incorrectly reported as entirely unranked.
+
+### Validation
+
+- Dashboard and browser JavaScript parse successfully.
+- The Release build succeeds with zero warnings against Jellyfin 10.11.11.
+- Installed timing, playback, My List, Top ranking, and Series activity remain part of this testing round.
+
 ## [0.1.0.16-test] - 2026-08-08
 
 ### Added

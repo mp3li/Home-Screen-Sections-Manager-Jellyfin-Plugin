@@ -45,8 +45,7 @@ Current dashboard checks
       draft updates the saved draft list and order.
 - [ ] Confirm rotation amount and hour/day/week units save and restore.
 - [ ] Confirm Top 10-50 reuses the three collapsed Section Draft source pickers,
-      combines every selected source into one editable draft, accepts only
-      explicit IMDb rating tags, and saves Top 10/20/30/40/50.
+      combines every selected source into one editable draft, accepts common IMDb rating-tag formats or Jellyfin CommunityRating metadata, and saves Top 10/20/30/40/50.
 - [ ] Confirm Top 10-50 numbering can be disabled or displayed with solid,
       vertical-gradient, horizontal-gradient, or center-gradient colors; verify
       the number overlaps the left side of each art card and the optional TTF/OTF
@@ -58,13 +57,13 @@ Current dashboard checks
       including a date window that crosses from December into January.
 - [ ] Confirm Save and Move On restores the saved selection when editing and
       reveals Section Content Order Settings.
-- [ ] Confirm all eight content-order choices save and restore for every section
+- [ ] Confirm all nine content-order choices, including a new shuffle after every page reload, save and restore for every section
       type.
 - [ ] Select Manual ordering and confirm every section item appears as a
       text-only draggable row, reorders correctly, and restores in that order.
 - [ ] Confirm Section Art Appearance Settings appears after ordering and before
       Add Section to Home Screen.
-- [ ] Confirm all five sizes, all image-type choices, all four shapes, and the
+- [ ] Confirm all five sizes, Poster plus all official Jellyfin image-type choices, all four shapes, and the
       Show text under the art checkbox save, restore, and render as selected.
 - [ ] Confirm Add Section to Home Screen reports a clear dependency error when
       JavaScript Injector is not installed.
@@ -82,6 +81,9 @@ Current dashboard checks
 - [ ] Confirm saved custom-row snapshots appear first and remain usable while
       their collection, tag, library, rotation, seasonal, or activity rule
       refreshes in the background.
+- [ ] Confirm Home, hearts, My List controls, native playback, and custom rows remain responsive while the media bar and bounded background refresh are loading.
+- [ ] Confirm automatic refresh starts no more than one section refresh per minute and does not issue overlapping whole-library refreshes.
+- [ ] Confirm Series mode in Other Users Activity displays series cards rather than episode cards.
 - [ ] Drag eligible native and plugin sections into the first position; confirm
       each one supplies the media-bar items and remains visible as the first normal row.
 - [ ] Confirm My Media, My Media (small), and Latest Media cannot be dragged into

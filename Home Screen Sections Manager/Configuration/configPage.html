@@ -544,6 +544,7 @@
                     ['date-added-descending', 'Recently Added (Newest First)'],
                     ['date-added-ascending', 'Recently Added (Oldest First)'],
                     ['rating-descending', 'Rating (Highest First)'],
+                    ['random', 'Random (New Order on Every Reload)'],
                     ['manual', 'Manual (Drag to Choose Exact Order)']
                 ].map(option => '<option value="' + option[0] + '"' + (state.contentOrder === option[0] ? ' selected' : '') + '>' + option[1] + '</option>').join('');
             }
@@ -562,6 +563,7 @@
             function artTypeOptions() {
                 return selectOptions([
                     ['automatic', 'Default'],
+                    ['poster', 'Poster'],
                     ['primary', 'Primary'],
                     ['art', 'Art'],
                     ['backdrop', 'Backdrop'],
@@ -687,10 +689,11 @@
             function imdbTaggedRating(item) {
                 const tags = item.Tags || item.tags || [];
                 for (let index = 0; index < tags.length; index += 1) {
-                    const match = String(tags[index]).match(/(?:^|\b)IMDb(?:\s+Rating)?\s*[:=-]\s*([0-9]+(?:\.[0-9]+)?)(?:\s*\/\s*10)?/i);
+                    const match = String(tags[index]).match(/(?:^|\b)IMDb(?:\s+Rating)?(?:\s*[:=-]\s*|\s+)([0-9]+(?:\.[0-9]+)?)(?:\s*\/\s*10)?/i);
                     if (match) return Number(match[1]);
                 }
-                return null;
+                const nativeRating = Number(item.CommunityRating ?? item.communityRating);
+                return Number.isFinite(nativeRating) && nativeRating > 0 ? nativeRating : null;
             }
             function ensureTopDraft() {
                 if (!state.drafts.length) state.drafts = [{ Id:'top-draft-' + state.id, SourceType:'top', SourceId:'combined', Name:state.name || ('Top ' + state.displayTop), StartMonth:1, StartDay:1, EndMonth:12, EndDay:31, PreviewCount:null }];
