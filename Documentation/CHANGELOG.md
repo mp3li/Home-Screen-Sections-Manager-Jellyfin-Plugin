@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.1.0.18-test] - 2026-08-08
+
+### Emergency recovery
+
+- Disables the Home Screen Manager browser runtime while the severe installed-server regression is investigated.
+- Makes no item, collection, activity, My List, media-bar, playback-adjacent, or user-data API requests.
+- Restores Abyss's normal spotlight iframe, unhides it, and removes Home Screen Manager's injected Home elements and styles.
+- Preserves saved plugin configuration for later recovery; no media, metadata, NFO, collection, or playback-progress data is changed by this release.
+
+### Validation
+
+- The recovery client parses and contains no ApiClient references.
+- The Release build succeeds with zero warnings against Jellyfin 10.11.11.
+- Installed recovery still requires closing old Jellyfin Web tabs, restarting Jellyfin, and disabling the existing Injector loader where possible.
+
 ## [0.1.0.17-test] - 2026-08-08
 
 ### Added

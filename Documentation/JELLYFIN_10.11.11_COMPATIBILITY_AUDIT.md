@@ -58,6 +58,10 @@ Primary official references:
 | Breadcrumbs | Uses official item, ancestor, and current-user Items queries to build media-aware Movies, Shows, seasons, episodes, artists, albums, and songs navigation with sibling selectors inside Jellyfin Web's `.headerLeft`. | Grounded in Jellyfin Web 10.11.11 header and item-query contracts; installed-client testing required. |
 | Automatic refresh | Displays saved item snapshots without waiting for live rules, caps initial snapshot work at three concurrent section readers, serializes each reader's paged requests, and refreshes no more than one live section per 60-second interval. Rotating and seasonal sections continue to re-evaluate their active draft even when newly-added-media refresh is disabled; activity results use a 60-second server cache. | Supported companion-plugin and official read-only workflow; version-pair and multi-user testing required. |
 
+## Emergency recovery boundary
+
+Version 0.1.0.18 does not execute the custom-row renderer or any browser API reads or writes. Its embedded client only restores the normal Abyss iframe and removes Home Screen Manager DOM and styles. Saved configuration remains stored but inactive.
+
 ## Explicit current boundary
 
 This release renders plugin-owned custom rows in Jellyfin Web, interleaves

@@ -9,13 +9,13 @@
     "imageUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Assets/Branding/home-screen-sections-manager-plugin-photo.png",
     "versions": [
       {
-        "version": "0.1.0.17",
-        "changelog": "Fixes the request storm that delayed Home, playback, hearts, My List, custom rows, the media bar, and Dashboard; uses bounded snapshot-first startup and one-at-a-time refresh; fixes Top rating recognition and Series activity; and adds Random ordering and Poster art.",
+        "version": "0.1.0.18",
+        "changelog": "Emergency recovery release: disables Home Screen Manager browser runtime and all item, activity, My List, media-bar, playback-adjacent, and user-data requests; restores the normal Abyss spotlight and removes injected plugin Home elements.",
         "targetAbi": "10.11.11.0",
         "framework": "net9.0",
-        "sourceUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Test%20Releases/0.1.0.17-test/Jellyfin.Plugin.HomeScreenSectionsManager_0.1.0.17-test.zip",
-        "checksum": "3323eea194fcc8155c4156e530699c28",
-        "timestamp": "2026-08-09T02:56:08Z"
+        "sourceUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Test%20Releases/0.1.0.18-test/Jellyfin.Plugin.HomeScreenSectionsManager_0.1.0.18-test.zip",
+        "checksum": "8cbe04860c21a04fd9f9c3e6b4adebf8",
+        "timestamp": "2026-08-09T03:03:00Z"
       }
     ]
   }
