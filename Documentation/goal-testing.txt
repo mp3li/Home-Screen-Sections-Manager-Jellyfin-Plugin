@@ -82,7 +82,9 @@ Current dashboard checks
       their collection, tag, library, rotation, seasonal, or activity rule
       refreshes in the background.
 - [ ] Confirm Home, hearts, My List controls, native playback, and custom rows remain responsive while the media bar and bounded background refresh are loading.
-- [ ] Confirm automatic refresh starts no more than one section refresh per minute and does not issue overlapping whole-library refreshes.
+- [ ] Click Refresh Home Screen Sections and confirm applied static sections are
+      processed sequentially, one final save occurs, progress remains visible,
+      and Home/playback on other tabs stays responsive.
 - [ ] Confirm Series mode in Other Users Activity displays series cards rather than episode cards.
 - [ ] Drag eligible native and plugin sections into the first position; confirm
       each one supplies the media-bar items and remains visible as the first normal row.
@@ -100,8 +102,18 @@ Current dashboard checks
 - [ ] Confirm a Seasonal Section shows the first matching draft during its
       inclusive recurring date window and hides when no draft window matches.
 - [ ] Confirm collection and library content rows refresh their live children;
-      enable Automatic Refresh and confirm saved tag rules gain newly matching
-      media after Collection Manager refreshes its metadata catalog.
+      after Collection Manager refreshes its metadata catalog, click Refresh
+      Home Screen Sections and confirm saved tag rules gain newly matching media.
+- [ ] Rename a library and confirm plugin library/tag sources remain attached by
+      ID while every picker and label uses the new live name.
+- [ ] Delete and re-add a library with the same name/type and confirm a stale
+      Movies/TV/Music/Books link is repaired to the new current user-view ID,
+      then use Refresh Home Screen Sections to persist the migrated source.
+- [ ] With more than one library of the same type, confirm no ambiguous deleted
+      library is silently mapped to the wrong replacement.
+- [ ] Add or remove a library and confirm Jellyfin's native Latest Media wrapper
+      remains one hybrid-order row while its inner Recently Added rows and cards
+      come entirely from Jellyfin's current user views.
 - [ ] Confirm the Home logo stays beside the hamburger menu on Home,
       libraries, search, settings, and breadcrumbed detail pages, always navigates
       Home, and is absent only from playback screens.

@@ -9,13 +9,13 @@
     "imageUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Assets/Branding/home-screen-sections-manager-plugin-photo.png",
     "versions": [
       {
-        "version": "0.1.0.19",
-        "changelog": "Full browser-runtime rebuild: isolates Dashboard and playback routes, renders cached Home rows independently of media-bar and display-preference work, bounds and pages all startup reads, removes synthetic/session playback behavior, restores My List with series-aware episode cards, recognizes native ratings for Top 10-50, maps activity episodes to Series, and adds Random ordering plus Poster art.",
+        "version": "0.1.0.20",
+        "changelog": "Reconciles live settings without polling, adds deliberate section refresh, preserves Jellyfin-owned Recently Added rows, tracks stable library identities and conservatively repairs unambiguous deleted/re-added library IDs and stale routes, validates cached media-bar source/timing/image type before display, restores My List and removal controls, and makes Top 10-50 source changes sequential and cancellable.",
         "targetAbi": "10.11.11.0",
         "framework": "net9.0",
-        "sourceUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Test%20Releases/0.1.0.19-test/Jellyfin.Plugin.HomeScreenSectionsManager_0.1.0.19-test.zip",
-        "checksum": "c5eda9b0d3afd2720bb817015c5e946e",
-        "timestamp": "2026-08-09T23:40:26Z"
+        "sourceUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Test%20Releases/0.1.0.20-test/Jellyfin.Plugin.HomeScreenSectionsManager_0.1.0.20-test.zip",
+        "checksum": "50f6349281a69cfa730dc44350ef6709",
+        "timestamp": "2026-08-11T07:21:59Z"
       }
     ]
   }

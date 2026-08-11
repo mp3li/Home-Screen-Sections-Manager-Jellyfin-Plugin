@@ -18,15 +18,15 @@
     var defaultSections = ['smalllibrarytiles', 'resume', 'resumeaudio', 'resumebook', 'livetv', 'nextup', 'latestmedia'];
     var settingsCache = null;
     var settingsCacheAt = 0;
+    var settingsRequest = null;
+    var settingsReconcileQueued = false;
     var enhancementTimer = null;
     var mediaBarTimer = null;
     var mediaBarIndex = 0;
     var mediaBarSourceKey = '';
     var mediaBarPayload = null;
     var mediaBarMessageBound = false;
-    var autoRefreshTimer = null;
-    var backgroundRefreshRunning = false;
-    var backgroundRefreshCursor = 0;
+    var mediaBarLoadSequence = 0;
     var renderGeneration = 0;
     var detailWorkKey = '';
     var collectionsWorkKey = '';
@@ -48,6 +48,13 @@
     var likedItemsById = {};
     var likedItemsLoaded = false;
     var likedItemsRequest = null;
+    var myListHeaderRetryTimer = null;
+    var latestNativePreferences = {};
+    var liveViewsCache = null;
+    var liveViewsCacheAt = 0;
+    var liveViewsRequest = null;
+    var libraryRouteRepairKey = '';
+    var pendingLibraryRouteLabel = '';
 
     function createLimiter(maximum) {
         var active = 0;
@@ -106,7 +113,7 @@
         var userId = currentUserId();
         if (!userId) return Promise.resolve([]);
         var options = Object.assign({
-            Fields: 'PrimaryImageAspectRatio,DateCreated,PremiereDate,ProductionYear,CommunityRating,SortName,Tags,Overview,RunTimeTicks,ChildCount,RecursiveItemCount,ParentId,SeriesId,SeriesName,SeriesPrimaryImageTag,ParentBackdropItemId,ParentBackdropImageTags,ParentThumbItemId,ParentThumbImageTag,UserData',
+            Fields: 'PrimaryImageAspectRatio,DateCreated,PremiereDate,ProductionYear,CommunityRating,SortName,Tags,Overview,RunTimeTicks,ChildCount,RecursiveItemCount,ParentId,SeriesId,SeriesName,UserData',
             ImageTypeLimit: 1,
             EnableImageTypes: 'Primary,Art,Backdrop,Banner,Logo,Thumb,Disc,Box,BoxRear,Screenshot,Menu,Chapter'
         }, parameters || {});
@@ -142,14 +149,18 @@
 
     function cacheRead(name, maximumAge) {
         try {
-            var stored = JSON.parse(localStorage.getItem('hssm-v2:' + cacheContext() + ':' + name) || 'null');
+            var stored = JSON.parse(localStorage.getItem('hssm-v3:' + cacheContext() + ':' + name) || 'null');
             if (!stored || Date.now() - Number(stored.savedAt || 0) > maximumAge) return null;
             return stored.value;
         } catch (_) { return null; }
     }
 
     function cacheWrite(name, value) {
-        try { localStorage.setItem('hssm-v2:' + cacheContext() + ':' + name, JSON.stringify({ savedAt:Date.now(), value:value })); } catch (_) {}
+        try { localStorage.setItem('hssm-v3:' + cacheContext() + ':' + name, JSON.stringify({ savedAt:Date.now(), value:value })); } catch (_) {}
+    }
+
+    function cacheRemove(name) {
+        try { localStorage.removeItem('hssm-v3:' + cacheContext() + ':' + name); } catch (_) {}
     }
 
     function sectionSignature(section) {
@@ -191,7 +202,7 @@
     function tagSource(value, sectionName) {
         var pieces = String(value || '').split('|');
         return {
-            SourceLibraryId: pieces.shift() || '',
+            SourceLibraryId: resolvedLibraryId(pieces.shift() || ''),
             MetadataType: pieces.shift() || '',
             MetadataValue: pieces.join('|'),
             AdditionalLibraryIds: [],
@@ -467,8 +478,11 @@
                 add(manager);
                 return;
             }
-            var match = id.match(/^jellyfin-(\d+)-/);
-            if (match) add(container.querySelector('.section' + Number(match[1])));
+            var match = id.match(/^jellyfin-(\d+)-(.+)$/);
+            if (match) {
+                var currentIndex = native.indexOf(match[2]);
+                if (currentIndex >= 0) add(container.querySelector('.section' + currentIndex));
+            }
         });
         Array.from(container.children).forEach(add);
         return normalizeMediaBarNodes(desired, preferences);
@@ -485,22 +499,39 @@
         return prop(settings, name, name.charAt(0).toLowerCase() + name.slice(1), fallback);
     }
 
-    function getClientSettings(force) {
-        if (!force && settingsCache && Date.now() - settingsCacheAt < 60000) return Promise.resolve(settingsCache);
-        if (!force && !settingsCache) {
-            var cached = cacheRead('client-settings', 24 * 60 * 60 * 1000);
-            if (cached) {
-                settingsCache = cached;
-                settingsCacheAt = Date.now();
-                return Promise.resolve(settingsCache);
-            }
-        }
-        return getJson('HomeScreenSectionsManager/client-settings').then(function (settings) {
+    function requestClientSettings() {
+        if (settingsRequest) return settingsRequest;
+        settingsRequest = getJson('HomeScreenSectionsManager/client-settings').then(function (settings) {
             settingsCache = settings || {};
             settingsCacheAt = Date.now();
             cacheWrite('client-settings', settingsCache);
             return settingsCache;
-        });
+        }).finally(function () { settingsRequest = null; });
+        return settingsRequest;
+    }
+
+    function reconcileClientSettings(cached) {
+        if (settingsReconcileQueued) return;
+        settingsReconcileQueued = true;
+        requestClientSettings().then(function (live) {
+            settingsReconcileQueued = false;
+            if (JSON.stringify(live) !== JSON.stringify(cached) && !isDashboardScreen() && !isPlaybackScreen()) routeRefresh(false);
+        }, function () { settingsReconcileQueued = false; });
+    }
+
+    function getClientSettings(force) {
+        if (force) return requestClientSettings();
+        if (settingsCache && Date.now() - settingsCacheAt < 60000) return Promise.resolve(settingsCache);
+        if (!settingsCache) {
+            var cached = cacheRead('client-settings', 24 * 60 * 60 * 1000);
+            if (cached) {
+                settingsCache = cached;
+                settingsCacheAt = Date.now();
+                reconcileClientSettings(cached);
+                return Promise.resolve(cached);
+            }
+        }
+        return requestClientSettings();
     }
 
     function currentItemId() {
@@ -586,6 +617,131 @@
         return prop(response, 'Items', 'items', []);
     }
 
+    function libraryViewSnapshot(view) {
+        return {
+            Id:String(prop(view, 'Id', 'id', '')),
+            Name:String(prop(view, 'Name', 'name', '')).trim(),
+            CollectionType:String(prop(view, 'CollectionType', 'collectionType', '')).toLowerCase()
+        };
+    }
+
+    function libraryAliases() {
+        var value = cacheRead('library-id-aliases', 10 * 365 * 24 * 60 * 60 * 1000);
+        return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+    }
+
+    function rememberLibraryAlias(oldId, newId) {
+        oldId = String(oldId || '');
+        newId = String(newId || '');
+        if (!oldId || !newId || oldId === newId) return;
+        var aliases = libraryAliases();
+        aliases[oldId] = newId;
+        cacheWrite('library-id-aliases', aliases);
+    }
+
+    function resolvedLibraryId(id) {
+        var current = String(id || '');
+        var aliases = libraryAliases();
+        var visited = {};
+        for (var index = 0; index < 8 && aliases[current] && !visited[current]; index++) {
+            visited[current] = true;
+            current = String(aliases[current]);
+        }
+        return current;
+    }
+
+    function reconcileLibraryViewSnapshots(views) {
+        var current = (views || []).map(libraryViewSnapshot).filter(function (view) { return !!view.Id; });
+        var previous = cacheRead('library-view-snapshots', 10 * 365 * 24 * 60 * 60 * 1000) || [];
+        var currentIds = {};
+        current.forEach(function (view) { currentIds[view.Id] = true; });
+        previous.forEach(function (oldView) {
+            oldView = libraryViewSnapshot(oldView);
+            if (!oldView.Id || currentIds[oldView.Id]) return;
+            var matches = current.filter(function (view) {
+                return view.Name.toLowerCase() === oldView.Name.toLowerCase() && view.CollectionType === oldView.CollectionType;
+            });
+            if (matches.length === 1) rememberLibraryAlias(oldView.Id, matches[0].Id);
+        });
+        cacheWrite('library-view-snapshots', current);
+    }
+
+    function liveUserViews(force) {
+        if (!force && liveViewsCache && Date.now() - liveViewsCacheAt < 60000) return Promise.resolve(liveViewsCache);
+        if (liveViewsRequest) return liveViewsRequest;
+        var userId = currentUserId();
+        if (!userId) return Promise.resolve([]);
+        var request = typeof ApiClient.getUserViews === 'function'
+            ? ApiClient.getUserViews({}, userId)
+            : getJson('Users/' + encodeURIComponent(userId) + '/Views');
+        liveViewsRequest = Promise.resolve(request).then(function (result) {
+            liveViewsCache = responseItems(result);
+            liveViewsCacheAt = Date.now();
+            reconcileLibraryViewSnapshots(liveViewsCache);
+            return liveViewsCache;
+        }).catch(function () { return liveViewsCache || []; }).finally(function () { liveViewsRequest = null; });
+        return liveViewsRequest;
+    }
+
+    function libraryRouteType(hash) {
+        var match = String(hash || '').toLowerCase().match(/^#\/(movies|tv|music|books)(?:\.html)?(?:[?&]|$)/);
+        if (!match) return '';
+        return { movies:'movies', tv:'tvshows', music:'music', books:'books' }[match[1]] || '';
+    }
+
+    function replaceTopParentId(hash, id) {
+        var value = String(hash || '');
+        return value.replace(/([?&]topParentId=)[^&]*/i, '$1' + encodeURIComponent(id));
+    }
+
+    function matchingLiveLibrary(hash, views, linkText) {
+        var staleId = (String(hash || '').match(/[?&]topParentId=([^&]+)/i) || [])[1];
+        if (!staleId) return null;
+        try { staleId = decodeURIComponent(staleId); } catch (_) {}
+        if ((views || []).some(function (view) { return String(prop(view, 'Id', 'id', '')) === staleId; })) return null;
+        var aliasedId = resolvedLibraryId(staleId);
+        var aliased = (views || []).find(function (view) { return String(prop(view, 'Id', 'id', '')) === aliasedId; });
+        if (aliased) return aliased;
+        var routeType = libraryRouteType(hash);
+        if (!routeType) return null;
+        var candidates = (views || []).filter(function (view) {
+            return String(prop(view, 'CollectionType', 'collectionType', '')).toLowerCase() === routeType;
+        });
+        if (!candidates.length) return null;
+        var normalizedLabel = String(linkText || '').trim().toLowerCase();
+        var named = normalizedLabel ? candidates.filter(function (view) {
+            return String(prop(view, 'Name', 'name', '')).trim().toLowerCase() === normalizedLabel;
+        }) : [];
+        return named.length === 1 ? named[0] : candidates.length === 1 ? candidates[0] : null;
+    }
+
+    function repairedLibraryHash(hash, views, linkText) {
+        var replacement = matchingLiveLibrary(hash, views, linkText);
+        if (!replacement) return '';
+        var oldId = (String(hash || '').match(/[?&]topParentId=([^&]+)/i) || [])[1] || '';
+        try { oldId = decodeURIComponent(oldId); } catch (_) {}
+        var newId = String(prop(replacement, 'Id', 'id', ''));
+        rememberLibraryAlias(oldId, newId);
+        return replaceTopParentId(hash, newId);
+    }
+
+    function reconcileCurrentLibraryRoute() {
+        var original = String(window.location.hash || '');
+        if (!currentTopParentId() || !libraryRouteType(original) || libraryRouteRepairKey === original) return;
+        libraryRouteRepairKey = original;
+        liveUserViews(true).then(function (views) {
+            if (String(window.location.hash || '') !== original) return;
+            if (!views.length) {
+                libraryRouteRepairKey = '';
+                pendingLibraryRouteLabel = '';
+                return;
+            }
+            var repaired = repairedLibraryHash(original, views, pendingLibraryRouteLabel);
+            pendingLibraryRouteLabel = '';
+            if (repaired && repaired !== original) window.location.hash = repaired.slice(1);
+        });
+    }
+
     function nativeSectionItems(token, preferences, container) {
         var native = nativeTypes(preferences);
         var index = native.indexOf(token);
@@ -596,21 +752,20 @@
         });
         var userId = currentUserId();
         if (token === 'resume' || token === 'resumeaudio' || token === 'resumebook') {
-            var resumeOptions = { Limit: 30, Recursive: true, Fields: 'Overview,PrimaryImageAspectRatio,DateCreated,PremiereDate,ProductionYear,OfficialRating,CommunityRating,SortName,Tags,RunTimeTicks,UserData,SeriesName,SeriesId,ParentIndexNumber,IndexNumber,PlaybackPositionTicks' };
+            var resumeOptions = { Limit: 30, Recursive: true, Fields: 'Overview,PrimaryImageAspectRatio,DateCreated,PremiereDate,ProductionYear,OfficialRating,CommunityRating,SortName,Tags,RunTimeTicks,UserData,SeriesName,SeriesId,ParentIndexNumber,IndexNumber', ImageTypeLimit:1, EnableImageTypes:'Primary,Backdrop,Thumb' };
             if (token === 'resumeaudio') resumeOptions.MediaTypes = 'Audio';
             if (token === 'resumebook') resumeOptions.IncludeItemTypes = 'Book,AudioBook';
             return getJson('Users/' + encodeURIComponent(userId) + '/Items/Resume', resumeOptions).then(responseItems).then(function (items) {
                 return items.map(function (item) { return Object.assign({}, item, { _source: 'resume' }); });
             });
         }
-        if (token === 'nextup') return getJson('Shows/NextUp', { UserId: userId, Limit: 30, Fields: 'Overview,PrimaryImageAspectRatio,PremiereDate,ProductionYear,OfficialRating,CommunityRating,RunTimeTicks,UserData,SeriesName,SeriesId,ParentIndexNumber,IndexNumber,PlaybackPositionTicks' }).then(responseItems).then(function (items) {
+        if (token === 'nextup') return getJson('Shows/NextUp', { UserId: userId, Limit: 30, Fields: 'Overview,PrimaryImageAspectRatio,DateCreated,Path,MediaSourceCount,PremiereDate,ProductionYear,OfficialRating,CommunityRating,RunTimeTicks,UserData,SeriesName,SeriesId,ParentIndexNumber,IndexNumber', ImageTypeLimit:1, EnableImageTypes:'Primary,Backdrop,Banner,Thumb', EnableTotalRecordCount:false, DisableFirstEpisode:false, EnableResumable:false }).then(responseItems).then(function (items) {
             return items.map(function (item) { return Object.assign({}, item, { _source: 'nextup' }); });
         });
         if (token === 'latestmedia') return queryItems({ Recursive: true, SortBy: 'DateCreated', SortOrder: 'Descending', Limit: 30 });
         if (token === 'livetv') return getJson('LiveTv/Channels', { UserId: userId, Limit: 30, Fields: 'Overview,PrimaryImageAspectRatio,OfficialRating,CommunityRating' }).then(responseItems);
         if (token === 'smalllibrarytiles' || token === 'librarybuttons') {
-            var request = typeof ApiClient.getUserViews === 'function' ? ApiClient.getUserViews({}, userId) : getJson('Users/' + encodeURIComponent(userId) + '/Views');
-            return request.then(responseItems);
+            return liveUserViews(false);
         }
         return Promise.resolve([]);
     }
@@ -643,8 +798,8 @@
         sectionOrder.some(function (id) {
             var definition = (sections || []).find(function (section) { return String(prop(section, 'Id', 'id', '')) === id; });
             if (definition) { orderedSource = { managerId:id, definition:definition }; return true; }
-            var match = id.match(/^jellyfin-(\d+)-/);
-            var token = match ? native[Number(match[1])] : '';
+            var match = id.match(/^jellyfin-\d+-(.+)$/);
+            var token = match && native.indexOf(match[1]) >= 0 ? match[1] : '';
             if (token && mediaBarTokenEligible(token)) { orderedSource = { token:token }; return true; }
             return false;
         });
@@ -659,6 +814,24 @@
         }
         var token = nativeTokenForNode(topNode, preferences);
         return { key:'jellyfin-' + token, items:mediaRequestLane(function () { return nativeSectionItems(token, preferences, container); }) };
+    }
+
+    function configuredMediaBarKey(settings, preferences) {
+        var sections = prop(settings, 'Sections', 'sections', []);
+        var native = nativeTypes(preferences || {});
+        var key = '';
+        prop(settings, 'SectionOrder', 'sectionOrder', []).map(String).some(function (id) {
+            if (sections.some(function (section) { return String(prop(section, 'Id', 'id', '')) === id; })) {
+                key = id;
+                return true;
+            }
+            var match = id.match(/^jellyfin-\d+-(.+)$/);
+            var token = match && native.indexOf(match[1]) >= 0 ? match[1] : '';
+            if (!token || !mediaBarTokenEligible(token)) return false;
+            key = 'jellyfin-' + token;
+            return true;
+        });
+        return key;
     }
 
     function mediaBarUrls(frame) {
@@ -710,14 +883,19 @@
         var container = activeHomeContainer();
         if (!container) return false;
         try {
-            var cached = JSON.parse(localStorage.getItem('hssm-media-bar-payload-v3') || localStorage.getItem('hssm-media-bar-payload-v2') || 'null');
-            if (!cached || !Array.isArray(cached.items) || !cached.items.length) return false;
+            var cached = cacheRead('media-bar', 24 * 60 * 60 * 1000);
+            var cachedSettings = cacheRead('client-settings', 24 * 60 * 60 * 1000);
+            var cachedPreferences = cacheRead('native-home-preferences', 24 * 60 * 60 * 1000) || {};
+            var expectedKey = cachedSettings ? configuredMediaBarKey(cachedSettings, cachedPreferences) : '';
+            var expectedInterval = cachedSettings ? Math.max(1, Math.min(300, Number(setting(cachedSettings, 'MediaBarIntervalSeconds', 5)) || 5)) : 0;
+            var expectedImageType = cachedSettings ? String(setting(cachedSettings, 'MediaBarImageType', 'backdrop')) : '';
+            if (!cached || !expectedKey || cached.key !== expectedKey || cached.intervalSeconds !== expectedInterval || cached.imageType !== expectedImageType || !Array.isArray(cached.items) || !cached.items.length) return false;
             mediaBarPayload = {
                 type:'home-screen-manager-media-bar',
                 action:'configure',
                 items:cached.items,
-                intervalSeconds:Math.max(1, Math.min(300, Number(cached.intervalSeconds || 5))),
-                imageType:String(cached.imageType || 'backdrop')
+                intervalSeconds:expectedInterval,
+                imageType:expectedImageType
             };
             sendMediaBarPayload(ensureMediaBarFrame(container));
             return true;
@@ -758,18 +936,29 @@
     }
 
     function renderMediaBar(settings, preferences, container, sections, sectionItemPromises) {
+        var loadSequence = ++mediaBarLoadSequence;
         var source = mediaBarSource(settings, preferences, container, sections, sectionItemPromises);
         var interval = Math.max(1, Math.min(300, Number(setting(settings, 'MediaBarIntervalSeconds', 5)) || 5));
         var requestedImage = String(setting(settings, 'MediaBarImageType', 'backdrop'));
+        var frame = ensureMediaBarFrame(container);
+        var matchingCachedPayload = null;
         try {
-            var cached = JSON.parse(localStorage.getItem('hssm-media-bar-payload-v3') || localStorage.getItem('hssm-media-bar-payload-v2') || 'null');
+            var cached = cacheRead('media-bar', 24 * 60 * 60 * 1000);
             if (cached && cached.key === source.key && cached.intervalSeconds === interval && cached.imageType === requestedImage && Array.isArray(cached.items) && cached.items.length) {
-                mediaBarPayload = { type:'home-screen-manager-media-bar', action:'configure', items:cached.items, intervalSeconds:interval, imageType:requestedImage };
+                matchingCachedPayload = { type:'home-screen-manager-media-bar', action:'configure', items:cached.items, intervalSeconds:interval, imageType:requestedImage };
+                mediaBarPayload = matchingCachedPayload;
                 mediaBarSourceKey = JSON.stringify([source.key, interval, requestedImage, cached.items]);
             }
         } catch (_) {}
-        if (mediaBarPayload) sendMediaBarPayload(ensureMediaBarFrame(container));
+        if (matchingCachedPayload) sendMediaBarPayload(frame);
+        else {
+            mediaBarPayload = null;
+            mediaBarSourceKey = '';
+            frame.dataset.hssmMediaBarPending = 'true';
+            frame.style.visibility = 'hidden';
+        }
         return source.items.then(function (items) {
+            if (loadSequence !== mediaBarLoadSequence || container !== activeHomeContainer()) return;
             var key = JSON.stringify([source.key, interval, requestedImage, items]);
             mediaBarPayload = {
                 type: 'home-screen-manager-media-bar',
@@ -778,16 +967,16 @@
                 intervalSeconds: interval,
                 imageType: requestedImage
             };
-            try { localStorage.setItem('hssm-media-bar-payload-v3', JSON.stringify({ key:source.key, intervalSeconds:interval, imageType:requestedImage, items:items })); } catch (_) {}
-            var frame = ensureMediaBarFrame(container);
+            cacheWrite('media-bar', { key:source.key, intervalSeconds:interval, imageType:requestedImage, items:items });
             if (key !== mediaBarSourceKey) {
                 mediaBarSourceKey = key;
                 sendMediaBarPayload(frame);
             }
         }).catch(function (error) {
+            if (loadSequence !== mediaBarLoadSequence || container !== activeHomeContainer()) return;
             console.warn('[Home Screen Manager] Could not load the selected media-bar source.', error);
             mediaBarPayload = { type: 'home-screen-manager-media-bar', action: 'configure', items: [], intervalSeconds: 5, imageType: 'backdrop' };
-            sendMediaBarPayload(ensureMediaBarFrame(container));
+            sendMediaBarPayload(frame);
         });
     }
 
@@ -804,17 +993,18 @@
         try { return JSON.parse(localStorage.getItem(dismissedNextUpKey()) || '[]'); } catch (_) { return []; }
     }
 
-    function applyRemoveButtons(settings, scope) {
+    function applyRemoveButtons(settings, scope, preferences) {
         scope = scope || activeHomeContainer();
         Array.from(document.querySelectorAll('.hssm-remove-row-button')).forEach(function (button) { if (!setting(settings, 'EnableRemoveContinueNextUp', false) || !scope || !scope.contains(button)) button.remove(); });
         if (!setting(settings, 'EnableRemoveContinueNextUp', false)) return;
         var dismissed = dismissedNextUp();
         if (!scope) return;
         Array.from(scope.querySelectorAll('.verticalSection, .section')).forEach(function (row) {
+            var token = nativeTokenForNode(row, preferences || latestNativePreferences);
             var heading = row.querySelector('.sectionTitle, h2');
             var title = heading ? heading.textContent.trim().toLowerCase() : '';
-            var isContinue = title.indexOf('continue watching') >= 0;
-            var isNext = title.indexOf('next up') >= 0;
+            var isContinue = ['resume', 'resumeaudio', 'resumebook'].indexOf(token) >= 0 || title.indexOf('continue watching') >= 0;
+            var isNext = token === 'nextup' || title.indexOf('next up') >= 0;
             if (!isContinue && !isNext) return;
             Array.from(row.querySelectorAll('.card[data-id]')).forEach(function (cardNode) {
                 var id = cardNode.getAttribute('data-id');
@@ -828,7 +1018,7 @@
                 button.title = isNext ? 'Remove from Next Up' : 'Remove from Continue Watching';
                 button.innerHTML = '<span class="material-icons close" aria-hidden="true"></span>';
                 button.addEventListener('click', function (event) {
-                    event.preventDefault(); event.stopPropagation(); button.disabled = true;
+                    event.preventDefault(); event.stopPropagation(); event.stopImmediatePropagation(); button.disabled = true;
                     if (isNext && !cardNode.hasAttribute('data-positionticks')) {
                         var hidden = dismissedNextUp(); if (hidden.indexOf(id) < 0) hidden.push(id);
                         localStorage.setItem(dismissedNextUpKey(), JSON.stringify(hidden)); cardNode.remove(); return;
@@ -912,7 +1102,7 @@
         if (!cardNode || cardNode.querySelector('.hssm-my-list-button')) return;
         var id = String(cardNode.getAttribute('data-id') || '');
         if (!id) return;
-        var holder = cardNode.querySelector('.cardOverlayButton-br') || cardNode.querySelector('.cardScalable, .cardOverlayContainer') || cardNode;
+        var holder = cardNode.querySelector('.cardScalable, .cardOverlayContainer') || cardNode;
         var button = document.createElement('button');
         button.type = 'button';
         button.className = 'hssm-my-list-button emby-button';
@@ -930,7 +1120,7 @@
             button.dataset.touched = 'true';
             setMyListButtonState(button, next);
             button.disabled = true;
-            ApiClient.updateUserItemRating(currentUserId(), id, next ? 'true' : 'false').then(function () {
+            ApiClient.updateUserItemRating(currentUserId(), id, next).then(function () {
                 return next ? ApiClient.getItem(currentUserId(), id).catch(function () { return null; }) : null;
             }).then(function (item) {
                 if (next) likedItemsById[id] = item || likedItemsById[id] || { Id:id };
@@ -995,7 +1185,20 @@
         style.textContent = selector + ' { background-color:transparent !important; background-image:' + paint + ' !important; background-clip:text !important; -webkit-background-clip:text !important; color:transparent !important; -webkit-text-fill-color:transparent !important; }';
     }
 
-    function applyMyList(settings, scope) {
+    function queueMyListHeaderRetry(settings, generation) {
+        if (!isHomeRoute() || !setting(settings, 'EnableMyList', false)) return;
+        window.clearTimeout(myListHeaderRetryTimer);
+        var attempts = 0;
+        function retry() {
+            if (generation !== runtimeGeneration || !isHomeRoute() || isDashboardScreen() || isPlaybackScreen()) return;
+            var scope = activePage();
+            applyMyList(settings, scope, true);
+            if (!document.querySelector('.hssm-my-list-tab') && attempts++ < 30) myListHeaderRetryTimer = window.setTimeout(retry, 100);
+        }
+        myListHeaderRetryTimer = window.setTimeout(retry, 0);
+    }
+
+    function applyMyList(settings, scope, skipRetry) {
         var enabled = setting(settings, 'EnableMyList', false);
         scope = scope || activePage();
         Array.from(document.querySelectorAll('.hssm-my-list-button')).forEach(function (node) { if (!enabled || !scope || !scope.contains(node)) node.remove(); });
@@ -1026,7 +1229,11 @@
                 addMyListButton(shell);
             }
         }
-        if (!indexPage || !tabsWidget || !tabsSlider) return;
+        if (!isHomeRoute()) return;
+        if (!indexPage || !tabsWidget || !tabsSlider) {
+            if (!skipRetry) queueMyListHeaderRetry(settings, runtimeGeneration);
+            return;
+        }
         var button = tabsSlider.querySelector('.hssm-my-list-tab');
         if (!button) {
             button = document.createElement('button');
@@ -1325,7 +1532,7 @@
     }
 
     function applyInfiniteScroll(settings) {
-        var ids = setting(settings, 'InfiniteScrollLibraryIds', []).map(String);
+        var ids = setting(settings, 'InfiniteScrollLibraryIds', []).map(resolvedLibraryId);
         infiniteLibraryKey = ids.indexOf(currentTopParentId()) >= 0 ? currentTopParentId() : '';
         document.body.classList.toggle('hssm-infinite-scroll-active', !!infiniteLibraryKey);
     }
@@ -1388,7 +1595,8 @@
     function clearRouteArtifacts(preservePendingBar) {
         document.body.classList.remove('hssm-client-enabled', 'hssm-home-active', 'hssm-infinite-scroll-active');
         Array.from(document.querySelectorAll('.featurediframe')).forEach(function (frame) {
-            if (!preservePendingBar) frame.style.removeProperty('visibility');
+            if (!preservePendingBar && isHomeRoute()) frame.style.visibility = 'hidden';
+            else if (!preservePendingBar) frame.style.removeProperty('visibility');
             delete frame.dataset.hssmMediaBarPending;
         });
         infiniteLibraryKey = '';
@@ -1398,6 +1606,8 @@
         breadcrumbsWorkKey = '';
         window.clearTimeout(enhancementTimer);
         window.clearTimeout(homeRetryTimer);
+        window.clearTimeout(myListHeaderRetryTimer);
+        myListHeaderRetryTimer = null;
         disconnectViewObserver();
     }
 
@@ -1522,14 +1732,14 @@
         return state;
     }
 
-    function applyRouteFeatures(settings, scope, home) {
+    function applyRouteFeatures(settings, scope, home, preferences) {
         document.body.classList.add('hssm-client-enabled');
         document.body.classList.toggle('hssm-home-active', !!home);
         applyLogo(settings);
         applyMyListHeartColor(settings);
         applyMyList(settings, scope);
         if (home) {
-            applyRemoveButtons(settings, scope);
+            applyRemoveButtons(settings, scope, preferences);
             return;
         }
         applySeriesInfo(settings);
@@ -1542,7 +1752,6 @@
         return JSON.stringify({
             sections: prop(settings, 'Sections', 'sections', []),
             order: prop(settings, 'SectionOrder', 'sectionOrder', []),
-            autoRefresh: setting(settings, 'AutoRefreshSections', true),
             mediaBarInterval: setting(settings, 'MediaBarIntervalSeconds', 5),
             mediaBarImageType: setting(settings, 'MediaBarImageType', 'backdrop'),
             logo: setting(settings, 'LogoImageDataUrl', ''),
@@ -1565,7 +1774,7 @@
         lastError = '';
         renderedSectionCount = sections.length;
         applyHybridOrder(container, settings, preferences);
-        applyRouteFeatures(settings, container.closest('.libraryPage, .page') || container, true);
+        applyRouteFeatures(settings, container.closest('.libraryPage, .page') || container, true, preferences);
         renderMediaBar(settings, preferences, container, sections);
         return true;
     }
@@ -1586,7 +1795,7 @@
                     var container = activeHomeContainer();
                     if (container) {
                         applyHybridOrder(container, settings, preferences);
-                        applyRemoveButtons(settings, scope);
+                        applyRemoveButtons(settings, scope, preferences);
                     }
                 }
                 if (setting(settings, 'EnableMyList', false)) Array.from(scope.querySelectorAll('.card[data-id]')).forEach(addMyListButton);
@@ -1597,10 +1806,12 @@
     }
 
     function routeRefresh(force) {
+        reconcileCurrentLibraryRoute();
         var generation = ++runtimeGeneration;
-        var preservePendingBar = !isDashboardScreen() && !isPlaybackScreen() && primeCachedMediaBar();
+        var preservePendingBar = !force && !isDashboardScreen() && !isPlaybackScreen() && primeCachedMediaBar();
         clearRouteArtifacts(preservePendingBar);
         if (!window.ApiClient || !currentUserId() || isDashboardScreen() || isPlaybackScreen()) {
+            if (isHomeRoute()) Array.from(document.querySelectorAll('.featurediframe')).forEach(function (frame) { frame.style.removeProperty('visibility'); });
             applyLogo(isPlaybackScreen() ? {} : (settingsCache || cacheRead('client-settings', 24 * 60 * 60 * 1000) || {}));
             return;
         }
@@ -1619,7 +1830,10 @@
                     nativePreferences().then(function (preferences) {
                         if (generation !== runtimeGeneration || homeContainer !== activeHomeContainer()) return;
                         preferences = preferences || cachedPreferences;
+                        latestNativePreferences = preferences;
                         applyHybridOrder(homeContainer, settings, preferences);
+                        applyRemoveButtons(settings, homeContainer.closest('.libraryPage, .page') || homeContainer, preferences);
+                        observeActiveView(settings, homeContainer.closest('.libraryPage, .page') || homeContainer, true, preferences, generation);
                         renderMediaBar(settings, preferences, homeContainer, prop(settings, 'Sections', 'sections', []));
                     });
                     return;
@@ -1635,7 +1849,10 @@
             }
             enterView();
         }).catch(function (error) {
-            if (generation === runtimeGeneration) console.warn('[Home Screen Manager] Could not initialize the active Jellyfin view.', error);
+            if (generation === runtimeGeneration) {
+                if (isHomeRoute()) Array.from(document.querySelectorAll('.featurediframe')).forEach(function (frame) { frame.style.removeProperty('visibility'); });
+                console.warn('[Home Screen Manager] Could not initialize the active Jellyfin view.', error);
+            }
         });
     }
 
@@ -1643,9 +1860,36 @@
     window.addEventListener('pageshow', function () { routeRefresh(false); });
     document.addEventListener('viewshow', function () { routeRefresh(false); });
     window.addEventListener('home-screen-manager-refresh', function () { routeRefresh(true); });
+    window.addEventListener('home-screen-manager-settings-changed', function () {
+        settingsCache = null;
+        settingsCacheAt = 0;
+        cacheRemove('client-settings');
+        cacheRemove('media-bar');
+        if (!isDashboardScreen() && !isPlaybackScreen()) routeRefresh(true);
+    });
     window.addEventListener('scroll', tryInfiniteScroll, { passive: true });
+    document.addEventListener('click', function (event) {
+        var anchor = event.target && event.target.closest ? event.target.closest('a[href]') : null;
+        if (!anchor) return;
+        var href = anchor.getAttribute('href') || '';
+        var marker = href.indexOf('#/');
+        if (marker < 0) return;
+        var hash = href.slice(marker);
+        if (!libraryRouteType(hash) || !/[?&]topParentId=/i.test(hash)) return;
+        pendingLibraryRouteLabel = anchor.getAttribute('aria-label') || anchor.textContent || '';
+        if (!liveViewsCache) return;
+        var repaired = repairedLibraryHash(hash, liveViewsCache, pendingLibraryRouteLabel);
+        if (!repaired || repaired === hash) return;
+        anchor.setAttribute('href', href.slice(0, marker) + repaired);
+    }, true);
     window.HomeScreenManagerClient = {
         refresh: function () { routeRefresh(true); },
+        invalidate: function () {
+            settingsCache = null;
+            settingsCacheAt = 0;
+            cacheRemove('client-settings');
+            cacheRemove('media-bar');
+        },
         status: function () {
             return {
                 containerFound: !!activeHomeContainer(),
@@ -1654,5 +1898,6 @@
             };
         }
     };
+    liveUserViews(false);
     routeRefresh(false);
 }());

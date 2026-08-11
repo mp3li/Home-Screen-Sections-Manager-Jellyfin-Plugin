@@ -64,7 +64,7 @@ public sealed class PluginConfiguration : BasePluginConfiguration
 
     public string MediaBarImageType { get; set; } = "backdrop";
 
-    public bool AutoRefreshSections { get; set; } = true;
+    public bool AutoRefreshSections { get; set; }
 
     public bool EnableRemoveContinueNextUp { get; set; }
 
@@ -264,7 +264,7 @@ public sealed class CustomizationSettingsRequest
 /// <summary>Request body for browser enhancement settings.</summary>
 public sealed class MainSettingsRequest
 {
-    public bool AutoRefreshSections { get; set; } = true;
+    public bool AutoRefreshSections { get; set; }
 
     public bool EnableRemoveContinueNextUp { get; set; }
 

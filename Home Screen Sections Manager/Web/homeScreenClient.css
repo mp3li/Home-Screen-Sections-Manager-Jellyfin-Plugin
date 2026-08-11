@@ -252,6 +252,11 @@ body.hssm-home-active .homeSectionsContainer {
 
 .hssm-my-list-page {
     min-height: 50vh;
+    padding-top: 1.25em;
+}
+
+.hssm-my-list-tab {
+    margin-left: 0.65em !important;
 }
 
 .hssm-series-info {

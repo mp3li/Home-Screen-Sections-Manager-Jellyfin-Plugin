@@ -1,5 +1,54 @@
 # Changelog
 
+## [0.1.0.20-test] - 2026-08-10
+
+### Reworked
+
+- Replaces periodic browser-side section polling with an explicit **Refresh Home
+  Screen Sections** action. Applied static rules refresh sequentially and make
+  one final settings write; rotating, seasonal, and cross-user activity rows
+  remain dynamic without coupling Home or playback to whole-library work.
+- Reconciles cached client settings with the live plugin endpoint on every
+  session and moves all Home Screen Manager browser caches to a new server- and
+  user-scoped schema, preventing an older image type, timing value, section
+  order, or feature toggle from remaining active after a save or update.
+
+### Fixed
+
+- Requests media-bar artwork with Jellyfin Web 10.11.11's official
+  `ImageTypeLimit` and `EnableImageTypes` options, uses returned image tags in
+  scaled URLs, honors Backdrop, Primary, Banner, and Thumbnail before fallbacks,
+  and prevents an older source request from overwriting a newer selection.
+- Replaces and hides the original Abyss spotlight frame before loading the
+  configured first slide while allowing custom rows and controls to initialize
+  independently. The frame is revealed only after the configured bar renders.
+- Keeps My List inside the native Home tab slider, places its one heart in the
+  upper-left of card art, uses Jellyfin's boolean Likes update contract, and
+  restores independently detected removal controls for Continue Watching and
+  Next Up.
+- Reloads current Top 10–50 selections through one sequential queue, reports
+  per-source/page progress, cancels obsolete paged work after a selection
+  change, and continues accepting explicit rating tags or Jellyfin Community
+  Rating metadata.
+- Resolves saved native home rows by their Jellyfin section token instead of an
+  obsolete numeric slot. The native Latest Media wrapper remains one untouched
+  Jellyfin block even when libraries are renamed, deleted, or added and its
+  inner Recently Added rows change.
+- Tracks live library IDs, names, and collection types per server/user. A rename
+  keeps the same ID; an unambiguous deleted-and-re-added replacement records a
+  conservative old-to-new alias, repairs stale Movies/TV/Music/Books routes,
+  and migrates library and metadata-tag sources during manual refresh. It never
+  guesses between multiple possible replacement libraries.
+
+### Safety and validation
+
+- Playback continues to use Jellyfin Web's item-based playback contract. No
+  background playback-progress write, browser polling loop, document-wide DOM
+  observer, or Jellyfin Web file replacement was added.
+- Browser scripts parse successfully and the Release build succeeds with zero
+  warnings against Jellyfin 10.11.11. Installed-server behavior remains part of
+  this testing round.
+
 ## [0.1.0.19-test] - 2026-08-08
 
 ### Rebuilt

@@ -14,8 +14,9 @@ For instructions and more information, check out the repo [here](https://github.
 - Customization Settings
 - Create and Manage Home Screen Sections
 
-**Main Settings** controls automatic rule refresh, removal buttons for Continue
-Watching and Next Up, the per-user My List, series and season information,
+**Main Settings** provides a deliberate refresh action for saved rule-based
+sections, plus removal buttons for Continue Watching and Next Up, the per-user
+My List, series and season information,
 selected-library infinite scrolling, collections on detail pages, enhanced
 Jellyfin-only search, and header breadcrumbs.
 
@@ -48,8 +49,9 @@ metadata-tag, and library pickers reuse the same interface and preview patterns
 as Collection Manager. Poster-based Content In Section previews show 20 items
 per page. **Save and Move On** stores the current definition and reveals
 **Section Content Order Settings**.
-Each section can be ordered by title, release date, date added, rating, or a
-text-only manual list that can be dragged into the exact desired order.
+Each section can be ordered by title, release date, date added, rating, a new
+random order on every browser reload, or a text-only manual list that can be
+dragged into the exact desired order.
 **Section Art Appearance Settings** then controls Extra Small through Extra
 Large sizing, official Jellyfin image types, poster/wide/square/circle shapes,
 and whether the media name and year appear beneath the art. **Add Section to
@@ -62,9 +64,22 @@ saved timing, and selected Backdrop, Primary, Banner, or Thumbnail image type to
 drive the bar. The source row remains visible as a normal row immediately below
 the media bar. My Media and Latest Media remain normal home rows but cannot be
 used as the media-bar source. Continue Watching supplies up to 30 available items
-to the media bar instead of limiting the spotlight to only a few. Saved section snapshots render immediately while collection, library, tag, and activity rules refresh in the background. When automatic
-refresh is enabled, saved tag rules are refreshed through Collection Manager's
-existing metadata preview routes.
+to the media bar instead of limiting the spotlight to only a few. Saved custom
+rows render independently of media-bar artwork and live settings reconciliation.
+The Main Settings **Refresh Home Screen Sections** button refreshes applied
+collection, library, tag, and Top 10–50 rules sequentially and performs one
+final plugin-settings save. Rotating, seasonal, and cross-user activity rows
+remain dynamic without periodic whole-library browser polling.
+
+Library-backed settings use Jellyfin library IDs as their primary identity and
+always display current live names. Renaming an existing library therefore keeps
+its section relationship. If Jellyfin replaces a deleted and re-added library
+with a new ID, Home Screen Manager can conservatively migrate a previously seen
+ID when the current name and library type form one unambiguous match, or when a
+stale native library route is uniquely resolved. Ambiguous replacements are not
+guessed. Jellyfin's entire Latest Media block remains native and is reordered as
+one block, so changes to its inner **Recently Added to …** rows are left to the
+current Jellyfin user-view list.
 
 The uploaded Home logo remains present throughout Jellyfin Web, including
 breadcrumbed detail pages, and is hidden on playback screens. It always retains

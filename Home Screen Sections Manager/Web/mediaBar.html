@@ -123,19 +123,20 @@
                 return { width: Math.min(2560, Math.ceil(window.innerWidth * dpr)), height: Math.min(1440, Math.ceil(window.innerHeight * dpr)) };
             }
 
-            function imageUrl(itemId, type, index) {
+            function imageUrl(itemId, type, index, tag) {
                 if (!itemId || !base) return '';
                 const dimensions = imageDimensions(type);
                 const suffix = index === undefined || index === null ? '' : `/${index}`;
                 const path = `Items/${encodeURIComponent(itemId)}/Images/${type}${suffix}`;
-                const parameters = { type, quality: 88, maxWidth: dimensions.width, maxHeight: dimensions.height };
+                const parameters = { type, quality: 96, maxWidth: dimensions.width, maxHeight: dimensions.height };
                 if (index !== undefined && index !== null) parameters.index = index;
+                if (tag) parameters.tag = tag;
                 try {
                     if (window.top.ApiClient && typeof window.top.ApiClient.getScaledImageUrl === 'function') return window.top.ApiClient.getScaledImageUrl(itemId, parameters);
                     if (window.top.ApiClient && typeof window.top.ApiClient.getImageUrl === 'function') return window.top.ApiClient.getImageUrl(itemId, parameters);
                     if (window.top.ApiClient && typeof window.top.ApiClient.getUrl === 'function') return window.top.ApiClient.getUrl(path, parameters);
                 } catch (_) { /* Fall back to the same-origin server address below. */ }
-                return `${base}/${path}?quality=88&maxWidth=${dimensions.width}&maxHeight=${dimensions.height}`;
+                return `${base}/${path}?quality=96&maxWidth=${dimensions.width}&maxHeight=${dimensions.height}${tag ? `&tag=${encodeURIComponent(tag)}` : ''}`;
             }
 
             function firstCandidate(candidates) {
@@ -148,7 +149,7 @@
             }
 
             function candidate(itemId, type, index, tag, centered) {
-                return itemId && tag ? { url: imageUrl(itemId, type, index), centered } : null;
+                return itemId && tag ? { url: imageUrl(itemId, type, index, tag), centered } : null;
             }
 
             function backgroundCandidates(item) {
@@ -179,8 +180,8 @@
 
             function logoCandidate(item) {
                 const tags = item.ImageTags || {};
-                if (tags.Logo) return imageUrl(item.Id, 'Logo');
-                if (item.ParentLogoImageTag && item.ParentLogoItemId) return imageUrl(item.ParentLogoItemId, 'Logo');
+                if (tags.Logo) return imageUrl(item.Id, 'Logo', null, tags.Logo);
+                if (item.ParentLogoImageTag && item.ParentLogoItemId) return imageUrl(item.ParentLogoItemId, 'Logo', null, item.ParentLogoImageTag);
                 return '';
             }
 
@@ -300,7 +301,7 @@
                 navigateTo(`/details?id=${item.SeriesId || item.Id}`);
             }
 
-            function updateContent(item, artwork) {
+            function updateContent(item, artwork, sequence) {
                 const isEpisode = item.Type === 'Episode';
                 const detailId = isEpisode ? item.SeriesId || item.Id : item.Id;
                 const detailRoute = `/details?id=${detailId}`;
@@ -320,7 +321,7 @@
                         backdropImage.style.objectPosition = candidate.centered ? 'center center' : 'center 20%';
                         backdropImage.src = candidate.url;
                     };
-                    backdropImage.onerror = () => { candidateIndex += 1; applyCandidate(); };
+                    backdropImage.onerror = () => { if (sequence !== renderSequence) return; candidateIndex += 1; applyCandidate(); };
                     applyCandidate();
                     $('backdrop').classList.add('loaded');
                     startZoom(backdropImage);
@@ -333,15 +334,26 @@
                     $('backdrop').classList.add('loaded');
                 }
 
+                const logo = $('logo');
+                logo.onload = null;
+                logo.onerror = null;
+                logo.removeAttribute('src');
+                logo.style.display = 'none';
+                $('title').style.display = 'block';
+                $('title').textContent = title || '';
                 if (artwork.logo) {
-                    $('logo').src = artwork.logo;
-                    $('logo').style.display = 'block';
-                    $('title').style.display = 'none';
-                } else {
-                    $('logo').removeAttribute('src');
-                    $('logo').style.display = 'none';
-                    $('title').style.display = 'block';
-                    $('title').textContent = title || '';
+                    logo.onload = () => {
+                        if (sequence !== renderSequence) return;
+                        logo.style.display = 'block';
+                        $('title').style.display = 'none';
+                    };
+                    logo.onerror = () => {
+                        if (sequence !== renderSequence) return;
+                        logo.removeAttribute('src');
+                        logo.style.display = 'none';
+                        $('title').style.display = 'block';
+                    };
+                    logo.src = artwork.logo;
                 }
 
                 let episodePrefix = '';
@@ -407,7 +419,7 @@
                 try {
                     const artwork = await fetchArtwork(item, signal);
                     if (signal.aborted || sequence !== renderSequence) return false;
-                    updateContent(item, artwork);
+                    updateContent(item, artwork, sequence);
                     $('content').classList.add('visible');
                     notifyRendered();
                     queuePreload();
@@ -504,10 +516,6 @@
                 }
             });
 
-            try {
-                const cached = JSON.parse(window.parent.localStorage.getItem('hssm-media-bar-payload-v3') || window.parent.localStorage.getItem('hssm-media-bar-payload-v2') || 'null');
-                if (cached && Array.isArray(cached.items) && cached.items.length) configure(cached);
-            } catch (_) { /* A missing cache only affects the first render after installation. */ }
             window.parent.postMessage({ type: 'home-screen-manager-media-bar', action: 'ready' }, window.location.origin);
             if (!document.hidden) resume();
         })();

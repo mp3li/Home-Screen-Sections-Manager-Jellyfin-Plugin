@@ -20,7 +20,6 @@ public sealed class HomeScreenClientController : ControllerBase
         {
             Sections = configuration.Sections.Where(section => section.IsApplied).ToArray(),
             configuration.SectionOrder,
-            configuration.AutoRefreshSections,
             configuration.EnableRemoveContinueNextUp,
             configuration.EnableMyList,
             configuration.EnableSeriesInfo,
