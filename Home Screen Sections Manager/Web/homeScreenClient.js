@@ -53,7 +53,6 @@
     var routeEventTimer = null;
     var myListNavigationBound = false;
     var myListActive = false;
-    var sectionArrowNavigationBound = false;
     var latestNativePreferences = {};
     var liveViewsCache = null;
     var liveViewsCacheAt = 0;
@@ -439,24 +438,6 @@
         if (window.CustomElements && typeof window.CustomElements.upgradeSubtree === 'function') {
             window.CustomElements.upgradeSubtree(node);
         }
-    }
-
-    function bindSectionArrowNavigation() {
-        if (sectionArrowNavigationBound) return;
-        sectionArrowNavigationBound = true;
-        document.addEventListener('click', function (event) {
-            if (!document.body.classList.contains('hssm-home-active')) return;
-            var button = event.target && event.target.closest ? event.target.closest('.emby-scrollbuttons-button') : null;
-            if (!button) return;
-            var controls = button.closest('.emby-scrollbuttons');
-            var scroller = controls && controls.nextElementSibling;
-            if (!scroller || !scroller.matches('[is="emby-scroller"], emby-scroller')) return;
-            event.preventDefault();
-            event.stopImmediatePropagation();
-            var direction = button.getAttribute('data-direction') === 'left' || button.classList.contains('btnPrev') ? -1 : 1;
-            var distance = Math.max(200, Math.round((scroller.clientWidth || window.innerWidth) * 0.82));
-            scroller.scrollLeft = Number(scroller.scrollLeft || 0) + direction * distance;
-        }, true);
     }
 
     function nativePreferences() {
@@ -1873,7 +1854,6 @@
         lastSignature = signature(settings);
         lastError = '';
         renderedSectionCount = sections.length;
-        bindSectionArrowNavigation();
         applyHybridOrder(container, settings, preferences);
         applyRouteFeatures(settings, container.closest('.libraryPage, .page') || container, true, preferences);
         renderMediaBar(settings, preferences, container, sections);

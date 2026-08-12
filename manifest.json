@@ -9,13 +9,13 @@
     "imageUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Assets/Branding/home-screen-sections-manager-plugin-photo.png",
     "versions": [
       {
-        "version": "0.1.0.21",
-        "changelog": "Makes live per-library Recently Added rows independently reorderable and hideable, makes libraries literal Top/Rotating/Seasonal sources, fixes deterministic startup and My List tab navigation, restores all row arrows, removes stale media-bar request blocking, and softens the Abyss blend with an active-art reflection.",
+        "version": "0.1.0.22",
+        "changelog": "Restores all section arrow buttons by removing the plugin click interceptor and returning arrow movement, alignment, animation, and button state to Jellyfin Web 10.11.11’s registered scroller controls.",
         "targetAbi": "10.11.11.0",
         "framework": "net9.0",
-        "sourceUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Test%20Releases/0.1.0.21-test/Jellyfin.Plugin.HomeScreenSectionsManager_0.1.0.21-test.zip",
-        "checksum": "67c7952632c050616aff1761e5564885",
-        "timestamp": "2026-08-12T04:40:42Z"
+        "sourceUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Test%20Releases/0.1.0.22-test/Jellyfin.Plugin.HomeScreenSectionsManager_0.1.0.22-test.zip",
+        "checksum": "17437f0f7bb882111e8a8411fa96208e",
+        "timestamp": "2026-08-12T05:00:11Z"
       }
     ]
   }

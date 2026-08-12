@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.1.0.22-test] - 2026-08-11
+
+### Fixed
+
+- Restores the left and right arrow buttons on native Jellyfin rows, plugin-created home sections, My List, and plugin-created detail rows.
+- Removes the plugin capture-phase click interceptor that stopped Jellyfin 10.11.11 from receiving arrow clicks and attempted to move a non-native scroller through raw `scrollLeft`.
+- Keeps mouse-wheel, mouse-drag, touch, focus, and keyboard behavior unchanged.
+
+### Safety and validation
+
+- Leaves arrow movement, item alignment, disabled-button state, animation, and right-to-left handling with Jellyfin Web 10.11.11’s registered `emby-scroller` and `emby-scrollbuttons` controls. Plugin-created rows retain Jellyfin’s documented custom-element upgrade pattern.
+- Browser scripts parse successfully and the Release build succeeds against Jellyfin 10.11.11. Installed-server behavior remains part of this test round.
+
 ## [0.1.0.21-test] - 2026-08-11
 
 ### Reworked
