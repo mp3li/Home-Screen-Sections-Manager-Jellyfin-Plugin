@@ -80,7 +80,9 @@ public sealed class HomeScreenClientController : ControllerBase
             return NotFound();
         }
 
-        Response.Headers.CacheControl = "no-cache";
+        Response.Headers.CacheControl = "no-store, no-cache, must-revalidate, max-age=0";
+        Response.Headers.Pragma = "no-cache";
+        Response.Headers.Expires = "0";
         return File(stream, contentType);
     }
 }

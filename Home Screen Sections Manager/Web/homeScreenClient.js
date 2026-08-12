@@ -1,9 +1,20 @@
 (function () {
     'use strict';
 
+    var CLIENT_VERSION = "0.1.0.24";
     if (window.HomeScreenManagerClient) {
-        window.HomeScreenManagerClient.refresh();
-        return;
+        if (window.HomeScreenManagerClient.version === CLIENT_VERSION) {
+            window.HomeScreenManagerClient.refresh();
+            return;
+        }
+        try {
+            var reloadKey = "hssm-client-reload-version";
+            if (window.sessionStorage.getItem(reloadKey) !== CLIENT_VERSION) {
+                window.sessionStorage.setItem(reloadKey, CLIENT_VERSION);
+                window.location.reload();
+                return;
+            }
+        } catch (_) { /* Continue with the new client when session storage is unavailable. */ }
     }
 
     var renderTimer = null;
@@ -59,6 +70,9 @@
     var liveViewsRequest = null;
     var libraryRouteRepairKey = '';
     var pendingLibraryRouteLabel = '';
+    var homeLifecycleObserver = null;
+    var homeIntegrityTimer = null;
+    var homeIntegrityRunning = false;
 
     function createLimiter(maximum) {
         var active = 0;
@@ -101,8 +115,10 @@
         var indexPage = document.getElementById("indexPage");
         if (!indexPage || indexPage.hidden || indexPage.classList.contains("hide")) return null;
         var homeTab = indexPage.querySelector("#homeTab");
-        if (!homeTab || homeTab.hidden || homeTab.classList.contains("hide") || !homeTab.classList.contains("is-active")) return null;
-        return homeTab.querySelector(".homeSectionsContainer");
+        var favoritesTab = indexPage.querySelector("#favoritesTab");
+        if (!homeTab || homeTab.hidden || homeTab.classList.contains("hide")) return null;
+        if (favoritesTab && favoritesTab.classList.contains("is-active")) return null;
+        return homeTab.querySelector(".homeSectionsContainer:not(.hssm-my-list-container)");
     }
 
     function getJson(path, parameters) {
@@ -908,7 +924,7 @@
         }
         frame.dataset.hssmAbyssSpotlightUrl = original;
         var cssUrl = new URL('spotlight.css', original).href;
-        var pluginUrl = ApiClient.getUrl('HomeScreenSectionsManager/media-bar.html') + '?abyssCss=' + encodeURIComponent(cssUrl);
+        var pluginUrl = ApiClient.getUrl("HomeScreenSectionsManager/media-bar.html", { v:CLIENT_VERSION, abyssCss:cssUrl });
         return { plugin: pluginUrl, css: cssUrl };
     }
 
@@ -940,9 +956,11 @@
             });
             if (!frame || event.source !== frame.contentWindow) return;
             if (event.data.action === 'ready') sendMediaBarPayload(frame);
-            if (event.data.action === 'rendered') {
-                frame.dataset.hssmMediaBarReady = 'true';
-                frame.style.removeProperty('visibility');
+            if (event.data.action === "rendered") {
+                frame.dataset.hssmMediaBarReady = "true";
+                delete frame.dataset.hssmMediaBarPending;
+                frame.style.display = "block";
+                frame.style.removeProperty("visibility");
             }
         });
     }
@@ -981,7 +999,9 @@
             container.parentNode.insertBefore(frame, container);
         }
         if (!frame.dataset.hssmAbyssSpotlightUrl && frame.src) frame.dataset.hssmAbyssSpotlightUrl = frame.src;
-        frame.dataset.hssmMediaBar = 'true';
+        frame.dataset.hssmMediaBar = "true";
+        frame.dataset.hssmClientVersion = CLIENT_VERSION;
+        frame.style.display = "block";
         bindMediaBarMessages();
         var urls = mediaBarUrls(frame);
         if (frame.src !== urls.plugin) {
@@ -1269,21 +1289,23 @@
         myListHeaderRetryTimer = window.setTimeout(retry, 0);
     }
 
-    function setMyListView(active) {
-        var indexPage = document.getElementById('indexPage');
-        var headerTabs = document.querySelector('.headerTabs.sectionTabs');
-        var customButton = headerTabs && headerTabs.querySelector('.hssm-my-list-tab');
-        var customPage = indexPage && indexPage.querySelector('.hssm-my-list-page');
+    function setMyListView(active, nativeIndex) {
+        var indexPage = document.getElementById("indexPage");
+        var headerTabs = document.querySelector(".headerTabs.sectionTabs");
+        var customButton = headerTabs && headerTabs.querySelector(".hssm-my-list-tab");
+        var customPage = indexPage && indexPage.querySelector(".hssm-my-list-page");
         if (!indexPage || !customButton || !customPage) return;
         myListActive = !!active;
-        document.body.classList.toggle('hssm-my-list-active', myListActive);
-        Array.from(headerTabs.querySelectorAll('.emby-tab-button')).forEach(function (button) {
-            var selected = myListActive && button === customButton;
-            if (button === customButton || myListActive) button.classList.toggle('emby-tab-button-active', selected);
-            button.setAttribute('aria-selected', String(selected));
+        document.body.classList.toggle("hssm-my-list-active", myListActive);
+        var restoreIndex = Number.isFinite(Number(nativeIndex)) ? String(Number(nativeIndex)) : "0";
+        Array.from(headerTabs.querySelectorAll(".emby-tab-button")).forEach(function (button) {
+            var selected = myListActive ? button === customButton : button !== customButton && button.getAttribute("data-index") === restoreIndex;
+            button.classList.toggle("emby-tab-button-active", selected);
+            button.setAttribute("aria-selected", String(selected));
         });
-        Array.from(indexPage.querySelectorAll(':scope > .pageTabContent')).forEach(function (panel) {
-            panel.classList.toggle('is-active', myListActive && panel === customPage);
+        Array.from(indexPage.querySelectorAll(":scope > .pageTabContent")).forEach(function (panel) {
+            var selected = myListActive ? panel === customPage : panel !== customPage && panel.getAttribute("data-index") === restoreIndex;
+            panel.classList.toggle("is-active", selected);
         });
         if (myListActive) {
             applyPageContextTitle(customPage, "My List");
@@ -1305,7 +1327,7 @@
                 setMyListView(true);
                 return;
             }
-            if (myListActive) setMyListView(false);
+            if (myListActive) setMyListView(false, button.getAttribute("data-index"));
         }, true);
     }
 
@@ -1674,20 +1696,17 @@
         controls.addEventListener('click', function (event) { var button = event.target.closest('[data-hssm-search-mode]'); if (!button) return; searchMode = button.dataset.hssmSearchMode; Array.from(controls.querySelectorAll('button')).forEach(function (entry) { entry.classList.toggle('raised', entry === button); entry.classList.toggle('button-submit', entry === button); }); search(); });
         if (input.value) search();
     }
-    function clearRouteArtifacts(preservePendingBar, force) {
-        document.body.classList.remove('hssm-client-enabled', 'hssm-home-active', 'hssm-infinite-scroll-active');
-        Array.from(document.querySelectorAll('.featurediframe')).forEach(function (frame) {
-            var pluginFrame = frame.dataset.hssmMediaBar === 'true';
-            if (isHomeRoute() && (!pluginFrame || force) && !preservePendingBar) frame.style.visibility = 'hidden';
-            else if (!isHomeRoute()) frame.style.removeProperty('visibility');
-            delete frame.dataset.hssmMediaBarPending;
+    function clearRouteArtifacts() {
+        document.body.classList.remove("hssm-client-enabled", "hssm-home-active", "hssm-infinite-scroll-active");
+        Array.from(document.querySelectorAll(".featurediframe[data-hssm-media-bar=\"true\"]")).forEach(function (frame) {
+            if (!isHomeRoute()) frame.contentWindow && frame.contentWindow.postMessage({ type:"abyss-spotlight", action:"pause" }, window.location.origin);
         });
         infiniteLibraryKey = "";
         clearPageContextTitle();
         closeBreadcrumbPopover();
-        var breadcrumbs = document.querySelector('.hssm-breadcrumbs-wrapper');
+        var breadcrumbs = document.querySelector(".hssm-breadcrumbs-wrapper");
         if (breadcrumbs) breadcrumbs.remove();
-        breadcrumbsWorkKey = '';
+        breadcrumbsWorkKey = "";
         window.clearTimeout(enhancementTimer);
         window.clearTimeout(homeRetryTimer);
         window.clearTimeout(myListHeaderRetryTimer);
@@ -1950,6 +1969,82 @@
         return true;
     }
 
+    function ensureHomeIntegrity() {
+        if (homeIntegrityRunning || !isHomeRoute() || isDashboardScreen() || isPlaybackScreen()) return false;
+        var container = activeHomeContainer();
+        if (!container) return false;
+        var settings = settingsCache || cacheRead("client-settings", 24 * 60 * 60 * 1000);
+        if (!settings) {
+            getClientSettings(false).then(function () { scheduleHomeIntegrity(0); }, function () {});
+            return false;
+        }
+        homeIntegrityRunning = true;
+        try {
+            var preferences = latestNativePreferences && Object.keys(latestNativePreferences).length
+                ? latestNativePreferences
+                : (cacheRead("native-home-preferences", 24 * 60 * 60 * 1000) || {});
+            var sections = prop(settings, "Sections", "sections", []);
+            if (homeRowsNeedRepair(container, sections)) renderHomeRows(settings, preferences, runtimeGeneration, container);
+            else {
+                applyHybridOrder(container, settings, preferences);
+                applyRouteFeatures(settings, container.closest(".libraryPage, .page") || container, true, preferences);
+            }
+            var frame = mediaBarFrameForContainer(container);
+            if (!frame || frame.dataset.hssmMediaBar !== "true" || frame.dataset.hssmClientVersion !== CLIENT_VERSION) {
+                renderMediaBar(settings, preferences, container, sections);
+            } else {
+                frame.style.display = "block";
+                frame.style.removeProperty("visibility");
+                if (mediaBarPayload) sendMediaBarPayload(frame);
+                else if (frame.dataset.hssmMediaBarPending !== "true") renderMediaBar(settings, preferences, container, sections);
+            }
+            return true;
+        } finally {
+            homeIntegrityRunning = false;
+        }
+    }
+
+    function scheduleHomeIntegrity(delay) {
+        window.clearTimeout(homeIntegrityTimer);
+        homeIntegrityTimer = window.setTimeout(function () {
+            homeIntegrityTimer = null;
+            ensureHomeIntegrity();
+        }, Math.max(0, Number(delay) || 0));
+    }
+
+    function startHomeLifecycleObserver() {
+        if (homeLifecycleObserver || !document.body) return;
+        homeLifecycleObserver = new MutationObserver(function (mutations) {
+            if (!isHomeRoute()) return;
+            var relevant = mutations.some(function (mutation) {
+                var target = mutation.target;
+                if (mutation.type === "attributes") {
+                    return target && (
+                        target.id === "indexPage"
+                        || target.id === "homeTab"
+                        || target.id === "favoritesTab"
+                        || (target.matches && target.matches("#homeTab > .sections"))
+                    );
+                }
+                if (!mutation.addedNodes.length && !mutation.removedNodes.length) return false;
+                if (target === document.body || target === document.documentElement) return true;
+                if (target && (
+                    target.id === "indexPage"
+                    || target.id === "homeTab"
+                    || target.id === "favoritesTab"
+                    || (target.matches && target.matches("#homeTab > .sections, #homeTab .homeSectionsContainer"))
+                )) return true;
+                return Array.from(mutation.addedNodes).concat(Array.from(mutation.removedNodes)).some(function (node) {
+                    if (!node || node.nodeType !== 1) return false;
+                    return (node.matches && node.matches("#indexPage, #homeTab, #favoritesTab, #homeTab > .sections, .homeSectionsContainer, .featurediframe, [data-hssm-section-id]"))
+                        || (node.querySelector && node.querySelector("#indexPage, #homeTab, #favoritesTab, .homeSectionsContainer, .featurediframe, [data-hssm-section-id]"));
+                });
+            });
+            if (relevant) scheduleHomeIntegrity(50);
+        });
+        homeLifecycleObserver.observe(document.body, { childList:true, subtree:true, attributes:true, attributeFilter:["class", "hidden"] });
+    }
+
     function observeActiveView(settings, scope, home, preferences, generation) {
         disconnectViewObserver();
         if (!scope || generation !== runtimeGeneration) return;
@@ -1988,8 +2083,8 @@
         }
         reconcileCurrentLibraryRoute();
         var generation = ++runtimeGeneration;
-        var preservePendingBar = !force && !isDashboardScreen() && !isPlaybackScreen() && primeCachedMediaBar();
-        clearRouteArtifacts(preservePendingBar, !!force);
+        if (!force && !isDashboardScreen() && !isPlaybackScreen()) primeCachedMediaBar();
+        clearRouteArtifacts();
         if (!window.ApiClient || !currentUserId()) {
             if (!isDashboardScreen() && !isPlaybackScreen() && clientReadyAttempts < 300) {
                 window.clearTimeout(clientReadyTimer);
@@ -2056,7 +2151,10 @@
 
     function queueRouteRefresh(force) {
         window.clearTimeout(routeEventTimer);
-        routeEventTimer = window.setTimeout(function () { routeRefresh(!!force); }, force ? 0 : 60);
+        routeEventTimer = window.setTimeout(function () {
+            routeRefresh(!!force);
+            if (isHomeRoute()) scheduleHomeIntegrity(force ? 0 : 80);
+        }, force ? 0 : 60);
     }
 
     window.addEventListener('hashchange', function () { queueRouteRefresh(false); });
@@ -2088,6 +2186,7 @@
         anchor.setAttribute('href', href.slice(0, marker) + repaired);
     }, true);
     window.HomeScreenManagerClient = {
+        version: CLIENT_VERSION,
         refresh: function () { routeRefresh(true); },
         invalidate: function () {
             settingsCache = null;
@@ -2103,5 +2202,7 @@
             };
         }
     };
+    startHomeLifecycleObserver();
     routeRefresh(false);
+    if (isHomeRoute()) scheduleHomeIntegrity(0);
 }());

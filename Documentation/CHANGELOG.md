@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.1.0.24-test] - 2026-08-12
+
+### Reworked
+
+- Replaces the coupled Home-entry repair with an event-driven integrity observer modeled on Jellyfin Web 10.11.11’s cached Home lifecycle, Abyss’s own spotlight lifecycle, and KefinTweaks’ per-container section initialization pattern.
+- Checks the configured Abyss media bar and plugin-created rows independently whenever Jellyfin creates, replaces, shows, or returns to the cached Home DOM. Missing rows do not wait for media-bar data, and a missing or paused media bar does not remove rows.
+- Versions the injected client, stylesheet, and media-bar document; serves them with no-store headers; and synchronizes the JavaScript Injector loader from the plugin dashboard. An installed update can no longer silently continue running an older browser client from a prior release.
+
+### Fixed
+
+- Restores the chosen native Home or Favorites panel when leaving My List instead of clearing the active state from every native Home panel.
+- Keeps the configured Abyss frame visible and resumed on Home rather than hiding it during route cleanup.
+- Places My List and library/page titles in the content area below the existing header tabs using the previously added normalized title layout, now delivered through the versioned client and stylesheet.
+- Uses the exact source descriptions **Selecting a collection includes all current media items in that collection.** and **Selecting a library includes all current media items in that library.** with no rotating or seasonal qualifier.
+
+### Safety and validation
+
+- Uses no periodic browser polling. Recovery is triggered only by Jellyfin route/view events and relevant cached-Home DOM mutations; media reads remain bounded and paged.
+- Preserves Jellyfin’s native Home sections and Abyss’s iframe, styling, timing, image selection, and MIT attribution. Browser scripts, the generated Injector loader, and manifest parse successfully; the Release build succeeds against Jellyfin 10.11.11 with zero warnings.
+
 ## [0.1.0.23-test] - 2026-08-11
 
 ### Fixed

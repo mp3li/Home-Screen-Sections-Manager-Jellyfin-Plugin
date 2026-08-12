@@ -620,9 +620,9 @@
             }
             function sourceDraftPickerMarkup() {
                 return '<section class="hssm-conditional-section"><h2>Select Sources for Section Drafts</h2><p class="fieldDescription">Select collections, libraries, and metadata tags to provide content for this section. Selecting a collection or library includes 100% of its current media items. Open only the picker you need.</p>'
-                    + draftPickerMarkup('Select Collections', 'Selecting a collection includes all current media items in that collection. Rotating and seasonal sections create one section draft for each selected collection.', 'collections', '<div data-hssm-draft-collections class="mcm-art-picker"></div>')
-                    + draftPickerMarkup('Select Libraries', 'Selecting a library includes all current media items in that library. Rotating and seasonal sections create one section draft for each selected library.', 'libraries', '<div data-hssm-draft-libraries class="mcm-library-list"></div>')
-                    + draftPickerMarkup('Select Metadata Tags', 'Selecting a metadata tag includes all current media that matches that tag. Rotating and seasonal sections create one section draft for each selected tag.', 'tags', '<div data-hssm-tags></div>')
+                    + draftPickerMarkup('Select Collections', 'Selecting a collection includes all current media items in that collection.', 'collections', '<div data-hssm-draft-collections class="mcm-art-picker"></div>')
+                    + draftPickerMarkup('Select Libraries', 'Selecting a library includes all current media items in that library.', 'libraries', '<div data-hssm-draft-libraries class="mcm-library-list"></div>')
+                    + draftPickerMarkup('Select Metadata Tags', 'Selecting a metadata tag includes all current media that matches that tag.', 'tags', '<div data-hssm-tags></div>')
                     + '</section>';
             }
             function topMarkup() {
@@ -1207,27 +1207,35 @@
                 return body && (body.Detail || body.detail || body.Message || body.message || body.Title || body.title) || (text && String(text).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()) || (error && (error.message || error.statusText)) || 'Jellyfin returned no error details.';
             }
             function loadHomeScreenClient() {
-                if (!document.querySelector('link[data-hssm-client-style]')) {
-                    const link = document.createElement('link');
-                    link.rel = 'stylesheet';
-                    link.href = ApiClient.getUrl('HomeScreenSectionsManager/client.css');
-                    link.dataset.hssmClientStyle = 'true';
-                    document.head.appendChild(link);
+                const version = "0.1.0.24";
+                let style = document.querySelector("link[data-hssm-client-style]");
+                if (!style || style.dataset.hssmClientVersion !== version) {
+                    if (style) style.remove();
+                    style = document.createElement("link");
+                    style.rel = "stylesheet";
+                    style.href = ApiClient.getUrl("HomeScreenSectionsManager/client.css", { v:version });
+                    style.dataset.hssmClientStyle = "true";
+                    style.dataset.hssmClientVersion = version;
+                    document.head.appendChild(style);
                 }
-                if (window.HomeScreenManagerClient) {
+                if (window.HomeScreenManagerClient && window.HomeScreenManagerClient.version === version) {
                     window.HomeScreenManagerClient.refresh();
                     return Promise.resolve();
                 }
                 return new Promise((resolve, reject) => {
-                    const script = document.createElement('script');
-                    script.src = ApiClient.getUrl('HomeScreenSectionsManager/client.js');
+                    const existing = document.querySelector("script[data-hssm-client-script][data-hssm-client-version=\"" + version + "\"]");
+                    if (existing) { existing.addEventListener("load", resolve, { once:true }); return; }
+                    const script = document.createElement("script");
+                    script.src = ApiClient.getUrl("HomeScreenSectionsManager/client.js", { v:version });
+                    script.dataset.hssmClientScript = "true";
+                    script.dataset.hssmClientVersion = version;
                     script.onload = resolve;
                     script.onerror = reject;
                     document.head.appendChild(script);
                 });
             }
             function homeScreenLoaderScript() {
-                return "(function(){'use strict';function boot(){if(!window.ApiClient||typeof ApiClient.getUrl!=='function'||!ApiClient.getCurrentUserId()){window.setTimeout(boot,100);return;}if(!document.querySelector('link[data-hssm-client-style]')){var link=document.createElement('link');link.rel='stylesheet';link.href=ApiClient.getUrl('HomeScreenSectionsManager/client.css');link.dataset.hssmClientStyle='true';document.head.appendChild(link);}if(window.HomeScreenManagerClient){window.HomeScreenManagerClient.refresh();return;}if(document.querySelector('script[data-hssm-client-script]'))return;var script=document.createElement('script');script.src=ApiClient.getUrl('HomeScreenSectionsManager/client.js');script.dataset.hssmClientScript='true';script.onerror=function(){console.error('[Home Screen Manager] Could not load the browser client.');};document.head.appendChild(script);}boot();}());";
+                return "(function(){\x27use strict\x27;var version=\x270.1.0.24\x27;function boot(){if(!window.ApiClient||typeof ApiClient.getUrl!==\x27function\x27||!ApiClient.getCurrentUserId()){window.setTimeout(boot,100);return;}var style=document.querySelector(\x27link[data-hssm-client-style]\x27);if(!style||style.dataset.hssmClientVersion!==version){if(style)style.remove();style=document.createElement(\x27link\x27);style.rel=\x27stylesheet\x27;style.href=ApiClient.getUrl(\x27HomeScreenSectionsManager/client.css\x27,{v:version});style.dataset.hssmClientStyle=\x27true\x27;style.dataset.hssmClientVersion=version;document.head.appendChild(style);}if(window.HomeScreenManagerClient&&window.HomeScreenManagerClient.version===version){window.HomeScreenManagerClient.refresh();return;}if(document.querySelector(\x27script[data-hssm-client-script][data-hssm-client-version=\"\x27+version+\x27\"]\x27))return;var script=document.createElement(\x27script\x27);script.src=ApiClient.getUrl(\x27HomeScreenSectionsManager/client.js\x27,{v:version});script.dataset.hssmClientScript=\x27true\x27;script.dataset.hssmClientVersion=version;script.onerror=function(){console.error(\x27[Home Screen Manager] Could not load the browser client.\x27);};document.head.appendChild(script);}boot();}());";
             }
             function ensureJavaScriptInjectorLoader() {
                 return ApiClient.getJSON(ApiClient.getUrl('Plugins')).then(result => {
@@ -1241,13 +1249,22 @@
                         const name = 'Home-Screen-Manager-Loader';
                         const existing = scripts.findIndex(script => script.Name === name || script.name === name);
                         const loader = { Name:name, Script:homeScreenLoaderScript(), Enabled:true, RequiresAuthentication:true };
-                        if (existing >= 0) scripts[existing] = Object.assign({}, scripts[existing], loader); else scripts.push(loader);
+                        if (existing >= 0) {
+                            const current = scripts[existing];
+                            if (String(current.Script || current.script || "") === loader.Script && current.Enabled !== false && current.enabled !== false) return Promise.resolve();
+                            scripts[existing] = Object.assign({}, current, loader);
+                        } else scripts.push(loader);
                         configuration.CustomJavaScripts = scripts;
                         return ApiClient.updatePluginConfiguration(pluginId, configuration);
                     });
                 });
             }
             window.HSSMEnsureJavaScriptInjectorLoader = ensureJavaScriptInjectorLoader;
+            window.setTimeout(function () {
+                ensureJavaScriptInjectorLoader().catch(function (error) {
+                    console.warn("[Home Screen Manager] The versioned browser loader could not be synchronized yet.", error);
+                });
+            }, 0);
             function applySection() {
                 const button = host.querySelector('[data-hssm-apply-section]');
                 const applyStatus = host.querySelector('[data-hssm-apply-status]');
