@@ -155,16 +155,16 @@ public sealed class HomeScreenSectionDefinition
     public bool IsApplied { get; set; }
 }
 
-/// <summary>One collection or tag source within a rotating or seasonal section.</summary>
+/// <summary>One collection, library, or tag source within a rotating or seasonal section.</summary>
 public sealed class HomeScreenSectionDraft
 {
     /// <summary>Gets or sets the stable browser-created draft identifier.</summary>
     public string Id { get; set; } = string.Empty;
 
-    /// <summary>Gets or sets whether this draft uses a collection or metadata tag.</summary>
+    /// <summary>Gets or sets whether this draft uses a collection, library, or metadata tag.</summary>
     public string SourceType { get; set; } = string.Empty;
 
-    /// <summary>Gets or sets the collection id or encoded library, metadata type, and tag value.</summary>
+    /// <summary>Gets or sets the collection id, library id, or encoded library, metadata type, and tag value.</summary>
     public string SourceId { get; set; } = string.Empty;
 
     /// <summary>Gets or sets the source name displayed in the Dashboard draft list.</summary>

@@ -9,13 +9,13 @@
     "imageUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Assets/Branding/home-screen-sections-manager-plugin-photo.png",
     "versions": [
       {
-        "version": "0.1.0.20",
-        "changelog": "Reconciles live settings without polling, adds deliberate section refresh, preserves Jellyfin-owned Recently Added rows, tracks stable library identities and conservatively repairs unambiguous deleted/re-added library IDs and stale routes, validates cached media-bar source/timing/image type before display, restores My List and removal controls, and makes Top 10-50 source changes sequential and cancellable.",
+        "version": "0.1.0.21",
+        "changelog": "Makes live per-library Recently Added rows independently reorderable and hideable, makes libraries literal Top/Rotating/Seasonal sources, fixes deterministic startup and My List tab navigation, restores all row arrows, removes stale media-bar request blocking, and softens the Abyss blend with an active-art reflection.",
         "targetAbi": "10.11.11.0",
         "framework": "net9.0",
-        "sourceUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Test%20Releases/0.1.0.20-test/Jellyfin.Plugin.HomeScreenSectionsManager_0.1.0.20-test.zip",
-        "checksum": "50f6349281a69cfa730dc44350ef6709",
-        "timestamp": "2026-08-11T07:21:59Z"
+        "sourceUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Test%20Releases/0.1.0.21-test/Jellyfin.Plugin.HomeScreenSectionsManager_0.1.0.21-test.zip",
+        "checksum": "67c7952632c050616aff1761e5564885",
+        "timestamp": "2026-08-12T04:40:42Z"
       }
     ]
   }

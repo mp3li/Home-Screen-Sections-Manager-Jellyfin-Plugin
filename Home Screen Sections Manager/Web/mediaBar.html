@@ -21,6 +21,47 @@
             document.head.appendChild(link);
         })();
     </script>
+    <style>
+        #backdrop {
+            -webkit-mask-image:
+                linear-gradient(to bottom, #000 30%, rgba(0,0,0,.96) 50%, rgba(0,0,0,.72) 70%, rgba(0,0,0,.32) 88%, transparent 100%),
+                linear-gradient(to right, transparent 0%, #000 25%, #000 70%, transparent 100%),
+                linear-gradient(to bottom, transparent 0%, #000 8%);
+            mask-image:
+                linear-gradient(to bottom, #000 30%, rgba(0,0,0,.96) 50%, rgba(0,0,0,.72) 70%, rgba(0,0,0,.32) 88%, transparent 100%),
+                linear-gradient(to right, transparent 0%, #000 25%, #000 70%, transparent 100%),
+                linear-gradient(to bottom, transparent 0%, #000 8%);
+        }
+        #reflection {
+            bottom:-5%;
+            height:27%;
+            left:8%;
+            opacity:0;
+            overflow:hidden;
+            pointer-events:none;
+            position:absolute;
+            right:8%;
+            transition:opacity 1.1s var(--ease);
+            z-index:1;
+            -webkit-mask-image:linear-gradient(to bottom, rgba(0,0,0,.34), rgba(0,0,0,.12) 48%, transparent 100%);
+            mask-image:linear-gradient(to bottom, rgba(0,0,0,.34), rgba(0,0,0,.12) 48%, transparent 100%);
+        }
+        #reflection.loaded { opacity:.17; }
+        #reflection img {
+            filter:blur(16px) saturate(1.12);
+            height:145%;
+            object-fit:cover;
+            transform:scaleY(-1) scale(1.04);
+            transform-origin:center top;
+            width:100%;
+        }
+        #reflection::after {
+            background:linear-gradient(105deg, transparent 20%, rgba(255,255,255,.08) 48%, transparent 72%);
+            content:'';
+            inset:0;
+            position:absolute;
+        }
+    </style>
 </head>
 <body>
     <!--
@@ -31,6 +72,7 @@
       Upstream: https://github.com/AumGupta/abyss-jellyfin
     -->
     <div id="backdrop"><img id="backdrop-img" alt="" /></div>
+    <div id="reflection" aria-hidden="true"><img id="reflection-img" alt="" /></div>
     <div id="content">
         <img id="logo" alt="" />
         <div id="title"></div>
@@ -307,6 +349,7 @@
                 const detailRoute = `/details?id=${detailId}`;
                 const title = isEpisode ? item.SeriesName || item.Name : item.Name;
                 const backdropImage = $('backdrop-img');
+                const reflectionImage = $('reflection-img');
 
                 if (artwork.backdrop) {
                     const candidates = artwork.candidates || [{ url: artwork.backdrop, centered: artwork.centered }];
@@ -320,18 +363,23 @@
                         }
                         backdropImage.style.objectPosition = candidate.centered ? 'center center' : 'center 20%';
                         backdropImage.src = candidate.url;
+                        reflectionImage.style.objectPosition = backdropImage.style.objectPosition;
+                        reflectionImage.src = candidate.url;
                     };
                     backdropImage.onerror = () => { if (sequence !== renderSequence) return; candidateIndex += 1; applyCandidate(); };
                     applyCandidate();
                     $('backdrop').classList.add('loaded');
+                    $('reflection').classList.add('loaded');
                     startZoom(backdropImage);
                 } else {
                     backdropImage.onerror = null;
                     if (zoomAnimation) zoomAnimation.cancel();
                     zoomAnimation = null;
                     backdropImage.removeAttribute('src');
+                    reflectionImage.removeAttribute('src');
                     backdropImage.style.transform = '';
                     $('backdrop').classList.add('loaded');
+                    $('reflection').classList.remove('loaded');
                 }
 
                 const logo = $('logo');
@@ -416,6 +464,7 @@
                 updateDots();
                 $('content').classList.remove('visible');
                 $('backdrop').classList.remove('loaded');
+                $('reflection').classList.remove('loaded');
                 try {
                     const artwork = await fetchArtwork(item, signal);
                     if (signal.aborted || sequence !== renderSequence) return false;

@@ -43,12 +43,17 @@
     var pendingHeartIds = {};
     var sectionRuntime = {};
     var homeRequestLane = createLimiter(2);
-    var mediaRequestLane = createLimiter(1);
     var heartRequestLane = createLimiter(1);
     var likedItemsById = {};
     var likedItemsLoaded = false;
     var likedItemsRequest = null;
     var myListHeaderRetryTimer = null;
+    var clientReadyTimer = null;
+    var clientReadyAttempts = 0;
+    var routeEventTimer = null;
+    var myListNavigationBound = false;
+    var myListActive = false;
+    var sectionArrowNavigationBound = false;
     var latestNativePreferences = {};
     var liveViewsCache = null;
     var liveViewsCacheAt = 0;
@@ -429,6 +434,31 @@
         return node;
     }
 
+    function upgradeSectionControls(node) {
+        if (!node) return;
+        if (window.CustomElements && typeof window.CustomElements.upgradeSubtree === 'function') {
+            window.CustomElements.upgradeSubtree(node);
+        }
+    }
+
+    function bindSectionArrowNavigation() {
+        if (sectionArrowNavigationBound) return;
+        sectionArrowNavigationBound = true;
+        document.addEventListener('click', function (event) {
+            if (!document.body.classList.contains('hssm-home-active')) return;
+            var button = event.target && event.target.closest ? event.target.closest('.emby-scrollbuttons-button') : null;
+            if (!button) return;
+            var controls = button.closest('.emby-scrollbuttons');
+            var scroller = controls && controls.nextElementSibling;
+            if (!scroller || !scroller.matches('[is="emby-scroller"], emby-scroller')) return;
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            var direction = button.getAttribute('data-direction') === 'left' || button.classList.contains('btnPrev') ? -1 : 1;
+            var distance = Math.max(200, Math.round((scroller.clientWidth || window.innerWidth) * 0.82));
+            scroller.scrollLeft = Number(scroller.scrollLeft || 0) + direction * distance;
+        }, true);
+    }
+
     function nativePreferences() {
         var userId = currentUserId();
         if (!userId || typeof ApiClient.getDisplayPreferences !== 'function') return Promise.resolve({});
@@ -445,12 +475,57 @@
         return values;
     }
 
+    function sectionOrderEntry(value) {
+        var raw = String(value || '');
+        var hidden = raw.indexOf('hidden:') === 0;
+        return { id:hidden ? raw.slice(7) : raw, hidden:hidden };
+    }
+
+    function latestLibraryId(row) {
+        if (!row) return '';
+        if (row.dataset.hssmLatestLibraryId) return row.dataset.hssmLatestLibraryId;
+        var link = row.querySelector('.sectionTitleTextButton[href], .sectionTitleContainer a[href], a.more[href]');
+        var href = link ? String(link.getAttribute('href') || '') : '';
+        var match = href.match(/[?&](?:topParentId|parentId|id)=([^&#]+)/i);
+        if (!match) return '';
+        try { return decodeURIComponent(match[1]); } catch (_) { return match[1]; }
+    }
+
+    function prepareNativeLatestRows(container, settings, preferences) {
+        if (!container) return;
+        var latestIndex = nativeTypes(preferences).indexOf('latestmedia');
+        var wrapper = latestIndex >= 0 ? container.querySelector(':scope > .section' + latestIndex) : null;
+        if (wrapper) {
+            wrapper.dataset.hssmLatestWrapper = 'true';
+            var latestRows = Array.from(wrapper.querySelectorAll(':scope > .verticalSection'));
+            latestRows.forEach(function (row) {
+                var id = latestLibraryId(row);
+                if (!id) return;
+                row.dataset.hssmLatestLibraryId = id;
+                row.dataset.hssmLatestOrderId = 'jellyfin-latest-' + id;
+                container.insertBefore(row, wrapper);
+            });
+            if (latestRows.length) {
+                wrapper.hidden = true;
+                wrapper.style.display = 'none';
+            }
+        }
+        var hidden = {};
+        prop(settings, 'SectionOrder', 'sectionOrder', []).forEach(function (value) {
+            var entry = sectionOrderEntry(value);
+            if (entry.hidden) hidden[entry.id] = true;
+        });
+        Array.from(container.querySelectorAll(':scope > [data-hssm-latest-library-id]')).forEach(function (row) {
+            row.hidden = !!hidden[row.dataset.hssmLatestOrderId];
+        });
+    }
+
     function mediaBarTokenEligible(token) {
         return ['smalllibrarytiles', 'librarybuttons', 'latestmedia'].indexOf(String(token || '')) < 0;
     }
 
     function mediaBarNodeEligible(node, preferences) {
-        if (!node) return false;
+        if (!node || node.hidden || node.dataset.hssmLatestLibraryId) return false;
         if (node.dataset.hssmSectionId) return true;
         return mediaBarTokenEligible(nativeTokenForNode(node, preferences));
     }
@@ -462,7 +537,8 @@
     }
 
     function nodesInOrder(container, settings, preferences) {
-        var sectionOrder = prop(settings, 'SectionOrder', 'sectionOrder', []).map(String);
+        prepareNativeLatestRows(container, settings, preferences);
+        var sectionOrder = prop(settings, 'SectionOrder', 'sectionOrder', []).map(sectionOrderEntry);
         var native = nativeTypes(preferences);
         var desired = [];
         var used = new Set();
@@ -472,7 +548,13 @@
                 desired.push(node);
             }
         }
-        sectionOrder.forEach(function (id) {
+        sectionOrder.forEach(function (entry) {
+            var id = entry.id;
+            if (id.indexOf('jellyfin-latest-') === 0) {
+                var latest = container.querySelector(':scope > [data-hssm-latest-order-id="' + CSS.escape(id) + '"]');
+                if (latest) { latest.hidden = entry.hidden; add(latest); }
+                return;
+            }
             var manager = container.querySelector('[data-hssm-section-id="' + CSS.escape(id) + '"]');
             if (manager) {
                 add(manager);
@@ -484,7 +566,10 @@
                 if (currentIndex >= 0) add(container.querySelector('.section' + currentIndex));
             }
         });
-        Array.from(container.children).forEach(add);
+        Array.from(container.children).forEach(function (node) {
+            if (node.dataset.hssmLatestWrapper === 'true') return;
+            add(node);
+        });
         return normalizeMediaBarNodes(desired, preferences);
     }
 
@@ -772,6 +857,7 @@
 
     function nativeTokenForNode(node, preferences) {
         if (!node) return '';
+        if (node.dataset.hssmLatestLibraryId) return 'latestmedia';
         var types = nativeTypes(preferences);
         for (var index = 0; index < types.length; index++) {
             if (node.classList.contains('section' + index)) return types[index];
@@ -788,11 +874,11 @@
             if (cachedItems.length) return Promise.resolve(orderItems(uniqueItems(cachedItems), section).slice(0, 30));
         }
         if (!ids.length) return Promise.resolve([]);
-        return mediaRequestLane(function () { return queryIds(ids); }).then(function (items) { return orderItems(uniqueItems(items), section).slice(0, 30); });
+        return queryIds(ids).then(function (items) { return orderItems(uniqueItems(items), section).slice(0, 30); });
     }
 
     function mediaBarSource(settings, preferences, container, sections) {
-        var sectionOrder = prop(settings, 'SectionOrder', 'sectionOrder', []).map(String);
+        var sectionOrder = prop(settings, 'SectionOrder', 'sectionOrder', []).map(sectionOrderEntry).filter(function (entry) { return !entry.hidden; }).map(function (entry) { return entry.id; });
         var native = nativeTypes(preferences);
         var orderedSource = null;
         sectionOrder.some(function (id) {
@@ -804,7 +890,7 @@
             return false;
         });
         if (orderedSource && orderedSource.managerId) return { key:orderedSource.managerId, items:mediaBarSectionItems(orderedSource.definition) };
-        if (orderedSource && orderedSource.token) return { key:'jellyfin-' + orderedSource.token, items:mediaRequestLane(function () { return nativeSectionItems(orderedSource.token, preferences, container); }) };
+        if (orderedSource && orderedSource.token) return { key:'jellyfin-' + orderedSource.token, items:nativeSectionItems(orderedSource.token, preferences, container) };
         var topNode = nodesInOrder(container, settings, preferences).find(function (node) { return mediaBarNodeEligible(node, preferences); }) || null;
         if (!topNode) return { key:'none', items:Promise.resolve([]) };
         var managerId = topNode.dataset.hssmSectionId || '';
@@ -813,14 +899,17 @@
             return { key:managerId, items:fallbackDefinition ? mediaBarSectionItems(fallbackDefinition) : Promise.resolve([]) };
         }
         var token = nativeTokenForNode(topNode, preferences);
-        return { key:'jellyfin-' + token, items:mediaRequestLane(function () { return nativeSectionItems(token, preferences, container); }) };
+        return { key:'jellyfin-' + token, items:nativeSectionItems(token, preferences, container) };
     }
 
     function configuredMediaBarKey(settings, preferences) {
         var sections = prop(settings, 'Sections', 'sections', []);
         var native = nativeTypes(preferences || {});
         var key = '';
-        prop(settings, 'SectionOrder', 'sectionOrder', []).map(String).some(function (id) {
+        prop(settings, 'SectionOrder', 'sectionOrder', []).map(sectionOrderEntry).some(function (entry) {
+            if (entry.hidden) return false;
+            var id = entry.id;
+            if (id.indexOf('jellyfin-latest-') === 0) return false;
             if (sections.some(function (section) { return String(prop(section, 'Id', 'id', '')) === id; })) {
                 key = id;
                 return true;
@@ -1145,7 +1234,10 @@
         var section = sectionNode(definition, uniqueItems(items));
         section.hidden = false;
         container.innerHTML = '';
-        if (items.length) container.appendChild(section);
+        if (items.length) {
+            container.appendChild(section);
+            upgradeSectionControls(section);
+        }
         else container.innerHTML = '<p class="hssm-empty-list">My List is empty.</p>';
         Array.from(container.querySelectorAll('.card[data-id]')).forEach(addMyListButton);
     }
@@ -1198,6 +1290,41 @@
         myListHeaderRetryTimer = window.setTimeout(retry, 0);
     }
 
+    function setMyListView(active) {
+        var indexPage = document.getElementById('indexPage');
+        var headerTabs = document.querySelector('.headerTabs.sectionTabs');
+        var customButton = headerTabs && headerTabs.querySelector('.hssm-my-list-tab');
+        var customPage = indexPage && indexPage.querySelector('.hssm-my-list-page');
+        if (!indexPage || !customButton || !customPage) return;
+        myListActive = !!active;
+        document.body.classList.toggle('hssm-my-list-active', myListActive);
+        Array.from(headerTabs.querySelectorAll('.emby-tab-button')).forEach(function (button) {
+            var selected = myListActive && button === customButton;
+            if (button === customButton || myListActive) button.classList.toggle('emby-tab-button-active', selected);
+            button.setAttribute('aria-selected', String(selected));
+        });
+        Array.from(indexPage.querySelectorAll(':scope > .pageTabContent')).forEach(function (panel) {
+            panel.classList.toggle('is-active', myListActive && panel === customPage);
+        });
+        if (myListActive) renderMyList(customPage.querySelector('.hssm-my-list-container'));
+    }
+
+    function bindMyListNavigation() {
+        if (myListNavigationBound) return;
+        myListNavigationBound = true;
+        document.addEventListener('click', function (event) {
+            var button = event.target && event.target.closest ? event.target.closest('.headerTabs.sectionTabs .emby-tab-button') : null;
+            if (!button) return;
+            if (button.classList.contains('hssm-my-list-tab')) {
+                event.preventDefault();
+                event.stopImmediatePropagation();
+                setMyListView(true);
+                return;
+            }
+            if (myListActive) setMyListView(false);
+        }, true);
+    }
+
     function applyMyList(settings, scope, skipRetry) {
         var enabled = setting(settings, 'EnableMyList', false);
         scope = scope || activePage();
@@ -1212,7 +1339,8 @@
             var oldPage = document.querySelector('.hssm-my-list-page');
             if (oldButton) oldButton.remove();
             if (oldPage) oldPage.remove();
-            if (tabsWidget && typeof tabsWidget.refresh === 'function') tabsWidget.refresh();
+            myListActive = false;
+            document.body.classList.remove('hssm-my-list-active');
             return;
         }
         if (scope) Array.from(scope.querySelectorAll('.card[data-id]')).forEach(addMyListButton);
@@ -1256,39 +1384,8 @@
         }
         page.dataset.index = String(myIndex);
         page.hidden = false;
-        if (tabsWidget.dataset.hssmMyListBound !== 'true') {
-            tabsWidget.dataset.hssmMyListBound = 'true';
-            tabsWidget.addEventListener('click', function (event) {
-                var customButton = event.target.closest('.hssm-my-list-tab');
-                if (!customButton || !tabsWidget.contains(customButton)) return;
-                event.preventDefault();
-                event.stopImmediatePropagation();
-                var customPage = indexPage.querySelector('.hssm-my-list-page');
-                if (!customPage) return;
-                Array.from(tabsWidget.querySelectorAll('.emby-tab-button')).forEach(function (tabButton) {
-                    tabButton.classList.toggle('emby-tab-button-active', tabButton === customButton);
-                });
-                Array.from(indexPage.querySelectorAll(':scope > .tabContent')).forEach(function (tab) {
-                    tab.classList.toggle('is-active', tab === customPage);
-                });
-                tabsWidget.selectedTabIndex = Number(customButton.dataset.index);
-                renderMyList(customPage.querySelector('.hssm-my-list-container'));
-            }, true);
-            tabsWidget.addEventListener('beforetabchange', function (event) {
-                var customPage = indexPage.querySelector('.hssm-my-list-page');
-                var customButton = tabsWidget.querySelector('.hssm-my-list-tab');
-                if (!customPage || !customButton) return;
-                var selectedIndex = Number(event.detail && event.detail.selectedTabIndex);
-                var customIndex = Number(customButton.dataset.index);
-                if (selectedIndex === customIndex) {
-                    Array.from(indexPage.querySelectorAll(':scope > .tabContent')).forEach(function (tab) { tab.classList.toggle('is-active', tab === customPage); });
-                    renderMyList(customPage.querySelector('.hssm-my-list-container'));
-                } else {
-                    customPage.classList.remove('is-active');
-                }
-            });
-        }
-        if (typeof tabsWidget.refresh === 'function') tabsWidget.refresh();
+        bindMyListNavigation();
+        if (myListActive) setMyListView(true);
     }
 
     function formatEndTime(ticks) {
@@ -1336,6 +1433,7 @@
             var definition = { Id: 'detail-collections', Name: 'Also Part of These Collections', ArtSize: 'small', ArtType: 'primary', ArtShape: 'poster', ShowText: true };
             var node = sectionNode(definition, collections); node.classList.add('hssm-detail-collections'); node.hidden = false;
             var similar = content.querySelector('#similarCollapsible'); if (similar) content.insertBefore(node, similar); else content.appendChild(node);
+            upgradeSectionControls(node);
         }).finally(function () { collectionsWorkKey = ''; });
     }
 
@@ -1639,6 +1737,7 @@
         if (oldNode && oldNode.isConnected) oldNode.replaceWith(nextNode);
         else state.container.appendChild(nextNode);
         state.node = nextNode;
+        upgradeSectionControls(nextNode);
         var nextScroller = nextNode.querySelector('.hssm-client-scroller');
         if (nextScroller && oldScrollLeft) nextScroller.scrollLeft = oldScrollLeft;
         attachSectionPaging(state);
@@ -1685,6 +1784,7 @@
             var sourceType = String(prop(draft, 'SourceType', 'sourceType', ''));
             var sourceId = String(prop(draft, 'SourceId', 'sourceId', ''));
             if (sourceType === 'collection') request = queryItems({ ParentId:sourceId, Recursive:true, StartIndex:0, Limit:40 });
+            if (sourceType === 'library') request = queryItems({ ParentId:resolvedLibraryId(sourceId), Recursive:true, StartIndex:0, Limit:40 });
             if (sourceType === 'tag') {
                 request = postJson('CollectionManager/individual-collection-drafts/preview', tagSource(sourceId, prop(state.section, 'Name', 'name', ''))).then(function (preview) {
                     return queryIds(prop(preview, 'Items', 'items', []).map(function (item) { return String(prop(item, 'Id', 'id', '')); }).slice(0, 40));
@@ -1773,6 +1873,7 @@
         lastSignature = signature(settings);
         lastError = '';
         renderedSectionCount = sections.length;
+        bindSectionArrowNavigation();
         applyHybridOrder(container, settings, preferences);
         applyRouteFeatures(settings, container.closest('.libraryPage, .page') || container, true, preferences);
         renderMediaBar(settings, preferences, container, sections);
@@ -1806,15 +1907,33 @@
     }
 
     function routeRefresh(force) {
+        if (!isHomeRoute()) {
+            myListActive = false;
+            document.body.classList.remove('hssm-my-list-active');
+        }
         reconcileCurrentLibraryRoute();
         var generation = ++runtimeGeneration;
         var preservePendingBar = !force && !isDashboardScreen() && !isPlaybackScreen() && primeCachedMediaBar();
         clearRouteArtifacts(preservePendingBar);
-        if (!window.ApiClient || !currentUserId() || isDashboardScreen() || isPlaybackScreen()) {
-            if (isHomeRoute()) Array.from(document.querySelectorAll('.featurediframe')).forEach(function (frame) { frame.style.removeProperty('visibility'); });
+        if (!window.ApiClient || !currentUserId()) {
+            if (!isDashboardScreen() && !isPlaybackScreen() && clientReadyAttempts < 300) {
+                window.clearTimeout(clientReadyTimer);
+                clientReadyAttempts += 1;
+                clientReadyTimer = window.setTimeout(function () { routeRefresh(false); }, 100);
+            } else if (isHomeRoute()) {
+                Array.from(document.querySelectorAll('.featurediframe')).forEach(function (frame) { frame.style.removeProperty('visibility'); });
+            }
             applyLogo(isPlaybackScreen() ? {} : (settingsCache || cacheRead('client-settings', 24 * 60 * 60 * 1000) || {}));
             return;
         }
+        clientReadyAttempts = 0;
+        window.clearTimeout(clientReadyTimer);
+        clientReadyTimer = null;
+        if (isDashboardScreen() || isPlaybackScreen()) {
+            applyLogo(isPlaybackScreen() ? {} : (settingsCache || cacheRead('client-settings', 24 * 60 * 60 * 1000) || {}));
+            return;
+        }
+        liveUserViews(false);
         getClientSettings(!!force).then(function (settings) {
             if (generation !== runtimeGeneration || isDashboardScreen() || isPlaybackScreen()) return;
             applyLogo(settings);
@@ -1856,9 +1975,15 @@
         });
     }
 
-    window.addEventListener('hashchange', function () { routeRefresh(false); });
-    window.addEventListener('pageshow', function () { routeRefresh(false); });
-    document.addEventListener('viewshow', function () { routeRefresh(false); });
+    function queueRouteRefresh(force) {
+        window.clearTimeout(routeEventTimer);
+        routeEventTimer = window.setTimeout(function () { routeRefresh(!!force); }, force ? 0 : 60);
+    }
+
+    window.addEventListener('hashchange', function () { queueRouteRefresh(false); });
+    window.addEventListener('pageshow', function () { queueRouteRefresh(false); });
+    window.addEventListener('load', function () { queueRouteRefresh(false); }, { once:true });
+    document.addEventListener('viewshow', function () { queueRouteRefresh(false); });
     window.addEventListener('home-screen-manager-refresh', function () { routeRefresh(true); });
     window.addEventListener('home-screen-manager-settings-changed', function () {
         settingsCache = null;
@@ -1898,6 +2023,5 @@
             };
         }
     };
-    liveUserViews(false);
     routeRefresh(false);
 }());

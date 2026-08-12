@@ -255,6 +255,14 @@ body.hssm-home-active .homeSectionsContainer {
     padding-top: 1.25em;
 }
 
+body.hssm-my-list-active #indexPage > .pageTabContent:not(.hssm-my-list-page) {
+    display: none !important;
+}
+
+body.hssm-my-list-active #indexPage > .hssm-my-list-page {
+    display: block !important;
+}
+
 .hssm-my-list-tab {
     margin-left: 0.65em !important;
 }

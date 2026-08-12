@@ -1,5 +1,51 @@
 # Changelog
 
+## [0.1.0.21-test] - 2026-08-11
+
+### Reworked
+
+- Makes every live Jellyfin **Recently Added to …** child row an individual
+  Jellyfin-labeled entry in Create and Manage Home Screen Sections. Each row can
+  be shown or hidden and dragged independently while Jellyfin continues to own
+  its content, title, artwork, and navigation.
+- Makes selected libraries literal content sources in Top 10–50, Rotating, and
+  Seasonal source pickers. Library sources save as supported drafts, survive
+  stable-ID renames, and participate in the same preview, ordering, and art flow
+  as collection and metadata-tag sources.
+
+### Fixed
+
+- Adds a bounded Jellyfin-client readiness path and coalesces duplicate route
+  events so Home initialization cannot silently exit or repeatedly cancel the
+  same render. Custom rows, My List, hearts, and removal controls initialize
+  independently from media-bar artwork.
+- Removes the shared media-bar request queue that allowed one stale request to
+  delay a newer source or image-type selection. Existing generation checks still
+  prevent an older result from overwriting the current slide.
+- Gives My List an explicit Home/Favorites/My List panel state, so selecting My
+  List shows its own content and returning to Home or Favorites restores the
+  corresponding native panel.
+- Initializes Jellyfin’s registered scroller controls for every plugin-created
+  row and adds one home-scoped arrow handler, restoring left/right buttons while
+  retaining mouse-wheel, mouse-drag, touch, and focus navigation.
+- Preserves hidden Recently Added rows through layout, section-edit, manual
+  refresh, and apply saves. Deleted libraries leave no stale native row; renamed
+  libraries retain their stable ID and show their live name.
+
+### Appearance
+
+- Softens and lengthens the Abyss media bar’s lower blend into the page and adds
+  a restrained, blurred liquid-glass reflection derived from the active slide’s
+  selected artwork.
+
+### Safety and validation
+
+- Reuses Jellyfin Web 10.11.11’s live Recently Added child elements and official
+  user-view, display-preference, item, image, and custom-element contracts. It
+  does not rebuild native Recently Added content or modify Jellyfin Web files.
+- Browser scripts parse successfully and the Release build succeeds against
+  Jellyfin 10.11.11. Installed-server behavior remains part of this test round.
+
 ## [0.1.0.20-test] - 2026-08-10
 
 ### Reworked

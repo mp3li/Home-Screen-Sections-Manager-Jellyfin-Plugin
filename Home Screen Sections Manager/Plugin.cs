@@ -271,6 +271,7 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
             .Where(draft => !string.IsNullOrWhiteSpace(draft.Id)
                 && !string.IsNullOrWhiteSpace(draft.SourceId)
                 && (string.Equals(draft.SourceType, "collection", StringComparison.Ordinal)
+                    || string.Equals(draft.SourceType, "library", StringComparison.Ordinal)
                     || string.Equals(draft.SourceType, "tag", StringComparison.Ordinal)
                     || string.Equals(draft.SourceType, "top", StringComparison.Ordinal)))
             .GroupBy(draft => draft.Id, StringComparer.Ordinal)

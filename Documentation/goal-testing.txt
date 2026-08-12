@@ -40,7 +40,7 @@ Current dashboard checks
       full text-only draggable list.
 - [ ] Confirm the collection, library, and metadata-tag source pickers for
       Rotating Sections and Seasonal Sections are all collapsed by default.
-- [ ] Confirm each selected collection or metadata tag creates one visible draft,
+- [ ] Confirm each selected collection, library, or metadata tag creates one visible draft,
       draft cards show current matching-media counts, and removing or dragging a
       draft updates the saved draft list and order.
 - [ ] Confirm rotation amount and hour/day/week units save and restore.
@@ -111,9 +111,11 @@ Current dashboard checks
       then use Refresh Home Screen Sections to persist the migrated source.
 - [ ] With more than one library of the same type, confirm no ambiguous deleted
       library is silently mapped to the wrong replacement.
-- [ ] Add or remove a library and confirm Jellyfin's native Latest Media wrapper
-      remains one hybrid-order row while its inner Recently Added rows and cards
-      come entirely from Jellyfin's current user views.
+- [ ] Confirm every eligible live library has one Jellyfin-labeled Recently
+      Added row that can be independently shown, hidden, and reordered.
+- [ ] Rename, delete, and add libraries and confirm the Recently Added list uses
+      current Jellyfin user views: stable-ID renames keep their position, deleted
+      rows disappear without stale links, and new libraries receive fresh rows.
 - [ ] Confirm the Home logo stays beside the hamburger menu on Home,
       libraries, search, settings, and breadcrumbed detail pages, always navigates
       Home, and is absent only from playback screens.
@@ -134,7 +136,7 @@ Current dashboard checks
 - [ ] Confirm series and season pages show correct counts and Ends at values.
 - [ ] Confirm selected libraries append the next native page near the bottom and
       preserve the current Jellyfin sort, filters, card type, and scroll place.
-- [ ] Confirm plugin-created rows respond to Jellyfin's desktop arrows, mouse
+- [ ] Confirm native and plugin-created rows respond to Jellyfin's desktop arrows, mouse
       wheel, mouse drag, touch, and focus navigation.
 - [ ] Confirm Also Part of These Collections and enhanced Jellyfin-only search work.
 - [ ] Confirm breadcrumbs promptly use Movies/Shows/Music media structure and

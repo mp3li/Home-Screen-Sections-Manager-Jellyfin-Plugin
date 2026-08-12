@@ -28,9 +28,12 @@ sidebar icons, and My List hearts into explicit controls, with a separate color
 for the selected top-navigation tab's non-hovered text. It also supplies the Home
 logo, media-bar timing, and media-bar image type.
 
-**Create and Manage Home Screen Sections** shows the current ten-slot
-Jellyfin home section arrangement together with saved plugin sections. Jellyfin,
-plugin-created, and Media Bar badges have separately configurable label colors.
+**Create and Manage Home Screen Sections** shows Jellyfin’s current home rows
+together with saved plugin sections. Jellyfin’s native Latest Media area is
+expanded into one live **Recently Added to …** row per eligible library; those
+rows can be shown, hidden, and reordered independently without rebuilding their
+Jellyfin-owned content. Jellyfin, plugin-created, and Media Bar badges have
+separately configurable label colors.
 One row can be selected at a time; plugin rows can be edited or deleted; and every
 row can be dragged. The first eligible row receives the **Media Bar** label and
 supplies the media shown in the top bar, whether that row came from Jellyfin or
@@ -40,8 +43,9 @@ The current section types are Manual Content, individual or multiple collection
 content, multiple collections in a row, individual or combined tags,
 multi-match tags, individual or multiple library content, libraries in a row,
 Rotating Sections, Seasonal Sections, Top 10–50, and What Other Users Are
-Watching/Reading/Listening To. Top 10–50 combines selected collections and
-metadata tags into one editable draft, ranks only media with an IMDb rating tag,
+Watching/Reading/Listening To. Top 10–50 combines selected collections,
+libraries, and metadata tags into one editable draft, ranks media with an IMDb
+rating tag or Jellyfin Community Rating,
 and supports optional oversized solid or gradient numbering with an imported
 TTF or OTF font. The activity section combines randomized current and recent
 activity without displaying user identities. The media, collection,
@@ -77,9 +81,10 @@ its section relationship. If Jellyfin replaces a deleted and re-added library
 with a new ID, Home Screen Manager can conservatively migrate a previously seen
 ID when the current name and library type form one unambiguous match, or when a
 stale native library route is uniquely resolved. Ambiguous replacements are not
-guessed. Jellyfin's entire Latest Media block remains native and is reordered as
-one block, so changes to its inner **Recently Added to …** rows are left to the
-current Jellyfin user-view list.
+guessed. Each native **Recently Added to …** row is sourced from Jellyfin’s
+current live user-view list, so a rename updates its label without changing
+identity, a deletion removes the stale row, and a newly added library creates a
+fresh native row.
 
 The uploaded Home logo remains present throughout Jellyfin Web, including
 breadcrumbed detail pages, and is hidden on playback screens. It always retains
