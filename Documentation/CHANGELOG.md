@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.1.0.23-test] - 2026-08-11
+
+### Fixed
+
+- Makes Home re-entry wait for Jellyfin Web 10.11.11’s cached `#indexPage` and active `#homeTab` instead of rendering into a still-visible Dashboard or inactive Home tab.
+- Recovers plugin rows and the Abyss media bar independently when Jellyfin rebuilds the cached Home DOM. Existing configured media-bar content is preserved across ordinary navigation and the active Abyss frame is explicitly resumed.
+- Keeps stale section requests from repainting removed or replaced rows.
+- Moves My List and other active page titles below the existing header tabs so they no longer overlap the uploaded logo or Home/Favorites/My List and library-navigation tabs.
+- Restores readable Create and Manage rows for long Recently Added names and adds a persistence-safe **Undo Delete Section** action.
+- States that selected collection and library sources include all current media, and pages rotating, seasonal, and user-activity rows in bounded 40-item reads instead of stopping at the first page.
+
+### Safety and validation
+
+- Uses Jellyfin Web 10.11.11’s official cached Home page, active tab, `viewshow`, item-query, and registered scroller contracts and the plugin base’s bounded-retry and paged-read guidance. It adds no periodic browser polling and does not rebuild native Recently Added content.
+- Dashboard and client scripts parse successfully, and the Release build succeeds against Jellyfin 10.11.11. Installed-server behavior remains part of this test round.
+
 ## [0.1.0.22-test] - 2026-08-11
 
 ### Fixed

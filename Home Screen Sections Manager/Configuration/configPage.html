@@ -15,7 +15,7 @@
         #homeScreenSectionsManagerPage .hssm-colors .inputContainer { margin:0; min-width:14em; }
         #homeScreenSectionsManagerPage .hssm-color { width:3.5em !important; min-width:3.5em; max-width:3.5em; height:3.5em; padding:.1em; }
         #homeScreenSectionsManagerPage .hssm-section-list { margin-top:1em; border:1px solid var(--hssm-outline); border-radius:.45em; overflow:hidden; }
-        #homeScreenSectionsManagerPage .hssm-section-row { box-sizing:border-box; display:flex; align-items:center; gap:.75em; width:100%; min-height:3.3em; padding:.7em .8em; border:0; border-bottom:1px solid var(--hssm-outline); background:transparent; color:inherit; cursor:grab; user-select:none; text-align:left; }
+        #homeScreenSectionsManagerPage .hssm-section-row { box-sizing:border-box; display:grid; grid-template-columns:auto minmax(12em,1fr) auto auto auto; align-items:center; gap:.75em; width:100%; min-height:3.3em; padding:.7em .8em; border:0; border-bottom:1px solid var(--hssm-outline); background:transparent; color:inherit; cursor:grab; user-select:none; text-align:left; }
         #homeScreenSectionsManagerPage .hssm-section-row:last-child { border-bottom:0; }
         #homeScreenSectionsManagerPage .hssm-section-row:hover { background:rgba(128,128,128,.12); }
         #homeScreenSectionsManagerPage .hssm-section-row.selected { outline:2px solid #00a4dc; outline-offset:-2px; background:rgba(0,164,220,.13); }
@@ -25,7 +25,7 @@
         #homeScreenSectionsManagerPage .hssm-section-row.locked { cursor:default; }
         #homeScreenSectionsManagerPage .hssm-drag-handle { color:inherit; opacity:.62; font-size:1.25em; line-height:1; }
         #homeScreenSectionsManagerPage .hssm-section-row.locked .hssm-drag-handle { opacity:.4; }
-        #homeScreenSectionsManagerPage .hssm-section-name { flex:1 1 auto; min-width:0; overflow-wrap:anywhere; }
+        #homeScreenSectionsManagerPage .hssm-section-name { min-width:0; overflow-wrap:normal; word-break:normal; }
         #homeScreenSectionsManagerPage .hssm-badge { flex:0 0 auto; border-radius:999px; padding:.28em .7em; color:#fff; font-size:.79em; font-weight:bold; white-space:nowrap; }
         #homeScreenSectionsManagerPage .hssm-badge-jellyfin { background:var(--hssm-jellyfin); }
         #homeScreenSectionsManagerPage .hssm-badge-manager { background:var(--hssm-manager); }
@@ -47,7 +47,7 @@
         #homeScreenSectionsManagerPage .hssm-gradient-controls .inputContainer { flex:0 0 7em; margin:0; }
         #homeScreenSectionsManagerPage .hssm-library-picker { display:grid; grid-template-columns:repeat(auto-fit,minmax(14em,1fr)); gap:.4em 1em; margin-top:1em; }
         #homeScreenSectionsManagerPage .hssm-logo-preview { display:block; max-width:18em; max-height:4em; object-fit:contain; object-position:left center; margin:.8em 0; }
-        @media (max-width:38em) { #homeScreenSectionsManagerPage .hssm-section-row { align-items:flex-start; } #homeScreenSectionsManagerPage .hssm-badge { white-space:normal; text-align:center; } }
+        @media (max-width:50em) { #homeScreenSectionsManagerPage .hssm-section-row { grid-template-columns:auto minmax(0,1fr); align-items:center; } #homeScreenSectionsManagerPage .hssm-section-name { grid-column:2; } #homeScreenSectionsManagerPage .hssm-native-section-toggle, #homeScreenSectionsManagerPage .hssm-badge { grid-column:2; justify-self:start; } #homeScreenSectionsManagerPage .hssm-badge { white-space:normal; text-align:center; } }
     </style>
 
     <div class="content-primary">
@@ -181,6 +181,7 @@
                     <button is="emby-button" type="button" class="raised button-submit" id="hssmAddSectionButton">Create Section</button>
                     <button is="emby-button" type="button" class="raised" id="hssmEditSectionButton" disabled>Edit Section</button>
                     <button is="emby-button" type="button" class="raised" id="hssmDeleteSectionButton" disabled>Delete Section</button>
+                    <button is="emby-button" type="button" class="raised" id="hssmUndoDeleteSectionButton" disabled>Undo Delete Section</button>
                 </div>
 
                 <div id="hssmNewSectionSettings" class="hssm-new-settings" hidden>
@@ -259,11 +260,12 @@
                 ['top-10-50', 'Top 10-50', 'Based on IMDB ratings that must already be tagged in your media to use this feature. Select as much media as you’d like and the displayed media and media order will be picked based on your selections.'],
                 ['other-users-activity', 'What Other Users Are Watching/Reading/Listening To', 'Displays a random combination of what all users have recently watched/are currently watching.']
             ];
-            let sections = [], selectedId = null, draftId = null, draggedId = null;
+            let sections = [], selectedId = null, draftId = null, draggedId = null, lastDeleted = null;
             const list = page.querySelector('#hssmSectionList');
             const addButton = page.querySelector('#hssmAddSectionButton');
             const editButton = page.querySelector('#hssmEditSectionButton');
             const deleteButton = page.querySelector('#hssmDeleteSectionButton');
+            const undoDeleteButton = page.querySelector('#hssmUndoDeleteSectionButton');
             const newSettings = page.querySelector('#hssmNewSectionSettings');
             const nameInput = page.querySelector('#hssmNewSectionName');
             const choices = page.querySelector('#hssmTypeChoices');
@@ -290,6 +292,7 @@
                 }).join('');
                 deleteButton.disabled = !(selected() && selected().origin === 'manager');
                 editButton.disabled = deleteButton.disabled;
+                undoDeleteButton.disabled = !(lastDeleted && lastDeleted.ready);
             }
 
             function renderChoices() {
@@ -336,7 +339,7 @@
                 const userRequest = userId && typeof ApiClient.getCurrentUser === 'function' ? ApiClient.getCurrentUser().catch(() => null) : Promise.resolve(null);
                 Promise.all([nativeRequest, savedRequest, viewsRequest, userRequest]).then(([preferences, saved, views, user]) => {
                     const nativeRows = nativeSections(preferences, views, user);
-                    const managerRows = (saved.Sections || saved.sections || []).map(definition => ({ id:String(definition.Id || definition.id), name:String(definition.Name || definition.name), type:String(definition.Type || definition.type), origin:'manager', locked:false }));
+                    const managerRows = (saved.Sections || saved.sections || []).map(definition => ({ id:String(definition.Id || definition.id), name:String(definition.Name || definition.name), type:String(definition.Type || definition.type), origin:'manager', locked:false, definition:definition }));
                     const rows = nativeRows.concat(managerRows), byId = {};
                     rows.forEach(row => { byId[row.id] = row; });
                     const ordered = [];
@@ -384,17 +387,21 @@
             });
 
             let layoutSaveTimer = null;
-            function persistLayout(removeId) {
-                if (!window.ApiClient) return Promise.resolve();
-                return ApiClient.getJSON(ApiClient.getUrl('HomeScreenSectionsManager/section-settings')).then(saved => {
-                    const definitions = (saved.Sections || saved.sections || []).filter(item => String(item.Id || item.id) !== String(removeId || ''));
+            function persistLayout(removeId, restoreDefinition) {
+                if (!window.ApiClient) return Promise.resolve({ removedDefinition:null });
+                let removedDefinition = null;
+                return ApiClient.getJSON(ApiClient.getUrl("HomeScreenSectionsManager/section-settings")).then(saved => {
+                    const current = saved.Sections || saved.sections || [];
+                    removedDefinition = current.find(item => String(item.Id || item.id) === String(removeId || "")) || null;
+                    const definitions = current.filter(item => String(item.Id || item.id) !== String(removeId || ""));
+                    if (restoreDefinition && !definitions.some(item => String(item.Id || item.id) === String(restoreDefinition.Id || restoreDefinition.id))) definitions.push(restoreDefinition);
                     const knownManagerIds = definitions.map(item => String(item.Id || item.id));
-                    const order = Array.from(list.querySelectorAll('[data-section-id]')).map(row => {
+                    const order = Array.from(list.querySelectorAll("[data-section-id]")).map(row => {
                         const id = row.dataset.sectionId, model = sections.find(section => section.id === id);
-                        return model && model.enabled === false ? 'hidden:' + id : id;
-                    }).filter(value => { const id = String(value).replace(/^hidden:/, ''); return id.indexOf('manager-') !== 0 || knownManagerIds.indexOf(id) >= 0; });
-                    return ApiClient.ajax({ type:'POST', url:ApiClient.getUrl('HomeScreenSectionsManager/section-settings'), data:JSON.stringify({ JellyfinSectionLabelColor:page.querySelector('#hssmJellyfinColor').value, ManagerSectionLabelColor:page.querySelector('#hssmManagerColor').value, MediaBarSectionLabelColor:page.querySelector('#hssmMediaBarColor').value, Sections:definitions, SectionOrder:order }), contentType:'application/json', dataType:'json' });
-                }).then(result => { window.HSSMNotifyClientSettingsChanged(); return result; });
+                        return model && model.enabled === false ? "hidden:" + id : id;
+                    }).filter(value => { const id = String(value).replace(/^hidden:/, ""); return id.indexOf("manager-") !== 0 || knownManagerIds.indexOf(id) >= 0; });
+                    return ApiClient.ajax({ type:"POST", url:ApiClient.getUrl("HomeScreenSectionsManager/section-settings"), data:JSON.stringify({ JellyfinSectionLabelColor:page.querySelector("#hssmJellyfinColor").value, ManagerSectionLabelColor:page.querySelector("#hssmManagerColor").value, MediaBarSectionLabelColor:page.querySelector("#hssmMediaBarColor").value, Sections:definitions, SectionOrder:order }), contentType:"application/json", dataType:"json" });
+                }).then(result => { window.HSSMNotifyClientSettingsChanged(); return { result, removedDefinition }; });
             }
             function scheduleLayoutSave() { window.clearTimeout(layoutSaveTimer); layoutSaveTimer = window.setTimeout(() => persistLayout(), 250); }
             page.querySelector('#hssmJellyfinColor').addEventListener('input', event => { page.style.setProperty('--hssm-jellyfin', event.target.value); scheduleLayoutSave(); });
@@ -422,16 +429,51 @@
                 showDraft();
             });
 
-            deleteButton.addEventListener('click', () => {
+            deleteButton.addEventListener("click", () => {
                 const item = selected();
-                if (!item || item.origin !== 'manager') return;
-                const removedId = item.id;
-                sections = sections.filter(section => section.id !== item.id);
+                if (!item || item.origin !== "manager") return;
+                const removedIndex = sections.findIndex(section => section.id === item.id);
+                const record = { item:Object.assign({}, item), index:removedIndex, definition:item.definition || null, ready:false };
+                lastDeleted = record;
+                sections.splice(removedIndex, 1);
                 if (draftId === item.id) draftId = null;
                 selectedId = null;
                 render();
                 showDraft();
-                persistLayout(removedId);
+                status.textContent = "Deleting section…";
+                persistLayout(item.id).then(payload => {
+                    if (lastDeleted !== record) return;
+                    record.definition = payload.removedDefinition || record.definition;
+                    record.ready = true;
+                    status.textContent = "Section deleted. You can undo this deletion.";
+                    render();
+                }, () => {
+                    sections.splice(Math.min(record.index, sections.length), 0, record.item);
+                    lastDeleted = null;
+                    selectedId = record.item.id;
+                    status.textContent = "The section could not be deleted, so it was restored.";
+                    render();
+                });
+            });
+
+            undoDeleteButton.addEventListener("click", () => {
+                const record = lastDeleted;
+                if (!record || !record.ready) return;
+                sections.splice(Math.min(Math.max(record.index, 0), sections.length), 0, record.item);
+                selectedId = record.item.id;
+                lastDeleted = null;
+                render();
+                status.textContent = "Restoring section…";
+                const request = record.definition ? persistLayout(null, record.definition) : persistLayout();
+                request.then(() => {
+                    status.textContent = "Section deletion undone.";
+                }, () => {
+                    sections = sections.filter(section => section.id !== record.item.id);
+                    lastDeleted = record;
+                    selectedId = null;
+                    status.textContent = "The deleted section could not be restored.";
+                    render();
+                });
             });
 
             list.addEventListener('input', event => {
@@ -577,16 +619,16 @@
                 return '<div class="hssm-draft-picker"><div class="hssm-draft-picker-heading"><button is="emby-button" type="button" class="raised" data-hssm-draft-picker-toggle="' + key + '">Click here to expand</button><h3>' + title + '</h3></div><p class="fieldDescription">' + description + '</p><div class="hssm-draft-picker-body" data-hssm-draft-picker-body="' + key + '" hidden>' + body + '</div></div>';
             }
             function sourceDraftPickerMarkup() {
-                return '<section class="hssm-conditional-section"><h2>Select Sources for Section Drafts</h2><p class="fieldDescription">Select collections, libraries, and metadata tags to provide the content used by this section. Open only the picker you need.</p>'
-                    + draftPickerMarkup('Select Collections', 'Each selected collection creates one section draft containing that collection’s current content.', 'collections', '<div data-hssm-draft-collections class="mcm-art-picker"></div>')
-                    + draftPickerMarkup('Select Libraries', 'Each selected library provides all of that library’s current content. For rotating and seasonal sections, each selected library creates its own section draft.', 'libraries', '<div data-hssm-draft-libraries class="mcm-library-list"></div>')
-                    + draftPickerMarkup('Select Metadata Tags', 'Each selected metadata tag creates one section draft containing the media that currently matches that tag.', 'tags', '<div data-hssm-tags></div>')
+                return '<section class="hssm-conditional-section"><h2>Select Sources for Section Drafts</h2><p class="fieldDescription">Select collections, libraries, and metadata tags to provide content for this section. Selecting a collection or library includes 100% of its current media items. Open only the picker you need.</p>'
+                    + draftPickerMarkup('Select Collections', 'Selecting a collection includes all current media items in that collection. Rotating and seasonal sections create one section draft for each selected collection.', 'collections', '<div data-hssm-draft-collections class="mcm-art-picker"></div>')
+                    + draftPickerMarkup('Select Libraries', 'Selecting a library includes all current media items in that library. Rotating and seasonal sections create one section draft for each selected library.', 'libraries', '<div data-hssm-draft-libraries class="mcm-library-list"></div>')
+                    + draftPickerMarkup('Select Metadata Tags', 'Selecting a metadata tag includes all current media that matches that tag. Rotating and seasonal sections create one section draft for each selected tag.', 'tags', '<div data-hssm-tags></div>')
                     + '</section>';
             }
             function topMarkup() {
                 return '<section class="hssm-conditional-section"><h2>Top 10-50 Settings</h2><p class="fieldDescription">Choose how many of the highest IMDb-tagged items from your selected sources will appear.</p><div class="selectContainer"><label class="selectLabel">Display Top:</label><select is="emby-select" data-hssm-display-top>' + selectOptions([[10,'10'],[20,'20'],[30,'30'],[40,'40'],[50,'50']], state.displayTop) + '</select></div></section>'
                     + sourceDraftPickerMarkup()
-                    + '<section class="hssm-conditional-section"><h2>Top Section Draft</h2><p class="fieldDescription">All selected collections, libraries, and metadata tags are combined into this one draft. You can edit its title.</p><div class="hssm-source-drafts" data-hssm-source-drafts></div></section>'
+                    + '<section class="hssm-conditional-section"><h2>Top Section Draft</h2><p class="fieldDescription">All media from the selected collections and libraries, plus all media matching the selected tags, is combined into one Top draft. You can edit its title.</p><div class="hssm-source-drafts" data-hssm-source-drafts></div></section>'
                     + contentMarkup();
             }
             function activitySectionName(value) {

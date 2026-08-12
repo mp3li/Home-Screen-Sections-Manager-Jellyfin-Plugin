@@ -250,6 +250,31 @@ body.hssm-home-active .homeSectionsContainer {
     width: 2.8em;
 }
 
+
+.pageTitle.hssm-page-context-source {
+    visibility: hidden !important;
+}
+
+.hssm-page-context-title {
+    box-sizing: border-box;
+    font-size: clamp(1.35em, 2vw, 1.8em);
+    font-weight: 500;
+    line-height: 1.2;
+    margin: 0 auto 0.4em;
+    max-width: min(90vw, 48em);
+    padding: 0.45em 3.3% 0.2em;
+    text-align: center;
+    width: 100%;
+}
+
+.hssm-my-list-page > .hssm-page-context-title {
+    margin-top: 0;
+}
+
+.hssm-my-list-page .hssm-client-section > .sectionTitle {
+    display: none !important;
+}
+
 .hssm-my-list-page {
     min-height: 50vh;
     padding-top: 1.25em;

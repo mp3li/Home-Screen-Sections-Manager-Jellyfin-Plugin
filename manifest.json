@@ -9,13 +9,13 @@
     "imageUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Assets/Branding/home-screen-sections-manager-plugin-photo.png",
     "versions": [
       {
-        "version": "0.1.0.22",
-        "changelog": "Restores all section arrow buttons by removing the plugin click interceptor and returning arrow movement, alignment, animation, and button state to Jellyfin Web 10.11.11’s registered scroller controls.",
+        "version": "0.1.0.23",
+        "changelog": "Fixes cached Home re-entry so custom rows and the configured Abyss media bar recover independently; normalizes page-title placement; repairs Recently Added row layout; adds Undo Delete; and pages complete dynamic source content safely.",
         "targetAbi": "10.11.11.0",
         "framework": "net9.0",
-        "sourceUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Test%20Releases/0.1.0.22-test/Jellyfin.Plugin.HomeScreenSectionsManager_0.1.0.22-test.zip",
-        "checksum": "17437f0f7bb882111e8a8411fa96208e",
-        "timestamp": "2026-08-12T05:00:11Z"
+        "sourceUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Test%20Releases/0.1.0.23-test/Jellyfin.Plugin.HomeScreenSectionsManager_0.1.0.23-test.zip",
+        "checksum": "e1ff2dc7b8c7325d992ab137a8922df8",
+        "timestamp": "2026-08-12T06:20:57Z"
       }
     ]
   }

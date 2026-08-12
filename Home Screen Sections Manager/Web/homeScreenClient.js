@@ -98,15 +98,11 @@
 
     function activeHomeContainer() {
         if (!isHomeRoute()) return null;
-        var visibleHome = document.querySelector('.libraryPage:not(.hide) .homeSectionsContainer:not(.hssm-my-list-container)');
-        if (visibleHome) return visibleHome;
-        var candidates = document.querySelectorAll('.homeSectionsContainer:not(.hssm-my-list-container)');
-        for (var index = 0; index < candidates.length; index++) {
-            var container = candidates[index];
-            var page = container.closest('.libraryPage, .page');
-            if (!page || !page.classList.contains('hide')) return container;
-        }
-        return null;
+        var indexPage = document.getElementById("indexPage");
+        if (!indexPage || indexPage.hidden || indexPage.classList.contains("hide")) return null;
+        var homeTab = indexPage.querySelector("#homeTab");
+        if (!homeTab || homeTab.hidden || homeTab.classList.contains("hide") || !homeTab.classList.contains("is-active")) return null;
+        return homeTab.querySelector(".homeSectionsContainer");
     }
 
     function getJson(path, parameters) {
@@ -622,6 +618,7 @@
 
     function isDashboardScreen() {
         var hash = String(window.location.hash || '').toLowerCase();
+        if (hash === "#/home" || hash === "#/home.html" || hash.indexOf("#/home?") === 0 || hash.indexOf("#/home.html?") === 0 || hash.indexOf("#/home/") === 0 || hash.indexOf("#/home.html/") === 0) return false;
         if (/(?:dashboard|configurationpage|plugins|scheduledtasks|serveractivity|networking|branding|users|libraries|metadata|transcoding)/.test(hash)) return true;
         var page = activePage();
         return !!(page && (page.closest('.dashboardPage') || page.classList.contains('dashboardPage') || page.querySelector('.dashboardSection')));
@@ -930,6 +927,7 @@
     function sendMediaBarPayload(frame) {
         if (!frame || !frame.contentWindow || !mediaBarPayload) return;
         frame.contentWindow.postMessage(mediaBarPayload, window.location.origin);
+        if (activeHomeContainer()) frame.contentWindow.postMessage({ type:'abyss-spotlight', action:'resume' }, window.location.origin);
     }
 
     function bindMediaBarMessages() {
@@ -1287,7 +1285,12 @@
         Array.from(indexPage.querySelectorAll(':scope > .pageTabContent')).forEach(function (panel) {
             panel.classList.toggle('is-active', myListActive && panel === customPage);
         });
-        if (myListActive) renderMyList(customPage.querySelector('.hssm-my-list-container'));
+        if (myListActive) {
+            applyPageContextTitle(customPage, "My List");
+            renderMyList(customPage.querySelector(".hssm-my-list-container"));
+        } else {
+            clearPageContextTitle();
+        }
     }
 
     function bindMyListNavigation() {
@@ -1671,14 +1674,16 @@
         controls.addEventListener('click', function (event) { var button = event.target.closest('[data-hssm-search-mode]'); if (!button) return; searchMode = button.dataset.hssmSearchMode; Array.from(controls.querySelectorAll('button')).forEach(function (entry) { entry.classList.toggle('raised', entry === button); entry.classList.toggle('button-submit', entry === button); }); search(); });
         if (input.value) search();
     }
-    function clearRouteArtifacts(preservePendingBar) {
+    function clearRouteArtifacts(preservePendingBar, force) {
         document.body.classList.remove('hssm-client-enabled', 'hssm-home-active', 'hssm-infinite-scroll-active');
         Array.from(document.querySelectorAll('.featurediframe')).forEach(function (frame) {
-            if (!preservePendingBar && isHomeRoute()) frame.style.visibility = 'hidden';
-            else if (!preservePendingBar) frame.style.removeProperty('visibility');
+            var pluginFrame = frame.dataset.hssmMediaBar === 'true';
+            if (isHomeRoute() && (!pluginFrame || force) && !preservePendingBar) frame.style.visibility = 'hidden';
+            else if (!isHomeRoute()) frame.style.removeProperty('visibility');
             delete frame.dataset.hssmMediaBarPending;
         });
-        infiniteLibraryKey = '';
+        infiniteLibraryKey = "";
+        clearPageContextTitle();
         closeBreadcrumbPopover();
         var breadcrumbs = document.querySelector('.hssm-breadcrumbs-wrapper');
         if (breadcrumbs) breadcrumbs.remove();
@@ -1700,16 +1705,41 @@
 
     function attachSectionPaging(state) {
         if (!state || !state.node || !state.node.isConnected) return;
-        var scroller = state.node.querySelector('.hssm-client-scroller');
-        if (!scroller || scroller.dataset.hssmPagingBound === 'true') return;
-        scroller.dataset.hssmPagingBound = 'true';
-        scroller.addEventListener('scroll', function () {
-            if (scroller.scrollLeft + scroller.clientWidth >= scroller.scrollWidth - Math.max(600, scroller.clientWidth)) loadSectionPage(state);
+        var scroller = state.node.querySelector(".hssm-client-scroller");
+        if (!scroller || scroller.dataset.hssmPagingBound === "true") return;
+        scroller.dataset.hssmPagingBound = "true";
+        scroller.addEventListener("scroll", function () {
+            if (scroller.scrollLeft + scroller.clientWidth < scroller.scrollWidth - Math.max(600, scroller.clientWidth)) return;
+            if (state.dynamicLoader) loadDynamicPage(state);
+            else loadSectionPage(state);
         }, { passive:true });
     }
 
+    function loadDynamicPage(state) {
+        if (!state || !state.dynamicLoader || state.loading || state.complete || state.generation !== runtimeGeneration) return;
+        state.loading = true;
+        var start = state.cursor;
+        homeRequestLane(function () { return state.dynamicLoader(start, 40); }).then(function (items) {
+            if (!sectionStateIsCurrent(state) || state.generation !== runtimeGeneration || state.container !== activeHomeContainer()) return;
+            items = uniqueItems(items || []);
+            state.items = uniqueItems(state.items.concat(items));
+            state.cursor = start + items.length;
+            state.complete = Number.isFinite(state.dynamicTotal) ? state.cursor >= state.dynamicTotal : items.length < 40;
+            saveSectionCache(state.section, state.items, state.cursor);
+            paintSectionState(state, false);
+        }).catch(function (error) {
+            console.warn("[Home Screen Manager] A dynamic section page could not load.", error);
+        }).finally(function () { state.loading = false; });
+    }
+
+    function sectionStateIsCurrent(state) {
+        if (!state) return false;
+        var id = String(prop(state.section, 'Id', 'id', ''));
+        return !!id && sectionRuntime[id] === state;
+    }
+
     function paintSectionState(state, loading) {
-        if (!state || state.generation !== runtimeGeneration || !state.container.isConnected) return;
+        if (!state || !sectionStateIsCurrent(state) || state.generation !== runtimeGeneration || !state.container.isConnected) return;
         var oldNode = state.node;
         var oldScroller = oldNode && oldNode.querySelector('.hssm-client-scroller');
         var oldScrollLeft = oldScroller ? oldScroller.scrollLeft : 0;
@@ -1736,7 +1766,7 @@
         }
         state.loading = true;
         homeRequestLane(function () { return queryIds(pageIds); }).then(function (items) {
-            if (state.generation !== runtimeGeneration || state.container !== activeHomeContainer()) return;
+            if (!sectionStateIsCurrent(state) || state.generation !== runtimeGeneration || state.container !== activeHomeContainer()) return;
             state.items = uniqueItems(state.items.concat(items));
             state.cursor += pageIds.length;
             state.complete = sectionPageIds(state.section, state.cursor, 1).length === 0;
@@ -1752,36 +1782,50 @@
     }
 
     function loadDynamicSection(state) {
-        var type = String(prop(state.section, 'Type', 'type', ''));
+        var type = String(prop(state.section, "Type", "type", ""));
         var request = null;
-        if (type === 'other-users-activity') {
-            request = getJson('HomeScreenSectionsManager/other-users-items', {
-                mediaType:prop(state.section, 'ActivityMediaType', 'activityMediaType', 'movies'),
-                limit:Math.min(40, Number(prop(state.section, 'ActivityMaxItems', 'activityMaxItems', 20)) || 20)
-            }).then(function (result) { return queryIds(prop(result, 'ItemIds', 'itemIds', []).slice(0, 40)); });
-        } else if (type === 'rotating-sections' || type === 'seasonal-sections') {
+        state.dynamicLoader = null;
+        state.dynamicTotal = null;
+        if (type === "other-users-activity") {
+            var maximum = Math.max(1, Math.min(100, Number(prop(state.section, "ActivityMaxItems", "activityMaxItems", 20)) || 20));
+            request = getJson("HomeScreenSectionsManager/other-users-items", {
+                mediaType:prop(state.section, "ActivityMediaType", "activityMediaType", "movies"),
+                limit:maximum
+            }).then(function (result) {
+                var ids = prop(result, "ItemIds", "itemIds", []).map(String).filter(Boolean).slice(0, maximum);
+                state.dynamicTotal = ids.length;
+                state.dynamicLoader = function (start, limit) { return queryIds(ids.slice(start, start + limit)); };
+                return state.dynamicLoader(0, 40);
+            });
+        } else if (type === "rotating-sections" || type === "seasonal-sections") {
             var draft = activeSectionDraft(state.section);
             if (!draft) return;
-            var sourceType = String(prop(draft, 'SourceType', 'sourceType', ''));
-            var sourceId = String(prop(draft, 'SourceId', 'sourceId', ''));
-            if (sourceType === 'collection') request = queryItems({ ParentId:sourceId, Recursive:true, StartIndex:0, Limit:40 });
-            if (sourceType === 'library') request = queryItems({ ParentId:resolvedLibraryId(sourceId), Recursive:true, StartIndex:0, Limit:40 });
-            if (sourceType === 'tag') {
-                request = postJson('CollectionManager/individual-collection-drafts/preview', tagSource(sourceId, prop(state.section, 'Name', 'name', ''))).then(function (preview) {
-                    return queryIds(prop(preview, 'Items', 'items', []).map(function (item) { return String(prop(item, 'Id', 'id', '')); }).slice(0, 40));
+            var sourceType = String(prop(draft, "SourceType", "sourceType", ""));
+            var sourceId = String(prop(draft, "SourceId", "sourceId", ""));
+            if (sourceType === "collection" || sourceType === "library") {
+                var parentId = sourceType === "library" ? resolvedLibraryId(sourceId) : sourceId;
+                state.dynamicLoader = function (start, limit) { return queryItems({ ParentId:parentId, Recursive:true, StartIndex:start, Limit:limit }); };
+                request = state.dynamicLoader(0, 40);
+            }
+            if (sourceType === "tag") {
+                request = postJson("CollectionManager/individual-collection-drafts/preview", tagSource(sourceId, prop(state.section, "Name", "name", ""))).then(function (preview) {
+                    var ids = prop(preview, "Items", "items", []).map(function (item) { return String(prop(item, "Id", "id", "")); }).filter(Boolean);
+                    state.dynamicTotal = ids.length;
+                    state.dynamicLoader = function (start, limit) { return queryIds(ids.slice(start, start + limit)); };
+                    return state.dynamicLoader(0, 40);
                 });
             }
         }
         if (!request) return;
         return Promise.resolve(request).then(function (items) {
-            if (state.generation !== runtimeGeneration || state.container !== activeHomeContainer()) return;
-            state.items = uniqueItems(items);
+            if (!sectionStateIsCurrent(state) || state.generation !== runtimeGeneration || state.container !== activeHomeContainer()) return;
+            state.items = uniqueItems(items || []);
             state.cursor = state.items.length;
-            state.complete = true;
+            state.complete = Number.isFinite(state.dynamicTotal) ? state.cursor >= state.dynamicTotal : state.items.length < 40;
             saveSectionCache(state.section, state.items, state.cursor);
             paintSectionState(state, false);
         }).catch(function (error) {
-            console.warn('[Home Screen Manager] A dynamic section could not refresh; its saved content remains visible.', error);
+            console.warn("[Home Screen Manager] A dynamic section could not refresh; its saved content remains visible.", error);
         });
     }
 
@@ -1798,6 +1842,8 @@
             cursor:cached ? Math.max(0, Number(cached.cursor) || cached.items.length) : 0,
             complete:false,
             loading:false,
+            dynamicLoader:null,
+            dynamicTotal:null,
             node:null
         };
         sectionRuntime[id] = state;
@@ -1807,10 +1853,37 @@
         var type = String(prop(section, 'Type', 'type', ''));
         if (type === 'other-users-activity' || type === 'rotating-sections' || type === 'seasonal-sections') {
             window.setTimeout(function () {
-                if (state.generation === runtimeGeneration) homeRequestLane(function () { return loadDynamicSection(state); });
+                if (state.generation === runtimeGeneration && sectionStateIsCurrent(state)) homeRequestLane(function () { return loadDynamicSection(state); });
             }, 800);
         }
         return state;
+    }
+
+    function clearPageContextTitle() {
+        Array.from(document.querySelectorAll(".hssm-page-context-title")).forEach(function (node) { node.remove(); });
+        Array.from(document.querySelectorAll(".pageTitle.hssm-page-context-source")).forEach(function (node) { node.classList.remove("hssm-page-context-source"); });
+    }
+
+    function applyPageContextTitle(scope, explicitTitle) {
+        clearPageContextTitle();
+        if (!scope) return;
+        var headerTabs = document.querySelector(".headerTabs.sectionTabs");
+        var hasVisibleTabs = headerTabs && !headerTabs.classList.contains("hide") && headerTabs.querySelector(".emby-tab-button");
+        if (!explicitTitle && !hasVisibleTabs) return;
+        var source = document.querySelector(".skinHeader .pageTitle, .headerTop .pageTitle");
+        var title = String(explicitTitle || (source && source.textContent) || "").replace(/\s+/g, " ").trim();
+        if (!title) return;
+        var target = scope;
+        if (!explicitTitle && headerTabs) {
+            var activeButton = headerTabs.querySelector(".emby-tab-button-active");
+            var activeIndex = activeButton && activeButton.getAttribute("data-index");
+            target = activeIndex !== null && activeIndex !== undefined ? scope.querySelector(".pageTabContent[data-index=\"" + CSS.escape(String(activeIndex)) + "\"]") || scope : scope;
+        }
+        var heading = document.createElement("h1");
+        heading.className = "hssm-page-context-title";
+        heading.textContent = title;
+        target.insertBefore(heading, target.firstChild);
+        if (source) source.classList.add("hssm-page-context-source");
     }
 
     function applyRouteFeatures(settings, scope, home, preferences) {
@@ -1820,9 +1893,12 @@
         applyMyListHeartColor(settings);
         applyMyList(settings, scope);
         if (home) {
+            if (myListActive) applyPageContextTitle(document.querySelector(".hssm-my-list-page"), "My List");
+            else clearPageContextTitle();
             applyRemoveButtons(settings, scope, preferences);
             return;
         }
+        applyPageContextTitle(scope, "");
         applySeriesInfo(settings);
         applyCollections(settings);
         applyBreadcrumbs(settings);
@@ -1843,8 +1919,16 @@
         });
     }
 
-    function renderHome(settings, preferences, generation) {
-        var container = activeHomeContainer();
+    function homeRowsNeedRepair(container, sections) {
+        if (!container || container !== lastContainer) return true;
+        return sections.some(function (section) {
+            var id = String(prop(section, 'Id', 'id', ''));
+            return id && !container.querySelector('[data-hssm-section-id="' + CSS.escape(id) + '"]');
+        });
+    }
+
+    function renderHomeRows(settings, preferences, generation, container) {
+        container = container || activeHomeContainer();
         if (!container || generation !== runtimeGeneration) return false;
         var sections = prop(settings, 'Sections', 'sections', []);
         Array.from(container.querySelectorAll('[data-hssm-section-id]')).forEach(function (node) { node.remove(); });
@@ -1856,7 +1940,13 @@
         renderedSectionCount = sections.length;
         applyHybridOrder(container, settings, preferences);
         applyRouteFeatures(settings, container.closest('.libraryPage, .page') || container, true, preferences);
-        renderMediaBar(settings, preferences, container, sections);
+        return true;
+    }
+
+    function renderHome(settings, preferences, generation) {
+        var container = activeHomeContainer();
+        if (!renderHomeRows(settings, preferences, generation, container)) return false;
+        renderMediaBar(settings, preferences, container, prop(settings, 'Sections', 'sections', []));
         return true;
     }
 
@@ -1866,7 +1956,7 @@
         var pending = false;
         activeViewObserver = new MutationObserver(function (mutations) {
             if (pending || generation !== runtimeGeneration) return;
-            var relevant = mutations.some(function (mutation) { return mutation.addedNodes && mutation.addedNodes.length; });
+            var relevant = mutations.some(function (mutation) { return (mutation.addedNodes && mutation.addedNodes.length) || (mutation.removedNodes && mutation.removedNodes.length); });
             if (!relevant) return;
             pending = true;
             window.setTimeout(function () {
@@ -1875,8 +1965,13 @@
                 if (home) {
                     var container = activeHomeContainer();
                     if (container) {
-                        applyHybridOrder(container, settings, preferences);
+                        var sections = prop(settings, 'Sections', 'sections', []);
+                        if (homeRowsNeedRepair(container, sections)) renderHomeRows(settings, preferences, generation, container);
+                        else applyHybridOrder(container, settings, preferences);
                         applyRemoveButtons(settings, scope, preferences);
+                        var frame = mediaBarFrameForContainer(container);
+                        if (!frame || frame.dataset.hssmMediaBar !== 'true') renderMediaBar(settings, preferences, container, sections);
+                        else sendMediaBarPayload(frame);
                     }
                 }
                 if (setting(settings, 'EnableMyList', false)) Array.from(scope.querySelectorAll('.card[data-id]')).forEach(addMyListButton);
@@ -1894,7 +1989,7 @@
         reconcileCurrentLibraryRoute();
         var generation = ++runtimeGeneration;
         var preservePendingBar = !force && !isDashboardScreen() && !isPlaybackScreen() && primeCachedMediaBar();
-        clearRouteArtifacts(preservePendingBar);
+        clearRouteArtifacts(preservePendingBar, !!force);
         if (!window.ApiClient || !currentUserId()) {
             if (!isDashboardScreen() && !isPlaybackScreen() && clientReadyAttempts < 300) {
                 window.clearTimeout(clientReadyTimer);
@@ -1937,8 +2032,12 @@
                     });
                     return;
                 }
+                if (isHomeRoute()) {
+                    if (attempts++ < 100) homeRetryTimer = window.setTimeout(enterView, 100);
+                    return;
+                }
                 var scope = activePage();
-                if (!scope && attempts++ < 30) {
+                if (!scope && attempts++ < 100) {
                     homeRetryTimer = window.setTimeout(enterView, 100);
                     return;
                 }
@@ -1964,6 +2063,7 @@
     window.addEventListener('pageshow', function () { queueRouteRefresh(false); });
     window.addEventListener('load', function () { queueRouteRefresh(false); }, { once:true });
     document.addEventListener('viewshow', function () { queueRouteRefresh(false); });
+    document.addEventListener('visibilitychange', function () { if (!document.hidden) queueRouteRefresh(false); });
     window.addEventListener('home-screen-manager-refresh', function () { routeRefresh(true); });
     window.addEventListener('home-screen-manager-settings-changed', function () {
         settingsCache = null;
