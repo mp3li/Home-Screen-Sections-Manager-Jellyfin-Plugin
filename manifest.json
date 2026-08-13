@@ -9,13 +9,13 @@
     "imageUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Assets/Branding/home-screen-sections-manager-plugin-photo.png",
     "versions": [
       {
-        "version": "0.1.0.29",
-        "changelog": "Adds Abyss Original artwork behavior; makes explicit media-bar image types request their Jellyfin endpoints directly; carries saved art and timing through the applied Custom CSS path; preserves timing with reduced motion; and aligns custom-row years with titles while retaining centered circular text.",
+        "version": "0.1.0.30",
+        "changelog": "Makes live saved media-bar image and timing settings authoritative; loads Jellyfin Likes with the official user-items API signature; renders one Added to My List section; and aligns custom-row years with titles.",
         "targetAbi": "10.11.11.0",
         "framework": "net9.0",
-        "sourceUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Test%20Releases/0.1.0.29-test/Jellyfin.Plugin.HomeScreenSectionsManager_0.1.0.29-test.zip",
-        "checksum": "4038d4761f67970bd78bad89b234b3b7",
-        "timestamp": "2026-08-13T06:45:00Z"
+        "sourceUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Test%20Releases/0.1.0.30-test/Jellyfin.Plugin.HomeScreenSectionsManager_0.1.0.30-test.zip",
+        "checksum": "3ed1595ff5b6902f8778efaf45d4aa0a",
+        "timestamp": "2026-08-13T07:30:00Z"
       }
     ]
   }

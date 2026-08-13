@@ -54,6 +54,35 @@
     width: var(--hssm-card-width);
 }
 
+.hssm-client-section:not(.hssm-shape-circle) .hssm-card-title,
+.hssm-client-section:not(.hssm-shape-circle) .hssm-card-year {
+    box-sizing: border-box;
+    display: block;
+    margin-left: 0 !important;
+    padding-left: 0 !important;
+    text-align: left !important;
+    text-indent: 0 !important;
+    transform: none !important;
+    width: 100%;
+}
+
+.hssm-client-section:not(.hssm-shape-circle) .hssm-card-title > bdi,
+.hssm-client-section:not(.hssm-shape-circle) .hssm-card-year > bdi {
+    box-sizing: border-box;
+    display: block;
+    margin-left: 0 !important;
+    padding-left: 0 !important;
+    text-align: left !important;
+    text-indent: 0 !important;
+    transform: none !important;
+    width: 100%;
+}
+
+.hssm-client-section:not(.hssm-shape-circle) .hssm-card-year {
+    left: auto !important;
+    position: static !important;
+}
+
 .hssm-shape-circle .cardScalable,
 .hssm-shape-circle .cardPadder,
 .hssm-shape-circle .cardImageContainer {
@@ -281,10 +310,6 @@
 
 .hssm-my-list-page > .hssm-page-context-title {
     margin-top: 0;
-}
-
-.hssm-my-list-page .hssm-client-section > .sectionTitle {
-    display: none !important;
 }
 
 .hssm-my-list-page {

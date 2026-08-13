@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    var CLIENT_VERSION = "0.1.0.29";
+    var CLIENT_VERSION = "0.1.0.30";
     if (window.HomeScreenManagerClient) {
         if (window.HomeScreenManagerClient.version === CLIENT_VERSION) {
             window.HomeScreenManagerClient.refresh();
@@ -433,11 +433,11 @@
         var showText = prop(section, 'ShowText', 'showText', true) !== false;
         var imageStyle = imageUrl ? ' style="background-image:url(&quot;' + escapeHtml(imageUrl) + '&quot;)"' : '';
         var footer = '';
-        var textClass = 'cardText' + (shape.name === 'circle' ? ' cardTextCentered' : '');
+        var textClass = 'cardText hssm-card-text' + (shape.name === 'circle' ? ' cardTextCentered hssm-card-text-centered' : ' hssm-card-text-left');
         if (showText && isMyList && type === 'Episode') {
-            footer = '<div class="' + textClass + ' cardText-first"><bdi><a is="emby-linkbutton" href="' + escapeHtml(seriesHref) + '" class="itemAction textActionButton">' + escapeHtml(seriesName || 'Unknown Series') + '</a></bdi></div><div class="' + textClass + ' cardText-secondary"><bdi><a is="emby-linkbutton" href="' + escapeHtml(href) + '" class="itemAction textActionButton">' + escapeHtml(name) + '</a></bdi></div>';
+            footer = '<div class="' + textClass + ' cardText-first hssm-card-title"><bdi><a is="emby-linkbutton" href="' + escapeHtml(seriesHref) + '" class="itemAction textActionButton">' + escapeHtml(seriesName || 'Unknown Series') + '</a></bdi></div><div class="' + textClass + ' cardText-secondary hssm-card-year"><bdi><a is="emby-linkbutton" href="' + escapeHtml(href) + '" class="itemAction textActionButton">' + escapeHtml(name) + '</a></bdi></div>';
         } else if (showText) {
-            footer = '<div class="' + textClass + ' cardText-first"><bdi><a is="emby-linkbutton" href="' + escapeHtml(href) + '" class="itemAction textActionButton">' + escapeHtml(name) + '</a></bdi></div>' + (year ? '<div class="' + textClass + ' cardText-secondary"><bdi>' + escapeHtml(year) + '</bdi></div>' : '');
+            footer = '<div class="' + textClass + ' cardText-first hssm-card-title"><bdi><a is="emby-linkbutton" href="' + escapeHtml(href) + '" class="itemAction textActionButton">' + escapeHtml(name) + '</a></bdi></div>' + (year ? '<div class="' + textClass + ' cardText-secondary hssm-card-year"><bdi>' + escapeHtml(year) + '</bdi></div>' : '');
         }
         var rankMarkup = rank && prop(section, 'ShowRankNumbers', 'showRankNumbers', true) !== false ? '<span class="hssm-rank-number" aria-hidden="true">' + rank + '</span>' : '';
         return '<div class="card ' + shape.card + ' card-hoverable card-withuserdata hssm-client-card" data-id="' + escapeHtml(id) + '">' + rankMarkup +
@@ -933,6 +933,8 @@
             if (event.data.action === 'ready') sendMediaBarPayload(frame, true);
             if (event.data.action === "rendered") {
                 frame.dataset.hssmMediaBarReady = "true";
+                frame.dataset.hssmAppliedIntervalSeconds = String(event.data.intervalSeconds || '');
+                frame.dataset.hssmAppliedImageType = String(event.data.imageType || '');
                 delete frame.dataset.hssmMediaBarPending;
             }
         });
@@ -1125,42 +1127,19 @@
             var cached = cacheRead('my-list', 24 * 60 * 60 * 1000);
             if (Array.isArray(cached)) saveLikedItems(cached);
         }
-        likedItemsRequest = Promise.resolve(ApiClient.getItems()).then(responseItems).then(function (views) {
-            views = (views || []).filter(function (view) {
-                var collectionType = String(prop(view, 'CollectionType', 'collectionType', '') || '').toLowerCase();
-                return !collectionType || ['tvshows', 'movies', 'homevideos', 'boxsets', 'playlists', 'music', 'books'].indexOf(collectionType) >= 0;
-            }).reverse();
-            return (views || []).reduce(function (work, view) {
-                return work.then(function (items) {
-                    var collectionType = String(prop(view, 'CollectionType', 'collectionType', '') || '').toLowerCase();
-                    if (collectionType === 'livetv' || collectionType === 'channels') return items;
-                    var includeTypes = 'Movie,Series,Season,Episode,Video,BoxSet,Playlist,Audio,MusicAlbum,MusicArtist,Book,AudioBook';
-                    if (collectionType === 'movies') includeTypes = 'Movie';
-                    else if (collectionType === 'tvshows') includeTypes = 'Series,Season,Episode';
-                    else if (collectionType === 'music') includeTypes = 'Audio,MusicAlbum,MusicArtist';
-                    else if (collectionType === 'books') includeTypes = 'Book,AudioBook';
-                    else if (collectionType === 'boxsets') includeTypes = 'BoxSet';
-                    else if (collectionType === 'playlists') includeTypes = 'Playlist';
-                    else if (collectionType === 'homevideos') includeTypes = 'Video,Movie';
-                    var options = {
-                        ParentId: String(prop(view, 'Id', 'id', '')),
-                        Filters: 'Likes',
-                        IncludeItemTypes: includeTypes,
-                        Recursive: true,
-                        Fields: 'PrimaryImageAspectRatio,DateCreated,PremiereDate,ProductionYear,CommunityRating,SortName,Tags,Overview,RunTimeTicks,ChildCount,RecursiveItemCount,ParentId,SeriesId,SeriesName,UserData',
-                        ImageTypeLimit: 1,
-                        EnableImageTypes: 'Primary,Backdrop,Thumb'
-                    };
-                    if (!options.ParentId) return items;
-                    return ApiClient.getItems(currentUserId(), options).then(function (result) {
-                        return items.concat(responseItems(result));
-                    }, function (error) {
-                        console.warn('[Home Screen Manager] Could not read My List items from library ' + options.ParentId + '.', error);
-                        return items;
-                    });
-                });
-            }, Promise.resolve([]));
-        }).then(function (items) {
+        var options = {
+            Filters: 'Likes',
+            IncludeItemTypes: 'Movie,Series,Season,Episode,Video,BoxSet,Playlist,Audio,MusicAlbum,MusicArtist,Book,AudioBook',
+            Recursive: true,
+            Fields: 'PrimaryImageAspectRatio,DateCreated,PremiereDate,ProductionYear,CommunityRating,SortName,Tags,Overview,RunTimeTicks,ChildCount,RecursiveItemCount,ParentId,SeriesId,SeriesName,UserData',
+            ImageTypeLimit: 1,
+            EnableImageTypes: 'Primary,Backdrop,Thumb',
+            EnableTotalRecordCount: false
+        };
+        // Likes are per-user Jellyfin data, so ask the documented user-items
+        // endpoint directly. This avoids coupling My List to mutable library
+        // names or parent ids and requires only one bounded server request.
+        likedItemsRequest = ApiClient.getItems(currentUserId(), options).then(responseItems).then(function (items) {
             saveLikedItems(items);
             return items;
         }).finally(function () { likedItemsRequest = null; });
@@ -1239,15 +1218,19 @@
 
     function paintMyList(container, items) {
         if (!container) return;
-        var definition = { Id: 'my-list', Name: 'My List', ArtSize: 'medium', ArtType: 'automatic', ArtShape: 'poster', ShowText: true };
-        var section = sectionNode(definition, uniqueItems(items));
+        items = uniqueItems(items);
+        var definition = { Id: 'my-list', Name: 'Added to My List', ArtSize: 'medium', ArtType: 'automatic', ArtShape: 'poster', ShowText: true };
+        var section = sectionNode(definition, items);
         section.hidden = false;
         container.innerHTML = '';
         if (items.length) {
             container.appendChild(section);
             upgradeSectionControls(section);
         }
-        else container.innerHTML = '<p class="hssm-empty-list">My List is empty.</p>';
+        else {
+            section.innerHTML = '<div class="sectionTitleContainer sectionTitleContainer-cards padded-left"><h2 class="sectionTitle sectionTitle-cards">Added to My List</h2></div><p class="hssm-empty-list padded-left">My List is empty.</p>';
+            container.appendChild(section);
+        }
         Array.from(container.querySelectorAll('.card[data-id]')).forEach(addMyListButton);
     }
 

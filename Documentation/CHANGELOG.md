@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.1.0.30-test] - 2026-08-12
+
+### Fixed
+
+- Makes the authenticated client-settings message the media bar's single runtime authority for the saved image type and timing. Embedded HTML and URL values remain startup fallbacks and no Custom CSS copy can override the live saved values.
+- Confirms the applied media-bar image type and interval back to the parent client after rendering; browser validation verifies that Primary requests Jellyfin's Primary endpoint first and a one-second interval advances after one second.
+- Loads each user's Jellyfin Likes with the official Jellyfin Web 10.11.11 `ApiClient.getItems(userId, options)` signature and one recursive `Filters: Likes` request, without depending on mutable library parent IDs.
+- Renders My List as one section named **Added to My List**, including a visible empty state under that heading when the user has not added anything.
+- Gives custom-section titles and production years the same measured left edge for every non-circular art shape while retaining centered circular text.
+
+### Safety and validation
+
+- Retains the adapted Abyss 1.2.2 source revision, copyright notice, full MIT license, upstream link, visual structure, blending, controls, and responsive stylesheet.
+- Browser contracts pass for actual media-bar image selection and timing, populated My List rendering, the exact section heading, the Jellyfin Likes query, and title/year alignment.
+
 ## [0.1.0.29-test] - 2026-08-12
 
 ### Changed

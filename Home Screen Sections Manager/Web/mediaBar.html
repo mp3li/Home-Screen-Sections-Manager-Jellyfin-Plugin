@@ -95,29 +95,19 @@
             const serverIntervalSeconds = Number('__HSSM_MEDIA_BAR_INTERVAL__');
             const serverImageType = '__HSSM_MEDIA_BAR_IMAGE_TYPE__';
             const validImageTypes = ['abyss-original', 'backdrop', 'primary', 'banner', 'thumb'];
-            function parentCssPreference(name) {
-                try {
-                    return window.top.getComputedStyle(window.top.document.documentElement).getPropertyValue(name).trim().replace(/^['"]|['"]$/g, '');
-                } catch (_) { return ''; }
+            function normalizedIntervalSeconds(value, fallback = 5) {
+                const seconds = Number(value);
+                return Number.isFinite(seconds) ? Math.max(1, Math.min(300, seconds)) : fallback;
             }
-            function configuredIntervalSeconds(fallback) {
-                const cssValue = Number(parentCssPreference('--hssm-media-bar-interval-seconds'));
-                if (Number.isFinite(cssValue) && cssValue >= 1 && cssValue <= 300) return cssValue;
-                if (Number.isFinite(serverIntervalSeconds) && serverIntervalSeconds >= 1 && serverIntervalSeconds <= 300) return serverIntervalSeconds;
-                const requested = Number(fallback);
-                return Number.isFinite(requested) ? Math.max(1, Math.min(300, requested)) : 5;
-            }
-            function configuredImageType(fallback) {
-                const cssValue = parentCssPreference('--hssm-media-bar-image-type');
-                if (validImageTypes.includes(cssValue)) return cssValue;
-                if (validImageTypes.includes(serverImageType)) return serverImageType;
-                return validImageTypes.includes(String(fallback)) ? String(fallback) : 'abyss-original';
+            function normalizedImageType(value, fallback = 'abyss-original') {
+                const type = String(value || '');
+                return validImageTypes.includes(type) ? type : fallback;
             }
             let items = [];
             let currentIndex = 0;
             const initialParameters = new URLSearchParams(window.location.search);
-            let intervalMilliseconds = configuredIntervalSeconds(initialParameters.get('intervalSeconds')) * 1000;
-            let imageType = configuredImageType(initialParameters.get('imageType'));
+            let intervalMilliseconds = normalizedIntervalSeconds(serverIntervalSeconds, normalizedIntervalSeconds(initialParameters.get('intervalSeconds'))) * 1000;
+            let imageType = normalizedImageType(serverImageType, normalizedImageType(initialParameters.get('imageType')));
             let autoTimer = null;
             let preloadTimer = null;
             let renderController = null;
@@ -481,7 +471,12 @@
             }
 
             function notifyRendered() {
-                window.parent.postMessage({ type: 'home-screen-manager-media-bar', action: 'rendered' }, window.location.origin);
+                window.parent.postMessage({
+                    type: 'home-screen-manager-media-bar',
+                    action: 'rendered',
+                    intervalSeconds: intervalMilliseconds / 1000,
+                    imageType
+                }, window.location.origin);
             }
 
             async function renderItem(index) {
@@ -512,8 +507,11 @@
             async function configure(data) {
                 const currentId = items[currentIndex] && items[currentIndex].Id;
                 const nextItems = Array.isArray(data.items) ? data.items.filter(item => item && item.Id) : [];
-                const authoritativeInterval = configuredIntervalSeconds(data.intervalSeconds);
-                const authoritativeImageType = configuredImageType(data.imageType);
+                // This authenticated message is produced from the same live plugin
+                // configuration that supplied the media-bar items. It is the sole
+                // runtime authority; HTML and URL values are startup fallbacks only.
+                const authoritativeInterval = normalizedIntervalSeconds(data.intervalSeconds);
+                const authoritativeImageType = normalizedImageType(data.imageType);
                 const nextSignature = JSON.stringify([authoritativeInterval, authoritativeImageType, nextItems.map(item => String(item.Id))]);
                 if (document.body.dataset.hssmPayloadSignature === nextSignature) return;
                 document.body.dataset.hssmPayloadSignature = nextSignature;
