@@ -94,8 +94,9 @@
             const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
             let items = [];
             let currentIndex = 0;
-            let intervalMilliseconds = 5000;
-            let imageType = 'backdrop';
+            const initialParameters = new URLSearchParams(window.location.search);
+            let intervalMilliseconds = Math.max(1000, Math.min(300000, Number(initialParameters.get('intervalSeconds') || 5) * 1000));
+            let imageType = ['backdrop', 'primary', 'banner', 'thumb'].includes(initialParameters.get('imageType')) ? initialParameters.get('imageType') : 'backdrop';
             let autoTimer = null;
             let preloadTimer = null;
             let renderController = null;

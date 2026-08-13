@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.1.0.26-test] - 2026-08-12
+
+### Reworked
+
+- Replaces the previous competing Home repair loop with the proven KefinTweaks lifecycle pattern: wait for Jellyfin Web's visible Home container, mount plugin rows once for that view, and use Jellyfin's view-show callback after preserving its original handler.
+- Keeps every Jellyfin-owned Home node in its original DOM position. Hybrid ordering now uses a flex-column container and CSS `order`; the native Recently Added wrapper uses `display: contents` so its individual library rows can be ordered without being detached.
+- Binds Home/Favorites/My List changes to Jellyfin's actual `emby-tabs` control rather than relying on a non-bubbling document event.
+
+### Fixed
+
+- Stops the media bar from replacing or hiding all rows below it and stops plugin remounts from racing Jellyfin's asynchronous native section loading.
+- Restores native and plugin row arrows, mouse dragging, mouse-wheel scrolling, touch scrolling, and keyboard navigation by preserving Jellyfin's required scroll-button/scroller sibling relationship and using Jellyfin's registered scroller markup for plugin rows.
+- Removes all document-level library-link rewriting and current-route repair. The plugin no longer changes Jellyfin's native Movies, Shows, Music, Books, Home, or sidebar destinations.
+- Keeps My List and page titles stable across real tab/view changes without removing and recreating them during duplicate lifecycle notifications.
+- Carries the chosen media-bar image type and timing in the iframe URL as well as the configuration payload, and requests Banner and Logo metadata for Continue Watching items.
+
+### Safety and validation
+
+- Verified against fresh KefinTweaks source revision `290b36f7bfb7587aa12667895ce6395f41d02c73`, Custom Tabs revision `0809e54e86864fab9b15a075eb5e58987df3b00d`, Abyss's spotlight loader, and Jellyfin Web 10.11.11's HomeTab, home-sections, scroller, and scroll-button source.
+- Uses no document-wide Home observer, no periodic browser polling, no native Home-row reparenting, no native tab-state mutation, and no Jellyfin library-link interception.
+
 ## [0.1.0.25-test] - 2026-08-12
 
 ### Reworked

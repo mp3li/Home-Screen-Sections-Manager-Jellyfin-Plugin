@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    var CLIENT_VERSION = "0.1.0.25";
+    var CLIENT_VERSION = "0.1.0.26";
     if (window.HomeScreenManagerClient) {
         if (window.HomeScreenManagerClient.version === CLIENT_VERSION) {
             window.HomeScreenManagerClient.refresh();
@@ -27,7 +27,6 @@
     var settingsCacheAt = 0;
     var settingsRequest = null;
     var settingsReconcileQueued = false;
-    var enhancementTimer = null;
     var mediaBarTimer = null;
     var mediaBarSourceKey = '';
     var mediaBarPayload = null;
@@ -44,8 +43,7 @@
     var searchMode = 'core';
     var originalHeaderHomeHtml = null;
     var runtimeGeneration = 0;
-    var homeMountObserver = null;
-    var homeMountTimer = null;
+    var routeGeneration = 0;
     var heartStatusTimer = null;
     var pendingHeartIds = {};
     var sectionRuntime = {};
@@ -61,8 +59,11 @@
     var liveViewsCache = null;
     var liveViewsCacheAt = 0;
     var liveViewsRequest = null;
-    var libraryRouteRepairKey = '';
-    var pendingLibraryRouteLabel = '';
+    var homeSettingsListenerContainer = null;
+    var homeTabsListener = null;
+    var viewShowHook = null;
+    var lastFeatureScope = null;
+    var lastFeatureRoute = '';
 
     function createLimiter(maximum) {
         var active = 0;
@@ -442,7 +443,7 @@
         var artSize = String(prop(section, 'ArtSize', 'artSize', 'medium'));
         var artShape = cardShape(section).name;
         var artType = String(prop(section, 'ArtType', 'artType', 'automatic'));
-        node.className = 'verticalSection hssm-client-section hssm-size-' + artSize + ' hssm-shape-' + artShape + ' hssm-art-' + artType + (String(prop(section, 'Type', 'type', '')) === 'top-10-50' ? ' hssm-top-ranked hssm-rank-' + String(prop(section, 'RankNumberColorMode', 'rankNumberColorMode', 'solid')) : '');
+        node.className = 'verticalSection emby-scroller-container hssm-client-section hssm-size-' + artSize + ' hssm-shape-' + artShape + ' hssm-art-' + artType + (String(prop(section, 'Type', 'type', '')) === 'top-10-50' ? ' hssm-top-ranked hssm-rank-' + String(prop(section, 'RankNumberColorMode', 'rankNumberColorMode', 'solid')) : '');
         node.style.setProperty('--hssm-rank-one', String(prop(section, 'RankNumberColorOne', 'rankNumberColorOne', '#f5f5f7')));
         node.style.setProperty('--hssm-rank-two', String(prop(section, 'RankNumberColorTwo', 'rankNumberColorTwo', '#f5f5f7')));
         var rankFont = String(prop(section, 'RankNumberFontDataUrl', 'rankNumberFontDataUrl', ''));
@@ -450,15 +451,15 @@
         node.dataset.hssmSectionId = id;
         if (!items.length) {
             if (loading) {
-                node.innerHTML = '<h2 class="sectionTitle sectionTitle-cards padded-left">' + escapeHtml(name) + '</h2><p class="hssm-section-loading padded-left">Loading section content…</p>';
+                node.innerHTML = '<div class="sectionTitleContainer sectionTitleContainer-cards padded-left"><h2 class="sectionTitle sectionTitle-cards">' + escapeHtml(name) + '</h2></div><p class="hssm-section-loading padded-left">Loading section content…</p>';
                 node.dataset.hssmLoading = 'true';
             } else {
                 node.hidden = true;
             }
             return node;
         }
-        node.innerHTML = '<h2 class="sectionTitle sectionTitle-cards padded-left">' + escapeHtml(name) + '</h2>' +
-            '<div is="emby-scroller" class="hssm-client-scroller padded-top-focusscale padded-bottom-focusscale" data-centerfocus="true"><div is="emby-itemscontainer" class="itemsContainer scrollSlider focuscontainer-x hssm-client-items">' +
+        node.innerHTML = '<div class="sectionTitleContainer sectionTitleContainer-cards padded-left"><h2 class="sectionTitle sectionTitle-cards">' + escapeHtml(name) + '</h2></div>' +
+            '<div is="emby-scroller" class="hssm-client-scroller padded-top-focusscale padded-bottom-focusscale" data-horizontal="true" data-centerfocus="true"><div is="emby-itemscontainer" class="focuscontainer-x itemsContainer scrollSlider animatedScrollX hssm-client-items">' +
             items.map(function (item, index) { return card(item, section, String(prop(section, 'Type', 'type', '')) === 'top-10-50' ? index + 1 : 0); }).join('') + '</div></div>';
         return node;
     }
@@ -503,32 +504,32 @@
     }
 
     function prepareNativeLatestRows(container, settings, preferences) {
-        if (!container) return;
+        if (!container) return [];
         var latestIndex = nativeTypes(preferences).indexOf('latestmedia');
         var wrapper = latestIndex >= 0 ? container.querySelector(':scope > .section' + latestIndex) : null;
+        var latestRows = [];
         if (wrapper) {
             wrapper.dataset.hssmLatestWrapper = 'true';
-            var latestRows = Array.from(wrapper.querySelectorAll(':scope > .verticalSection'));
+            latestRows = Array.from(wrapper.querySelectorAll(':scope > .verticalSection'));
             latestRows.forEach(function (row) {
                 var id = latestLibraryId(row);
                 if (!id) return;
                 row.dataset.hssmLatestLibraryId = id;
                 row.dataset.hssmLatestOrderId = 'jellyfin-latest-' + id;
-                container.insertBefore(row, wrapper);
             });
-            if (latestRows.length) {
-                wrapper.hidden = true;
-                wrapper.style.display = 'none';
-            }
         }
+        Array.from(container.querySelectorAll(':scope > [data-hssm-latest-wrapper="true"]')).forEach(function (candidate) {
+            if (candidate !== wrapper) delete candidate.dataset.hssmLatestWrapper;
+        });
         var hidden = {};
         prop(settings, 'SectionOrder', 'sectionOrder', []).forEach(function (value) {
             var entry = sectionOrderEntry(value);
             if (entry.hidden) hidden[entry.id] = true;
         });
-        Array.from(container.querySelectorAll(':scope > [data-hssm-latest-library-id]')).forEach(function (row) {
+        latestRows.forEach(function (row) {
             row.hidden = !!hidden[row.dataset.hssmLatestOrderId];
         });
+        return latestRows;
     }
 
     function mediaBarTokenEligible(token) {
@@ -536,19 +537,13 @@
     }
 
     function mediaBarNodeEligible(node, preferences) {
-        if (!node || node.hidden || node.dataset.hssmLatestLibraryId) return false;
+        if (!node || node.hidden) return false;
         if (node.dataset.hssmSectionId) return true;
         return mediaBarTokenEligible(nativeTokenForNode(node, preferences));
     }
 
-    function normalizeMediaBarNodes(nodes, preferences) {
-        var eligibleIndex = nodes.findIndex(function (node) { return mediaBarNodeEligible(node, preferences); });
-        if (eligibleIndex > 0) nodes.unshift(nodes.splice(eligibleIndex, 1)[0]);
-        return nodes;
-    }
-
     function nodesInOrder(container, settings, preferences) {
-        prepareNativeLatestRows(container, settings, preferences);
+        var latestRows = prepareNativeLatestRows(container, settings, preferences);
         var sectionOrder = prop(settings, 'SectionOrder', 'sectionOrder', []).map(sectionOrderEntry);
         var native = nativeTypes(preferences);
         var desired = [];
@@ -562,7 +557,7 @@
         sectionOrder.forEach(function (entry) {
             var id = entry.id;
             if (id.indexOf('jellyfin-latest-') === 0) {
-                var latest = container.querySelector(':scope > [data-hssm-latest-order-id="' + CSS.escape(id) + '"]');
+                var latest = latestRows.find(function (row) { return row.dataset.hssmLatestOrderId === id; });
                 if (latest) { latest.hidden = entry.hidden; add(latest); }
                 return;
             }
@@ -578,17 +573,22 @@
             }
         });
         Array.from(container.children).forEach(function (node) {
-            if (node.dataset.hssmLatestWrapper === 'true') return;
+            if (node.dataset.hssmLatestWrapper === 'true') { latestRows.forEach(add); return; }
             add(node);
         });
-        return normalizeMediaBarNodes(desired, preferences);
+        return desired;
     }
 
     function applyHybridOrder(container, settings, preferences) {
         var desired = nodesInOrder(container, settings, preferences);
-        var current = Array.from(container.children);
-        var unchanged = current.length === desired.length && current.every(function (node, index) { return node === desired[index]; });
-        if (!unchanged) desired.forEach(function (node) { container.appendChild(node); });
+        Array.from(container.children).forEach(function (node) {
+            if (node.dataset.hssmLatestWrapper !== 'true') node.style.order = '';
+        });
+        var nextOrder = 1;
+        desired.forEach(function (node) {
+            if (node.parentNode !== container && !node.dataset.hssmLatestOrderId) return;
+            node.style.order = String(nextOrder++);
+        });
     }
 
     function setting(settings, name, fallback) {
@@ -670,15 +670,7 @@
         return !isDashboardScreen() && !isPlaybackScreen() && !!activePage();
     }
 
-    function disconnectHomeMountObserver() {
-        if (homeMountObserver) homeMountObserver.disconnect();
-        homeMountObserver = null;
-        window.clearTimeout(homeMountTimer);
-        homeMountTimer = null;
-    }
-
     function disconnectViewObserver() {
-        disconnectHomeMountObserver();
         window.clearTimeout(heartStatusTimer);
         heartStatusTimer = null;
         pendingHeartIds = {};
@@ -790,65 +782,6 @@
         return liveViewsRequest;
     }
 
-    function libraryRouteType(hash) {
-        var match = String(hash || '').toLowerCase().match(/^#\/(movies|tv|music|books)(?:\.html)?(?:[?&]|$)/);
-        if (!match) return '';
-        return { movies:'movies', tv:'tvshows', music:'music', books:'books' }[match[1]] || '';
-    }
-
-    function replaceTopParentId(hash, id) {
-        var value = String(hash || '');
-        return value.replace(/([?&]topParentId=)[^&]*/i, '$1' + encodeURIComponent(id));
-    }
-
-    function matchingLiveLibrary(hash, views, linkText) {
-        var staleId = (String(hash || '').match(/[?&]topParentId=([^&]+)/i) || [])[1];
-        if (!staleId) return null;
-        try { staleId = decodeURIComponent(staleId); } catch (_) {}
-        if ((views || []).some(function (view) { return String(prop(view, 'Id', 'id', '')) === staleId; })) return null;
-        var aliasedId = resolvedLibraryId(staleId);
-        var aliased = (views || []).find(function (view) { return String(prop(view, 'Id', 'id', '')) === aliasedId; });
-        if (aliased) return aliased;
-        var routeType = libraryRouteType(hash);
-        if (!routeType) return null;
-        var candidates = (views || []).filter(function (view) {
-            return String(prop(view, 'CollectionType', 'collectionType', '')).toLowerCase() === routeType;
-        });
-        if (!candidates.length) return null;
-        var normalizedLabel = String(linkText || '').trim().toLowerCase();
-        var named = normalizedLabel ? candidates.filter(function (view) {
-            return String(prop(view, 'Name', 'name', '')).trim().toLowerCase() === normalizedLabel;
-        }) : [];
-        return named.length === 1 ? named[0] : candidates.length === 1 ? candidates[0] : null;
-    }
-
-    function repairedLibraryHash(hash, views, linkText) {
-        var replacement = matchingLiveLibrary(hash, views, linkText);
-        if (!replacement) return '';
-        var oldId = (String(hash || '').match(/[?&]topParentId=([^&]+)/i) || [])[1] || '';
-        try { oldId = decodeURIComponent(oldId); } catch (_) {}
-        var newId = String(prop(replacement, 'Id', 'id', ''));
-        rememberLibraryAlias(oldId, newId);
-        return replaceTopParentId(hash, newId);
-    }
-
-    function reconcileCurrentLibraryRoute() {
-        var original = String(window.location.hash || '');
-        if (!currentTopParentId() || !libraryRouteType(original) || libraryRouteRepairKey === original) return;
-        libraryRouteRepairKey = original;
-        liveUserViews(true).then(function (views) {
-            if (String(window.location.hash || '') !== original) return;
-            if (!views.length) {
-                libraryRouteRepairKey = '';
-                pendingLibraryRouteLabel = '';
-                return;
-            }
-            var repaired = repairedLibraryHash(original, views, pendingLibraryRouteLabel);
-            pendingLibraryRouteLabel = '';
-            if (repaired && repaired !== original) window.location.hash = repaired.slice(1);
-        });
-    }
-
     function nativeSectionItems(token, preferences, container) {
         var native = nativeTypes(preferences);
         var index = native.indexOf(token);
@@ -859,7 +792,7 @@
         });
         var userId = currentUserId();
         if (token === 'resume' || token === 'resumeaudio' || token === 'resumebook') {
-            var resumeOptions = { Limit: 30, Recursive: true, Fields: 'Overview,PrimaryImageAspectRatio,DateCreated,PremiereDate,ProductionYear,OfficialRating,CommunityRating,SortName,Tags,RunTimeTicks,UserData,SeriesName,SeriesId,ParentIndexNumber,IndexNumber', ImageTypeLimit:1, EnableImageTypes:'Primary,Backdrop,Thumb' };
+            var resumeOptions = { Limit: 30, Recursive: true, Fields: 'Overview,PrimaryImageAspectRatio,DateCreated,PremiereDate,ProductionYear,OfficialRating,CommunityRating,SortName,Tags,RunTimeTicks,UserData,SeriesName,SeriesId,ParentIndexNumber,IndexNumber', ImageTypeLimit:1, EnableImageTypes:'Primary,Backdrop,Banner,Thumb,Logo' };
             if (token === 'resumeaudio') resumeOptions.MediaTypes = 'Audio';
             if (token === 'resumebook') resumeOptions.IncludeItemTypes = 'Book,AudioBook';
             return getJson('Users/' + encodeURIComponent(userId) + '/Items/Resume', resumeOptions).then(responseItems).then(function (items) {
@@ -945,14 +878,14 @@
         return key;
     }
 
-    function mediaBarUrls(frame) {
+    function mediaBarUrls(frame, settings) {
         var original = frame.dataset.hssmAbyssSpotlightUrl || frame.getAttribute('src') || '';
         if (!original || original.indexOf('/HomeScreenSectionsManager/media-bar.html') >= 0) {
             original = new URL('ui/spotlight.html', document.baseURI).href;
         }
         frame.dataset.hssmAbyssSpotlightUrl = original;
         var cssUrl = new URL('spotlight.css', original).href;
-        var pluginUrl = ApiClient.getUrl("HomeScreenSectionsManager/media-bar.html", { v:CLIENT_VERSION, abyssCss:cssUrl });
+        var pluginUrl = ApiClient.getUrl("HomeScreenSectionsManager/media-bar.html", { v:CLIENT_VERSION, abyssCss:cssUrl, intervalSeconds:Math.max(1, Math.min(300, Number(setting(settings || {}, 'MediaBarIntervalSeconds', 5)) || 5)), imageType:String(setting(settings || {}, 'MediaBarImageType', 'backdrop')) });
         return { plugin: pluginUrl, css: cssUrl };
     }
 
@@ -1013,14 +946,14 @@
                 intervalSeconds:expectedInterval,
                 imageType:expectedImageType
             };
-            sendMediaBarPayload(ensureMediaBarFrame(container));
+            sendMediaBarPayload(ensureMediaBarFrame(container, cachedSettings));
             return true;
         } catch (_) {
             return false;
         }
     }
 
-    function ensureMediaBarFrame(container) {
+    function ensureMediaBarFrame(container, settings) {
         var frame = mediaBarFrameForContainer(container);
         if (!frame) {
             frame = document.createElement('iframe');
@@ -1035,7 +968,7 @@
         frame.dataset.hssmMediaBar = "true";
         frame.dataset.hssmClientVersion = CLIENT_VERSION;
         bindMediaBarMessages();
-        var urls = mediaBarUrls(frame);
+        var urls = mediaBarUrls(frame, settings);
         if (frame.src !== urls.plugin) {
             frame.addEventListener('load', function handleLoad() {
                 frame.removeEventListener('load', handleLoad);
@@ -1060,7 +993,7 @@
         var source = mediaBarSource(settings, preferences, container, sections, sectionItemPromises);
         var interval = Math.max(1, Math.min(300, Number(setting(settings, 'MediaBarIntervalSeconds', 5)) || 5));
         var requestedImage = String(setting(settings, 'MediaBarImageType', 'backdrop'));
-        var frame = ensureMediaBarFrame(container);
+        var frame = ensureMediaBarFrame(container, settings);
         var matchingCachedPayload = null;
         try {
             var cached = cacheRead('media-bar', 24 * 60 * 60 * 1000);
@@ -1647,19 +1580,6 @@
         controls.addEventListener('click', function (event) { var button = event.target.closest('[data-hssm-search-mode]'); if (!button) return; searchMode = button.dataset.hssmSearchMode; Array.from(controls.querySelectorAll('button')).forEach(function (entry) { entry.classList.toggle('raised', entry === button); entry.classList.toggle('button-submit', entry === button); }); search(); });
         if (input.value) search();
     }
-    function clearRouteArtifacts() {
-        document.body.classList.remove("hssm-client-enabled", "hssm-infinite-scroll-active");
-        infiniteLibraryKey = "";
-        clearPageContextTitle();
-        closeBreadcrumbPopover();
-        var breadcrumbs = document.querySelector(".hssm-breadcrumbs-wrapper");
-        if (breadcrumbs) breadcrumbs.remove();
-        breadcrumbsWorkKey = "";
-        window.clearTimeout(enhancementTimer);
-        window.clearTimeout(homeRetryTimer);
-        disconnectViewObserver();
-    }
-
     function sectionPageIds(section, cursor, limit) {
         var ids = prop(section, 'ItemIds', 'itemIds', []).map(String).filter(Boolean);
         if (String(prop(section, 'Type', 'type', '')) === 'top-10-50') {
@@ -1830,25 +1750,33 @@
     }
 
     function applyPageContextTitle(scope, explicitTitle) {
-        clearPageContextTitle();
-        if (!scope) return;
+        if (!scope) { clearPageContextTitle(); return; }
         var headerTabs = document.querySelector(".headerTabs.sectionTabs");
         var hasVisibleTabs = headerTabs && !headerTabs.classList.contains("hide") && headerTabs.querySelector(".emby-tab-button");
         if (explicitTitle) hasVisibleTabs = true;
-        if (!explicitTitle && !hasVisibleTabs) return;
+        if (!explicitTitle && !hasVisibleTabs) { clearPageContextTitle(); return; }
         var source = document.querySelector(".skinHeader .pageTitle, .headerTop .pageTitle");
         var title = String(explicitTitle || (source && source.textContent) || "").replace(/\s+/g, " ").trim();
-        if (!title) return;
-        var target = explicitTitle && scope.classList && scope.classList.contains('hssm-my-list-page') ? scope : scope;
+        if (!title) { clearPageContextTitle(); return; }
+        var target = scope;
         if (!explicitTitle && headerTabs) {
             var activeButton = headerTabs.querySelector(".emby-tab-button-active");
             var activeIndex = activeButton && activeButton.getAttribute("data-index");
             target = activeIndex !== null && activeIndex !== undefined ? scope.querySelector(".pageTabContent[data-index=\"" + CSS.escape(String(activeIndex)) + "\"]") || scope : scope;
         }
-        var heading = document.createElement("h1");
-        heading.className = "hssm-page-context-title";
+        Array.from(document.querySelectorAll(".hssm-page-context-title")).forEach(function (node) {
+            if (node.parentNode !== target) node.remove();
+        });
+        var heading = Array.from(target.children).find(function (node) { return node.classList && node.classList.contains("hssm-page-context-title"); });
+        if (!heading) {
+            heading = document.createElement("h1");
+            heading.className = "hssm-page-context-title";
+            target.insertBefore(heading, target.firstChild);
+        }
         heading.textContent = title;
-        target.insertBefore(heading, target.firstChild);
+        Array.from(document.querySelectorAll(".pageTitle.hssm-page-context-source")).forEach(function (node) {
+            if (node !== source) node.classList.remove("hssm-page-context-source");
+        });
         if (source) source.classList.add("hssm-page-context-source");
     }
 
@@ -1859,6 +1787,12 @@
         applyMyList(settings, scope);
         if (home) {
             clearPageContextTitle();
+            closeBreadcrumbPopover();
+            var staleBreadcrumbs = document.querySelector(".hssm-breadcrumbs-wrapper");
+            if (staleBreadcrumbs) staleBreadcrumbs.remove();
+            breadcrumbsWorkKey = "";
+            document.body.classList.remove("hssm-infinite-scroll-active");
+            infiniteLibraryKey = "";
             applyRemoveButtons(settings, scope, preferences);
             return;
         }
@@ -1891,10 +1825,16 @@
         container = container || activeHomeContainer();
         if (!container || generation !== runtimeGeneration) return false;
         var sections = prop(settings, 'Sections', 'sections', []);
-        Array.from(container.querySelectorAll('[data-hssm-section-id]')).forEach(function (node) { node.remove(); });
+        Array.from(container.querySelectorAll(":scope > [data-hssm-section-id]")).forEach(function (node) { node.remove(); });
         sectionRuntime = {};
-        sections.forEach(function (section) { initializeSection(section, container, settings, preferences, generation); });
+        sections.forEach(function (section) {
+            var id = String(prop(section, 'Id', 'id', ''));
+            var existing = id ? container.querySelector(':scope > [data-hssm-section-id="' + CSS.escape(id) + '"]') : null;
+            if (existing) existing.remove();
+            initializeSection(section, container, settings, preferences, generation);
+        });
         lastContainer = container;
+        container.dataset.hssmClientVersion = CLIENT_VERSION;
         lastSignature = signature(settings);
         lastError = '';
         renderedSectionCount = sections.length;
@@ -1906,42 +1846,93 @@
     function homeContainerNeedsMount(container, sections, settings) {
         if (!container || !container.querySelector(':scope > .section0')) return false;
         if (container !== lastContainer || signature(settings) !== lastSignature) return true;
+        if (container.dataset.hssmClientVersion !== CLIENT_VERSION) return true;
         return sections.some(function (section) {
             var id = String(prop(section, 'Id', 'id', ''));
             return id && !container.querySelector(':scope > [data-hssm-section-id="' + CSS.escape(id) + '"]');
         });
     }
 
-    function bindHomeMount(settings, preferences, generation, container) {
-        disconnectHomeMountObserver();
-        var homeTab = container && container.closest('#homeTab');
-        if (!homeTab) return;
-        homeMountObserver = new MutationObserver(function (mutations) {
-            if (generation !== runtimeGeneration || container !== activeHomeContainer()) return;
-            var rowsReplaced = mutations.some(function (mutation) { return mutation.target === container; });
-            var frameChanged = mutations.some(function (mutation) { return mutation.target === homeTab; });
-            window.clearTimeout(homeMountTimer);
-            homeMountTimer = window.setTimeout(function () {
-                if (generation !== runtimeGeneration || container !== activeHomeContainer()) return;
-                var sections = prop(settings, 'Sections', 'sections', []);
-                if (rowsReplaced && homeContainerNeedsMount(container, sections, settings)) {
-                    renderHomeRows(settings, preferences, generation, container);
-                }
-                var frame = frameChanged ? mediaBarFrameForContainer(container) : null;
-                if (frame && (frame.dataset.hssmMediaBar !== 'true' || frame.dataset.hssmClientVersion !== CLIENT_VERSION)) {
-                    renderMediaBar(settings, preferences, container, sections);
-                }
-            }, 0);
-        });
-        homeMountObserver.observe(container, { childList:true });
-        homeMountObserver.observe(homeTab, { childList:true });
+    function bindHomeSettingsChange(container) {
+        if (!container || homeSettingsListenerContainer === container) return;
+        if (homeSettingsListenerContainer) homeSettingsListenerContainer.removeEventListener('settingschange', handleHomeSettingsChange);
+        homeSettingsListenerContainer = container;
+        container.addEventListener('settingschange', handleHomeSettingsChange);
+    }
+
+    function handleHomeSettingsChange() {
+        cacheRemove('native-home-preferences');
+        queueRouteRefresh(true);
+    }
+
+    function installViewShowHook() {
+        if (!window.Emby || !Emby.Page || typeof Emby.Page.onViewShow !== "function") return false;
+        if (Emby.Page.onViewShow === viewShowHook) return true;
+        var original = Emby.Page.onViewShow;
+        viewShowHook = function () {
+            var result = original.apply(this, arguments);
+            queueRouteRefresh(false);
+            return result;
+        };
+        viewShowHook.hssmOriginal = original;
+        Emby.Page.onViewShow = viewShowHook;
+        return true;
+    }
+
+    function bindHomeTabs() {
+        var slider = document.querySelector("#indexPage .emby-tabs-slider, .emby-tabs-slider");
+        var tabs = slider ? slider.closest("[is=\"emby-tabs\"]") : document.querySelector(".headerTabs[is=\"emby-tabs\"]");
+        if (!tabs || tabs === homeTabsListener) return;
+        if (homeTabsListener) homeTabsListener.removeEventListener("tabchange", handleHomeTabChange);
+        homeTabsListener = tabs;
+        homeTabsListener.addEventListener("tabchange", handleHomeTabChange);
+    }
+
+    function handleHomeTabChange() {
+        window.setTimeout(function () {
+            lastFeatureScope = null;
+            lastFeatureRoute = "";
+            queueRouteRefresh(false);
+        }, 0);
+    }
+
+    function currentFeatureScope() {
+        var home = activeHomeContainer();
+        if (home) return home;
+        var myList = activeMyListContainer();
+        if (myList) return myListPageMarker() || myList;
+        var favorites = activeFavoritesPanel();
+        if (favorites) return favorites;
+        var page = activePage();
+        return page ? page.querySelector(".pageTabContent.is-active") || page : null;
     }
 
     function routeRefresh(force) {
-        reconcileCurrentLibraryRoute();
-        var generation = ++runtimeGeneration;
+        installViewShowHook();
+        bindHomeTabs();
+        var featureScope = currentFeatureScope();
+        var featureRoute = String(window.location.hash || "#/home");
+        if (!force && window.ApiClient && currentUserId() && featureScope && featureScope === lastFeatureScope && featureRoute === lastFeatureRoute) {
+            var immediateSettings = settingsCache || cacheRead("client-settings", 24 * 60 * 60 * 1000);
+            if (immediateSettings) {
+                var immediateHome = activeHomeContainer();
+                if (immediateHome) {
+                    var immediatePreferences = latestNativePreferences || cacheRead("native-home-preferences", 24 * 60 * 60 * 1000) || {};
+                    applyHybridOrder(immediateHome, immediateSettings, immediatePreferences);
+                    applyRouteFeatures(immediateSettings, immediateHome.closest(".libraryPage, .page") || immediateHome, true, immediatePreferences);
+                    sendMediaBarPayload(mediaBarFrameForContainer(immediateHome));
+                } else {
+                    applyRouteFeatures(immediateSettings, featureScope, false, {});
+                }
+            }
+            return;
+        }
+        lastFeatureScope = featureScope;
+        lastFeatureRoute = featureRoute;
+        window.clearTimeout(homeRetryTimer);
+        homeRetryTimer = null;
+        var generation = ++routeGeneration;
         disconnectViewObserver();
-        clearRouteArtifacts();
         if (!window.ApiClient || !currentUserId()) {
             if (!isDashboardScreen() && !isPlaybackScreen() && clientReadyAttempts < 100) {
                 window.clearTimeout(clientReadyTimer);
@@ -1960,11 +1951,11 @@
         }
         liveUserViews(false);
         getClientSettings(!!force).then(function (settings) {
-            if (generation !== runtimeGeneration || isDashboardScreen() || isPlaybackScreen()) return;
+            if (generation !== routeGeneration || isDashboardScreen() || isPlaybackScreen()) return;
             applyLogo(settings);
             var attempts = 0;
             function enterView() {
-                if (generation !== runtimeGeneration || isDashboardScreen() || isPlaybackScreen()) return;
+                if (generation !== routeGeneration || isDashboardScreen() || isPlaybackScreen()) return;
                 var myListContainer = activeMyListContainer();
                 if (myListContainer) {
                     applyRouteFeatures(settings, myListPageMarker(), false, {});
@@ -1976,24 +1967,27 @@
                     return;
                 }
                 var homeContainer = activeHomeContainer();
+                if (homeContainer && !homeContainer.querySelector(":scope > .section0")) {
+                    if (attempts++ < 100) homeRetryTimer = window.setTimeout(enterView, 100);
+                    return;
+                }
                 if (homeContainer) {
                     var cachedPreferences = cacheRead('native-home-preferences', 24 * 60 * 60 * 1000) || {};
                     var sections = prop(settings, 'Sections', 'sections', []);
-                    if (homeContainerNeedsMount(homeContainer, sections, settings)) renderHomeRows(settings, cachedPreferences, generation, homeContainer);
+                    bindHomeSettingsChange(homeContainer);
+                    if (homeContainerNeedsMount(homeContainer, sections, settings)) renderHomeRows(settings, cachedPreferences, ++runtimeGeneration, homeContainer);
                     else {
                         applyHybridOrder(homeContainer, settings, cachedPreferences);
                         applyRouteFeatures(settings, homeContainer.closest('.libraryPage, .page') || homeContainer, true, cachedPreferences);
                     }
                     if (!primeCachedMediaBar()) renderMediaBar(settings, cachedPreferences, homeContainer, sections);
-                    bindHomeMount(settings, cachedPreferences, generation, homeContainer);
                     nativePreferences().then(function (preferences) {
-                        if (generation !== runtimeGeneration || homeContainer !== activeHomeContainer()) return;
+                        if (generation !== routeGeneration || homeContainer !== activeHomeContainer()) return;
                         preferences = preferences || cachedPreferences;
                         latestNativePreferences = preferences;
                         applyHybridOrder(homeContainer, settings, preferences);
                         applyRemoveButtons(settings, homeContainer.closest('.libraryPage, .page') || homeContainer, preferences);
                         renderMediaBar(settings, preferences, homeContainer, sections);
-                        bindHomeMount(settings, preferences, generation, homeContainer);
                     });
                     return;
                 }
@@ -2010,7 +2004,7 @@
             }
             enterView();
         }).catch(function (error) {
-            if (generation === runtimeGeneration) console.warn('[Home Screen Manager] Could not initialize the active Jellyfin view.', error);
+            if (generation === routeGeneration) console.warn('[Home Screen Manager] Could not initialize the active Jellyfin view.', error);
         });
     }
 
@@ -2020,11 +2014,7 @@
     }
 
     window.addEventListener('hashchange', function () { queueRouteRefresh(false); });
-    window.addEventListener('pageshow', function () { queueRouteRefresh(false); });
-    window.addEventListener('load', function () { queueRouteRefresh(false); }, { once:true });
-    document.addEventListener('viewshow', function () { queueRouteRefresh(false); });
-    document.addEventListener('tabchange', function () { queueRouteRefresh(false); });
-    document.addEventListener('visibilitychange', function () { if (!document.hidden) queueRouteRefresh(false); });
+    document.addEventListener('viewshow', function () { queueRouteRefresh(false); }, true);
     window.addEventListener('home-screen-manager-refresh', function () { routeRefresh(true); });
     window.addEventListener('home-screen-manager-settings-changed', function () {
         settingsCache = null;
@@ -2035,20 +2025,6 @@
         if (!isDashboardScreen() && !isPlaybackScreen()) routeRefresh(true);
     });
     window.addEventListener('scroll', tryInfiniteScroll, { passive: true });
-    document.addEventListener('click', function (event) {
-        var anchor = event.target && event.target.closest ? event.target.closest('a[href]') : null;
-        if (!anchor) return;
-        var href = anchor.getAttribute('href') || '';
-        var marker = href.indexOf('#/');
-        if (marker < 0) return;
-        var hash = href.slice(marker);
-        if (!libraryRouteType(hash) || !/[?&]topParentId=/i.test(hash)) return;
-        pendingLibraryRouteLabel = anchor.getAttribute('aria-label') || anchor.textContent || '';
-        if (!liveViewsCache) return;
-        var repaired = repairedLibraryHash(hash, liveViewsCache, pendingLibraryRouteLabel);
-        if (!repaired || repaired === hash) return;
-        anchor.setAttribute('href', href.slice(0, marker) + repaired);
-    }, true);
     window.HomeScreenManagerClient = {
         version: CLIENT_VERSION,
         refresh: function () { routeRefresh(true); },
