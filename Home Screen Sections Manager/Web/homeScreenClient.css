@@ -3,6 +3,48 @@
     flex-direction: column;
 }
 
+/* The plugin-owned bar deliberately does not use Abyss's .featurediframe
+   identity. Abyss retains its own hidden frame and lifecycle; this frame uses
+   the same responsive measurements without competing for ownership. */
+.hssm-owned-media-bar {
+    border: 0;
+    display: block;
+    height: 70vh;
+    margin: 0;
+    max-height: 680px;
+    min-height: 420px;
+    padding: 0;
+    width: 100%;
+}
+
+#homeTab > .featurediframe[data-hssm-suppressed-abyss-spotlight="true"] {
+    display: none !important;
+}
+
+@media (min-width: 1400px) {
+    .hssm-owned-media-bar { height: 72vh; max-height: 760px; }
+}
+
+@media (min-width: 1920px) {
+    .hssm-owned-media-bar { height: 68vh; max-height: 860px; }
+}
+
+@media (max-width: 1024px) and (orientation: portrait) {
+    .hssm-owned-media-bar { height: 90vh; max-height: 720px; min-height: 320px; }
+}
+
+@media (max-width: 1024px) and (orientation: landscape) {
+    .hssm-owned-media-bar { height: 100vh; max-height: 420px; min-height: 280px; }
+}
+
+@media (max-width: 600px) and (orientation: portrait) {
+    .hssm-owned-media-bar { height: 90vh; max-height: 720px; min-height: 260px; }
+}
+
+@media (max-width: 900px) and (orientation: landscape) and (max-height: 500px) {
+    .hssm-owned-media-bar { height: 100vh; min-height: 200px; }
+}
+
 .homeSectionsContainer > [data-hssm-latest-wrapper="true"] {
     display: contents;
 }
@@ -315,6 +357,10 @@
 .hssm-my-list-page {
     min-height: 50vh;
     padding-top: 1.25em;
+}
+
+.hssm-owned-my-list-page:not(.is-active) {
+    display: none !important;
 }
 
 

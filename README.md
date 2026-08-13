@@ -4,8 +4,6 @@
 
 <h1 align="center">Home Screen Manager</h1>
 
-For instructions and more information, check out the repo [here](https://github.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin). To stay up to date with more of the dev's work, check out their Patreon [here](https://www.patreon.com/cw/mp3li).
-
 <p align="center"><strong>Early testing build:</strong> this release lets you design, order, save, and add custom sections to Jellyfin Web's home screen while keeping Jellyfin's native home rows in the same hybrid layout.</p>
 
 ## Current dashboard tabs
@@ -90,10 +88,10 @@ The uploaded Home logo remains present throughout Jellyfin Web, including
 breadcrumbed detail pages, and is hidden on playback screens. It always retains
 Home navigation behavior.
 
-My List is inserted into Jellyfin’s Home/Favorites header tab slider by the
-[Custom Tabs](https://github.com/IAmParadox27/jellyfin-plugin-custom-tabs) plugin and
-uses Jellyfin's existing per-user Likes field—the same working storage path used
-by the behavioral reference—rather than creating a second watchlist database.
+My List is inserted into Jellyfin’s Home/Favorites header tab slider and rendered
+by Home Screen Manager itself. It uses Jellyfin's existing per-user Likes
+field—the same working storage path used by the behavioral reference—rather
+than creating a second watchlist database.
 Its overlay changes one Material heart icon between outline and filled states. Liked episodes remain episode entries while using their series art and series name as the primary card identity, followed by the episode title.
 Plugin-created rows use Jellyfin's native scroller elements for desktop arrows,
 mouse-wheel scrolling, mouse dragging, touch, and focus navigation. Breadcrumbs
@@ -112,7 +110,6 @@ does not overwrite Jellyfin Web files.
 - [Abyss](https://github.com/AumGupta/abyss-jellyfin)
 - [Collection Manager](https://github.com/mp3li/Collection-Manager-Jellyfin-Plugin)
 - [JavaScript Injector](https://github.com/n00bcodr/Jellyfin-JavaScript-Injector)
-- [Custom Tabs](https://github.com/IAmParadox27/jellyfin-plugin-custom-tabs) is required only when **My List** is enabled
 - [File Transformation 2.5.11.0](https://github.com/IAmParadox27/jellyfin-plugin-file-transformation) is recommended for JavaScript Injector on Jellyfin 10.11.11
 - .NET SDK 9.0 to build from source
 
@@ -128,11 +125,10 @@ does not overwrite Jellyfin Web files.
 3. Refresh the catalog and install the newest **Home Screen Manager**
    testing version.
 4. Install **JavaScript Injector** if it is not already installed.
-5. If you use **My List**, install **Custom Tabs** and restart Jellyfin before saving Main Settings.
-6. Install **File Transformation 2.5.11.0**, the catalog release targeting
+5. Install **File Transformation 2.5.11.0**, the catalog release targeting
    Jellyfin 10.11.11, for JavaScript Injector's recommended non-destructive
    injection path.
-7. Restart Jellyfin, then open **Dashboard → Home Screen Manager**.
+6. Restart Jellyfin, then open **Dashboard → Home Screen Manager**.
 
 ## Build from source
 

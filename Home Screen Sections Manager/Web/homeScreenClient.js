@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    var CLIENT_VERSION = "0.1.0.30";
+    var CLIENT_VERSION = "0.1.0.31";
     if (window.HomeScreenManagerClient) {
         if (window.HomeScreenManagerClient.version === CLIENT_VERSION) {
             window.HomeScreenManagerClient.refresh();
@@ -65,6 +65,9 @@
     var lastFeatureScope = null;
     var lastFeatureRoute = '';
     var pageContextWorkKey = '';
+    var ownedMyListTabIndex = 2;
+    var mediaBarOwnerObserver = null;
+    var mediaBarOwnerHomeTab = null;
 
     function createLimiter(maximum) {
         var active = 0;
@@ -118,6 +121,85 @@
     function myListPageMarker() {
         var indexPage = visibleIndexPage();
         return indexPage ? indexPage.querySelector(".hssm-my-list-page") : null;
+    }
+
+    function homeTabsElement() {
+        if (!isHomeRoute() || !visibleIndexPage()) return null;
+        return document.querySelector('.headerTabs:not(.hide) [is="emby-tabs"]');
+    }
+
+    function ensureOwnedMyListPage(settings) {
+        var indexPage = visibleIndexPage();
+        var enabled = setting(settings || {}, 'EnableMyList', false);
+        var tabs = homeTabsElement();
+        var slider = tabs && tabs.querySelector('.emby-tabs-slider');
+        if (indexPage && slider) {
+            Array.from(indexPage.querySelectorAll('.hssm-my-list-page:not(.hssm-owned-my-list-page)')).forEach(function (legacy) {
+                var legacyIndex = legacy.getAttribute('data-index');
+                if (legacyIndex !== null) {
+                    var legacyButton = slider.querySelector('.emby-tab-button[data-index="' + CSS.escape(legacyIndex) + '"]');
+                    if (legacyButton) legacyButton.remove();
+                }
+                legacy.remove();
+            });
+        }
+        var existing = indexPage && indexPage.querySelector('.hssm-owned-my-list-page');
+        var tabButton = slider && slider.querySelector('.hssm-my-list-tab');
+        if (!enabled || !indexPage || !tabs || !slider) {
+            if (!enabled) {
+                if (existing) existing.remove();
+                if (tabButton) tabButton.remove();
+            }
+            return null;
+        }
+        var used = Array.from(indexPage.querySelectorAll(':scope > .pageTabContent[data-index]')).map(function (panel) { return Number(panel.dataset.index); }).filter(Number.isFinite);
+        ownedMyListTabIndex = Math.max(2, used.length ? Math.max.apply(Math, used) + 1 : 2);
+        if (existing) ownedMyListTabIndex = Number(existing.dataset.index || ownedMyListTabIndex);
+        if (!existing) {
+            existing = document.createElement('div');
+            existing.className = 'tabContent pageTabContent hssm-my-list-page hssm-owned-my-list-page';
+            existing.dataset.index = String(ownedMyListTabIndex);
+            existing.innerHTML = '<div class="sections hssm-my-list-container"></div>';
+            indexPage.appendChild(existing);
+        }
+        if (!tabButton) {
+            tabButton = document.createElement('button');
+            tabButton.type = 'button';
+            tabButton.setAttribute('is', 'emby-button');
+            tabButton.className = 'emby-tab-button hssm-my-list-tab';
+            tabButton.innerHTML = '<div class="emby-button-foreground">My List</div>';
+            slider.appendChild(tabButton);
+        }
+        tabButton.dataset.index = String(ownedMyListTabIndex);
+        if (tabButton.dataset.hssmOwnedBound !== 'true') {
+            tabButton.dataset.hssmOwnedBound = 'true';
+            tabButton.addEventListener('click', function (event) {
+                event.preventDefault();
+                event.stopPropagation();
+                event.stopImmediatePropagation();
+                showOwnedHomePanel(ownedMyListTabIndex);
+            }, true);
+        }
+        if (window.CustomElements && typeof window.CustomElements.upgradeSubtree === 'function') window.CustomElements.upgradeSubtree(tabs);
+        if (typeof tabs.refresh === 'function') tabs.refresh();
+        return existing;
+    }
+
+    function showOwnedHomePanel(index) {
+        var indexPage = visibleIndexPage();
+        var tabs = homeTabsElement();
+        if (!indexPage || !tabs) return;
+        Array.from(indexPage.querySelectorAll(':scope > .pageTabContent[data-index]')).forEach(function (panel) {
+            panel.classList.toggle('is-active', Number(panel.dataset.index) === Number(index));
+        });
+        Array.from(tabs.querySelectorAll('.emby-tab-button[data-index]')).forEach(function (button) {
+            button.classList.toggle('emby-tab-button-active', Number(button.dataset.index) === Number(index));
+        });
+        tabs.setAttribute('data-index', String(index));
+        syncOwnedMediaBarVisibility();
+        lastFeatureScope = null;
+        lastFeatureRoute = '';
+        queueRouteRefresh(true);
     }
 
     function activeMyListContainer() {
@@ -889,19 +971,50 @@
     }
 
     function mediaBarUrls(frame, settings) {
-        var original = frame.dataset.hssmAbyssSpotlightUrl || frame.getAttribute('src') || '';
-        if (!original || original.indexOf('/HomeScreenSectionsManager/media-bar.html') >= 0) {
-            original = new URL('ui/spotlight.html', document.baseURI).href;
-        }
-        frame.dataset.hssmAbyssSpotlightUrl = original;
-        var cssUrl = new URL('spotlight.css', original).href;
-        var pluginUrl = ApiClient.getUrl("HomeScreenSectionsManager/media-bar.html", { v:CLIENT_VERSION, abyssCss:cssUrl, intervalSeconds:Math.max(1, Math.min(300, Number(setting(settings || {}, 'MediaBarIntervalSeconds', 5)) || 5)), imageType:String(setting(settings || {}, 'MediaBarImageType', 'abyss-original')) });
-        return { plugin: pluginUrl, css: cssUrl };
+        var cssUrl = new URL('ui/spotlight.css', document.baseURI).href;
+        return { plugin:ApiClient.getUrl("HomeScreenSectionsManager/media-bar.html", { v:CLIENT_VERSION, abyssCss:cssUrl, intervalSeconds:Math.max(1, Math.min(300, Number(setting(settings || {}, 'MediaBarIntervalSeconds', 5)) || 5)), imageType:String(setting(settings || {}, 'MediaBarImageType', 'abyss-original')) }), css:cssUrl };
     }
 
     function mediaBarFrameForContainer(container) {
         var homeTab = container && container.closest('#homeTab');
-        return homeTab ? homeTab.querySelector(':scope > .featurediframe') : null;
+        return homeTab ? homeTab.querySelector(':scope > .hssm-owned-media-bar') : null;
+    }
+
+    function suppressAbyssMediaBar(homeTab) {
+        if (!homeTab) return;
+        Array.from(homeTab.querySelectorAll(':scope > .featurediframe')).forEach(function (frame) {
+            frame.dataset.hssmSuppressedAbyssSpotlight = 'true';
+            frame.hidden = true;
+            frame.style.setProperty('display', 'none', 'important');
+            try { frame.contentWindow.postMessage({ type:'abyss-spotlight', action:'pause' }, window.location.origin); } catch (_) {}
+        });
+    }
+
+    function observeAbyssMediaBar(homeTab) {
+        if (!homeTab || (mediaBarOwnerHomeTab === homeTab && mediaBarOwnerObserver)) return;
+        if (mediaBarOwnerObserver) mediaBarOwnerObserver.disconnect();
+        mediaBarOwnerHomeTab = homeTab;
+        mediaBarOwnerObserver = new MutationObserver(function (records) {
+            if (records.some(function (record) { return Array.from(record.addedNodes || []).some(function (node) { return node.nodeType === 1 && node.classList && node.classList.contains('featurediframe'); }); })) {
+                suppressAbyssMediaBar(homeTab);
+            }
+        });
+        mediaBarOwnerObserver.observe(homeTab, { childList:true });
+    }
+
+    function ownedMediaBarIsActive(frame) {
+        var indexPage = visibleIndexPage();
+        var homeTab = frame && frame.closest('#homeTab');
+        return !!(indexPage && homeTab && homeTab.classList.contains('is-active') && !document.hidden && isHomeRoute());
+    }
+
+    function syncOwnedMediaBarVisibility() {
+        Array.from(document.querySelectorAll('.hssm-owned-media-bar')).forEach(function (frame) {
+            var active = ownedMediaBarIsActive(frame);
+            frame.hidden = !active;
+            frame.style.display = active ? 'block' : 'none';
+            try { frame.contentWindow.postMessage({ type:'abyss-spotlight', action:active ? 'resume' : 'pause' }, window.location.origin); } catch (_) {}
+        });
     }
 
     function mediaBarPayloadKey(payload) {
@@ -926,7 +1039,7 @@
         mediaBarMessageBound = true;
         window.addEventListener('message', function (event) {
             if (event.origin !== window.location.origin || !event.data || event.data.type !== 'home-screen-manager-media-bar') return;
-            var frame = Array.from(document.querySelectorAll('.featurediframe[data-hssm-media-bar="true"]')).find(function (candidate) {
+            var frame = Array.from(document.querySelectorAll('.hssm-owned-media-bar[data-hssm-media-bar="true"]')).find(function (candidate) {
                 return event.source === candidate.contentWindow;
             });
             if (!frame || event.source !== frame.contentWindow) return;
@@ -966,16 +1079,15 @@
     }
 
     function ensureMediaBarFrame(container, settings) {
+        var homeTab = container && container.closest('#homeTab');
+        suppressAbyssMediaBar(homeTab);
+        observeAbyssMediaBar(homeTab);
         var frame = mediaBarFrameForContainer(container);
         if (!frame) {
             frame = document.createElement('iframe');
-            frame.className = 'featurediframe';
-            frame.title = 'Home Screen Manager media bar using Abyss';
-            container.parentNode.insertBefore(frame, container);
-        }
-        if (!frame.dataset.hssmAbyssSpotlightUrl) {
-            var installedSpotlight = frame.getAttribute('src') || '';
-            if (installedSpotlight.indexOf('/HomeScreenSectionsManager/media-bar.html') < 0) frame.dataset.hssmAbyssSpotlightUrl = installedSpotlight;
+            frame.className = 'hssm-owned-media-bar';
+            frame.title = 'Home Screen Manager Abyss media bar';
+            (homeTab || container.parentNode).insertBefore(frame, container);
         }
         frame.dataset.hssmMediaBar = "true";
         frame.dataset.hssmClientVersion = CLIENT_VERSION;
@@ -988,6 +1100,7 @@
             });
             frame.src = urls.plugin;
         }
+        syncOwnedMediaBarVisibility();
         return frame;
     }
 
@@ -997,6 +1110,12 @@
         mediaBarSourceKey = '';
         mediaBarPayload = null;
         Array.from(document.querySelectorAll('.hssm-media-bar')).forEach(function (node) { node.remove(); });
+        Array.from(document.querySelectorAll('.hssm-owned-media-bar')).forEach(function (node) { node.remove(); });
+        if (mediaBarOwnerObserver) mediaBarOwnerObserver.disconnect();
+        mediaBarOwnerObserver = null;
+        mediaBarOwnerHomeTab = null;
+        var homeTab = container && container.closest('#homeTab');
+        if (homeTab) Array.from(homeTab.querySelectorAll(':scope > .featurediframe[data-hssm-suppressed-abyss-spotlight="true"]')).forEach(function (frame) { frame.hidden = false; frame.style.removeProperty('display'); });
         if (container) Array.from(container.children).forEach(function (node) { node.classList.remove('hssm-media-source-section'); });
     }
 
@@ -1127,19 +1246,36 @@
             var cached = cacheRead('my-list', 24 * 60 * 60 * 1000);
             if (Array.isArray(cached)) saveLikedItems(cached);
         }
-        var options = {
-            Filters: 'Likes',
-            IncludeItemTypes: 'Movie,Series,Season,Episode,Video,BoxSet,Playlist,Audio,MusicAlbum,MusicArtist,Book,AudioBook',
-            Recursive: true,
-            Fields: 'PrimaryImageAspectRatio,DateCreated,PremiereDate,ProductionYear,CommunityRating,SortName,Tags,Overview,RunTimeTicks,ChildCount,RecursiveItemCount,ParentId,SeriesId,SeriesName,UserData',
-            ImageTypeLimit: 1,
-            EnableImageTypes: 'Primary,Backdrop,Thumb',
-            EnableTotalRecordCount: false
-        };
-        // Likes are per-user Jellyfin data, so ask the documented user-items
-        // endpoint directly. This avoids coupling My List to mutable library
-        // names or parent ids and requires only one bounded server request.
-        likedItemsRequest = ApiClient.getItems(currentUserId(), options).then(responseItems).then(function (items) {
+        // Jellyfin's Likes filter is reliable when scoped to a live user view.
+        // Resolve those stable view IDs at read time so library renames and
+        // delete/recreate operations never leave My List with stale parents.
+        likedItemsRequest = liveUserViews(true).then(function (views) {
+            return (views || []).filter(function (view) {
+                var collectionType = String(prop(view, 'CollectionType', 'collectionType', '') || '').toLowerCase();
+                return collectionType !== 'livetv' && collectionType !== 'channels';
+            }).reduce(function (work, view) {
+                return work.then(function (items) {
+                    var parentId = String(prop(view, 'Id', 'id', ''));
+                    if (!parentId) return items;
+                    var options = {
+                        ParentId: parentId,
+                        Filters: 'Likes',
+                        IncludeItemTypes: 'Movie,Series,Season,Episode,Video,BoxSet,Playlist,Audio,MusicAlbum,MusicArtist,Book,AudioBook',
+                        Recursive: true,
+                        Fields: 'PrimaryImageAspectRatio,DateCreated,PremiereDate,ProductionYear,CommunityRating,SortName,Tags,Overview,RunTimeTicks,ChildCount,RecursiveItemCount,ParentId,SeriesId,SeriesName,SeriesPrimaryImageTag,UserData',
+                        ImageTypeLimit: 1,
+                        EnableImageTypes: 'Primary,Backdrop,Thumb',
+                        EnableTotalRecordCount: false
+                    };
+                    return ApiClient.getItems(currentUserId(), options).then(function (result) {
+                        return items.concat(responseItems(result));
+                    }, function (error) {
+                        console.warn('[Home Screen Manager] Could not read My List items from one current library.', error);
+                        return items;
+                    });
+                });
+            }, Promise.resolve([]));
+        }).then(function (items) {
             saveLikedItems(items);
             return items;
         }).finally(function () { likedItemsRequest = null; });
@@ -1302,7 +1438,7 @@
             Array.from(document.querySelectorAll('.hssm-my-list-detail-button')).forEach(function (node) { node.remove(); });
             return;
         }
-        if (scope) Array.from(scope.querySelectorAll('.card[data-id]')).forEach(addMyListButton);
+        if (scope && !scope.classList.contains('hssm-my-list-page')) Array.from(scope.querySelectorAll('.card[data-id]')).forEach(addMyListButton);
         queueVisibleHeartStatus(scope);
         var detailId = currentItemId();
         if (scope && detailId && !scope.querySelector('.hssm-my-list-detail-button')) {
@@ -1968,6 +2104,7 @@
         if (!force && window.ApiClient && currentUserId() && featureScope && featureScope === lastFeatureScope && featureRoute === lastFeatureRoute) {
             var immediateSettings = settingsCache || cacheRead("client-settings", 24 * 60 * 60 * 1000);
             if (immediateSettings) {
+                ensureOwnedMyListPage(immediateSettings);
                 var immediateHome = activeHomeContainer();
                 if (immediateHome) {
                     var immediatePreferences = latestNativePreferences || cacheRead("native-home-preferences", 24 * 60 * 60 * 1000) || {};
@@ -2006,6 +2143,8 @@
         getClientSettings(!!force).then(function (settings) {
             if (generation !== routeGeneration || isDashboardScreen() || isPlaybackScreen()) return;
             applyLogo(settings);
+            ensureOwnedMyListPage(settings);
+            bindHomeTabs();
             var attempts = 0;
             function enterView() {
                 if (generation !== routeGeneration || isDashboardScreen() || isPlaybackScreen()) return;
@@ -2068,6 +2207,7 @@
 
     window.addEventListener('hashchange', function () { queueRouteRefresh(false); });
     document.addEventListener('viewshow', function () { queueRouteRefresh(false); }, true);
+    document.addEventListener('visibilitychange', function () { syncOwnedMediaBarVisibility(); });
     window.addEventListener('home-screen-manager-refresh', function () { routeRefresh(true); });
     window.addEventListener('home-screen-manager-settings-changed', function () {
         settingsCache = null;

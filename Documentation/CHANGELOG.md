@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.1.0.31-test] - 2026-08-12
+
+### Reworked
+
+- Replaces the shared Abyss iframe boundary with a Home Screen Manager-owned Abyss-derived media bar. The plugin frame has a separate identity and lifecycle, while retaining Abyss 1.2.2's responsive measurements, installed spotlight stylesheet, visual structure, blending, animation, controls, and MIT attribution.
+- Replaces the Custom Tabs dependency for **My List** with a plugin-owned Home tab and content panel. Existing legacy Home Screen Manager Custom Tabs markup is removed without changing any unrelated custom tab.
+- Uses a stable no-cache JavaScript Injector bootstrap endpoint so later catalog versions load the browser client embedded in the installed DLL instead of retaining an older hard-coded loader version.
+
+### Fixed
+
+- Applies the saved media-bar image type and timing to the plugin-owned document without Abyss's loader replacing the frame source or pause/resume state.
+- Keeps the original Abyss spotlight paused and hidden while Home Screen Manager is enabled, including when Abyss creates its frame after the plugin client starts.
+- Loads **Added to My List** from Jellyfin's per-user Likes data using current live library IDs, so library renames or delete/recreate operations cannot leave a stale saved parent ID in My List.
+- Removes the repository and Patreon promotional sentence from the README.
+
+### Safety and validation
+
+- Retains Abyss revision `0dc066d604bdbf7977c014f275ae6f2967ec4fe2`, its original copyright notice, full MIT license, and upstream link.
+- An integrated headless-browser contract passes for an Abyss-loader race, simultaneous media bar and native Home rows, Primary image requests, one-second automatic slide timing, Home/My List/Home navigation, a populated **Added to My List** row, and live library-scoped Likes reads.
+- Release build succeeds against Jellyfin 10.11.11 with zero warnings and zero errors.
+
 ## [0.1.0.30-test] - 2026-08-12
 
 ### Fixed
