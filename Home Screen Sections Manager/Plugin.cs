@@ -28,49 +28,22 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
     /// <summary>Replaces only the settings owned by the section layout editor.</summary>
     public PluginConfiguration UpdateSectionSettings(SectionSettingsRequest request)
     {
-        var previous = Configuration;
-        var configuration = new PluginConfiguration
-        {
-            JellyfinSectionLabelColor = request.JellyfinSectionLabelColor,
-            ManagerSectionLabelColor = request.ManagerSectionLabelColor,
-            MediaBarSectionLabelColor = request.MediaBarSectionLabelColor,
-            AbyssAccentColor = previous.AbyssAccentColor,
-            AbyssRadius = previous.AbyssRadius,
-            AbyssIndicatorColor = previous.AbyssIndicatorColor,
-            AbyssFontImportUrl = previous.AbyssFontImportUrl,
-            AbyssFontFamily = previous.AbyssFontFamily,
-            AbyssLiteMode = previous.AbyssLiteMode,
-            HeaderTabsColorMode = previous.HeaderTabsColorMode, HeaderTabsColorOne = previous.HeaderTabsColorOne, HeaderTabsColorTwo = previous.HeaderTabsColorTwo, SelectedHeaderTabTextColor = previous.SelectedHeaderTabTextColor, PlayButtonColorMode = previous.PlayButtonColorMode, PlayButtonColorOne = previous.PlayButtonColorOne, PlayButtonColorTwo = previous.PlayButtonColorTwo, ProgressColorMode = previous.ProgressColorMode, ProgressColorOne = previous.ProgressColorOne, ProgressColorTwo = previous.ProgressColorTwo, SidebarIconColorMode = previous.SidebarIconColorMode, SidebarIconColorOne = previous.SidebarIconColorOne, SidebarIconColorTwo = previous.SidebarIconColorTwo, MyListHeartColorMode = previous.MyListHeartColorMode, MyListHeartColorOne = previous.MyListHeartColorOne, MyListHeartColorTwo = previous.MyListHeartColorTwo, LogoImageDataUrl = previous.LogoImageDataUrl, MediaBarIntervalSeconds = previous.MediaBarIntervalSeconds, MediaBarImageType = previous.MediaBarImageType, AutoRefreshSections = previous.AutoRefreshSections, EnableRemoveContinueNextUp = previous.EnableRemoveContinueNextUp, EnableMyList = previous.EnableMyList, EnableSeriesInfo = previous.EnableSeriesInfo, InfiniteScrollLibraryIds = [.. previous.InfiniteScrollLibraryIds], EnableCollectionsOnDetailPage = previous.EnableCollectionsOnDetailPage, EnableEnhancedSearch = previous.EnableEnhancedSearch, EnableBreadcrumbs = previous.EnableBreadcrumbs,
-            SectionOrder = (request.SectionOrder ?? []).Where(id => !string.IsNullOrWhiteSpace(id)).Distinct(StringComparer.Ordinal).ToList(),
-            Sections = (request.Sections ?? [])
-                .Where(section => !string.IsNullOrWhiteSpace(section.Id) && !string.IsNullOrWhiteSpace(section.Name) && !string.IsNullOrWhiteSpace(section.Type))
-                .Select(section => new HomeScreenSectionDefinition
-                {
-                    Id = section.Id,
-                    Name = section.Name.Trim(),
-                    Type = section.Type,
-                    SourceIds = (section.SourceIds ?? []).Where(id => !string.IsNullOrWhiteSpace(id)).Distinct(StringComparer.Ordinal).ToList(),
-                    ItemIds = (section.ItemIds ?? []).Where(id => !string.IsNullOrWhiteSpace(id)).Distinct(StringComparer.Ordinal).ToList(),
-                    ContentOrder = NormalizeContentOrder(section.ContentOrder),
-                    ArtSize = NormalizeArtSize(section.ArtSize),
-                    ArtType = NormalizeArtType(section.ArtType),
-                    ArtShape = NormalizeArtShape(section.ArtShape),
-                    ShowText = section.ShowText,
-                    DisplayTopCount = NormalizeDisplayTopCount(section.DisplayTopCount),
-                    ShowRankNumbers = section.ShowRankNumbers,
-                    RankNumberColorMode = NormalizeColorMode(section.RankNumberColorMode),
-                    RankNumberColorOne = NormalizeColor(section.RankNumberColorOne, "#f5f5f7"),
-                    RankNumberColorTwo = NormalizeColor(section.RankNumberColorTwo, "#f5f5f7"),
-                    RankNumberFontDataUrl = NormalizeFontDataUrl(section.RankNumberFontDataUrl),
-                    ActivityMaxItems = Math.Clamp(section.ActivityMaxItems, 1, 100),
-                    ActivityMediaType = NormalizeActivityMediaType(section.ActivityMediaType),
-                    Drafts = NormalizeSectionDrafts(section.Drafts),
-                    RotationIntervalMinutes = Math.Clamp(section.RotationIntervalMinutes, 1, 525600),
-                    RotationStartUnixMilliseconds = Math.Max(0, section.RotationStartUnixMilliseconds),
-                    IsApplied = section.IsApplied,
-                })
-                .ToList(),
-        };
+        var configuration = CloneConfiguration(Configuration);
+        configuration.JellyfinSectionLabelColor = NormalizeColor(request.JellyfinSectionLabelColor, "#00a4dc");
+        configuration.ManagerSectionLabelColor = NormalizeColor(request.ManagerSectionLabelColor, "#aa5cc3");
+        configuration.MediaBarSectionLabelColor = NormalizeColor(request.MediaBarSectionLabelColor, "#c78000");
+        configuration.Pages = NormalizePages(request.Pages ?? Configuration.Pages);
+        var validPageIds = configuration.Pages.Select(page => page.Id).Append("home").Append("favorites").ToHashSet(StringComparer.Ordinal);
+        configuration.Sections = (request.Sections ?? [])
+            .Where(section => !string.IsNullOrWhiteSpace(section.Id) && !string.IsNullOrWhiteSpace(section.Name) && !string.IsNullOrWhiteSpace(section.Type))
+            .GroupBy(section => section.Id.Trim(), StringComparer.Ordinal)
+            .Select(group => NormalizeSection(group.First(), validPageIds))
+            .ToList();
+        configuration.PageOrder = NormalizePageOrder(request.PageOrder ?? Configuration.PageOrder, configuration.Pages);
+        configuration.HideFavorites = configuration.PageOrder.Any(value => string.Equals(value, "hidden:favorites", StringComparison.Ordinal));
+        var requestedLayouts = request.PageLayouts ?? Configuration.PageLayouts;
+        configuration.PageLayouts = NormalizePageLayouts(requestedLayouts, request.SectionOrder, validPageIds);
+        configuration.SectionOrder = [.. configuration.PageLayouts.First(layout => string.Equals(layout.PageId, "home", StringComparison.Ordinal)).SectionOrder];
 
         UpdateConfiguration(configuration);
         return configuration;
@@ -79,61 +52,32 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
     /// <summary>Updates only the saved Abyss CSS generator settings.</summary>
     public PluginConfiguration UpdateCustomizationSettings(CustomizationSettingsRequest request)
     {
-        var previous = Configuration;
-        var configuration = new PluginConfiguration
-        {
-            JellyfinSectionLabelColor = previous.JellyfinSectionLabelColor,
-            ManagerSectionLabelColor = previous.ManagerSectionLabelColor,
-            MediaBarSectionLabelColor = previous.MediaBarSectionLabelColor,
-            AbyssAccentColor = request.AbyssAccentColor ?? "#f5f5f7",
-            AbyssRadius = Math.Clamp(request.AbyssRadius, 0, 64),
-            AbyssIndicatorColor = request.AbyssIndicatorColor ?? "#373737",
-            AbyssFontImportUrl = (request.AbyssFontImportUrl ?? string.Empty).Trim(),
-            AbyssFontFamily = (request.AbyssFontFamily ?? string.Empty).Trim(),
-            AbyssLiteMode = request.AbyssLiteMode,
-            HeaderTabsColorMode = NormalizeColorMode(request.HeaderTabsColorMode),
-            HeaderTabsColorOne = NormalizeColor(request.HeaderTabsColorOne, "#f5f5f7"), HeaderTabsColorTwo = NormalizeColor(request.HeaderTabsColorTwo, "#f5f5f7"), SelectedHeaderTabTextColor = NormalizeColor(request.SelectedHeaderTabTextColor, "#121212"),
-            PlayButtonColorMode = NormalizeColorMode(request.PlayButtonColorMode),
-            PlayButtonColorOne = NormalizeColor(request.PlayButtonColorOne, "#f5f5f7"), PlayButtonColorTwo = NormalizeColor(request.PlayButtonColorTwo, "#f5f5f7"),
-            ProgressColorMode = NormalizeColorMode(request.ProgressColorMode),
-            ProgressColorOne = NormalizeColor(request.ProgressColorOne, "#f5f5f7"), ProgressColorTwo = NormalizeColor(request.ProgressColorTwo, "#f5f5f7"),
-            SidebarIconColorMode = NormalizeColorMode(request.SidebarIconColorMode),
-            SidebarIconColorOne = NormalizeColor(request.SidebarIconColorOne, "#f5f5f7"), SidebarIconColorTwo = NormalizeColor(request.SidebarIconColorTwo, "#f5f5f7"),
-            MyListHeartColorMode = NormalizeColorMode(request.MyListHeartColorMode),
-            MyListHeartColorOne = NormalizeColor(request.MyListHeartColorOne, "#f5f5f7"), MyListHeartColorTwo = NormalizeColor(request.MyListHeartColorTwo, "#f5f5f7"),
-            LogoImageDataUrl = NormalizeImageDataUrl(request.LogoImageDataUrl),
-            MediaBarIntervalSeconds = Math.Clamp(request.MediaBarIntervalSeconds, 1, 300),
-            MediaBarImageType = NormalizeMediaBarImageType(request.MediaBarImageType),
-            AutoRefreshSections = previous.AutoRefreshSections, EnableRemoveContinueNextUp = previous.EnableRemoveContinueNextUp, EnableMyList = previous.EnableMyList, EnableSeriesInfo = previous.EnableSeriesInfo, InfiniteScrollLibraryIds = [.. previous.InfiniteScrollLibraryIds], EnableCollectionsOnDetailPage = previous.EnableCollectionsOnDetailPage, EnableEnhancedSearch = previous.EnableEnhancedSearch, EnableBreadcrumbs = previous.EnableBreadcrumbs,
-            SectionOrder = [.. previous.SectionOrder],
-            Sections = previous.Sections
-                .Select(section => new HomeScreenSectionDefinition
-                {
-                    Id = section.Id,
-                    Name = section.Name,
-                    Type = section.Type,
-                    SourceIds = [.. section.SourceIds],
-                    ItemIds = [.. section.ItemIds],
-                    ContentOrder = NormalizeContentOrder(section.ContentOrder),
-                    ArtSize = NormalizeArtSize(section.ArtSize),
-                    ArtType = NormalizeArtType(section.ArtType),
-                    ArtShape = NormalizeArtShape(section.ArtShape),
-                    ShowText = section.ShowText,
-                    DisplayTopCount = NormalizeDisplayTopCount(section.DisplayTopCount),
-                    ShowRankNumbers = section.ShowRankNumbers,
-                    RankNumberColorMode = NormalizeColorMode(section.RankNumberColorMode),
-                    RankNumberColorOne = NormalizeColor(section.RankNumberColorOne, "#f5f5f7"),
-                    RankNumberColorTwo = NormalizeColor(section.RankNumberColorTwo, "#f5f5f7"),
-                    RankNumberFontDataUrl = NormalizeFontDataUrl(section.RankNumberFontDataUrl),
-                    ActivityMaxItems = Math.Clamp(section.ActivityMaxItems, 1, 100),
-                    ActivityMediaType = NormalizeActivityMediaType(section.ActivityMediaType),
-                    Drafts = NormalizeSectionDrafts(section.Drafts),
-                    RotationIntervalMinutes = Math.Clamp(section.RotationIntervalMinutes, 1, 525600),
-                    RotationStartUnixMilliseconds = Math.Max(0, section.RotationStartUnixMilliseconds),
-                    IsApplied = section.IsApplied,
-                })
-                .ToList(),
-        };
+        var configuration = CloneConfiguration(Configuration);
+        configuration.AbyssAccentColor = NormalizeColor(request.AbyssAccentColor, "#f5f5f7");
+        configuration.AbyssRadius = Math.Clamp(request.AbyssRadius, 0, 64);
+        configuration.AbyssIndicatorColor = NormalizeColor(request.AbyssIndicatorColor, "#373737");
+        configuration.AbyssFontImportUrl = (request.AbyssFontImportUrl ?? string.Empty).Trim();
+        configuration.AbyssFontFamily = (request.AbyssFontFamily ?? string.Empty).Trim();
+        configuration.AbyssLiteMode = request.AbyssLiteMode;
+        configuration.HeaderTabsColorMode = NormalizeColorMode(request.HeaderTabsColorMode);
+        configuration.HeaderTabsColorOne = NormalizeColor(request.HeaderTabsColorOne, "#f5f5f7");
+        configuration.HeaderTabsColorTwo = NormalizeColor(request.HeaderTabsColorTwo, "#f5f5f7");
+        configuration.SelectedHeaderTabTextColor = NormalizeColor(request.SelectedHeaderTabTextColor, "#121212");
+        configuration.PlayButtonColorMode = NormalizeColorMode(request.PlayButtonColorMode);
+        configuration.PlayButtonColorOne = NormalizeColor(request.PlayButtonColorOne, "#f5f5f7");
+        configuration.PlayButtonColorTwo = NormalizeColor(request.PlayButtonColorTwo, "#f5f5f7");
+        configuration.ProgressColorMode = NormalizeColorMode(request.ProgressColorMode);
+        configuration.ProgressColorOne = NormalizeColor(request.ProgressColorOne, "#f5f5f7");
+        configuration.ProgressColorTwo = NormalizeColor(request.ProgressColorTwo, "#f5f5f7");
+        configuration.SidebarIconColorMode = NormalizeColorMode(request.SidebarIconColorMode);
+        configuration.SidebarIconColorOne = NormalizeColor(request.SidebarIconColorOne, "#f5f5f7");
+        configuration.SidebarIconColorTwo = NormalizeColor(request.SidebarIconColorTwo, "#f5f5f7");
+        configuration.MyListHeartColorMode = NormalizeColorMode(request.MyListHeartColorMode);
+        configuration.MyListHeartColorOne = NormalizeColor(request.MyListHeartColorOne, "#f5f5f7");
+        configuration.MyListHeartColorTwo = NormalizeColor(request.MyListHeartColorTwo, "#f5f5f7");
+        configuration.LogoImageDataUrl = NormalizeImageDataUrl(request.LogoImageDataUrl);
+        configuration.MediaBarIntervalSeconds = Math.Clamp(request.MediaBarIntervalSeconds, 1, 300);
+        configuration.MediaBarImageType = NormalizeMediaBarImageType(request.MediaBarImageType);
 
         UpdateConfiguration(configuration);
         return configuration;
@@ -145,23 +89,12 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
         var previous = Configuration;
         var normalizedId = sectionId?.Trim() ?? string.Empty;
         var normalizedOrder = NormalizeContentOrder(request.ContentOrder);
-        var configuration = new PluginConfiguration
-        {
-            JellyfinSectionLabelColor = previous.JellyfinSectionLabelColor,
-            ManagerSectionLabelColor = previous.ManagerSectionLabelColor,
-            MediaBarSectionLabelColor = previous.MediaBarSectionLabelColor,
-            AbyssAccentColor = previous.AbyssAccentColor,
-            AbyssRadius = previous.AbyssRadius,
-            AbyssIndicatorColor = previous.AbyssIndicatorColor,
-            AbyssFontImportUrl = previous.AbyssFontImportUrl,
-            AbyssFontFamily = previous.AbyssFontFamily,
-            AbyssLiteMode = previous.AbyssLiteMode,
-            HeaderTabsColorMode = previous.HeaderTabsColorMode, HeaderTabsColorOne = previous.HeaderTabsColorOne, HeaderTabsColorTwo = previous.HeaderTabsColorTwo, SelectedHeaderTabTextColor = previous.SelectedHeaderTabTextColor, PlayButtonColorMode = previous.PlayButtonColorMode, PlayButtonColorOne = previous.PlayButtonColorOne, PlayButtonColorTwo = previous.PlayButtonColorTwo, ProgressColorMode = previous.ProgressColorMode, ProgressColorOne = previous.ProgressColorOne, ProgressColorTwo = previous.ProgressColorTwo, SidebarIconColorMode = previous.SidebarIconColorMode, SidebarIconColorOne = previous.SidebarIconColorOne, SidebarIconColorTwo = previous.SidebarIconColorTwo, MyListHeartColorMode = previous.MyListHeartColorMode, MyListHeartColorOne = previous.MyListHeartColorOne, MyListHeartColorTwo = previous.MyListHeartColorTwo, LogoImageDataUrl = previous.LogoImageDataUrl, MediaBarIntervalSeconds = previous.MediaBarIntervalSeconds, MediaBarImageType = previous.MediaBarImageType, AutoRefreshSections = previous.AutoRefreshSections, EnableRemoveContinueNextUp = previous.EnableRemoveContinueNextUp, EnableMyList = previous.EnableMyList, EnableSeriesInfo = previous.EnableSeriesInfo, InfiniteScrollLibraryIds = [.. previous.InfiniteScrollLibraryIds], EnableCollectionsOnDetailPage = previous.EnableCollectionsOnDetailPage, EnableEnhancedSearch = previous.EnableEnhancedSearch, EnableBreadcrumbs = previous.EnableBreadcrumbs,
-            SectionOrder = [.. previous.SectionOrder],
-            Sections = previous.Sections.Select(section => new HomeScreenSectionDefinition
+        var configuration = CloneConfiguration(previous);
+        configuration.Sections = previous.Sections.Select(section => new HomeScreenSectionDefinition
             {
                 Id = section.Id,
                 Name = section.Name,
+                PageId = section.PageId,
                 Type = section.Type,
                 SourceIds = [.. section.SourceIds],
                 ItemIds = string.Equals(section.Id, normalizedId, StringComparison.Ordinal) && request.ItemIds is not null
@@ -182,6 +115,12 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
                 ShowText = string.Equals(section.Id, normalizedId, StringComparison.Ordinal)
                     ? request.ShowText
                     : section.ShowText,
+                IsVisible = string.Equals(section.Id, normalizedId, StringComparison.Ordinal)
+                    ? request.IsVisible
+                    : section.IsVisible,
+                IsMediaBar = string.Equals(section.Id, normalizedId, StringComparison.Ordinal)
+                    ? request.IsMediaBar
+                    : section.IsMediaBar,
                 DisplayTopCount = string.Equals(section.Id, normalizedId, StringComparison.Ordinal)
                     ? NormalizeDisplayTopCount(request.DisplayTopCount)
                     : NormalizeDisplayTopCount(section.DisplayTopCount),
@@ -210,8 +149,7 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
                 RotationIntervalMinutes = Math.Clamp(section.RotationIntervalMinutes, 1, 525600),
                 RotationStartUnixMilliseconds = Math.Max(0, section.RotationStartUnixMilliseconds),
                 IsApplied = string.Equals(section.Id, normalizedId, StringComparison.Ordinal) || section.IsApplied,
-            }).ToList(),
-        };
+            }).ToList();
 
         UpdateConfiguration(configuration);
         return configuration;
@@ -220,31 +158,204 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
     /// <summary>Updates the independently switchable browser enhancements.</summary>
     public PluginConfiguration UpdateMainSettings(MainSettingsRequest request)
     {
-        var previous = Configuration;
-        var configuration = new PluginConfiguration
+        var configuration = CloneConfiguration(Configuration);
+        configuration.AutoRefreshSections = request.AutoRefreshSections;
+        configuration.EnableRemoveContinueNextUp = request.EnableRemoveContinueNextUp;
+        configuration.EnableMyList = request.EnableMyList;
+        configuration.HideFavorites = request.HideFavorites;
+        configuration.EnableSeriesInfo = request.EnableSeriesInfo;
+        configuration.InfiniteScrollLibraryIds = (request.InfiniteScrollLibraryIds ?? []).Where(id => !string.IsNullOrWhiteSpace(id)).Distinct(StringComparer.Ordinal).ToList();
+        configuration.EnableCollectionsOnDetailPage = request.EnableCollectionsOnDetailPage;
+        configuration.EnableEnhancedSearch = request.EnableEnhancedSearch;
+        configuration.EnableBreadcrumbs = request.EnableBreadcrumbs;
+        if (request.EnableMyList && !configuration.Pages.Any(page => string.Equals(page.Id, "my-list", StringComparison.Ordinal)))
         {
-            JellyfinSectionLabelColor = previous.JellyfinSectionLabelColor, ManagerSectionLabelColor = previous.ManagerSectionLabelColor, MediaBarSectionLabelColor = previous.MediaBarSectionLabelColor,
-            AbyssAccentColor = previous.AbyssAccentColor, AbyssRadius = previous.AbyssRadius, AbyssIndicatorColor = previous.AbyssIndicatorColor,
-            AbyssFontImportUrl = previous.AbyssFontImportUrl, AbyssFontFamily = previous.AbyssFontFamily, AbyssLiteMode = previous.AbyssLiteMode,
-            HeaderTabsColorMode = previous.HeaderTabsColorMode, HeaderTabsColorOne = previous.HeaderTabsColorOne, HeaderTabsColorTwo = previous.HeaderTabsColorTwo, SelectedHeaderTabTextColor = previous.SelectedHeaderTabTextColor,
-            PlayButtonColorMode = previous.PlayButtonColorMode, PlayButtonColorOne = previous.PlayButtonColorOne, PlayButtonColorTwo = previous.PlayButtonColorTwo,
-            ProgressColorMode = previous.ProgressColorMode, ProgressColorOne = previous.ProgressColorOne, ProgressColorTwo = previous.ProgressColorTwo,
-            SidebarIconColorMode = previous.SidebarIconColorMode, SidebarIconColorOne = previous.SidebarIconColorOne, SidebarIconColorTwo = previous.SidebarIconColorTwo,
-            MyListHeartColorMode = previous.MyListHeartColorMode, MyListHeartColorOne = previous.MyListHeartColorOne, MyListHeartColorTwo = previous.MyListHeartColorTwo,
-            LogoImageDataUrl = previous.LogoImageDataUrl, MediaBarIntervalSeconds = previous.MediaBarIntervalSeconds, MediaBarImageType = previous.MediaBarImageType,
-            AutoRefreshSections = request.AutoRefreshSections,
-            EnableRemoveContinueNextUp = request.EnableRemoveContinueNextUp,
-            EnableMyList = request.EnableMyList,
-            EnableSeriesInfo = request.EnableSeriesInfo,
-            InfiniteScrollLibraryIds = (request.InfiniteScrollLibraryIds ?? []).Where(id => !string.IsNullOrWhiteSpace(id)).Distinct(StringComparer.Ordinal).ToList(),
-            EnableCollectionsOnDetailPage = request.EnableCollectionsOnDetailPage,
-            EnableEnhancedSearch = request.EnableEnhancedSearch,
-            EnableBreadcrumbs = request.EnableBreadcrumbs,
-            SectionOrder = [.. previous.SectionOrder],
-            Sections = previous.Sections,
-        };
+            configuration.Pages.Insert(0, new HomeScreenPageDefinition { Id = "my-list", Name = "My List" });
+        }
+
+        configuration.PageOrder = SetPageVisibility(NormalizePageOrder(configuration.PageOrder, configuration.Pages), "favorites", !request.HideFavorites);
+        configuration.PageOrder = NormalizePageOrder(configuration.PageOrder, configuration.Pages);
         UpdateConfiguration(configuration);
         return configuration;
+    }
+
+    private static PluginConfiguration CloneConfiguration(PluginConfiguration source)
+    {
+        return new PluginConfiguration
+        {
+            JellyfinSectionLabelColor = source.JellyfinSectionLabelColor,
+            ManagerSectionLabelColor = source.ManagerSectionLabelColor,
+            MediaBarSectionLabelColor = source.MediaBarSectionLabelColor,
+            AbyssAccentColor = source.AbyssAccentColor,
+            AbyssRadius = source.AbyssRadius,
+            AbyssIndicatorColor = source.AbyssIndicatorColor,
+            AbyssFontImportUrl = source.AbyssFontImportUrl,
+            AbyssFontFamily = source.AbyssFontFamily,
+            AbyssLiteMode = source.AbyssLiteMode,
+            HeaderTabsColorMode = source.HeaderTabsColorMode,
+            HeaderTabsColorOne = source.HeaderTabsColorOne,
+            HeaderTabsColorTwo = source.HeaderTabsColorTwo,
+            SelectedHeaderTabTextColor = source.SelectedHeaderTabTextColor,
+            PlayButtonColorMode = source.PlayButtonColorMode,
+            PlayButtonColorOne = source.PlayButtonColorOne,
+            PlayButtonColorTwo = source.PlayButtonColorTwo,
+            ProgressColorMode = source.ProgressColorMode,
+            ProgressColorOne = source.ProgressColorOne,
+            ProgressColorTwo = source.ProgressColorTwo,
+            SidebarIconColorMode = source.SidebarIconColorMode,
+            SidebarIconColorOne = source.SidebarIconColorOne,
+            SidebarIconColorTwo = source.SidebarIconColorTwo,
+            MyListHeartColorMode = source.MyListHeartColorMode,
+            MyListHeartColorOne = source.MyListHeartColorOne,
+            MyListHeartColorTwo = source.MyListHeartColorTwo,
+            LogoImageDataUrl = source.LogoImageDataUrl,
+            MediaBarIntervalSeconds = source.MediaBarIntervalSeconds,
+            MediaBarImageType = source.MediaBarImageType,
+            AutoRefreshSections = source.AutoRefreshSections,
+            EnableRemoveContinueNextUp = source.EnableRemoveContinueNextUp,
+            EnableMyList = source.EnableMyList,
+            HideFavorites = source.HideFavorites,
+            EnableSeriesInfo = source.EnableSeriesInfo,
+            InfiniteScrollLibraryIds = [.. source.InfiniteScrollLibraryIds],
+            EnableCollectionsOnDetailPage = source.EnableCollectionsOnDetailPage,
+            EnableEnhancedSearch = source.EnableEnhancedSearch,
+            EnableBreadcrumbs = source.EnableBreadcrumbs,
+            Sections = source.Sections.Select(CloneSection).ToList(),
+            SectionOrder = [.. source.SectionOrder],
+            Pages = source.Pages.Select(page => new HomeScreenPageDefinition { Id = page.Id, Name = page.Name }).ToList(),
+            PageOrder = [.. source.PageOrder],
+            PageLayouts = source.PageLayouts.Select(layout => new HomeScreenPageLayoutDefinition { PageId = layout.PageId, SectionOrder = [.. layout.SectionOrder] }).ToList(),
+        };
+    }
+
+    private static HomeScreenSectionDefinition CloneSection(HomeScreenSectionDefinition section)
+    {
+        return new HomeScreenSectionDefinition
+        {
+            Id = section.Id,
+            Name = section.Name,
+            PageId = string.IsNullOrWhiteSpace(section.PageId) ? "home" : section.PageId,
+            Type = section.Type,
+            SourceIds = [.. section.SourceIds],
+            ItemIds = [.. section.ItemIds],
+            ContentOrder = section.ContentOrder,
+            ArtSize = section.ArtSize,
+            ArtType = section.ArtType,
+            ArtShape = section.ArtShape,
+            ShowText = section.ShowText,
+            IsVisible = section.IsVisible,
+            IsMediaBar = section.IsMediaBar,
+            DisplayTopCount = section.DisplayTopCount,
+            ShowRankNumbers = section.ShowRankNumbers,
+            RankNumberColorMode = section.RankNumberColorMode,
+            RankNumberColorOne = section.RankNumberColorOne,
+            RankNumberColorTwo = section.RankNumberColorTwo,
+            RankNumberFontDataUrl = section.RankNumberFontDataUrl,
+            ActivityMaxItems = section.ActivityMaxItems,
+            ActivityMediaType = section.ActivityMediaType,
+            Drafts = NormalizeSectionDrafts(section.Drafts),
+            RotationIntervalMinutes = section.RotationIntervalMinutes,
+            RotationStartUnixMilliseconds = section.RotationStartUnixMilliseconds,
+            IsApplied = section.IsApplied,
+        };
+    }
+
+    private static HomeScreenSectionDefinition NormalizeSection(HomeScreenSectionDefinition section, ISet<string> validPageIds)
+    {
+        var normalized = CloneSection(section);
+        var pageId = section.PageId ?? string.Empty;
+        normalized.Id = section.Id.Trim();
+        normalized.Name = section.Name.Trim();
+        normalized.PageId = validPageIds.Contains(pageId) ? pageId : "home";
+        normalized.Type = section.Type.Trim();
+        normalized.SourceIds = (section.SourceIds ?? []).Where(id => !string.IsNullOrWhiteSpace(id)).Distinct(StringComparer.Ordinal).ToList();
+        normalized.ItemIds = (section.ItemIds ?? []).Where(id => !string.IsNullOrWhiteSpace(id)).Distinct(StringComparer.Ordinal).ToList();
+        normalized.ContentOrder = NormalizeContentOrder(section.ContentOrder);
+        normalized.ArtSize = NormalizeArtSize(section.ArtSize);
+        normalized.ArtType = NormalizeArtType(section.ArtType);
+        normalized.ArtShape = NormalizeArtShape(section.ArtShape);
+        normalized.DisplayTopCount = NormalizeDisplayTopCount(section.DisplayTopCount);
+        normalized.RankNumberColorMode = NormalizeColorMode(section.RankNumberColorMode);
+        normalized.RankNumberColorOne = NormalizeColor(section.RankNumberColorOne, "#f5f5f7");
+        normalized.RankNumberColorTwo = NormalizeColor(section.RankNumberColorTwo, "#f5f5f7");
+        normalized.RankNumberFontDataUrl = NormalizeFontDataUrl(section.RankNumberFontDataUrl);
+        normalized.ActivityMaxItems = Math.Clamp(section.ActivityMaxItems, 1, 100);
+        normalized.ActivityMediaType = NormalizeActivityMediaType(section.ActivityMediaType);
+        normalized.RotationIntervalMinutes = Math.Clamp(section.RotationIntervalMinutes, 1, 525600);
+        normalized.RotationStartUnixMilliseconds = Math.Max(0, section.RotationStartUnixMilliseconds);
+        return normalized;
+    }
+
+    private static List<HomeScreenPageDefinition> NormalizePages(IEnumerable<HomeScreenPageDefinition>? pages)
+    {
+        return (pages ?? [])
+            .Where(page => !string.IsNullOrWhiteSpace(page.Id) && !string.IsNullOrWhiteSpace(page.Name))
+            .Where(page => !string.Equals(page.Id, "home", StringComparison.Ordinal) && !string.Equals(page.Id, "favorites", StringComparison.Ordinal))
+            .GroupBy(page => page.Id.Trim(), StringComparer.Ordinal)
+            .Select(group => group.First())
+            .Select(page => new HomeScreenPageDefinition { Id = page.Id.Trim(), Name = page.Name.Trim() })
+            .ToList();
+    }
+
+    private static List<string> NormalizePageOrder(IEnumerable<string>? values, IEnumerable<HomeScreenPageDefinition> pages)
+    {
+        var valid = pages.Select(page => page.Id).Append("home").Append("favorites").ToHashSet(StringComparer.Ordinal);
+        var normalized = new List<string> { "home" };
+        foreach (var value in values ?? [])
+        {
+            var raw = (value ?? string.Empty).Trim();
+            var hidden = raw.StartsWith("hidden:", StringComparison.Ordinal);
+            var id = hidden ? raw[7..] : raw;
+            if (string.Equals(id, "home", StringComparison.Ordinal) || !valid.Contains(id) || normalized.Any(item => string.Equals(item.Replace("hidden:", string.Empty, StringComparison.Ordinal), id, StringComparison.Ordinal))) continue;
+            normalized.Add(hidden ? "hidden:" + id : id);
+        }
+
+        if (!normalized.Any(value => value.EndsWith("favorites", StringComparison.Ordinal))) normalized.Add("favorites");
+        foreach (var page in pages)
+        {
+            if (!normalized.Any(value => string.Equals(value.Replace("hidden:", string.Empty, StringComparison.Ordinal), page.Id, StringComparison.Ordinal))) normalized.Add(page.Id);
+        }
+
+        return normalized;
+    }
+
+    private static List<string> SetPageVisibility(List<string> order, string pageId, bool visible)
+    {
+        return order.Select(value =>
+        {
+            var id = value.StartsWith("hidden:", StringComparison.Ordinal) ? value[7..] : value;
+            return string.Equals(id, pageId, StringComparison.Ordinal) && !visible ? "hidden:" + id : id;
+        }).ToList();
+    }
+
+    private static List<HomeScreenPageLayoutDefinition> NormalizePageLayouts(IEnumerable<HomeScreenPageLayoutDefinition>? layouts, IEnumerable<string>? legacyHomeOrder, ISet<string> validPageIds)
+    {
+        var result = (layouts ?? [])
+            .Where(layout => validPageIds.Contains(layout.PageId ?? string.Empty))
+            .GroupBy(layout => layout.PageId, StringComparer.Ordinal)
+            .Select(group => group.First())
+            .Select(layout => new HomeScreenPageLayoutDefinition
+            {
+                PageId = layout.PageId,
+                SectionOrder = (layout.SectionOrder ?? []).Where(value => !string.IsNullOrWhiteSpace(value)).Distinct(StringComparer.Ordinal).ToList(),
+            })
+            .ToList();
+        var home = result.FirstOrDefault(layout => string.Equals(layout.PageId, "home", StringComparison.Ordinal));
+        if (home is null)
+        {
+            result.Insert(0, new HomeScreenPageLayoutDefinition
+            {
+                PageId = "home",
+                SectionOrder = (legacyHomeOrder ?? []).Where(value => !string.IsNullOrWhiteSpace(value)).Distinct(StringComparer.Ordinal).ToList(),
+            });
+        }
+
+        foreach (var pageId in validPageIds.Where(id => !result.Any(layout => string.Equals(layout.PageId, id, StringComparison.Ordinal))))
+        {
+            result.Add(new HomeScreenPageLayoutDefinition { PageId = pageId });
+        }
+
+        return result;
     }
 
     private static string NormalizeColorMode(string? value) => value switch { "vertical-gradient" => "vertical-gradient", "horizontal-gradient" => "horizontal-gradient", "center-gradient" => "center-gradient", _ => "solid" };

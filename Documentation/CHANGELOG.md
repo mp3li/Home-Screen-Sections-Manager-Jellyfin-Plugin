@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.1.0.32-test] - 2026-08-13
+
+- Adds global top-navigation page creation, editing, visibility, ordering, and per-page section layouts.
+- Adds Hide Favorites, Show controls for all sections, page-aware section moving, and multiple explicitly selected media bars per page.
+- Prevents duplicate My List tabs and adds a top gradient to media bars placed below the first page section.
+
 ## [0.1.0.31-test] - 2026-08-12
 
 ### Reworked

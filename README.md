@@ -11,10 +11,11 @@
 - Main Settings
 - Customization Settings
 - Create and Manage Home Screen Sections
+- Create and Manage Home Screen Pages
 
 **Main Settings** provides a deliberate refresh action for saved rule-based
 sections, plus removal buttons for Continue Watching and Next Up, the per-user
-My List, series and season information,
+My List, optional Favorites-tab hiding, series and season information,
 selected-library infinite scrolling, collections on detail pages, enhanced
 Jellyfin-only search, and header breadcrumbs.
 
@@ -30,12 +31,18 @@ logo, media-bar timing, and media-bar image type.
 together with saved plugin sections. Jellyfin’s native Latest Media area is
 expanded into one live **Recently Added to …** row per eligible library; those
 rows can be shown, hidden, and reordered independently without rebuilding their
-Jellyfin-owned content. Jellyfin, plugin-created, and Media Bar badges have
-separately configurable label colors.
-One row can be selected at a time; plugin rows can be edited or deleted; and every
-row can be dragged. The first eligible row receives the **Media Bar** label and
-supplies the media shown in the top bar, whether that row came from Jellyfin or
-this plugin.
+Jellyfin-owned content. The page selector switches the editor among Home and
+every enabled or custom top-navigation page. Every row has a **Show** control;
+plugin rows can be edited, deleted, or moved to another page; and every row can
+be dragged. Plugin sections can independently be marked as Media Bars, including
+more than one Media Bar on the same page. Jellyfin, plugin-created, and Media Bar
+badges have separately configurable label colors.
+
+**Create and Manage Home Screen Pages** keeps Home locked first while allowing
+Favorites, My List, and plugin-created pages to be shown, hidden, and reordered.
+Plugin pages can be created, renamed, deleted, and restored. Page definitions
+and their section layouts are server-wide, while My List content remains
+per-user.
 
 The current section types are Manual Content, individual or multiple collection
 content, multiple collections in a row, individual or combined tags,
@@ -61,11 +68,12 @@ Home Screen** saves these choices and enables the section in Jellyfin Web.
 
 Home Screen Manager uses a credited, MIT-licensed adaptation of Abyss's
 spotlight logic together with the installed Abyss spotlight stylesheet. This
-keeps Abyss's media-bar appearance while allowing the first eligible draggable home row,
-saved timing, and selected Backdrop, Primary, Banner, or Thumbnail image type to
-drive the bar. The source row remains visible as a normal row immediately below
-the media bar. My Media and Latest Media remain normal home rows but cannot be
-used as the media-bar source. Continue Watching supplies up to 30 available items
+keeps Abyss's media-bar appearance while allowing saved timing and the selected
+Backdrop, Primary, Banner, or Thumbnail image type to drive every configured
+bar. A Media Bar source row remains visible as a normal row, and Media Bars below
+the first page section receive a matching top gradient. The legacy first eligible
+Home row remains the Home Media Bar until explicit plugin Media Bars are selected.
+My Media and Latest Media remain normal Home rows. Continue Watching supplies up to 30 available items
 to the media bar instead of limiting the spotlight to only a few. Saved custom
 rows render independently of media-bar artwork and live settings reconciliation.
 The Main Settings **Refresh Home Screen Sections** button refreshes applied
@@ -88,8 +96,9 @@ The uploaded Home logo remains present throughout Jellyfin Web, including
 breadcrumbed detail pages, and is hidden on playback screens. It always retains
 Home navigation behavior.
 
-My List is inserted into Jellyfin’s Home/Favorites header tab slider and rendered
-by Home Screen Manager itself. It uses Jellyfin's existing per-user Likes
+My List is inserted once into Jellyfin’s top-navigation slider and rendered by
+Home Screen Manager itself; stale duplicate My List markup from the older Custom
+Tabs integration is removed. It uses Jellyfin's existing per-user Likes
 field—the same working storage path used by the behavioral reference—rather
 than creating a second watchlist database.
 Its overlay changes one Material heart icon between outline and filled states. Liked episodes remain episode entries while using their series art and series name as the primary card identity, followed by the episode title.

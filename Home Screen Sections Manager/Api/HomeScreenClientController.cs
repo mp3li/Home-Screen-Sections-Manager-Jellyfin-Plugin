@@ -23,8 +23,12 @@ public sealed class HomeScreenClientController : ControllerBase
         {
             Sections = configuration.Sections.Where(section => section.IsApplied).ToArray(),
             configuration.SectionOrder,
+            configuration.Pages,
+            configuration.PageOrder,
+            configuration.PageLayouts,
             configuration.EnableRemoveContinueNextUp,
             configuration.EnableMyList,
+            configuration.HideFavorites,
             configuration.EnableSeriesInfo,
             configuration.InfiniteScrollLibraryIds,
             configuration.EnableCollectionsOnDetailPage,

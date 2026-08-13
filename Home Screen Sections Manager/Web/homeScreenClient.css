@@ -3,6 +3,10 @@
     flex-direction: column;
 }
 
+.hssm-hidden-page-tab {
+    display: none !important;
+}
+
 /* The plugin-owned bar deliberately does not use Abyss's .featurediframe
    identity. Abyss retains its own hidden frame and lifecycle; this frame uses
    the same responsive measurements without competing for ownership. */
@@ -15,6 +19,15 @@
     min-height: 420px;
     padding: 0;
     width: 100%;
+}
+
+.homeSectionsContainer > .hssm-owned-media-bar {
+    flex: 0 0 auto;
+    margin-bottom: 1.5em;
+}
+
+.homeSectionsContainer > .hssm-owned-media-bar.hssm-media-bar-not-first {
+    margin-top: 1.5em;
 }
 
 #homeTab > .featurediframe[data-hssm-suppressed-abyss-spotlight="true"] {

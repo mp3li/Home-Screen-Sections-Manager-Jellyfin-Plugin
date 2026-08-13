@@ -61,6 +61,14 @@
             inset:0;
             position:absolute;
         }
+        body.hssm-media-bar-top-gradient #backdrop::after {
+            background:linear-gradient(to bottom,rgba(0,0,0,.96) 0%,rgba(0,0,0,.62) 7%,rgba(0,0,0,.22) 14%,transparent 22%);
+            content:'';
+            inset:0;
+            pointer-events:none;
+            position:absolute;
+            z-index:2;
+        }
     </style>
 </head>
 <body>
@@ -512,9 +520,11 @@
                 // runtime authority; HTML and URL values are startup fallbacks only.
                 const authoritativeInterval = normalizedIntervalSeconds(data.intervalSeconds);
                 const authoritativeImageType = normalizedImageType(data.imageType);
-                const nextSignature = JSON.stringify([authoritativeInterval, authoritativeImageType, nextItems.map(item => String(item.Id))]);
+                const topGradient = data.topGradient === true;
+                const nextSignature = JSON.stringify([authoritativeInterval, authoritativeImageType, topGradient, nextItems.map(item => String(item.Id))]);
                 if (document.body.dataset.hssmPayloadSignature === nextSignature) return;
                 document.body.dataset.hssmPayloadSignature = nextSignature;
+                document.body.classList.toggle('hssm-media-bar-top-gradient', topGradient);
                 const nextImageType = validImageTypes.includes(String(authoritativeImageType)) ? String(authoritativeImageType) : 'abyss-original';
                 if (renderController) renderController.abort();
                 if (preloadTimer) clearTimeout(preloadTimer);

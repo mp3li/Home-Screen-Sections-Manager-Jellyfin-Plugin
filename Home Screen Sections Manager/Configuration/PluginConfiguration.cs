@@ -70,6 +70,9 @@ public sealed class PluginConfiguration : BasePluginConfiguration
 
     public bool EnableMyList { get; set; }
 
+    /// <summary>Gets or sets whether Jellyfin's Favorites top-navigation page is hidden.</summary>
+    public bool HideFavorites { get; set; }
+
     public bool EnableSeriesInfo { get; set; }
 
     public List<string> InfiniteScrollLibraryIds { get; set; } = [];
@@ -85,6 +88,35 @@ public sealed class PluginConfiguration : BasePluginConfiguration
 
     /// <summary>Gets or sets the saved hybrid order, containing native anchors and plugin section ids.</summary>
     public List<string> SectionOrder { get; set; } = [];
+
+    /// <summary>Gets or sets the plugin-owned top-navigation pages, including the optional My List page.</summary>
+    public List<HomeScreenPageDefinition> Pages { get; set; } = [];
+
+    /// <summary>Gets or sets the top-navigation page order. A hidden: prefix stores page visibility.</summary>
+    public List<string> PageOrder { get; set; } = [];
+
+    /// <summary>Gets or sets the independent section order for each top-navigation page.</summary>
+    public List<HomeScreenPageLayoutDefinition> PageLayouts { get; set; } = [];
+}
+
+/// <summary>A plugin-owned top-navigation home-screen page.</summary>
+public sealed class HomeScreenPageDefinition
+{
+    /// <summary>Gets or sets the stable browser-created identifier.</summary>
+    public string Id { get; set; } = string.Empty;
+
+    /// <summary>Gets or sets the page title.</summary>
+    public string Name { get; set; } = string.Empty;
+}
+
+/// <summary>The saved section ordering for one top-navigation page.</summary>
+public sealed class HomeScreenPageLayoutDefinition
+{
+    /// <summary>Gets or sets the page identifier.</summary>
+    public string PageId { get; set; } = "home";
+
+    /// <summary>Gets or sets the section order. A hidden: prefix stores section visibility.</summary>
+    public List<string> SectionOrder { get; set; } = [];
 }
 
 /// <summary>A saved custom home screen section and its selected source content.</summary>
@@ -95,6 +127,9 @@ public sealed class HomeScreenSectionDefinition
 
     /// <summary>Gets or sets the display name.</summary>
     public string Name { get; set; } = string.Empty;
+
+    /// <summary>Gets or sets the top-navigation page that owns this section.</summary>
+    public string PageId { get; set; } = "home";
 
     /// <summary>Gets or sets the selected section type.</summary>
     public string Type { get; set; } = string.Empty;
@@ -119,6 +154,12 @@ public sealed class HomeScreenSectionDefinition
 
     /// <summary>Gets or sets whether item text is displayed under the art.</summary>
     public bool ShowText { get; set; } = true;
+
+    /// <summary>Gets or sets whether this saved section is rendered on its page.</summary>
+    public bool IsVisible { get; set; } = true;
+
+    /// <summary>Gets or sets whether this section also supplies an Abyss media bar.</summary>
+    public bool IsMediaBar { get; set; }
 
 
     /// <summary>Gets or sets how many IMDb-tagged items the Top section displays.</summary>
@@ -200,6 +241,15 @@ public sealed class SectionSettingsRequest
 
     /// <summary>Gets or sets the hybrid row order.</summary>
     public List<string> SectionOrder { get; set; } = [];
+
+    /// <summary>Gets or sets plugin-owned pages.</summary>
+    public List<HomeScreenPageDefinition>? Pages { get; set; }
+
+    /// <summary>Gets or sets the top-navigation page order.</summary>
+    public List<string>? PageOrder { get; set; }
+
+    /// <summary>Gets or sets the independent section orders for all pages.</summary>
+    public List<HomeScreenPageLayoutDefinition>? PageLayouts { get; set; }
 }
 /// <summary>Saved Abyss CSS generator settings.</summary>
 public sealed class CustomizationSettingsRequest
@@ -270,6 +320,8 @@ public sealed class MainSettingsRequest
 
     public bool EnableMyList { get; set; }
 
+    public bool HideFavorites { get; set; }
+
     public bool EnableSeriesInfo { get; set; }
 
     public List<string> InfiniteScrollLibraryIds { get; set; } = [];
@@ -301,6 +353,10 @@ public sealed class ApplySectionRequest
 
     /// <summary>Gets or sets whether item text is displayed under the art.</summary>
     public bool ShowText { get; set; } = true;
+
+    public bool IsVisible { get; set; } = true;
+
+    public bool IsMediaBar { get; set; }
 
     public int DisplayTopCount { get; set; } = 10;
 

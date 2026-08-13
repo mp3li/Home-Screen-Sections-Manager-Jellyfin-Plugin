@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    var CLIENT_VERSION = "0.1.0.31";
+    var CLIENT_VERSION = "0.1.0.32";
     if (window.HomeScreenManagerClient) {
         if (window.HomeScreenManagerClient.version === CLIENT_VERSION) {
             window.HomeScreenManagerClient.refresh();
@@ -130,7 +130,11 @@
 
     function ensureOwnedMyListPage(settings) {
         var indexPage = visibleIndexPage();
-        var enabled = setting(settings || {}, 'EnableMyList', false);
+        var pageOrder = prop(settings || {}, 'PageOrder', 'pageOrder', []).map(sectionOrderEntry);
+        var myListOrder = pageOrder.find(function (entry) { return entry.id === 'my-list'; });
+        var enabled = setting(settings || {}, 'EnableMyList', false) && !(myListOrder && myListOrder.hidden);
+        var myListDefinition = prop(settings || {}, 'Pages', 'pages', []).find(function (page) { return String(prop(page, 'Id', 'id', '')) === 'my-list'; });
+        var myListTitle = String(prop(myListDefinition, 'Name', 'name', 'My List') || 'My List');
         var tabs = homeTabsElement();
         var slider = tabs && tabs.querySelector('.emby-tabs-slider');
         if (indexPage && slider) {
@@ -167,9 +171,11 @@
             tabButton.type = 'button';
             tabButton.setAttribute('is', 'emby-button');
             tabButton.className = 'emby-tab-button hssm-my-list-tab';
-            tabButton.innerHTML = '<div class="emby-button-foreground">My List</div>';
+            tabButton.innerHTML = '<div class="emby-button-foreground"></div>';
             slider.appendChild(tabButton);
         }
+        tabButton.querySelector('.emby-button-foreground').textContent = myListTitle;
+        existing.dataset.hssmPageTitle = myListTitle;
         tabButton.dataset.index = String(ownedMyListTabIndex);
         if (tabButton.dataset.hssmOwnedBound !== 'true') {
             tabButton.dataset.hssmOwnedBound = 'true';
@@ -183,6 +189,85 @@
         if (window.CustomElements && typeof window.CustomElements.upgradeSubtree === 'function') window.CustomElements.upgradeSubtree(tabs);
         if (typeof tabs.refresh === 'function') tabs.refresh();
         return existing;
+    }
+
+    function ensureOwnedPages(settings) {
+        var indexPage = visibleIndexPage();
+        var tabs = homeTabsElement();
+        var slider = tabs && tabs.querySelector('.emby-tabs-slider');
+        if (!indexPage || !tabs || !slider) return;
+        var myList = ensureOwnedMyListPage(settings);
+        var definitions = prop(settings, 'Pages', 'pages', []).filter(function (page) { return String(prop(page, 'Id', 'id', '')) !== 'my-list'; });
+        var order = prop(settings, 'PageOrder', 'pageOrder', []).map(sectionOrderEntry);
+        var hidden = {};
+        order.forEach(function (entry) { hidden[entry.id] = entry.hidden; });
+        hidden.favorites = hidden.favorites || setting(settings, 'HideFavorites', false);
+        Array.from(indexPage.querySelectorAll(':scope > .hssm-owned-custom-page')).forEach(function (panel) {
+            var id = panel.dataset.hssmPageId;
+            if (!definitions.some(function (definition) { return String(prop(definition, 'Id', 'id', '')) === id; })) panel.remove();
+        });
+        Array.from(slider.querySelectorAll('.hssm-custom-page-tab')).forEach(function (button) {
+            if (!definitions.some(function (definition) { return String(prop(definition, 'Id', 'id', '')) === button.dataset.hssmPageId; })) button.remove();
+        });
+        var used = Array.from(indexPage.querySelectorAll(':scope > .pageTabContent[data-index]')).map(function (panel) { return Number(panel.dataset.index); }).filter(Number.isFinite);
+        var nextIndex = Math.max(2, used.length ? Math.max.apply(Math, used) + 1 : 2);
+        definitions.forEach(function (definition) {
+            var id = String(prop(definition, 'Id', 'id', ''));
+            var name = String(prop(definition, 'Name', 'name', 'Page'));
+            var panel = indexPage.querySelector(':scope > .hssm-owned-custom-page[data-hssm-page-id="' + CSS.escape(id) + '"]');
+            var button = slider.querySelector('.hssm-custom-page-tab[data-hssm-page-id="' + CSS.escape(id) + '"]');
+            if (!id || hidden[id]) { if(panel)panel.remove(); if(button)button.remove(); return; }
+            var index = panel ? Number(panel.dataset.index) : nextIndex++;
+            if (!panel) {
+                panel = document.createElement('div');
+                panel.className = 'tabContent pageTabContent hssm-owned-custom-page';
+                panel.dataset.index = String(index);
+                panel.dataset.hssmPageId = id;
+                panel.innerHTML = '<div class="sections homeSectionsContainer hssm-custom-page-container"></div>';
+                indexPage.appendChild(panel);
+            }
+            panel.dataset.hssmPageTitle = name;
+            if (!button) {
+                button = document.createElement('button');
+                button.type = 'button';
+                button.setAttribute('is', 'emby-button');
+                button.className = 'emby-tab-button hssm-custom-page-tab';
+                button.dataset.hssmPageId = id;
+                button.innerHTML = '<div class="emby-button-foreground"></div>';
+                slider.appendChild(button);
+            }
+            button.dataset.index = String(index);
+            button.querySelector('.emby-button-foreground').textContent = name;
+            if (button.dataset.hssmOwnedBound !== 'true') {
+                button.dataset.hssmOwnedBound = 'true';
+                button.addEventListener('click', function (event) { event.preventDefault(); event.stopPropagation(); event.stopImmediatePropagation(); showOwnedHomePanel(index); }, true);
+            }
+        });
+        var favoritesButton = slider.querySelector('.emby-tab-button[data-index="1"]');
+        var favoritesPanel = indexPage.querySelector('#favoritesTab, :scope > .pageTabContent[data-index="1"]');
+        if (favoritesButton) {
+            favoritesButton.hidden = !!hidden.favorites;
+            favoritesButton.classList.toggle('hssm-hidden-page-tab', !!hidden.favorites);
+        }
+        if (favoritesPanel) favoritesPanel.dataset.hssmPageHidden = hidden.favorites ? 'true' : 'false';
+        if (hidden.favorites && favoritesPanel && favoritesPanel.classList.contains('is-active')) showOwnedHomePanel(0);
+        if (myList) {
+            Array.from(slider.querySelectorAll('.emby-tab-button')).filter(function (button) {
+                return button !== slider.querySelector('.hssm-my-list-tab') && String(button.textContent || '').trim().toLowerCase() === 'my list';
+            }).forEach(function (button) {
+                var index = button.dataset.index;
+                button.remove();
+                var panel = indexPage.querySelector(':scope > .pageTabContent[data-index="' + CSS.escape(String(index || '')) + '"]');
+                if (panel && !panel.classList.contains('hssm-owned-my-list-page')) panel.remove();
+            });
+        }
+        var buttonById = { home:slider.querySelector('.emby-tab-button[data-index="0"]'), favorites:favoritesButton, 'my-list':slider.querySelector('.hssm-my-list-tab') };
+        definitions.forEach(function (definition) { var id=String(prop(definition,'Id','id','')); buttonById[id]=slider.querySelector('.hssm-custom-page-tab[data-hssm-page-id="' + CSS.escape(id) + '"]'); });
+        order.forEach(function (entry) { var button=buttonById[entry.id]; if(button && !entry.hidden) slider.appendChild(button); });
+        Object.keys(buttonById).forEach(function (id) { var button=buttonById[id]; if(button && !button.hidden && !order.some(function(entry){return entry.id===id;})) slider.appendChild(button); });
+        if (buttonById.home) slider.insertBefore(buttonById.home, slider.firstChild);
+        if (window.CustomElements && typeof window.CustomElements.upgradeSubtree === 'function') window.CustomElements.upgradeSubtree(tabs);
+        if (typeof tabs.refresh === 'function') tabs.refresh();
     }
 
     function showOwnedHomePanel(index) {
@@ -222,6 +307,66 @@
         var indexPage = visibleIndexPage();
         var favoritesTab = indexPage && indexPage.querySelector("#favoritesTab");
         return favoritesTab && favoritesTab.classList.contains("is-active") ? favoritesTab : null;
+    }
+
+    function activeCustomPagePanel() {
+        var indexPage = visibleIndexPage();
+        return indexPage ? indexPage.querySelector(':scope > .hssm-owned-custom-page.is-active') : null;
+    }
+
+    function activeCustomPageContainer() {
+        var panel = activeCustomPagePanel();
+        return panel ? panel.querySelector(':scope > .hssm-custom-page-container') : null;
+    }
+
+    function pageSectionsContainer(panel, pageId) {
+        if (!panel) return null;
+        var container = panel.querySelector(':scope > .hssm-page-sections-container');
+        if (!container) {
+            container = document.createElement('div');
+            container.className = 'sections homeSectionsContainer hssm-page-sections-container';
+            container.dataset.hssmPageId = pageId;
+            panel.appendChild(container);
+        }
+        return container;
+    }
+
+    function activeManagedSectionContainer() {
+        var custom = activeCustomPageContainer();
+        if (custom) return custom;
+        var myList = myListPageMarker();
+        if (myList && (myList.classList.contains('is-active') || activeMyListContainer())) return pageSectionsContainer(myList, 'my-list');
+        var favorites = activeFavoritesPanel();
+        if (favorites) return pageSectionsContainer(favorites, 'favorites');
+        return activeHomeContainer();
+    }
+
+    function pageIdForContainer(container) {
+        if (!container) return '';
+        var custom = container.closest('.hssm-owned-custom-page');
+        if (custom) return custom.dataset.hssmPageId || '';
+        if (container.closest('.hssm-my-list-page')) return 'my-list';
+        if (container.closest('#favoritesTab')) return 'favorites';
+        return 'home';
+    }
+
+    function pageLayoutOrder(settings, pageId) {
+        var layouts = prop(settings, 'PageLayouts', 'pageLayouts', []);
+        var layout = layouts.find(function (candidate) { return String(prop(candidate, 'PageId', 'pageId', 'home')) === pageId; });
+        return layout ? prop(layout, 'SectionOrder', 'sectionOrder', []) : pageId === 'home' ? prop(settings, 'SectionOrder', 'sectionOrder', []) : [];
+    }
+
+    function settingsForPage(settings, pageId) {
+        var scoped = Object.assign({}, settings);
+        scoped.SectionOrder = pageLayoutOrder(settings, pageId);
+        scoped.sectionOrder = scoped.SectionOrder;
+        return scoped;
+    }
+
+    function sectionsForPage(settings, pageId) {
+        return prop(settings, 'Sections', 'sections', []).filter(function (section) {
+            return String(prop(section, 'PageId', 'pageId', 'home') || 'home') === pageId && prop(section, 'IsVisible', 'isVisible', true) !== false;
+        });
     }
 
     function getJson(path, parameters) {
@@ -655,13 +800,18 @@
             }
             var manager = container.querySelector('[data-hssm-section-id="' + CSS.escape(id) + '"]');
             if (manager) {
+                manager.hidden = entry.hidden;
                 add(manager);
                 return;
             }
             var match = id.match(/^jellyfin-(\d+)-(.+)$/);
             if (match) {
                 var currentIndex = native.indexOf(match[2]);
-                if (currentIndex >= 0) add(container.querySelector('.section' + currentIndex));
+                if (currentIndex >= 0) {
+                    var nativeNode = container.querySelector('.section' + currentIndex);
+                    if (nativeNode) nativeNode.hidden = entry.hidden;
+                    add(nativeNode);
+                }
             }
         });
         Array.from(container.children).forEach(function (node) {
@@ -1004,8 +1154,8 @@
 
     function ownedMediaBarIsActive(frame) {
         var indexPage = visibleIndexPage();
-        var homeTab = frame && frame.closest('#homeTab');
-        return !!(indexPage && homeTab && homeTab.classList.contains('is-active') && !document.hidden && isHomeRoute());
+        var panel = frame && frame.closest('.pageTabContent');
+        return !!(indexPage && panel && panel.classList.contains('is-active') && !document.hidden && isHomeRoute());
     }
 
     function syncOwnedMediaBarVisibility() {
@@ -1026,12 +1176,13 @@
         ]);
     }
 
-    function sendMediaBarPayload(frame, force) {
-        if (!frame || !frame.contentWindow || !mediaBarPayload) return;
-        var key = mediaBarPayloadKey(mediaBarPayload);
+    function sendMediaBarPayload(frame, force, payload) {
+        payload = payload || (frame && frame._hssmPayload) || mediaBarPayload;
+        if (!frame || !frame.contentWindow || !payload) return;
+        var key = mediaBarPayloadKey(payload) + ':' + String(payload.topGradient === true);
         if (!force && frame.dataset.hssmPayloadSignature === key) return;
         frame.dataset.hssmPayloadSignature = key;
-        frame.contentWindow.postMessage(mediaBarPayload, window.location.origin);
+        frame.contentWindow.postMessage(payload, window.location.origin);
     }
 
     function bindMediaBarMessages() {
@@ -1120,6 +1271,8 @@
     }
 
     function renderMediaBar(settings, preferences, container, sections, sectionItemPromises) {
+        var panel = container && container.closest('.pageTabContent');
+        if (panel) Array.from(panel.querySelectorAll('.hssm-section-media-bar')).forEach(function (frame) { frame.remove(); });
         var loadSequence = ++mediaBarLoadSequence;
         var source = mediaBarSource(settings, preferences, container, sections, sectionItemPromises);
         var interval = Math.max(1, Math.min(300, Number(setting(settings, 'MediaBarIntervalSeconds', 5)) || 5));
@@ -1131,12 +1284,14 @@
             if (cached && cached.key === source.key && cached.intervalSeconds === interval && cached.imageType === requestedImage && Array.isArray(cached.items) && cached.items.length) {
                 matchingCachedPayload = { type:'home-screen-manager-media-bar', action:'configure', items:cached.items, intervalSeconds:interval, imageType:requestedImage };
                 mediaBarPayload = matchingCachedPayload;
+                frame._hssmPayload = matchingCachedPayload;
                 mediaBarSourceKey = JSON.stringify([source.key, interval, requestedImage, cached.items]);
             }
         } catch (_) {}
         if (matchingCachedPayload) sendMediaBarPayload(frame);
         else {
             mediaBarPayload = null;
+            frame._hssmPayload = null;
             mediaBarSourceKey = '';
             frame.dataset.hssmMediaBarPending = 'true';
         }
@@ -1150,6 +1305,7 @@
                 intervalSeconds: interval,
                 imageType: requestedImage
             };
+            frame._hssmPayload = mediaBarPayload;
             cacheWrite('media-bar', { key:source.key, intervalSeconds:interval, imageType:requestedImage, items:items });
             if (key !== mediaBarSourceKey) {
                 mediaBarSourceKey = key;
@@ -1159,7 +1315,68 @@
             if (loadSequence !== mediaBarLoadSequence || container !== activeHomeContainer()) return;
             console.warn('[Home Screen Manager] Could not load the selected media-bar source.', error);
             mediaBarPayload = { type: 'home-screen-manager-media-bar', action: 'configure', items: [], intervalSeconds: 5, imageType: 'backdrop' };
+            frame._hssmPayload = mediaBarPayload;
             sendMediaBarPayload(frame);
+        });
+    }
+
+    function explicitMediaBarSections(sections) {
+        return (sections || []).filter(function (section) { return prop(section, 'IsMediaBar', 'isMediaBar', false) === true && prop(section, 'IsVisible', 'isVisible', true) !== false; });
+    }
+
+    function ensureSectionMediaBarFrame(container, settings, section, sourceNode, firstOnPage) {
+        var id = String(prop(section, 'Id', 'id', ''));
+        var panel = container && container.closest('.pageTabContent');
+        if (!container || !panel || !id) return null;
+        var frame = panel.querySelector('.hssm-section-media-bar[data-hssm-media-section-id="' + CSS.escape(id) + '"]');
+        if (!frame) {
+            frame = document.createElement('iframe');
+            frame.className = 'hssm-owned-media-bar hssm-section-media-bar';
+            frame.title = 'Home Screen Manager media bar for ' + String(prop(section, 'Name', 'name', 'section'));
+            frame.dataset.hssmMediaSectionId = id;
+        }
+        frame.classList.toggle('hssm-media-bar-not-first', !firstOnPage);
+        frame.style.order = !firstOnPage && sourceNode ? sourceNode.style.order : '';
+        frame.dataset.hssmMediaBar = 'true';
+        frame.dataset.hssmClientVersion = CLIENT_VERSION;
+        if (firstOnPage) panel.insertBefore(frame, container);
+        else if (sourceNode && sourceNode.parentNode === container) container.insertBefore(frame, sourceNode);
+        else container.appendChild(frame);
+        bindMediaBarMessages();
+        var urls = mediaBarUrls(frame, settings);
+        if (frame.src !== urls.plugin) {
+            frame.addEventListener('load', function handleLoad() { frame.removeEventListener('load', handleLoad); sendMediaBarPayload(frame, true); });
+            frame.src = urls.plugin;
+        }
+        syncOwnedMediaBarVisibility();
+        return frame;
+    }
+
+    function renderExplicitMediaBars(settings, container, sections) {
+        var configured = explicitMediaBarSections(sections);
+        var panel = container && container.closest('.pageTabContent');
+        if (!panel) return;
+        Array.from(panel.querySelectorAll('.hssm-section-media-bar')).forEach(function (frame) {
+            if (!configured.some(function (section) { return String(prop(section, 'Id', 'id', '')) === frame.dataset.hssmMediaSectionId; })) frame.remove();
+        });
+        if (!configured.length) return;
+        if (pageIdForContainer(container) === 'home') {
+            suppressAbyssMediaBar(panel);
+            observeAbyssMediaBar(panel);
+            var legacy = mediaBarFrameForContainer(container);
+            if (legacy && !legacy.classList.contains('hssm-section-media-bar')) legacy.remove();
+        }
+        var scoped = settingsForPage(settings, pageIdForContainer(container));
+        var visibleOrder = prop(scoped, 'SectionOrder', 'sectionOrder', []).map(sectionOrderEntry).filter(function (entry) { return !entry.hidden; }).map(function (entry) { return entry.id; });
+        configured.forEach(function (section) {
+            var id = String(prop(section, 'Id', 'id', ''));
+            var sourceNode = container.querySelector(':scope > [data-hssm-section-id="' + CSS.escape(id) + '"]');
+            var firstOnPage = visibleOrder.length ? visibleOrder[0] === id : configured[0] === section;
+            var frame = ensureSectionMediaBarFrame(container, settings, section, sourceNode, firstOnPage);
+            if (!frame) return;
+            var payload = { type:'home-screen-manager-media-bar', action:'configure', items:[], intervalSeconds:Math.max(1,Math.min(300,Number(setting(settings,'MediaBarIntervalSeconds',5))||5)), imageType:String(setting(settings,'MediaBarImageType','abyss-original')), topGradient:!firstOnPage };
+            frame._hssmPayload = payload;
+            mediaBarSectionItems(section).then(function (items) { if(!frame.isConnected)return; payload.items=items; frame._hssmPayload=payload; sendMediaBarPayload(frame,true,payload); }, function () { sendMediaBarPayload(frame,true,payload); });
         });
     }
 
@@ -1420,7 +1637,7 @@
         var marker = myListPageMarker();
         var container = activeMyListContainer();
         if (!marker || !container) return;
-        applyPageContextTitle(marker, 'My List');
+        applyPageContextTitle(marker, marker.dataset.hssmPageTitle || 'My List');
         var revision = String(myListRevision);
         var state = String(container.dataset.hssmMyListState || '');
         if (container.dataset.hssmMyListRevision !== revision || (state !== 'loading' && state !== 'ready')) {
@@ -1780,7 +1997,7 @@
         state.loading = true;
         var start = state.cursor;
         homeRequestLane(function () { return state.dynamicLoader(start, 40); }).then(function (items) {
-            if (!sectionStateIsCurrent(state) || state.generation !== runtimeGeneration || state.container !== activeHomeContainer()) return;
+            if (!sectionStateIsCurrent(state) || state.generation !== runtimeGeneration || !state.container.isConnected) return;
             items = uniqueItems(items || []);
             state.items = uniqueItems(state.items.concat(items));
             state.cursor = start + items.length;
@@ -1826,7 +2043,7 @@
         }
         state.loading = true;
         homeRequestLane(function () { return queryIds(pageIds); }).then(function (items) {
-            if (!sectionStateIsCurrent(state) || state.generation !== runtimeGeneration || state.container !== activeHomeContainer()) return;
+            if (!sectionStateIsCurrent(state) || state.generation !== runtimeGeneration || !state.container.isConnected) return;
             state.items = uniqueItems(state.items.concat(items));
             state.cursor += pageIds.length;
             state.complete = sectionPageIds(state.section, state.cursor, 1).length === 0;
@@ -1878,7 +2095,7 @@
         }
         if (!request) return;
         return Promise.resolve(request).then(function (items) {
-            if (!sectionStateIsCurrent(state) || state.generation !== runtimeGeneration || state.container !== activeHomeContainer()) return;
+            if (!sectionStateIsCurrent(state) || state.generation !== runtimeGeneration || !state.container.isConnected) return;
             state.items = uniqueItems(items || []);
             state.cursor = state.items.length;
             state.complete = Number.isFinite(state.dynamicTotal) ? state.cursor >= state.dynamicTotal : state.items.length < 40;
@@ -2004,42 +2221,65 @@
         applyInfiniteScroll(settings);
         applyEnhancedSearch(settings);
     }
-    function signature(settings) {
+    function signature(settings, pageId) {
         return JSON.stringify({
-            sections: prop(settings, 'Sections', 'sections', [])
+            pageId: pageId || 'home',
+            sections: sectionsForPage(settings, pageId || 'home'),
+            order: pageLayoutOrder(settings, pageId || 'home')
         });
     }
 
     function renderHomeRows(settings, preferences, generation, container) {
         container = container || activeHomeContainer();
         if (!container || generation !== runtimeGeneration) return false;
-        var sections = prop(settings, 'Sections', 'sections', []);
+        var pageId = pageIdForContainer(container) || 'home';
+        var sections = sectionsForPage(settings, pageId);
+        var scopedSettings = settingsForPage(settings, pageId);
         Array.from(container.querySelectorAll(":scope > [data-hssm-section-id]")).forEach(function (node) { node.remove(); });
         sectionRuntime = {};
         sections.forEach(function (section) {
             var id = String(prop(section, 'Id', 'id', ''));
             var existing = id ? container.querySelector(':scope > [data-hssm-section-id="' + CSS.escape(id) + '"]') : null;
             if (existing) existing.remove();
-            initializeSection(section, container, settings, preferences, generation);
+            initializeSection(section, container, scopedSettings, pageId === 'home' ? preferences : {}, generation);
         });
         lastContainer = container;
         container.dataset.hssmClientVersion = CLIENT_VERSION;
-        lastSignature = signature(settings);
+        lastSignature = signature(settings, pageId);
         lastError = '';
         renderedSectionCount = sections.length;
-        applyHybridOrder(container, settings, preferences);
-        applyRouteFeatures(settings, container.closest('.libraryPage, .page') || container, true, preferences);
+        applyHybridOrder(container, scopedSettings, pageId === 'home' ? preferences : {});
+        applyRouteFeatures(settings, container.closest('.libraryPage, .page') || container, pageId === 'home', pageId === 'home' ? preferences : {});
+        var customPanel = container.closest('.hssm-owned-custom-page');
+        if (customPanel) applyPageContextTitle(customPanel, customPanel.dataset.hssmPageTitle || '');
         return true;
     }
 
     function homeContainerNeedsMount(container, sections, settings) {
-        if (!container || !container.querySelector(':scope > .section0')) return false;
-        if (container !== lastContainer || signature(settings) !== lastSignature) return true;
+        if (!container || (pageIdForContainer(container) === 'home' && !container.querySelector(':scope > .section0'))) return false;
+        var pageId = pageIdForContainer(container) || 'home';
+        if (container !== lastContainer || signature(settings, pageId) !== lastSignature) return true;
         if (container.dataset.hssmClientVersion !== CLIENT_VERSION) return true;
         return sections.some(function (section) {
             var id = String(prop(section, 'Id', 'id', ''));
             return id && !container.querySelector(':scope > [data-hssm-section-id="' + CSS.escape(id) + '"]');
         });
+    }
+
+    function renderActiveManagedPage(settings, generation) {
+        var container = activeManagedSectionContainer();
+        if (!container || container === activeHomeContainer()) return false;
+        var pageId = pageIdForContainer(container);
+        var sections = sectionsForPage(settings, pageId);
+        if (homeContainerNeedsMount(container, sections, settings) || container !== lastContainer) renderHomeRows(settings, {}, generation, container);
+        else {
+            applyHybridOrder(container, settingsForPage(settings, pageId), {});
+            applyRouteFeatures(settings, container.closest('.libraryPage, .page') || container, false, {});
+        }
+        var customPanel = container.closest('.hssm-owned-custom-page');
+        if (customPanel) applyPageContextTitle(customPanel, customPanel.dataset.hssmPageTitle || '');
+        renderExplicitMediaBars(settings, container, sections);
+        return true;
     }
 
     function bindHomeSettingsChange(container) {
@@ -2088,6 +2328,8 @@
     function currentFeatureScope() {
         var home = activeHomeContainer();
         if (home) return home;
+        var custom = activeCustomPagePanel();
+        if (custom) return custom;
         var myList = activeMyListContainer();
         if (myList) return myListPageMarker() || myList;
         var favorites = activeFavoritesPanel();
@@ -2104,7 +2346,7 @@
         if (!force && window.ApiClient && currentUserId() && featureScope && featureScope === lastFeatureScope && featureRoute === lastFeatureRoute) {
             var immediateSettings = settingsCache || cacheRead("client-settings", 24 * 60 * 60 * 1000);
             if (immediateSettings) {
-                ensureOwnedMyListPage(immediateSettings);
+                ensureOwnedPages(immediateSettings);
                 var immediateHome = activeHomeContainer();
                 if (immediateHome) {
                     var immediatePreferences = latestNativePreferences || cacheRead("native-home-preferences", 24 * 60 * 60 * 1000) || {};
@@ -2143,19 +2385,26 @@
         getClientSettings(!!force).then(function (settings) {
             if (generation !== routeGeneration || isDashboardScreen() || isPlaybackScreen()) return;
             applyLogo(settings);
-            ensureOwnedMyListPage(settings);
+            ensureOwnedPages(settings);
             bindHomeTabs();
             var attempts = 0;
             function enterView() {
                 if (generation !== routeGeneration || isDashboardScreen() || isPlaybackScreen()) return;
+                var customPage = activeCustomPagePanel();
+                if (customPage) {
+                    renderActiveManagedPage(settings, ++runtimeGeneration);
+                    return;
+                }
                 var myListContainer = activeMyListContainer();
                 if (myListContainer) {
                     applyRouteFeatures(settings, myListPageMarker(), false, {});
+                    renderActiveManagedPage(settings, ++runtimeGeneration);
                     return;
                 }
                 var favorites = activeFavoritesPanel();
                 if (favorites) {
                     applyRouteFeatures(settings, favorites, false, {});
+                    renderActiveManagedPage(settings, ++runtimeGeneration);
                     return;
                 }
                 var homeContainer = activeHomeContainer();
@@ -2165,21 +2414,23 @@
                 }
                 if (homeContainer) {
                     var cachedPreferences = cacheRead('native-home-preferences', 24 * 60 * 60 * 1000) || {};
-                    var sections = prop(settings, 'Sections', 'sections', []);
+                    var sections = sectionsForPage(settings, 'home');
                     bindHomeSettingsChange(homeContainer);
                     if (homeContainerNeedsMount(homeContainer, sections, settings)) renderHomeRows(settings, cachedPreferences, ++runtimeGeneration, homeContainer);
                     else {
                         applyHybridOrder(homeContainer, settings, cachedPreferences);
                         applyRouteFeatures(settings, homeContainer.closest('.libraryPage, .page') || homeContainer, true, cachedPreferences);
                     }
-                    if (!primeCachedMediaBar()) renderMediaBar(settings, cachedPreferences, homeContainer, sections);
+                    if (explicitMediaBarSections(sections).length) renderExplicitMediaBars(settings, homeContainer, sections);
+                    else if (!primeCachedMediaBar()) renderMediaBar(settings, cachedPreferences, homeContainer, sections);
                     nativePreferences().then(function (preferences) {
                         if (generation !== routeGeneration || homeContainer !== activeHomeContainer()) return;
                         preferences = preferences || cachedPreferences;
                         latestNativePreferences = preferences;
                         applyHybridOrder(homeContainer, settings, preferences);
                         applyRemoveButtons(settings, homeContainer.closest('.libraryPage, .page') || homeContainer, preferences);
-                        renderMediaBar(settings, preferences, homeContainer, sections);
+                        if (explicitMediaBarSections(sections).length) renderExplicitMediaBars(settings, homeContainer, sections);
+                        else renderMediaBar(settings, preferences, homeContainer, sections);
                     });
                     return;
                 }

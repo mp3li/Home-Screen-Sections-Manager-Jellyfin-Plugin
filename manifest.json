@@ -9,13 +9,13 @@
     "imageUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Assets/Branding/home-screen-sections-manager-plugin-photo.png",
     "versions": [
       {
-        "version": "0.1.0.31",
-        "changelog": "Introduces a plugin-owned Abyss-derived media bar with reliable saved image type and timing, a plugin-owned My List tab populated from current library-scoped Jellyfin Likes, and a stable no-cache browser bootstrap.",
+        "version": "0.1.0.32",
+        "changelog": "Adds server-wide custom top-navigation pages, per-page section layouts, Hide Favorites, Show controls for every section, page-aware section moving, multiple Media Bars per page, lower-bar top gradients, and duplicate My List cleanup.",
         "targetAbi": "10.11.11.0",
         "framework": "net9.0",
-        "sourceUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Test%20Releases/0.1.0.31-test/Jellyfin.Plugin.HomeScreenSectionsManager_0.1.0.31-test.zip",
-        "checksum": "779fd089c11b47a0c6f0fc4a54484c39",
-        "timestamp": "2026-08-13T07:36:00Z"
+        "sourceUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Test%20Releases/0.1.0.32-test/Jellyfin.Plugin.HomeScreenSectionsManager_0.1.0.32-test.zip",
+        "checksum": "30c4552bedbd87f0ddfb3066adb774cc",
+        "timestamp": "2026-08-13T22:19:12Z"
       }
     ]
   }
