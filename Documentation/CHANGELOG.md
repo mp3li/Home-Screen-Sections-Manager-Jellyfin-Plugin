@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.1.0.27-test] - 2026-08-12
+
+### Fixed
+
+- Applies the live saved media-bar image type and timing after cached settings are reconciled, without remounting Home rows or changing the now-stable native/plugin section composition.
+- Loads **My List** through the actual Custom Tabs active panel and Jellyfin 10.11.11 `ApiClient.getItems` calls scoped to each library parent, following the bounded working pattern used by KefinTweaks instead of one global Likes query.
+- Recreates the plugin-owned My List content container if Custom Tabs supplies the page marker without it, displays an explicit loading, empty, or error state, and permits a failed render to retry when the tab is reopened.
+- Reduces the library/page context-title size while keeping its established placement below the top navigation.
+
+### Safety and validation
+
+- Leaves the v0.1.0.26 Home lifecycle, native row ownership, hybrid ordering, scroller controls, media-bar source selection, and Abyss presentation unchanged.
+- Verified the query and tab boundaries against Jellyfin Web 10.11.11, the local plugin base, Custom Tabs revision `0809e54e86864fab9b15a075eb5e58987df3b00d`, and KefinTweaks' per-library Likes-query implementation.
+
 ## [0.1.0.26-test] - 2026-08-12
 
 ### Reworked

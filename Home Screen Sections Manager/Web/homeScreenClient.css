@@ -261,7 +261,7 @@
 
 .hssm-page-context-title {
     box-sizing: border-box;
-    font-size: clamp(1.15em, 1.6vw, 1.5em);
+    font-size: clamp(1em, 1.25vw, 1.2em);
     font-weight: 500;
     line-height: 1.2;
     margin: 0 auto 0.4em;

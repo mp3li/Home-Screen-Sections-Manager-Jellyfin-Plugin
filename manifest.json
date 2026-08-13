@@ -9,13 +9,13 @@
     "imageUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Assets/Branding/home-screen-sections-manager-plugin-photo.png",
     "versions": [
       {
-        "version": "0.1.0.26",
-        "changelog": "Uses the proven Kefin-style one-mount Home lifecycle and CSS-only ordering; preserves every Jellyfin native row and scroller; removes all library-link rewriting; stabilizes My List tabs and page titles; and carries media-bar art and timing preferences from first frame load.",
+        "version": "0.1.0.27",
+        "changelog": "Applies saved media-bar art and timing after authoritative settings reconciliation without remounting Home rows; loads My List through its real Custom Tabs panel with bounded per-library Jellyfin Likes queries; and reduces library/page title size.",
         "targetAbi": "10.11.11.0",
         "framework": "net9.0",
-        "sourceUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Test%20Releases/0.1.0.26-test/Jellyfin.Plugin.HomeScreenSectionsManager_0.1.0.26-test.zip",
-        "checksum": "cdc7540c46d728f96f952e94e4c2ee90",
-        "timestamp": "2026-08-13T03:39:00Z"
+        "sourceUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Test%20Releases/0.1.0.27-test/Jellyfin.Plugin.HomeScreenSectionsManager_0.1.0.27-test.zip",
+        "checksum": "6d92310e29359215996fd13027bea604",
+        "timestamp": "2026-08-13T04:37:17Z"
       }
     ]
   }

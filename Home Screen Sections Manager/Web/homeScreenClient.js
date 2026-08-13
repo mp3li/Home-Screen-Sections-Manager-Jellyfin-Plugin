@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    var CLIENT_VERSION = "0.1.0.26";
+    var CLIENT_VERSION = "0.1.0.27";
     if (window.HomeScreenManagerClient) {
         if (window.HomeScreenManagerClient.version === CLIENT_VERSION) {
             window.HomeScreenManagerClient.refresh();
@@ -123,8 +123,16 @@
         var marker = myListPageMarker();
         if (!marker) return null;
         var panel = marker.closest(".pageTabContent") || marker;
-        if (!panel.classList.contains("is-active")) return null;
-        return marker.querySelector(".hssm-my-list-container");
+        var panelIndex = panel.getAttribute("data-index");
+        var activeButton = panelIndex === null ? null : document.querySelector('.headerTabs .emby-tab-button-active[data-index="' + CSS.escape(panelIndex) + '"], #indexPage .emby-tab-button-active[data-index="' + CSS.escape(panelIndex) + '"]');
+        if (!panel.classList.contains("is-active") && !activeButton) return null;
+        var container = marker.querySelector(".hssm-my-list-container");
+        if (!container) {
+            container = document.createElement("div");
+            container.className = "sections hssm-my-list-container";
+            marker.appendChild(container);
+        }
+        return container;
     }
 
     function activeFavoritesPanel() {
@@ -611,7 +619,7 @@
         settingsReconcileQueued = true;
         requestClientSettings().then(function (live) {
             settingsReconcileQueued = false;
-            if (JSON.stringify(live) !== JSON.stringify(cached) && !isDashboardScreen() && !isPlaybackScreen()) routeRefresh(false);
+            if (JSON.stringify(live) !== JSON.stringify(cached) && !isDashboardScreen() && !isPlaybackScreen()) routeRefresh(true);
         }, function () { settingsReconcileQueued = false; });
     }
 
@@ -1110,12 +1118,40 @@
 
     function loadLikedItems(force) {
         if (!force && likedItemsLoaded) return Promise.resolve(Object.keys(likedItemsById).map(function (id) { return likedItemsById[id]; }));
-        if (!force && likedItemsRequest) return likedItemsRequest;
+        if (likedItemsRequest) return likedItemsRequest;
         if (!likedItemsLoaded) {
             var cached = cacheRead('my-list', 24 * 60 * 60 * 1000);
             if (Array.isArray(cached)) saveLikedItems(cached);
         }
-        likedItemsRequest = queryItems({ Filters: 'Likes', Recursive: true, Limit: 500, IncludeItemTypes: 'Movie,Series,Season,Episode,Video,BoxSet,Playlist,Audio,MusicAlbum,Book,AudioBook' }).then(function (items) {
+        likedItemsRequest = liveUserViews(false).then(function (views) {
+            return (views || []).reduce(function (work, view) {
+                return work.then(function (items) {
+                    var collectionType = String(prop(view, 'CollectionType', 'collectionType', '') || '').toLowerCase();
+                    if (collectionType === 'livetv' || collectionType === 'channels') return items;
+                    var includeTypes = 'Movie,Series,Season,Episode,Video,BoxSet,Playlist,Audio,MusicAlbum,MusicArtist,Book,AudioBook';
+                    if (collectionType === 'movies') includeTypes = 'Movie';
+                    else if (collectionType === 'tvshows') includeTypes = 'Series,Season,Episode';
+                    else if (collectionType === 'music') includeTypes = 'Audio,MusicAlbum,MusicArtist';
+                    else if (collectionType === 'books') includeTypes = 'Book,AudioBook';
+                    else if (collectionType === 'boxsets') includeTypes = 'BoxSet';
+                    else if (collectionType === 'playlists') includeTypes = 'Playlist';
+                    else if (collectionType === 'homevideos') includeTypes = 'Video,Movie';
+                    var options = {
+                        ParentId: String(prop(view, 'Id', 'id', '')),
+                        Filters: 'Likes',
+                        IncludeItemTypes: includeTypes,
+                        Recursive: true,
+                        Fields: 'PrimaryImageAspectRatio,DateCreated,PremiereDate,ProductionYear,CommunityRating,SortName,Tags,Overview,RunTimeTicks,ChildCount,RecursiveItemCount,ParentId,SeriesId,SeriesName,UserData',
+                        ImageTypeLimit: 1,
+                        EnableImageTypes: 'Primary,Backdrop,Thumb'
+                    };
+                    if (!options.ParentId) return items;
+                    return ApiClient.getItems(currentUserId(), options).then(function (result) {
+                        return items.concat(responseItems(result));
+                    });
+                });
+            }, Promise.resolve([]));
+        }).then(function (items) {
             saveLikedItems(items);
             return items;
         }).finally(function () { likedItemsRequest = null; });
@@ -1210,10 +1246,21 @@
         var key = currentUserId() + ':' + String(myListRevision);
         myListRenderKey = key;
         var cached = cacheRead('my-list', 24 * 60 * 60 * 1000);
-        if (Array.isArray(cached)) paintMyList(container, cached);
+        var hasCachedItems = Array.isArray(cached);
+        container.dataset.hssmMyListState = 'loading';
+        if (hasCachedItems) paintMyList(container, cached);
         else container.innerHTML = '<p class="hssm-loading">Loading My List…</p>';
         return loadLikedItems(true).then(function (items) {
-            if (myListRenderKey === key && container.isConnected) paintMyList(container, items);
+            if (myListRenderKey === key && container.isConnected) {
+                paintMyList(container, items);
+                container.dataset.hssmMyListRevision = String(myListRevision);
+                container.dataset.hssmMyListState = 'ready';
+            }
+        }).catch(function (error) {
+            if (myListRenderKey !== key || !container.isConnected) return;
+            container.dataset.hssmMyListState = hasCachedItems ? 'ready' : 'error';
+            if (!hasCachedItems) container.innerHTML = '<p class="hssm-empty-list">My List could not be loaded. Please try opening it again.</p>';
+            console.warn('[Home Screen Manager] Could not load My List.', error);
         });
     }
 
@@ -1247,8 +1294,8 @@
         if (!marker || !container) return;
         applyPageContextTitle(marker, 'My List');
         var revision = String(myListRevision);
-        if (container.dataset.hssmMyListRevision !== revision) {
-            container.dataset.hssmMyListRevision = revision;
+        var state = String(container.dataset.hssmMyListState || '');
+        if (container.dataset.hssmMyListRevision !== revision || (state !== 'loading' && state !== 'ready')) {
             renderMyList(container);
         }
     }
@@ -1809,15 +1856,7 @@
     }
     function signature(settings) {
         return JSON.stringify({
-            sections: prop(settings, 'Sections', 'sections', []),
-            order: prop(settings, 'SectionOrder', 'sectionOrder', []),
-            mediaBarInterval: setting(settings, 'MediaBarIntervalSeconds', 5),
-            mediaBarImageType: setting(settings, 'MediaBarImageType', 'backdrop'),
-            logo: setting(settings, 'LogoImageDataUrl', ''),
-            myList: setting(settings, 'EnableMyList', false),
-            myListHeartMode: setting(settings, 'MyListHeartColorMode', 'solid'),
-            myListHeartOne: setting(settings, 'MyListHeartColorOne', '#f5f5f7'),
-            myListHeartTwo: setting(settings, 'MyListHeartColorTwo', '#f5f5f7')
+            sections: prop(settings, 'Sections', 'sections', [])
         });
     }
 
