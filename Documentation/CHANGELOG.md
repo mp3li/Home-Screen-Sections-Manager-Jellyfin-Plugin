@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.1.0.25-test] - 2026-08-12
+
+### Reworked
+
+- Removes Home Screen Manager’s competing Home-tab and Abyss-iframe lifecycle controls. Jellyfin Web 10.11.11 remains the sole owner of native Home/Favorites panel activation, and Abyss remains the sole owner of spotlight visibility and pause/resume behavior.
+- Mounts plugin-created rows only after Jellyfin’s active `#homeTab` has built its native `.homeSectionsContainer`, then watches only direct child replacement on that one active container. The plugin never hides, replaces, or takes ownership of the native Home container.
+- Makes **My List** a real Custom Tabs page, following the same working integration boundary used by KefinTweaks. Home Screen Manager updates only its own `My List` entry and no longer manufactures a tab or rewrites native `is-active`, selected, hidden, or display states.
+
+### Fixed
+
+- Prevents the Abyss media bar from taking over the page after native Home briefly appears; native and plugin rows remain separate siblings below the spotlight.
+- Stops repeated route or settings reconciliation from reconfiguring the same media-bar payload and resetting the active dot. The selected image type is requested first and switches immediately; the image element falls back only when that request fails.
+- Prevents repeated My List rendering during unrelated Home DOM changes, removes the stale selected border caused by hand-managed tab classes, restores the My List page title, and slightly reduces page-title size below top navigation.
+- Invalidates saved section-content caches when **Refresh Home Screen Sections** completes, so rating-ordered sections re-read and reorder from the ratings already present in Jellyfin tags or `CommunityRating`. No external ratings API is called.
+
+### Safety and validation
+
+- Follows Jellyfin Web 10.11.11’s `HomeTab`/`homeSections` ownership, Abyss’s installed spotlight lifecycle, KefinTweaks’ per-container append pattern, and Custom Tabs’ documented `Tabs` configuration shape.
+- Uses no document-wide observer, attribute observer, periodic rule polling, forced iframe visibility, or native tab-state mutation. Installed Jellyfin Web behavior still requires this test round.
+
 ## [0.1.0.24-test] - 2026-08-12
 
 ### Reworked

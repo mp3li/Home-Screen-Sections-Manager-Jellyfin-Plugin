@@ -481,6 +481,10 @@
 
             async function configure(data) {
                 const currentId = items[currentIndex] && items[currentIndex].Id;
+                const nextItems = Array.isArray(data.items) ? data.items.filter(item => item && item.Id) : [];
+                const nextSignature = JSON.stringify([data.intervalSeconds, data.imageType, nextItems.map(item => String(item.Id))]);
+                if (document.body.dataset.hssmPayloadSignature === nextSignature) return;
+                document.body.dataset.hssmPayloadSignature = nextSignature;
                 const nextImageType = ['backdrop', 'primary', 'banner', 'thumb'].indexOf(String(data.imageType)) >= 0 ? String(data.imageType) : 'backdrop';
                 if (renderController) renderController.abort();
                 if (preloadTimer) clearTimeout(preloadTimer);
@@ -488,7 +492,7 @@
                 renderSequence += 1;
                 intervalMilliseconds = Math.max(1000, Math.min(300000, Number(data.intervalSeconds || 5) * 1000));
                 imageType = nextImageType;
-                items = Array.isArray(data.items) ? data.items.filter(item => item && item.Id) : [];
+                items = nextItems;
                 currentIndex = Math.max(0, items.findIndex(item => String(item.Id) === String(currentId || '')));
                 $('empty').style.display = items.length ? 'none' : 'flex';
                 buildDots();

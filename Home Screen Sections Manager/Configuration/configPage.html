@@ -204,8 +204,10 @@
                 const server = window.ApiClient && typeof ApiClient.serverId === 'function' ? ApiClient.serverId() : 'server';
                 const user = window.ApiClient && typeof ApiClient.getCurrentUserId === 'function' ? ApiClient.getCurrentUserId() : 'anonymous';
                 ['hssm-v2:', 'hssm-v3:'].forEach(prefix => {
-                    localStorage.removeItem(prefix + String(server || 'server') + ':' + String(user || 'anonymous') + ':client-settings');
-                    localStorage.removeItem(prefix + String(server || 'server') + ':' + String(user || 'anonymous') + ':media-bar');
+                    const context = prefix + String(server || 'server') + ':' + String(user || 'anonymous') + ':';
+                    localStorage.removeItem(context + 'client-settings');
+                    localStorage.removeItem(context + 'media-bar');
+                    Object.keys(localStorage).filter(key => key.indexOf(context + 'section:') === 0).forEach(key => localStorage.removeItem(key));
                 });
             } catch (_) {}
             window.dispatchEvent(new Event('home-screen-manager-settings-changed'));
@@ -1207,7 +1209,7 @@
                 return body && (body.Detail || body.detail || body.Message || body.message || body.Title || body.title) || (text && String(text).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()) || (error && (error.message || error.statusText)) || 'Jellyfin returned no error details.';
             }
             function loadHomeScreenClient() {
-                const version = "0.1.0.24";
+                const version = "0.1.0.25";
                 let style = document.querySelector("link[data-hssm-client-style]");
                 if (!style || style.dataset.hssmClientVersion !== version) {
                     if (style) style.remove();
@@ -1235,8 +1237,34 @@
                 });
             }
             function homeScreenLoaderScript() {
-                return "(function(){\x27use strict\x27;var version=\x270.1.0.24\x27;function boot(){if(!window.ApiClient||typeof ApiClient.getUrl!==\x27function\x27||!ApiClient.getCurrentUserId()){window.setTimeout(boot,100);return;}var style=document.querySelector(\x27link[data-hssm-client-style]\x27);if(!style||style.dataset.hssmClientVersion!==version){if(style)style.remove();style=document.createElement(\x27link\x27);style.rel=\x27stylesheet\x27;style.href=ApiClient.getUrl(\x27HomeScreenSectionsManager/client.css\x27,{v:version});style.dataset.hssmClientStyle=\x27true\x27;style.dataset.hssmClientVersion=version;document.head.appendChild(style);}if(window.HomeScreenManagerClient&&window.HomeScreenManagerClient.version===version){window.HomeScreenManagerClient.refresh();return;}if(document.querySelector(\x27script[data-hssm-client-script][data-hssm-client-version=\"\x27+version+\x27\"]\x27))return;var script=document.createElement(\x27script\x27);script.src=ApiClient.getUrl(\x27HomeScreenSectionsManager/client.js\x27,{v:version});script.dataset.hssmClientScript=\x27true\x27;script.dataset.hssmClientVersion=version;script.onerror=function(){console.error(\x27[Home Screen Manager] Could not load the browser client.\x27);};document.head.appendChild(script);}boot();}());";
+                return "(function(){\x27use strict\x27;var version=\x270.1.0.25\x27;function boot(){if(!window.ApiClient||typeof ApiClient.getUrl!==\x27function\x27||!ApiClient.getCurrentUserId()){window.setTimeout(boot,100);return;}var style=document.querySelector(\x27link[data-hssm-client-style]\x27);if(!style||style.dataset.hssmClientVersion!==version){if(style)style.remove();style=document.createElement(\x27link\x27);style.rel=\x27stylesheet\x27;style.href=ApiClient.getUrl(\x27HomeScreenSectionsManager/client.css\x27,{v:version});style.dataset.hssmClientStyle=\x27true\x27;style.dataset.hssmClientVersion=version;document.head.appendChild(style);}if(window.HomeScreenManagerClient&&window.HomeScreenManagerClient.version===version){window.HomeScreenManagerClient.refresh();return;}if(document.querySelector(\x27script[data-hssm-client-script][data-hssm-client-version=\"\x27+version+\x27\"]\x27))return;var script=document.createElement(\x27script\x27);script.src=ApiClient.getUrl(\x27HomeScreenSectionsManager/client.js\x27,{v:version});script.dataset.hssmClientScript=\x27true\x27;script.dataset.hssmClientVersion=version;script.onerror=function(){console.error(\x27[Home Screen Manager] Could not load the browser client.\x27);};document.head.appendChild(script);}boot();}());";
             }
+            function ensureMyListCustomTab(enabled) {
+                return ApiClient.getJSON(ApiClient.getUrl('Plugins')).then(result => {
+                    const plugins = Array.isArray(result) ? result : (result.Items || result.items || []);
+                    const customTabs = plugins.find(plugin => (plugin.Name === 'Custom Tabs' || plugin.Name === 'CustomTabs') && plugin.Status !== 'Disabled' && plugin.Status !== 'NotSupported');
+                    if (!customTabs) {
+                        if (enabled) throw new Error('Custom Tabs plugin not found. Install it, restart Jellyfin, and save Main Settings again.');
+                        return;
+                    }
+                    const pluginId = customTabs.Id || customTabs.id;
+                    if (!pluginId) throw new Error('Custom Tabs did not return a plugin ID.');
+                    return ApiClient.getJSON(ApiClient.getUrl('CustomTabs/Config')).catch(() => ApiClient.getPluginConfiguration(pluginId).then(configuration => configuration.Tabs || configuration.tabs || [])).then(result => {
+                        const tabs = (Array.isArray(result) ? result : (result.Tabs || result.tabs || [])).slice();
+                        const marker = 'hssm-my-list-page';
+                        const existing = tabs.findIndex(tab => String(tab.ContentHtml || tab.contentHtml || '').indexOf(marker) >= 0);
+                        if (!enabled && existing < 0) return;
+                        if (!enabled) tabs.splice(existing, 1);
+                        else {
+                            const tab = { Title:'My List', ContentHtml:'<div class="hssm-my-list-page"><div class="sections hssm-my-list-container"></div></div>' };
+                            if (existing >= 0) tabs[existing] = Object.assign({}, tabs[existing], tab);
+                            else tabs.push(tab);
+                        }
+                        return ApiClient.updatePluginConfiguration(pluginId, { Tabs:tabs });
+                    });
+                });
+            }
+            window.HSSMEnsureMyListCustomTab = ensureMyListCustomTab;
             function ensureJavaScriptInjectorLoader() {
                 return ApiClient.getJSON(ApiClient.getUrl('Plugins')).then(result => {
                     const plugins = Array.isArray(result) ? result : (result.Items || result.items || []);
@@ -1613,6 +1641,11 @@
                     selectedLibraries = new Set((valueOf(settings, 'InfiniteScrollLibraryIds', 'infiniteScrollLibraryIds', []) || []).map(window.HSSMResolveLibraryId));
                     libraries = valueOf(values[1], 'Items', 'items', []) || [];
                     renderLibraries();
+                    if (controls.EnableMyList.checked && typeof window.HSSMEnsureMyListCustomTab === 'function') {
+                        window.HSSMEnsureMyListCustomTab(true).catch(error => {
+                            status.textContent = 'My List needs the Custom Tabs plugin before it can appear in Jellyfin’s native top navigation. ' + (error && (error.message || error.statusText) || '');
+                        });
+                    }
                 }, error => {
                     status.textContent = 'Main Settings could not be loaded. ' + (error && (error.message || error.statusText) || '');
                     libraryHost.innerHTML = '<p class="fieldDescription">Libraries could not be loaded.</p>';
@@ -1627,9 +1660,11 @@
                 const data = { AutoRefreshSections:false, InfiniteScrollLibraryIds:Array.from(selectedLibraries) };
                 Object.keys(controls).forEach(key => { data[key] = controls[key].checked; });
                 const loader = typeof window.HSSMEnsureJavaScriptInjectorLoader === 'function' ? window.HSSMEnsureJavaScriptInjectorLoader() : Promise.resolve();
-                loader.then(() => ApiClient.ajax({ type:'POST', url:ApiClient.getUrl('HomeScreenSectionsManager/main-settings'), data:JSON.stringify(data), contentType:'application/json', dataType:'json' })).then(() => {
+                const myListTab = typeof window.HSSMEnsureMyListCustomTab === 'function' ? window.HSSMEnsureMyListCustomTab(!!data.EnableMyList) : Promise.resolve();
+                Promise.all([loader, myListTab]).then(() => ApiClient.ajax({ type:'POST', url:ApiClient.getUrl('HomeScreenSectionsManager/main-settings'), data:JSON.stringify(data), contentType:'application/json', dataType:'json' })).then(() => {
                     window.HSSMNotifyClientSettingsChanged();
-                    status.textContent = 'Main Settings saved and applied.';
+                    if (data.EnableMyList) status.textContent = 'Main Settings saved and applied. Restart Jellyfin if My List was just enabled so Custom Tabs can load it.';
+                    else status.textContent = 'Main Settings saved and applied.';
                     Dashboard.alert('Main Settings saved and applied.');
                 }, error => {
                     const message = 'Main Settings could not be saved and applied. ' + (error && (error.responseText || error.message || error.statusText) || 'Jellyfin returned no error details.');

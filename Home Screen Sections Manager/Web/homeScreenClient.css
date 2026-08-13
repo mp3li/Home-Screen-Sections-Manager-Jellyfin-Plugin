@@ -1,8 +1,3 @@
-body.hssm-home-active .homeSectionsContainer {
-    display: flex;
-    flex-direction: column;
-}
-
 .hssm-section-loading {
     box-sizing: border-box;
     margin: 0;
@@ -257,7 +252,7 @@ body.hssm-home-active .homeSectionsContainer {
 
 .hssm-page-context-title {
     box-sizing: border-box;
-    font-size: clamp(1.35em, 2vw, 1.8em);
+    font-size: clamp(1.15em, 1.6vw, 1.5em);
     font-weight: 500;
     line-height: 1.2;
     margin: 0 auto 0.4em;
@@ -280,17 +275,6 @@ body.hssm-home-active .homeSectionsContainer {
     padding-top: 1.25em;
 }
 
-body.hssm-my-list-active #indexPage > .pageTabContent:not(.hssm-my-list-page) {
-    display: none !important;
-}
-
-body.hssm-my-list-active #indexPage > .hssm-my-list-page {
-    display: block !important;
-}
-
-.hssm-my-list-tab {
-    margin-left: 0.65em !important;
-}
 
 .hssm-series-info {
     display: inline-flex;

@@ -9,13 +9,13 @@
     "imageUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Assets/Branding/home-screen-sections-manager-plugin-photo.png",
     "versions": [
       {
-        "version": "0.1.0.24",
-        "changelog": "Reworks cached Home recovery with independent event-driven row and Abyss media-bar integrity checks; versions and disables caching for injected browser assets; restores native tabs when leaving My List; and removes rotating/seasonal qualifiers from complete-source descriptions.",
+        "version": "0.1.0.25",
+        "changelog": "Separates Jellyfin Home rows from Abyss media-bar lifecycle ownership; mounts rows only in the active native Home container; moves My List to a real Custom Tabs page; preserves media-bar dot state; and refreshes rating order from current local tags.",
         "targetAbi": "10.11.11.0",
         "framework": "net9.0",
-        "sourceUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Test%20Releases/0.1.0.24-test/Jellyfin.Plugin.HomeScreenSectionsManager_0.1.0.24-test.zip",
-        "checksum": "f5239bcaa88e5a85afa4b0716fc91923",
-        "timestamp": "2026-08-12T21:18:38Z"
+        "sourceUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Test%20Releases/0.1.0.25-test/Jellyfin.Plugin.HomeScreenSectionsManager_0.1.0.25-test.zip",
+        "checksum": "7e19c853f2d2326c0c1001a54d65f06d",
+        "timestamp": "2026-08-13T02:09:00Z"
       }
     ]
   }

@@ -90,7 +90,8 @@ The uploaded Home logo remains present throughout Jellyfin Web, including
 breadcrumbed detail pages, and is hidden on playback screens. It always retains
 Home navigation behavior.
 
-My List is inserted into Jellyfin's native Home/Favorites header tab slider and
+My List is inserted into Jellyfin’s Home/Favorites header tab slider by the
+[Custom Tabs](https://github.com/IAmParadox27/jellyfin-plugin-custom-tabs) plugin and
 uses Jellyfin's existing per-user Likes field—the same working storage path used
 by the behavioral reference—rather than creating a second watchlist database.
 Its overlay changes one Material heart icon between outline and filled states. Liked episodes remain episode entries while using their series art and series name as the primary card identity, followed by the episode title.
@@ -111,6 +112,7 @@ does not overwrite Jellyfin Web files.
 - [Abyss](https://github.com/AumGupta/abyss-jellyfin)
 - [Collection Manager](https://github.com/mp3li/Collection-Manager-Jellyfin-Plugin)
 - [JavaScript Injector](https://github.com/n00bcodr/Jellyfin-JavaScript-Injector)
+- [Custom Tabs](https://github.com/IAmParadox27/jellyfin-plugin-custom-tabs) is required only when **My List** is enabled
 - [File Transformation 2.5.11.0](https://github.com/IAmParadox27/jellyfin-plugin-file-transformation) is recommended for JavaScript Injector on Jellyfin 10.11.11
 - .NET SDK 9.0 to build from source
 
@@ -126,10 +128,11 @@ does not overwrite Jellyfin Web files.
 3. Refresh the catalog and install the newest **Home Screen Manager**
    testing version.
 4. Install **JavaScript Injector** if it is not already installed.
-5. Install **File Transformation 2.5.11.0**, the catalog release targeting
+5. If you use **My List**, install **Custom Tabs** and restart Jellyfin before saving Main Settings.
+6. Install **File Transformation 2.5.11.0**, the catalog release targeting
    Jellyfin 10.11.11, for JavaScript Injector's recommended non-destructive
    injection path.
-6. Restart Jellyfin, then open **Dashboard → Home Screen Manager**.
+7. Restart Jellyfin, then open **Dashboard → Home Screen Manager**.
 
 ## Build from source
 
