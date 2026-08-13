@@ -140,7 +140,7 @@
 
             <section class="hssm-section"><h2>Home Screen Logo Settings</h2><p class="fieldDescription">Add a logo beside the menu button on Home. On other pages, the same logo replaces the upper-left Home icon while keeping its Home button function.</p><input id="hssmLogoImageFile" type="file" accept="image/png,image/jpeg,image/webp,image/gif" /><img id="hssmLogoImagePreview" class="hssm-logo-preview" alt="Selected logo preview" hidden /><div class="hssm-actions"><button is="emby-button" type="button" class="raised" id="hssmRemoveLogoButton">Remove Logo</button></div></section>
             <section class="hssm-section"><h2>Media Bar Timing Settings</h2><p class="fieldDescription">Choose how many seconds each item remains visible before the top media bar advances. Abyss uses 5 seconds by default.</p><div class="inputContainer"><label class="inputLabel inputLabelUnfocused" for="hssmMediaBarIntervalSeconds">Seconds Per Item</label><input is="emby-input" id="hssmMediaBarIntervalSeconds" type="number" min="1" max="300" step="1" value="5" /></div></section>
-            <section class="hssm-section"><h2>Media Bar Image Type Settings</h2><p class="fieldDescription">Choose the Jellyfin image type used behind items in the top media bar. If an item does not have that image, the media bar falls back to another available image.</p><div class="selectContainer"><label class="selectLabel" for="hssmMediaBarImageType">Image Type</label><select is="emby-select" id="hssmMediaBarImageType"><option value="backdrop">Backdrop (Default)</option><option value="primary">Primary</option><option value="banner">Banner</option><option value="thumb">Thumbnail</option></select></div></section>
+            <section class="hssm-section"><h2>Media Bar Image Type Settings</h2><p class="fieldDescription">Choose the Jellyfin image type used behind items in the top media bar. Abyss Original keeps Abyss's hybrid behavior: episodes try their own Primary image first and then the series Backdrop, while other media tries its own Backdrop first. The named image types force that Jellyfin image type first, then use available fallbacks only when it cannot be loaded.</p><div class="selectContainer"><label class="selectLabel" for="hssmMediaBarImageType">Image Type</label><select is="emby-select" id="hssmMediaBarImageType"><option value="abyss-original">Abyss Original</option><option value="backdrop">Backdrop</option><option value="primary">Primary</option><option value="banner">Banner</option><option value="thumb">Thumbnail</option></select></div></section>
 
             <section class="hssm-section">
                 <h2>Global Corner Rounding Settings</h2>
@@ -1209,7 +1209,7 @@
                 return body && (body.Detail || body.detail || body.Message || body.message || body.Title || body.title) || (text && String(text).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()) || (error && (error.message || error.statusText)) || 'Jellyfin returned no error details.';
             }
             function loadHomeScreenClient() {
-                const version = "0.1.0.28";
+                const version = "0.1.0.29";
                 let style = document.querySelector("link[data-hssm-client-style]");
                 if (!style || style.dataset.hssmClientVersion !== version) {
                     if (style) style.remove();
@@ -1237,7 +1237,7 @@
                 });
             }
             function homeScreenLoaderScript() {
-                return "(function(){\x27use strict\x27;var version=\x270.1.0.28\x27;function boot(){if(!window.ApiClient||typeof ApiClient.getUrl!==\x27function\x27||!ApiClient.getCurrentUserId()){window.setTimeout(boot,100);return;}var style=document.querySelector(\x27link[data-hssm-client-style]\x27);if(!style||style.dataset.hssmClientVersion!==version){if(style)style.remove();style=document.createElement(\x27link\x27);style.rel=\x27stylesheet\x27;style.href=ApiClient.getUrl(\x27HomeScreenSectionsManager/client.css\x27,{v:version});style.dataset.hssmClientStyle=\x27true\x27;style.dataset.hssmClientVersion=version;document.head.appendChild(style);}if(window.HomeScreenManagerClient&&window.HomeScreenManagerClient.version===version){window.HomeScreenManagerClient.refresh();return;}if(document.querySelector(\x27script[data-hssm-client-script][data-hssm-client-version=\"\x27+version+\x27\"]\x27))return;var script=document.createElement(\x27script\x27);script.src=ApiClient.getUrl(\x27HomeScreenSectionsManager/client.js\x27,{v:version});script.dataset.hssmClientScript=\x27true\x27;script.dataset.hssmClientVersion=version;script.onerror=function(){console.error(\x27[Home Screen Manager] Could not load the browser client.\x27);};document.head.appendChild(script);}boot();}());";
+                return "(function(){\x27use strict\x27;var version=\x270.1.0.29\x27;function boot(){if(!window.ApiClient||typeof ApiClient.getUrl!==\x27function\x27||!ApiClient.getCurrentUserId()){window.setTimeout(boot,100);return;}var style=document.querySelector(\x27link[data-hssm-client-style]\x27);if(!style||style.dataset.hssmClientVersion!==version){if(style)style.remove();style=document.createElement(\x27link\x27);style.rel=\x27stylesheet\x27;style.href=ApiClient.getUrl(\x27HomeScreenSectionsManager/client.css\x27,{v:version});style.dataset.hssmClientStyle=\x27true\x27;style.dataset.hssmClientVersion=version;document.head.appendChild(style);}if(window.HomeScreenManagerClient&&window.HomeScreenManagerClient.version===version){window.HomeScreenManagerClient.refresh();return;}if(document.querySelector(\x27script[data-hssm-client-script][data-hssm-client-version=\"\x27+version+\x27\"]\x27))return;var script=document.createElement(\x27script\x27);script.src=ApiClient.getUrl(\x27HomeScreenSectionsManager/client.js\x27,{v:version});script.dataset.hssmClientScript=\x27true\x27;script.dataset.hssmClientVersion=version;script.onerror=function(){console.error(\x27[Home Screen Manager] Could not load the browser client.\x27);};document.head.appendChild(script);}boot();}());";
             }
             function ensureMyListCustomTab(enabled) {
                 return ApiClient.getJSON(ApiClient.getUrl('Plugins')).then(result => {
@@ -1748,7 +1748,7 @@
                 const stylesheetUrl = safeCssValue(fontUrl.value);
                 const family = safeCssValue(fontFamily.value);
                 if (stylesheetUrl) lines.push("@import url('" + stylesheetUrl + "');");
-                lines.push('', ':root {', '    --abyss-accent: ' + hexToRgb(accent.value) + ';', '    --abyss-radius: ' + Math.max(0, Math.min(64, Number(radius.value) || 0)) + 'px;', '    --abyss-indicator: ' + hexToRgb(indicator.value) + ';', '}');
+                lines.push('', ':root {', '    --abyss-accent: ' + hexToRgb(accent.value) + ';', '    --abyss-radius: ' + Math.max(0, Math.min(64, Number(radius.value) || 0)) + 'px;', '    --abyss-indicator: ' + hexToRgb(indicator.value) + ';', '    --hssm-media-bar-interval-seconds: ' + Math.max(1, Math.min(300, Number(mediaBarSeconds.value) || 5)) + ';', '    --hssm-media-bar-image-type: ' + mediaBarImageType.value + ';', '}');
                 const headerPaint = paint(colorControls.HeaderTabs), playPaint = paint(colorControls.PlayButton), progressPaint = paint(colorControls.Progress), sidebarPaint = paint(colorControls.SidebarIcon), heartPaint = paint(colorControls.MyListHeart);
                 lines.push('', '.headerTabs.sectionTabs .emby-tab-button-active { background: ' + headerPaint + ' !important; }');
                 lines.push('.headerTabs.sectionTabs .emby-tab-button-active:not(:hover) { color: ' + selectedHeaderTabTextColor.value + ' !important; }');
@@ -1813,7 +1813,7 @@
                     logoPreview.src = logoImageDataUrl;
                     logoPreview.hidden = !logoImageDataUrl;
                     mediaBarSeconds.value = settingValue(configuration, 'MediaBarIntervalSeconds', 5);
-                    mediaBarImageType.value = settingValue(configuration, 'MediaBarImageType', 'backdrop');
+                    mediaBarImageType.value = settingValue(configuration, 'MediaBarImageType', 'abyss-original');
                 }, () => {
                     status.textContent = 'Customization settings could not be loaded.';
                 });

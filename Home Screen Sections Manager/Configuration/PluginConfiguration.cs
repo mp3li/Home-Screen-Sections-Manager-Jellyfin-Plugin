@@ -62,7 +62,7 @@ public sealed class PluginConfiguration : BasePluginConfiguration
 
     public int MediaBarIntervalSeconds { get; set; } = 5;
 
-    public string MediaBarImageType { get; set; } = "backdrop";
+    public string MediaBarImageType { get; set; } = "abyss-original";
 
     public bool AutoRefreshSections { get; set; }
 
@@ -258,7 +258,7 @@ public sealed class CustomizationSettingsRequest
 
     public int MediaBarIntervalSeconds { get; set; } = 5;
 
-    public string MediaBarImageType { get; set; } = "backdrop";
+    public string MediaBarImageType { get; set; } = "abyss-original";
 }
 
 /// <summary>Request body for browser enhancement settings.</summary>

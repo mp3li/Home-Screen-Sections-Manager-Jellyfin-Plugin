@@ -263,7 +263,7 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
 
     private static string NormalizeColor(string? value, string fallback) => System.Text.RegularExpressions.Regex.IsMatch(value ?? string.Empty, "^#[0-9a-fA-F]{6}$") ? value! : fallback;
 
-    private static string NormalizeMediaBarImageType(string? value) => value switch { "primary" => "primary", "banner" => "banner", "thumb" => "thumb", _ => "backdrop" };
+    private static string NormalizeMediaBarImageType(string? value) => value switch { "backdrop" => "backdrop", "primary" => "primary", "banner" => "banner", "thumb" => "thumb", _ => "abyss-original" };
 
     private static List<HomeScreenSectionDraft> NormalizeSectionDrafts(IEnumerable<HomeScreenSectionDraft>? drafts)
     {

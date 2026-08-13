@@ -94,11 +94,30 @@
             const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
             const serverIntervalSeconds = Number('__HSSM_MEDIA_BAR_INTERVAL__');
             const serverImageType = '__HSSM_MEDIA_BAR_IMAGE_TYPE__';
+            const validImageTypes = ['abyss-original', 'backdrop', 'primary', 'banner', 'thumb'];
+            function parentCssPreference(name) {
+                try {
+                    return window.top.getComputedStyle(window.top.document.documentElement).getPropertyValue(name).trim().replace(/^['"]|['"]$/g, '');
+                } catch (_) { return ''; }
+            }
+            function configuredIntervalSeconds(fallback) {
+                const cssValue = Number(parentCssPreference('--hssm-media-bar-interval-seconds'));
+                if (Number.isFinite(cssValue) && cssValue >= 1 && cssValue <= 300) return cssValue;
+                if (Number.isFinite(serverIntervalSeconds) && serverIntervalSeconds >= 1 && serverIntervalSeconds <= 300) return serverIntervalSeconds;
+                const requested = Number(fallback);
+                return Number.isFinite(requested) ? Math.max(1, Math.min(300, requested)) : 5;
+            }
+            function configuredImageType(fallback) {
+                const cssValue = parentCssPreference('--hssm-media-bar-image-type');
+                if (validImageTypes.includes(cssValue)) return cssValue;
+                if (validImageTypes.includes(serverImageType)) return serverImageType;
+                return validImageTypes.includes(String(fallback)) ? String(fallback) : 'abyss-original';
+            }
             let items = [];
             let currentIndex = 0;
             const initialParameters = new URLSearchParams(window.location.search);
-            let intervalMilliseconds = Math.max(1000, Math.min(300000, (Number.isFinite(serverIntervalSeconds) ? serverIntervalSeconds : Number(initialParameters.get('intervalSeconds') || 5)) * 1000));
-            let imageType = ['backdrop', 'primary', 'banner', 'thumb'].includes(serverImageType) ? serverImageType : (['backdrop', 'primary', 'banner', 'thumb'].includes(initialParameters.get('imageType')) ? initialParameters.get('imageType') : 'backdrop');
+            let intervalMilliseconds = configuredIntervalSeconds(initialParameters.get('intervalSeconds')) * 1000;
+            let imageType = configuredImageType(initialParameters.get('imageType'));
             let autoTimer = null;
             let preloadTimer = null;
             let renderController = null;
@@ -194,7 +213,7 @@
             }
 
             function candidate(itemId, type, index, tag, centered) {
-                return itemId && tag ? { url: imageUrl(itemId, type, index, tag), centered } : null;
+                return itemId ? { url: imageUrl(itemId, type, index, tag), centered } : null;
             }
 
             function backgroundCandidates(item) {
@@ -205,21 +224,29 @@
                 const parentBackdropTags = item.ParentBackdropImageTags || [];
                 const primary = [
                     candidate(itemId, 'Primary', null, tags.Primary, true),
+                    candidate(item.PrimaryImageItemId, 'Primary', null, item.PrimaryImageTag, true),
                     candidate(seriesId, 'Primary', null, item.SeriesPrimaryImageTag, true),
-                    candidate(item.PrimaryImageItemId || itemId, 'Primary', null, item.PrimaryImageTag, true),
                     candidate(item.ParentPrimaryImageItemId, 'Primary', null, item.ParentPrimaryImageTag, true)
                 ];
-                const backdrop = [
-                    candidate(itemId, 'Backdrop', 0, backdropTags[0], false),
-                    candidate(item.ParentBackdropItemId || seriesId, 'Backdrop', 0, parentBackdropTags[0], false)
-                ];
+                const itemBackdrop = candidate(itemId, 'Backdrop', 0, backdropTags[0], false);
+                const seriesBackdrop = candidate(seriesId, 'Backdrop', 0, parentBackdropTags[0], false);
+                const parentBackdrop = candidate(item.ParentBackdropItemId, 'Backdrop', 0, parentBackdropTags[0], false);
+                const backdrop = item.Type === 'Episode'
+                    ? [seriesBackdrop, parentBackdrop, itemBackdrop]
+                    : [itemBackdrop, parentBackdrop, seriesBackdrop];
                 const thumb = [
                     candidate(itemId, 'Thumb', null, tags.Thumb, true),
                     candidate(seriesId, 'Thumb', null, item.SeriesThumbImageTag, true),
                     candidate(item.ParentThumbItemId, 'Thumb', null, item.ParentThumbImageTag, true)
                 ];
-                const banner = [candidate(itemId, 'Banner', null, tags.Banner, true)];
-                const preferred = imageType === 'primary' ? primary : imageType === 'banner' ? banner : imageType === 'thumb' ? thumb : backdrop;
+                const banner = [
+                    candidate(itemId, 'Banner', null, tags.Banner, true),
+                    candidate(seriesId, 'Banner', null, item.SeriesBannerImageTag, true)
+                ];
+                const abyssOriginal = item.Type === 'Episode'
+                    ? [candidate(itemId, 'Primary', null, tags.Primary, true), candidate(seriesId || itemId, 'Backdrop', 0, parentBackdropTags[0], false)]
+                    : [candidate(itemId, 'Backdrop', 0, backdropTags[0], false)];
+                const preferred = imageType === 'abyss-original' ? abyssOriginal : imageType === 'primary' ? primary : imageType === 'banner' ? banner : imageType === 'thumb' ? thumb : backdrop;
                 return uniqueCandidates(preferred.concat(backdrop, primary, thumb, banner));
             }
 
@@ -256,7 +283,7 @@
 
             function startAuto() {
                 stopAuto();
-                if (paused || disposed || items.length <= 1 || reducedMotion.matches) return;
+                if (paused || disposed || items.length <= 1) return;
                 autoTimer = setTimeout(async () => {
                     currentIndex = (currentIndex + 1) % items.length;
                     await renderItem(currentIndex);
@@ -485,12 +512,12 @@
             async function configure(data) {
                 const currentId = items[currentIndex] && items[currentIndex].Id;
                 const nextItems = Array.isArray(data.items) ? data.items.filter(item => item && item.Id) : [];
-                const authoritativeInterval = Number.isFinite(serverIntervalSeconds) ? serverIntervalSeconds : data.intervalSeconds;
-                const authoritativeImageType = ['backdrop', 'primary', 'banner', 'thumb'].includes(serverImageType) ? serverImageType : data.imageType;
+                const authoritativeInterval = configuredIntervalSeconds(data.intervalSeconds);
+                const authoritativeImageType = configuredImageType(data.imageType);
                 const nextSignature = JSON.stringify([authoritativeInterval, authoritativeImageType, nextItems.map(item => String(item.Id))]);
                 if (document.body.dataset.hssmPayloadSignature === nextSignature) return;
                 document.body.dataset.hssmPayloadSignature = nextSignature;
-                const nextImageType = ['backdrop', 'primary', 'banner', 'thumb'].indexOf(String(authoritativeImageType)) >= 0 ? String(authoritativeImageType) : 'backdrop';
+                const nextImageType = validImageTypes.includes(String(authoritativeImageType)) ? String(authoritativeImageType) : 'abyss-original';
                 if (renderController) renderController.abort();
                 if (preloadTimer) clearTimeout(preloadTimer);
                 preloadTimer = null;
@@ -567,11 +594,10 @@
                 if (reducedMotion.matches) {
                     if (zoomAnimation) zoomAnimation.cancel();
                     zoomAnimation = null;
-                    stopAuto();
                 } else if (!paused) {
                     startZoom($('backdrop-img'));
-                    startAuto();
                 }
+                if (!paused) startAuto();
             });
 
             window.parent.postMessage({ type: 'home-screen-manager-media-bar', action: 'ready' }, window.location.origin);

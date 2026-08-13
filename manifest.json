@@ -9,13 +9,13 @@
     "imageUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Assets/Branding/home-screen-sections-manager-plugin-photo.png",
     "versions": [
       {
-        "version": "0.1.0.28",
-        "changelog": "Injects saved media-bar art and timing directly into the no-cache media document; loads My List from Kefin-style user library roots with per-library Likes queries; normalizes all library-route titles; and centers circular-art year text.",
+        "version": "0.1.0.29",
+        "changelog": "Adds Abyss Original artwork behavior; makes explicit media-bar image types request their Jellyfin endpoints directly; carries saved art and timing through the applied Custom CSS path; preserves timing with reduced motion; and aligns custom-row years with titles while retaining centered circular text.",
         "targetAbi": "10.11.11.0",
         "framework": "net9.0",
-        "sourceUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Test%20Releases/0.1.0.28-test/Jellyfin.Plugin.HomeScreenSectionsManager_0.1.0.28-test.zip",
-        "checksum": "695208811d7a5ad4e1695da1fe3a053f",
-        "timestamp": "2026-08-13T05:06:10Z"
+        "sourceUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Test%20Releases/0.1.0.29-test/Jellyfin.Plugin.HomeScreenSectionsManager_0.1.0.29-test.zip",
+        "checksum": "4038d4761f67970bd78bad89b234b3b7",
+        "timestamp": "2026-08-13T06:45:00Z"
       }
     ]
   }

@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.1.0.29-test] - 2026-08-12
+
+### Changed
+
+- Adds **Abyss Original** to reproduce Abyss's real hybrid image behavior: episodes try their own Primary image and then the series Backdrop, while other media tries its own Backdrop.
+- Renames **Backdrop (Default)** to **Backdrop**. This explicit mode requests Jellyfin Backdrop artwork first and uses another available type only when that request cannot be loaded.
+- Publishes the saved media-bar image choice and timing as plugin-owned Custom CSS properties, using the same applied configuration path as the working Abyss color controls while retaining server and message fallbacks.
+
+### Fixed
+
+- Requests the selected Jellyfin image endpoint directly instead of rejecting it solely because an optional image tag was absent from a section payload.
+- Keeps automatic media-bar timing active when reduced-motion is enabled while continuing to suppress the decorative zoom animation.
+- Aligns custom-section year text with the title for non-circular cards and keeps both lines centered for circular cards.
+
 ## [0.1.0.28-test] - 2026-08-12
 
 ### Fixed

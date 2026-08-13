@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    var CLIENT_VERSION = "0.1.0.28";
+    var CLIENT_VERSION = "0.1.0.29";
     if (window.HomeScreenManagerClient) {
         if (window.HomeScreenManagerClient.version === CLIENT_VERSION) {
             window.HomeScreenManagerClient.refresh();
@@ -433,10 +433,11 @@
         var showText = prop(section, 'ShowText', 'showText', true) !== false;
         var imageStyle = imageUrl ? ' style="background-image:url(&quot;' + escapeHtml(imageUrl) + '&quot;)"' : '';
         var footer = '';
+        var textClass = 'cardText' + (shape.name === 'circle' ? ' cardTextCentered' : '');
         if (showText && isMyList && type === 'Episode') {
-            footer = '<div class="cardText cardTextCentered cardText-first"><bdi><a is="emby-linkbutton" href="' + escapeHtml(seriesHref) + '" class="itemAction textActionButton">' + escapeHtml(seriesName || 'Unknown Series') + '</a></bdi></div><div class="cardText cardTextCentered cardText-secondary"><bdi><a is="emby-linkbutton" href="' + escapeHtml(href) + '" class="itemAction textActionButton">' + escapeHtml(name) + '</a></bdi></div>';
+            footer = '<div class="' + textClass + ' cardText-first"><bdi><a is="emby-linkbutton" href="' + escapeHtml(seriesHref) + '" class="itemAction textActionButton">' + escapeHtml(seriesName || 'Unknown Series') + '</a></bdi></div><div class="' + textClass + ' cardText-secondary"><bdi><a is="emby-linkbutton" href="' + escapeHtml(href) + '" class="itemAction textActionButton">' + escapeHtml(name) + '</a></bdi></div>';
         } else if (showText) {
-            footer = '<div class="cardText cardTextCentered cardText-first"><bdi><a is="emby-linkbutton" href="' + escapeHtml(href) + '" class="itemAction textActionButton">' + escapeHtml(name) + '</a></bdi></div>' + (year ? '<div class="cardText cardTextCentered cardText-secondary"><bdi>' + escapeHtml(year) + '</bdi></div>' : '');
+            footer = '<div class="' + textClass + ' cardText-first"><bdi><a is="emby-linkbutton" href="' + escapeHtml(href) + '" class="itemAction textActionButton">' + escapeHtml(name) + '</a></bdi></div>' + (year ? '<div class="' + textClass + ' cardText-secondary"><bdi>' + escapeHtml(year) + '</bdi></div>' : '');
         }
         var rankMarkup = rank && prop(section, 'ShowRankNumbers', 'showRankNumbers', true) !== false ? '<span class="hssm-rank-number" aria-hidden="true">' + rank + '</span>' : '';
         return '<div class="card ' + shape.card + ' card-hoverable card-withuserdata hssm-client-card" data-id="' + escapeHtml(id) + '">' + rankMarkup +
@@ -894,7 +895,7 @@
         }
         frame.dataset.hssmAbyssSpotlightUrl = original;
         var cssUrl = new URL('spotlight.css', original).href;
-        var pluginUrl = ApiClient.getUrl("HomeScreenSectionsManager/media-bar.html", { v:CLIENT_VERSION, abyssCss:cssUrl, intervalSeconds:Math.max(1, Math.min(300, Number(setting(settings || {}, 'MediaBarIntervalSeconds', 5)) || 5)), imageType:String(setting(settings || {}, 'MediaBarImageType', 'backdrop')) });
+        var pluginUrl = ApiClient.getUrl("HomeScreenSectionsManager/media-bar.html", { v:CLIENT_VERSION, abyssCss:cssUrl, intervalSeconds:Math.max(1, Math.min(300, Number(setting(settings || {}, 'MediaBarIntervalSeconds', 5)) || 5)), imageType:String(setting(settings || {}, 'MediaBarImageType', 'abyss-original')) });
         return { plugin: pluginUrl, css: cssUrl };
     }
 
@@ -946,7 +947,7 @@
             var cachedPreferences = cacheRead('native-home-preferences', 24 * 60 * 60 * 1000) || {};
             var expectedKey = cachedSettings ? configuredMediaBarKey(cachedSettings, cachedPreferences) : '';
             var expectedInterval = cachedSettings ? Math.max(1, Math.min(300, Number(setting(cachedSettings, 'MediaBarIntervalSeconds', 5)) || 5)) : 0;
-            var expectedImageType = cachedSettings ? String(setting(cachedSettings, 'MediaBarImageType', 'backdrop')) : '';
+            var expectedImageType = cachedSettings ? String(setting(cachedSettings, 'MediaBarImageType', 'abyss-original')) : '';
             if (!cached || !expectedKey || cached.key !== expectedKey || cached.intervalSeconds !== expectedInterval || cached.imageType !== expectedImageType || !Array.isArray(cached.items) || !cached.items.length) return false;
             mediaBarPayload = {
                 type:'home-screen-manager-media-bar',
@@ -1001,7 +1002,7 @@
         var loadSequence = ++mediaBarLoadSequence;
         var source = mediaBarSource(settings, preferences, container, sections, sectionItemPromises);
         var interval = Math.max(1, Math.min(300, Number(setting(settings, 'MediaBarIntervalSeconds', 5)) || 5));
-        var requestedImage = String(setting(settings, 'MediaBarImageType', 'backdrop'));
+        var requestedImage = String(setting(settings, 'MediaBarImageType', 'abyss-original'));
         var frame = ensureMediaBarFrame(container, settings);
         var matchingCachedPayload = null;
         try {
