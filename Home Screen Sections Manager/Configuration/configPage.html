@@ -1209,7 +1209,7 @@
                 return body && (body.Detail || body.detail || body.Message || body.message || body.Title || body.title) || (text && String(text).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()) || (error && (error.message || error.statusText)) || 'Jellyfin returned no error details.';
             }
             function loadHomeScreenClient() {
-                const version = "0.1.0.27";
+                const version = "0.1.0.28";
                 let style = document.querySelector("link[data-hssm-client-style]");
                 if (!style || style.dataset.hssmClientVersion !== version) {
                     if (style) style.remove();
@@ -1237,7 +1237,7 @@
                 });
             }
             function homeScreenLoaderScript() {
-                return "(function(){\x27use strict\x27;var version=\x270.1.0.27\x27;function boot(){if(!window.ApiClient||typeof ApiClient.getUrl!==\x27function\x27||!ApiClient.getCurrentUserId()){window.setTimeout(boot,100);return;}var style=document.querySelector(\x27link[data-hssm-client-style]\x27);if(!style||style.dataset.hssmClientVersion!==version){if(style)style.remove();style=document.createElement(\x27link\x27);style.rel=\x27stylesheet\x27;style.href=ApiClient.getUrl(\x27HomeScreenSectionsManager/client.css\x27,{v:version});style.dataset.hssmClientStyle=\x27true\x27;style.dataset.hssmClientVersion=version;document.head.appendChild(style);}if(window.HomeScreenManagerClient&&window.HomeScreenManagerClient.version===version){window.HomeScreenManagerClient.refresh();return;}if(document.querySelector(\x27script[data-hssm-client-script][data-hssm-client-version=\"\x27+version+\x27\"]\x27))return;var script=document.createElement(\x27script\x27);script.src=ApiClient.getUrl(\x27HomeScreenSectionsManager/client.js\x27,{v:version});script.dataset.hssmClientScript=\x27true\x27;script.dataset.hssmClientVersion=version;script.onerror=function(){console.error(\x27[Home Screen Manager] Could not load the browser client.\x27);};document.head.appendChild(script);}boot();}());";
+                return "(function(){\x27use strict\x27;var version=\x270.1.0.28\x27;function boot(){if(!window.ApiClient||typeof ApiClient.getUrl!==\x27function\x27||!ApiClient.getCurrentUserId()){window.setTimeout(boot,100);return;}var style=document.querySelector(\x27link[data-hssm-client-style]\x27);if(!style||style.dataset.hssmClientVersion!==version){if(style)style.remove();style=document.createElement(\x27link\x27);style.rel=\x27stylesheet\x27;style.href=ApiClient.getUrl(\x27HomeScreenSectionsManager/client.css\x27,{v:version});style.dataset.hssmClientStyle=\x27true\x27;style.dataset.hssmClientVersion=version;document.head.appendChild(style);}if(window.HomeScreenManagerClient&&window.HomeScreenManagerClient.version===version){window.HomeScreenManagerClient.refresh();return;}if(document.querySelector(\x27script[data-hssm-client-script][data-hssm-client-version=\"\x27+version+\x27\"]\x27))return;var script=document.createElement(\x27script\x27);script.src=ApiClient.getUrl(\x27HomeScreenSectionsManager/client.js\x27,{v:version});script.dataset.hssmClientScript=\x27true\x27;script.dataset.hssmClientVersion=version;script.onerror=function(){console.error(\x27[Home Screen Manager] Could not load the browser client.\x27);};document.head.appendChild(script);}boot();}());";
             }
             function ensureMyListCustomTab(enabled) {
                 return ApiClient.getJSON(ApiClient.getUrl('Plugins')).then(result => {

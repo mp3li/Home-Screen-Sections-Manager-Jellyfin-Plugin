@@ -61,6 +61,14 @@
     overflow: hidden;
 }
 
+.hssm-shape-circle .cardText,
+.hssm-shape-circle .cardText bdi {
+    box-sizing: border-box;
+    display: block;
+    text-align: center !important;
+    width: 100%;
+}
+
 .hssm-art-logo .cardImageContainer,
 .hssm-art-disc .cardImageContainer,
 .hssm-art-art .cardImageContainer {

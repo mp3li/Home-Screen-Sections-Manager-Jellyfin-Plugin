@@ -9,13 +9,13 @@
     "imageUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Assets/Branding/home-screen-sections-manager-plugin-photo.png",
     "versions": [
       {
-        "version": "0.1.0.27",
-        "changelog": "Applies saved media-bar art and timing after authoritative settings reconciliation without remounting Home rows; loads My List through its real Custom Tabs panel with bounded per-library Jellyfin Likes queries; and reduces library/page title size.",
+        "version": "0.1.0.28",
+        "changelog": "Injects saved media-bar art and timing directly into the no-cache media document; loads My List from Kefin-style user library roots with per-library Likes queries; normalizes all library-route titles; and centers circular-art year text.",
         "targetAbi": "10.11.11.0",
         "framework": "net9.0",
-        "sourceUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Test%20Releases/0.1.0.27-test/Jellyfin.Plugin.HomeScreenSectionsManager_0.1.0.27-test.zip",
-        "checksum": "6d92310e29359215996fd13027bea604",
-        "timestamp": "2026-08-13T04:37:17Z"
+        "sourceUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Test%20Releases/0.1.0.28-test/Jellyfin.Plugin.HomeScreenSectionsManager_0.1.0.28-test.zip",
+        "checksum": "695208811d7a5ad4e1695da1fe3a053f",
+        "timestamp": "2026-08-13T05:06:10Z"
       }
     ]
   }

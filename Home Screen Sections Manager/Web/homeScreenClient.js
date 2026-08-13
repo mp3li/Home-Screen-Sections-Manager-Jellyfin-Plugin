@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    var CLIENT_VERSION = "0.1.0.27";
+    var CLIENT_VERSION = "0.1.0.28";
     if (window.HomeScreenManagerClient) {
         if (window.HomeScreenManagerClient.version === CLIENT_VERSION) {
             window.HomeScreenManagerClient.refresh();
@@ -64,6 +64,7 @@
     var viewShowHook = null;
     var lastFeatureScope = null;
     var lastFeatureRoute = '';
+    var pageContextWorkKey = '';
 
     function createLimiter(maximum) {
         var active = 0;
@@ -605,7 +606,7 @@
 
     function requestClientSettings() {
         if (settingsRequest) return settingsRequest;
-        settingsRequest = getJson('HomeScreenSectionsManager/client-settings').then(function (settings) {
+        settingsRequest = getJson('HomeScreenSectionsManager/client-settings', { _:Date.now() }).then(function (settings) {
             settingsCache = settings || {};
             settingsCacheAt = Date.now();
             cacheWrite('client-settings', settingsCache);
@@ -644,7 +645,7 @@
     }
 
     function currentTopParentId() {
-        var match = window.location.hash.match(/[?&]topParentId=([^&]+)/i);
+        var match = window.location.hash.match(/[?&](?:topParentId|parentId)=([^&]+)/i);
         return match ? decodeURIComponent(match[1]) : '';
     }
 
@@ -1123,7 +1124,11 @@
             var cached = cacheRead('my-list', 24 * 60 * 60 * 1000);
             if (Array.isArray(cached)) saveLikedItems(cached);
         }
-        likedItemsRequest = liveUserViews(false).then(function (views) {
+        likedItemsRequest = Promise.resolve(ApiClient.getItems()).then(responseItems).then(function (views) {
+            views = (views || []).filter(function (view) {
+                var collectionType = String(prop(view, 'CollectionType', 'collectionType', '') || '').toLowerCase();
+                return !collectionType || ['tvshows', 'movies', 'homevideos', 'boxsets', 'playlists', 'music', 'books'].indexOf(collectionType) >= 0;
+            }).reverse();
             return (views || []).reduce(function (work, view) {
                 return work.then(function (items) {
                     var collectionType = String(prop(view, 'CollectionType', 'collectionType', '') || '').toLowerCase();
@@ -1148,6 +1153,9 @@
                     if (!options.ParentId) return items;
                     return ApiClient.getItems(currentUserId(), options).then(function (result) {
                         return items.concat(responseItems(result));
+                    }, function (error) {
+                        console.warn('[Home Screen Manager] Could not read My List items from library ' + options.ParentId + '.', error);
+                        return items;
                     });
                 });
             }, Promise.resolve([]));
@@ -1796,14 +1804,35 @@
         Array.from(document.querySelectorAll(".pageTitle.hssm-page-context-source")).forEach(function (node) { node.classList.remove("hssm-page-context-source"); });
     }
 
+    function queueLibraryPageContextTitle(scope, libraryId) {
+        var key = String(window.location.hash || '') + ':' + String(libraryId || '');
+        if (!scope || !libraryId || pageContextWorkKey === key) return;
+        pageContextWorkKey = key;
+        ApiClient.getItem(currentUserId(), libraryId).then(function (item) {
+            if (pageContextWorkKey !== key || !scope.isConnected || currentTopParentId() !== libraryId) return;
+            var name = String(prop(item, 'Name', 'name', '') || '').trim();
+            if (name) applyPageContextTitle(scope, name);
+        }).catch(function () {});
+    }
+
     function applyPageContextTitle(scope, explicitTitle) {
         if (!scope) { clearPageContextTitle(); return; }
         var headerTabs = document.querySelector(".headerTabs.sectionTabs");
         var hasVisibleTabs = headerTabs && !headerTabs.classList.contains("hide") && headerTabs.querySelector(".emby-tab-button");
+        var libraryId = explicitTitle ? '' : currentTopParentId();
+        if (libraryId) hasVisibleTabs = true;
         if (explicitTitle) hasVisibleTabs = true;
         if (!explicitTitle && !hasVisibleTabs) { clearPageContextTitle(); return; }
-        var source = document.querySelector(".skinHeader .pageTitle, .headerTop .pageTitle");
+        var source = document.querySelector(".skinHeader .pageTitle, .headerTop .pageTitle, .pageTitle");
         var title = String(explicitTitle || (source && source.textContent) || "").replace(/\s+/g, " ").trim();
+        if (!title && libraryId) {
+            var currentView = (liveViewsCache || []).find(function (view) { return String(prop(view, 'Id', 'id', '')) === libraryId; });
+            title = String(prop(currentView, 'Name', 'name', '') || '').trim();
+        }
+        if (!title && libraryId) {
+            queueLibraryPageContextTitle(scope, libraryId);
+            return;
+        }
         if (!title) { clearPageContextTitle(); return; }
         var target = scope;
         if (!explicitTitle && headerTabs) {
@@ -1825,6 +1854,7 @@
             if (node !== source) node.classList.remove("hssm-page-context-source");
         });
         if (source) source.classList.add("hssm-page-context-source");
+        if (libraryId) queueLibraryPageContextTitle(scope, libraryId);
     }
 
     function applyRouteFeatures(settings, scope, home, preferences) {

@@ -92,11 +92,13 @@
 
             const $ = id => document.getElementById(id);
             const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+            const serverIntervalSeconds = Number('__HSSM_MEDIA_BAR_INTERVAL__');
+            const serverImageType = '__HSSM_MEDIA_BAR_IMAGE_TYPE__';
             let items = [];
             let currentIndex = 0;
             const initialParameters = new URLSearchParams(window.location.search);
-            let intervalMilliseconds = Math.max(1000, Math.min(300000, Number(initialParameters.get('intervalSeconds') || 5) * 1000));
-            let imageType = ['backdrop', 'primary', 'banner', 'thumb'].includes(initialParameters.get('imageType')) ? initialParameters.get('imageType') : 'backdrop';
+            let intervalMilliseconds = Math.max(1000, Math.min(300000, (Number.isFinite(serverIntervalSeconds) ? serverIntervalSeconds : Number(initialParameters.get('intervalSeconds') || 5)) * 1000));
+            let imageType = ['backdrop', 'primary', 'banner', 'thumb'].includes(serverImageType) ? serverImageType : (['backdrop', 'primary', 'banner', 'thumb'].includes(initialParameters.get('imageType')) ? initialParameters.get('imageType') : 'backdrop');
             let autoTimer = null;
             let preloadTimer = null;
             let renderController = null;
@@ -483,15 +485,17 @@
             async function configure(data) {
                 const currentId = items[currentIndex] && items[currentIndex].Id;
                 const nextItems = Array.isArray(data.items) ? data.items.filter(item => item && item.Id) : [];
-                const nextSignature = JSON.stringify([data.intervalSeconds, data.imageType, nextItems.map(item => String(item.Id))]);
+                const authoritativeInterval = Number.isFinite(serverIntervalSeconds) ? serverIntervalSeconds : data.intervalSeconds;
+                const authoritativeImageType = ['backdrop', 'primary', 'banner', 'thumb'].includes(serverImageType) ? serverImageType : data.imageType;
+                const nextSignature = JSON.stringify([authoritativeInterval, authoritativeImageType, nextItems.map(item => String(item.Id))]);
                 if (document.body.dataset.hssmPayloadSignature === nextSignature) return;
                 document.body.dataset.hssmPayloadSignature = nextSignature;
-                const nextImageType = ['backdrop', 'primary', 'banner', 'thumb'].indexOf(String(data.imageType)) >= 0 ? String(data.imageType) : 'backdrop';
+                const nextImageType = ['backdrop', 'primary', 'banner', 'thumb'].indexOf(String(authoritativeImageType)) >= 0 ? String(authoritativeImageType) : 'backdrop';
                 if (renderController) renderController.abort();
                 if (preloadTimer) clearTimeout(preloadTimer);
                 preloadTimer = null;
                 renderSequence += 1;
-                intervalMilliseconds = Math.max(1000, Math.min(300000, Number(data.intervalSeconds || 5) * 1000));
+                intervalMilliseconds = Math.max(1000, Math.min(300000, Number(authoritativeInterval || 5) * 1000));
                 imageType = nextImageType;
                 items = nextItems;
                 currentIndex = Math.max(0, items.findIndex(item => String(item.Id) === String(currentId || '')));

@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.1.0.28-test] - 2026-08-12
+
+### Fixed
+
+- Makes the server's currently saved media-bar timing and image type authoritative inside the no-cache media-bar document itself, so stale parent-client settings cannot override either preference.
+- Adds explicit no-store headers and a request nonce to the browser-client settings response.
+- Loads **My List** from the same user library-root discovery and per-parent Likes queries used by KefinTweaks, while retaining this plugin's music and book support and allowing one inaccessible library to be skipped without blanking the entire page.
+- Normalizes library names from both Jellyfin 10.11.11 `topParentId` and generic `parentId` routes into the same smaller centered position below top navigation.
+- Centers every text row beneath circular art, including the production year.
+
+### Safety and validation
+
+- Does not alter the working Home composition, row order, section lifecycle, heart buttons, My List tab ownership, arrows, or Abyss presentation.
+- Verified against Jellyfin Web 10.11.11's `ApiClient` contract and library router, the local plugin base, KefinTweaks' library-scoped Likes implementation, Custom Tabs, and the adapted Abyss media document.
+
 ## [0.1.0.27-test] - 2026-08-12
 
 ### Fixed

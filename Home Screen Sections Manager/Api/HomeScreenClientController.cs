@@ -15,6 +15,9 @@ public sealed class HomeScreenClientController : ControllerBase
     [HttpGet("client-settings")]
     public ActionResult<object> GetClientSettings()
     {
+        Response.Headers.CacheControl = "no-store, no-cache, must-revalidate, max-age=0";
+        Response.Headers.Pragma = "no-cache";
+        Response.Headers.Expires = "0";
         var configuration = Plugin.Instance?.Configuration ?? new PluginConfiguration();
         return Ok(new
         {
@@ -64,7 +67,24 @@ public sealed class HomeScreenClientController : ControllerBase
     [AllowAnonymous]
     [HttpGet("media-bar.html")]
     [Produces("text/html")]
-    public ActionResult GetMediaBar() => Embedded("Jellyfin.Plugin.HomeScreenSectionsManager.Web.mediaBar.html", "text/html");
+    public ActionResult GetMediaBar()
+    {
+        var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("Jellyfin.Plugin.HomeScreenSectionsManager.Web.mediaBar.html");
+        if (stream is null)
+        {
+            return NotFound();
+        }
+
+        using var reader = new StreamReader(stream);
+        var configuration = Plugin.Instance?.Configuration ?? new PluginConfiguration();
+        var html = reader.ReadToEnd()
+            .Replace("__HSSM_MEDIA_BAR_INTERVAL__", configuration.MediaBarIntervalSeconds.ToString(System.Globalization.CultureInfo.InvariantCulture), StringComparison.Ordinal)
+            .Replace("__HSSM_MEDIA_BAR_IMAGE_TYPE__", configuration.MediaBarImageType, StringComparison.Ordinal);
+        Response.Headers.CacheControl = "no-store, no-cache, must-revalidate, max-age=0";
+        Response.Headers.Pragma = "no-cache";
+        Response.Headers.Expires = "0";
+        return Content(html, "text/html");
+    }
 
     /// <summary>Serves the license retained with the adapted Abyss spotlight portion.</summary>
     [AllowAnonymous]
