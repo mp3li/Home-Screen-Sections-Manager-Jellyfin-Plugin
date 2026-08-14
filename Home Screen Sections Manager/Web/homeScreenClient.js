@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    var CLIENT_VERSION = "0.1.0.38";
+    var CLIENT_VERSION = "0.1.0.39";
     if (window.HomeScreenManagerClient) {
         if (window.HomeScreenManagerClient.version === CLIENT_VERSION) {
             window.HomeScreenManagerClient.refresh();
@@ -69,6 +69,9 @@
     var mediaBarOwnerObserver = null;
     var mediaBarOwnerHomeTab = null;
     var initialHomeSelectionNormalized = false;
+    var watchAgainCaches = {};
+    var watchAgainRequests = {};
+    var topRecoveryRequests = {};
 
     function createLimiter(maximum) {
         var active = 0;
@@ -438,17 +441,62 @@
         });
     }
 
-    function loadWatchAgainItems(start, limit, order) {
-        var ascending = String(order || '') === 'completed-ascending';
-        return queryItems({
-            Filters:'IsPlayed',
-            IncludeItemTypes:'Movie,Series',
-            Recursive:true,
-            SortBy:'DatePlayed,SortName',
-            SortOrder:ascending ? 'Ascending' : 'Descending',
-            StartIndex:Math.max(0, Number(start) || 0),
-            Limit:Math.max(1, Math.min(100, Number(limit) || 40)),
+    function watchAgainItems() {
+        var context = cacheContext();
+        var cached = watchAgainCaches[context];
+        if (cached && Date.now() - cached.savedAt < 30 * 1000) return Promise.resolve(cached.items);
+        if (watchAgainRequests[context]) return watchAgainRequests[context];
+        var movieRequest = queryItems({
+            Filters:'IsPlayed', IncludeItemTypes:'Movie', Recursive:true,
+            SortBy:'DatePlayed,SortName', SortOrder:'Descending', Limit:2000,
             EnableTotalRecordCount:false
+        });
+        // Jellyfin does not consistently return completed Series through the
+        // IsPlayed filter. Read Series user data plus played Episodes and derive
+        // a per-user completion date from the most recently completed episode.
+        var seriesRequest = queryItems({
+            IncludeItemTypes:'Series', Recursive:true, SortBy:'SortName',
+            SortOrder:'Ascending', Limit:2000, EnableTotalRecordCount:false
+        });
+        var episodeRequest = queryItems({
+            Filters:'IsPlayed', IncludeItemTypes:'Episode', Recursive:true,
+            SortBy:'DatePlayed,SortName', SortOrder:'Descending', Limit:5000,
+            EnableTotalRecordCount:false
+        });
+        watchAgainRequests[context] = Promise.all([movieRequest, seriesRequest, episodeRequest]).then(function (groups) {
+            var latestBySeries = {};
+            groups[2].forEach(function (episode) {
+                var seriesId = String(prop(episode, 'SeriesId', 'seriesId', ''));
+                var playedAt = dateValue(episode, 'completed');
+                if (seriesId && playedAt > (latestBySeries[seriesId] || 0)) latestBySeries[seriesId] = playedAt;
+            });
+            var completedSeries = groups[1].filter(function (series) {
+                var userData = prop(series, 'UserData', 'userData', {}) || {};
+                var played = prop(userData, 'Played', 'played', false) === true;
+                var unplayed = Number(prop(userData, 'UnplayedItemCount', 'unplayedItemCount', NaN));
+                var episodeCount = Number(prop(series, 'RecursiveItemCount', 'recursiveItemCount', 0)) || 0;
+                return played || (episodeCount > 0 && Number.isFinite(unplayed) && unplayed === 0);
+            }).map(function (series) {
+                var id = String(prop(series, 'Id', 'id', ''));
+                var userData = Object.assign({}, prop(series, 'UserData', 'userData', {}) || {});
+                var existing = dateValue(series, 'completed');
+                var completed = Math.max(existing, latestBySeries[id] || 0);
+                if (completed) userData.LastPlayedDate = new Date(completed).toISOString();
+                return Object.assign({}, series, { UserData:userData });
+            });
+            var combined = uniqueItems(groups[0].concat(completedSeries));
+            watchAgainCaches[context] = { savedAt:Date.now(), items:combined };
+            return combined;
+        }).finally(function () { delete watchAgainRequests[context]; });
+        return watchAgainRequests[context];
+    }
+
+    function loadWatchAgainItems(start, limit, order) {
+        var section = { ContentOrder:String(order || '') === 'completed-ascending' ? 'completed-ascending' : 'completed-descending' };
+        return watchAgainItems().then(function (items) {
+            var offset = Math.max(0, Number(start) || 0);
+            var count = Math.max(1, Math.min(100, Number(limit) || 40));
+            return orderItems(items, section).slice(offset, offset + count);
         });
     }
 
@@ -528,6 +576,40 @@
             ExistingCollectionAction: '',
             ArtPreference: 'JellyfinDefault'
         };
+    }
+
+    function loadTopItemsFromSources(section) {
+        var sources = prop(section, 'SourceIds', 'sourceIds', []).map(String).filter(Boolean);
+        var limit = Math.max(10, Math.min(50, Number(prop(section, 'DisplayTopCount', 'displayTopCount', 10)) || 10));
+        var key = cacheContext() + ':' + JSON.stringify([sources, limit, String(prop(section, 'Name', 'name', ''))]);
+        if (topRecoveryRequests[key]) return topRecoveryRequests[key];
+        topRecoveryRequests[key] = sources.reduce(function (work, source) {
+            return work.then(function (items) {
+                var split = source.indexOf('|');
+                var sourceType = split < 0 ? '' : source.slice(0, split);
+                var sourceId = split < 0 ? '' : source.slice(split + 1);
+                if (sourceType === 'collection' || sourceType === 'library') {
+                    return queryItems({
+                        ParentId:sourceType === 'library' ? resolvedLibraryId(sourceId) : sourceId,
+                        Recursive:true, Limit:5000, EnableTotalRecordCount:false
+                    }).then(function (loaded) { return items.concat(loaded); });
+                }
+                if (sourceType === 'tag') {
+                    return postJson('CollectionManager/individual-collection-drafts/preview', tagSource(sourceId, prop(section, 'Name', 'name', ''))).then(function (preview) {
+                        var ids = prop(preview, 'Items', 'items', []).map(function (item) { return String(prop(item, 'Id', 'id', '')); }).filter(Boolean);
+                        return queryIds(ids).then(function (loaded) { return items.concat(loaded); });
+                    });
+                }
+                return items;
+            });
+        }, Promise.resolve([])).then(function (items) {
+            return uniqueItems(items).map(function (item) { return { item:item, rating:imdbTaggedRating(item) }; })
+                .filter(function (entry) { return Number.isFinite(entry.rating); })
+                .sort(function (left, right) { return right.rating - left.rating; })
+                .slice(0, limit)
+                .map(function (entry) { return entry.item; });
+        }).finally(function () { delete topRecoveryRequests[key]; });
+        return topRecoveryRequests[key];
     }
 
     function activeSectionDraft(section) {
@@ -706,6 +788,8 @@
         var seriesName = String(prop(item, 'SeriesName', 'seriesName', ''));
         var year = prop(item, 'ProductionYear', 'productionYear', '');
         var serverId = typeof ApiClient.serverId === 'function' ? ApiClient.serverId() : '';
+        var mediaType = String(prop(item, 'MediaType', 'mediaType', type === 'Movie' || type === 'Series' || type === 'Episode' || type === 'Video' ? 'Video' : ''));
+        var isFolder = type === 'Series' || type === 'Season' || type === 'BoxSet' || type === 'CollectionFolder';
         var href = '#/details?id=' + encodeURIComponent(id) + (serverId ? '&serverId=' + encodeURIComponent(serverId) : '');
         var seriesHref = '#/details?id=' + encodeURIComponent(seriesId || id) + (serverId ? '&serverId=' + encodeURIComponent(serverId) : '');
         var shape = cardShape(section);
@@ -721,9 +805,11 @@
             footer = '<div class="' + textClass + ' cardText-first hssm-card-title"><bdi><a is="emby-linkbutton" href="' + escapeHtml(href) + '" class="itemAction textActionButton">' + escapeHtml(name) + '</a></bdi></div>' + (year ? '<div class="' + textClass + ' cardText-secondary hssm-card-year"><bdi>' + escapeHtml(year) + '</bdi></div>' : '');
         }
         var rankMarkup = rank && prop(section, 'ShowRankNumbers', 'showRankNumbers', true) !== false ? '<span class="hssm-rank-number" aria-hidden="true">' + rank + '</span>' : '';
-        return '<div class="card ' + shape.card + ' card-hoverable card-withuserdata hssm-client-card" data-id="' + escapeHtml(id) + '">' + rankMarkup +
+        var playMarkup = '<div class="cardOverlayContainer itemAction" data-action="link"><a href="' + escapeHtml(href) + '" class="cardImageContainer" aria-label="' + escapeHtml(name) + '"></a>' +
+            '<button is="paper-icon-button-light" type="button" class="cardOverlayButton cardOverlayButton-hover itemAction paper-icon-button-light cardOverlayFab-primary" data-action="resume" title="Play" aria-label="Play ' + escapeHtml(name) + '"><span class="material-icons cardOverlayButtonIcon cardOverlayButtonIcon-hover play_arrow" aria-hidden="true"></span></button></div>';
+        return '<div class="card ' + shape.card + ' card-hoverable card-withuserdata hssm-client-card" data-id="' + escapeHtml(id) + '" data-serverid="' + escapeHtml(serverId) + '" data-type="' + escapeHtml(type) + '" data-mediatype="' + escapeHtml(mediaType) + '" data-isfolder="' + String(isFolder) + '">' + rankMarkup +
             '<div class="cardBox' + (showText ? ' cardBox-bottompadded' : '') + '"><div class="cardScalable"><div class="cardPadder ' + shape.padder + '"></div>' +
-            '<a is="emby-linkbutton" href="' + escapeHtml(href) + '" class="cardImageContainer coveredImage cardContent itemAction" aria-label="' + escapeHtml(name) + '"' + imageStyle + '></a>' +
+            '<a is="emby-linkbutton" href="' + escapeHtml(href) + '" data-action="link" class="cardImageContainer coveredImage cardContent itemAction" aria-label="' + escapeHtml(name) + '"' + imageStyle + '></a>' + playMarkup +
             '</div>' + footer + '</div></div>';
     }
 
@@ -734,6 +820,8 @@
         var artSize = String(prop(section, 'ArtSize', 'artSize', 'medium'));
         var artShape = cardShape(section).name;
         var artType = String(prop(section, 'ArtType', 'artType', 'automatic'));
+        var pageId = String(prop(section, 'PageId', 'pageId', 'home'));
+        var ownsScroller = pageId !== 'home' && pageId !== 'my-list';
         var ranked = String(prop(section, 'Type', 'type', '')) === 'top-10-50' && prop(section, 'ShowRankNumbers', 'showRankNumbers', true) !== false;
         node.className = 'verticalSection emby-scroller-container hssm-client-section hssm-size-' + artSize + ' hssm-shape-' + artShape + ' hssm-art-' + artType + (ranked ? ' hssm-top-ranked hssm-rank-' + String(prop(section, 'RankNumberColorMode', 'rankNumberColorMode', 'solid')) : '');
         node.style.setProperty('--hssm-rank-one', String(prop(section, 'RankNumberColorOne', 'rankNumberColorOne', '#f5f5f7')));
@@ -752,9 +840,11 @@
             }
             return node;
         }
-        node.innerHTML = '<div class="sectionTitleContainer sectionTitleContainer-cards padded-left"><h2 class="sectionTitle sectionTitle-cards">' + escapeHtml(name) + '</h2></div>' +
-            '<div is="emby-scroller" class="hssm-client-scroller padded-top-focusscale padded-bottom-focusscale" data-horizontal="true" data-centerfocus="true"><div is="emby-itemscontainer" class="focuscontainer-x itemsContainer scrollSlider animatedScrollX hssm-client-items">' +
-            items.map(function (item, index) { return card(item, section, String(prop(section, 'Type', 'type', '')) === 'top-10-50' ? index + 1 : 0); }).join('') + '</div></div>';
+        var cards = items.map(function (item, index) { return card(item, section, String(prop(section, 'Type', 'type', '')) === 'top-10-50' ? index + 1 : 0); }).join('');
+        var scroller = ownsScroller
+            ? '<div class="hssm-owned-scroll-shell"><button type="button" class="hssm-scroll-button hssm-scroll-button-left emby-button" data-hssm-scroll-direction="left" aria-label="Scroll ' + escapeHtml(name) + ' left"><span class="material-icons chevron_left" aria-hidden="true"></span></button><div class="hssm-client-scroller hssm-owned-horizontal-scroll padded-top-focusscale padded-bottom-focusscale"><div class="focuscontainer-x itemsContainer hssm-client-items">' + cards + '</div></div><button type="button" class="hssm-scroll-button hssm-scroll-button-right emby-button" data-hssm-scroll-direction="right" aria-label="Scroll ' + escapeHtml(name) + ' right"><span class="material-icons chevron_right" aria-hidden="true"></span></button></div>'
+            : '<div is="emby-scroller" class="hssm-client-scroller padded-top-focusscale padded-bottom-focusscale" data-horizontal="true" data-centerfocus="true"><div is="emby-itemscontainer" class="focuscontainer-x itemsContainer scrollSlider animatedScrollX hssm-client-items">' + cards + '</div></div>';
+        node.innerHTML = '<div class="sectionTitleContainer sectionTitleContainer-cards padded-left"><h2 class="sectionTitle sectionTitle-cards">' + escapeHtml(name) + '</h2></div>' + scroller;
         return node;
     }
 
@@ -782,6 +872,67 @@
                     else scroller.scrollLeft = target;
                 }, 360);
             }, true);
+        }
+        var ownedScroller = node.querySelector('.hssm-owned-horizontal-scroll');
+        if (ownedScroller && ownedScroller.dataset.hssmOwnedScrollBound !== 'true') {
+            ownedScroller.dataset.hssmOwnedScrollBound = 'true';
+            var shell = ownedScroller.closest('.hssm-owned-scroll-shell');
+            var buttons = shell ? Array.from(shell.querySelectorAll('[data-hssm-scroll-direction]')) : [];
+            var updateButtons = function () {
+                var maximum = Math.max(0, ownedScroller.scrollWidth - ownedScroller.clientWidth);
+                buttons.forEach(function (button) {
+                    button.disabled = button.dataset.hssmScrollDirection === 'left' ? ownedScroller.scrollLeft <= 1 : ownedScroller.scrollLeft >= maximum - 1;
+                });
+            };
+            buttons.forEach(function (button) {
+                button.addEventListener('click', function () {
+                    var direction = button.dataset.hssmScrollDirection === 'left' ? -1 : 1;
+                    var distance = Math.max(240, Math.round((ownedScroller.clientWidth || node.clientWidth || 800) * 0.82));
+                    if (typeof ownedScroller.scrollBy === 'function') ownedScroller.scrollBy({ left:direction * distance, behavior:'smooth' });
+                    else ownedScroller.scrollLeft += direction * distance;
+                    window.setTimeout(updateButtons, 350);
+                });
+            });
+            ownedScroller.addEventListener('scroll', updateButtons, { passive:true });
+            ownedScroller.addEventListener('wheel', function (event) {
+                if (ownedScroller.scrollWidth <= ownedScroller.clientWidth) return;
+                var amount = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
+                if (!amount) return;
+                ownedScroller.scrollLeft += amount;
+                event.preventDefault();
+            }, { passive:false });
+            var drag = null;
+            var suppressClick = false;
+            ownedScroller.addEventListener('pointerdown', function (event) {
+                if (event.pointerType !== 'mouse' || event.button !== 0) return;
+                drag = { id:event.pointerId, x:event.clientX, start:ownedScroller.scrollLeft, moved:false };
+            });
+            ownedScroller.addEventListener('pointermove', function (event) {
+                if (!drag || drag.id !== event.pointerId) return;
+                var distance = event.clientX - drag.x;
+                if (Math.abs(distance) < 4 && !drag.moved) return;
+                drag.moved = true;
+                suppressClick = true;
+                if (typeof ownedScroller.setPointerCapture === 'function') ownedScroller.setPointerCapture(event.pointerId);
+                ownedScroller.scrollLeft = drag.start - distance;
+                event.preventDefault();
+            });
+            function endDrag(event) {
+                if (!drag || drag.id !== event.pointerId) return;
+                if (typeof ownedScroller.releasePointerCapture === 'function' && ownedScroller.hasPointerCapture && ownedScroller.hasPointerCapture(event.pointerId)) ownedScroller.releasePointerCapture(event.pointerId);
+                drag = null;
+                updateButtons();
+            }
+            ownedScroller.addEventListener('pointerup', endDrag);
+            ownedScroller.addEventListener('pointercancel', endDrag);
+            ownedScroller.addEventListener('click', function (event) {
+                if (!suppressClick) return;
+                suppressClick = false;
+                event.preventDefault();
+                event.stopPropagation();
+            }, true);
+            if (typeof ResizeObserver === 'function') new ResizeObserver(updateButtons).observe(ownedScroller);
+            window.setTimeout(updateButtons, 0);
         }
     }
 
@@ -1238,6 +1389,9 @@
                     return items.map(function (item) { return freshById[String(prop(item, 'Id', 'id', ''))] || item; });
                 }, function () { return items; });
             });
+        }
+        if (type === 'top-10-50' && !prop(section, 'ItemIds', 'itemIds', []).length) {
+            return loadTopItemsFromSources(section);
         }
         var ids = prop(section, 'ItemIds', 'itemIds', []).map(String).slice(0, 30);
         var cached = sectionCache(section);
@@ -2283,6 +2437,12 @@
         } else if (type === "watch-again") {
             state.dynamicLoader = function (start, limit) { return loadWatchAgainItems(start, limit, prop(state.section, 'ContentOrder', 'contentOrder', 'completed-descending')); };
             request = state.dynamicLoader(0, 40);
+        } else if (type === "top-10-50" && !prop(state.section, 'ItemIds', 'itemIds', []).length) {
+            request = loadTopItemsFromSources(state.section).then(function (items) {
+                state.dynamicTotal = items.length;
+                state.dynamicLoader = function (start, limit) { return Promise.resolve(items.slice(start, start + limit)); };
+                return state.dynamicLoader(0, 40);
+            });
         } else if (type === "other-users-activity") {
             var maximum = Math.max(1, Math.min(100, Number(prop(state.section, "ActivityMaxItems", "activityMaxItems", 20)) || 20));
             request = getJson("HomeScreenSectionsManager/other-users-items", {
@@ -2346,13 +2506,14 @@
         sectionRuntime[id] = state;
         paintSectionState(state, !cached);
         var type = String(prop(section, 'Type', 'type', ''));
-        if (type === 'my-list-content' || type === 'watch-again') state.complete = false;
+        var recoversTop = type === 'top-10-50' && !prop(section, 'ItemIds', 'itemIds', []).length;
+        if (type === 'my-list-content' || type === 'watch-again' || recoversTop) state.complete = false;
         else if (!cached || !cached.items.length) loadSectionPage(state);
         else state.complete = sectionPageIds(section, state.cursor, 1).length === 0;
-        if (type === 'my-list-content' || type === 'watch-again' || type === 'other-users-activity' || type === 'rotating-sections' || type === 'seasonal-sections') {
+        if (type === 'my-list-content' || type === 'watch-again' || recoversTop || type === 'other-users-activity' || type === 'rotating-sections' || type === 'seasonal-sections') {
             window.setTimeout(function () {
                 if (state.generation === runtimeGeneration && sectionStateIsCurrent(state)) homeRequestLane(function () { return loadDynamicSection(state); });
-            }, type === 'my-list-content' || type === 'watch-again' ? 0 : 800);
+            }, type === 'my-list-content' || type === 'watch-again' || recoversTop ? 0 : 800);
         }
         return state;
     }

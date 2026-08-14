@@ -14,6 +14,7 @@ def run() -> None:
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(headless=True)
         page = browser.new_page(viewport={"width": 1440, "height": 1000})
+        page.set_default_timeout(8000)
         page.on("pageerror", lambda error: page_errors.append(str(error)))
         page.goto("about:blank")
         page.evaluate(
@@ -26,11 +27,12 @@ def run() -> None:
                 PageOrder:['home','favorites','my-list','manager-page-movies'],
                 Sections:[
                   {Id:'manager-one',Name:'Home Picks',PageId:'home',Type:'manual-content',ItemIds:['one'],SourceIds:[],IsApplied:true,IsVisible:true,IsMediaBar:false},
+                  {Id:'manager-top',Name:'Top 20 in Foreign Collection',PageId:'home',Type:'top-10-50',ItemIds:['stale-one'],SourceIds:['collection|foreign'],DisplayTopCount:20,ShowRankNumbers:true,IsApplied:true,IsVisible:true,IsMediaBar:false},
                   {Id:'manager-two',Name:'Movie Picks',PageId:'manager-page-movies',Type:'manual-content',ItemIds:['two'],SourceIds:[],IsApplied:true,IsVisible:true,IsMediaBar:true}
                 ],
-                SectionOrder:['jellyfin-0-resume','manager-one'],
+                SectionOrder:['jellyfin-0-resume','manager-one','manager-top'],
                 PageLayouts:[
-                  {PageId:'home',SectionOrder:['jellyfin-0-resume','manager-one']},
+                  {PageId:'home',SectionOrder:['jellyfin-0-resume','manager-one','manager-top']},
                   {PageId:'manager-page-movies',SectionOrder:['manager-two']}
                 ]
               };
@@ -59,7 +61,11 @@ def run() -> None:
                   if(applyMatch) {
                     const id = decodeURIComponent(applyMatch[1]);
                     const section = window.__sectionSettings.Sections.find(item => item.Id === id);
-                    if(section) Object.assign(section, body, {IsApplied:true});
+                    if(section) {
+                      const applied = Object.assign({}, body);
+                      if(applied.ItemIds === null) delete applied.ItemIds;
+                      Object.assign(section, applied, {IsApplied:true});
+                    }
                     window.__applyCalls.push({id, body});
                   }
                   if(String(options.url).includes('section-settings')) window.__sectionSettings = Object.assign({}, window.__sectionSettings, body);
@@ -73,7 +79,7 @@ def run() -> None:
                 getPluginConfiguration:()=>Promise.resolve({CustomJavaScripts:[]}),
                 updatePluginConfiguration:()=>Promise.resolve()
               };
-              window.HomeScreenManagerClient = { version:'0.1.0.38', refresh(){} };
+              window.HomeScreenManagerClient = { version:'0.1.0.39', refresh(){} };
               window.CustomElements = { upgradeSubtree(){} };
             }
             """
@@ -108,6 +114,18 @@ def run() -> None:
         page.locator("#hssmTypeSpecificSettings [data-hssm-show-text]").uncheck()
         page.locator("#hssmTypeSpecificSettings [data-hssm-apply-section]").click()
         page.wait_for_function("window.__sectionSettings.Sections.some(s => String(s.Id).startsWith('jellyfin-') && s.ArtSize === 'large' && s.ArtShape === 'circle' && s.ShowText === false)")
+
+        page.locator("#hssmSectionList [data-section-id='manager-top']").click()
+        page.locator("#hssmEditSectionButton").click()
+        page.wait_for_selector("input[name='hssmType'][value='top-10-50']:checked")
+        page.locator("#hssmFinishSectionButton").click()
+        page.wait_for_function("!document.querySelector('#hssmTypeSpecificSettings [data-hssm-save-move]').disabled")
+        page.evaluate("document.querySelector('#hssmTypeSpecificSettings [data-hssm-art-settings]').hidden = false")
+        page.locator("#hssmTypeSpecificSettings [data-hssm-apply-section]").click()
+        page.wait_for_function("window.__applyCalls.some(call => call.id === 'manager-top')")
+        assert page.evaluate("window.__applyCalls.find(call => call.id === 'manager-top').body.ItemIds === null")
+        assert page.evaluate("window.__sectionSettings.Sections.find(s => s.Id === 'manager-top').ItemIds[0]") == "stale-one"
+        assert page.evaluate("window.__sectionSettings.Sections.find(s => s.Id === 'manager-top').Name") == "Top 20 in Foreign Collection"
 
         page.locator("#hssmSectionPageSelect").select_option("my-list")
         page.wait_for_selector("#hssmSectionList [data-section-id='my-list-content']")

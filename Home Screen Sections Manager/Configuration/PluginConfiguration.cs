@@ -340,7 +340,7 @@ public sealed class ApplySectionRequest
     public string ContentOrder { get; set; } = "title-ascending";
 
     /// <summary>Gets or sets the item identifiers in their final manual order.</summary>
-    public List<string> ItemIds { get; set; } = [];
+    public List<string>? ItemIds { get; set; }
 
     /// <summary>Gets or sets the selected home-screen art size.</summary>
     public string ArtSize { get; set; } = "medium";

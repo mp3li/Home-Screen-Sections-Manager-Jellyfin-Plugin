@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.1.0.39-test] - 2026-08-13
+
+- Replaces custom-page rows' hidden-tab-dependent Jellyfin scrollers with plugin-owned horizontal scrolling that supports working arrow buttons, mouse-wheel scrolling, mouse dragging, touch panning, and infinite-page loading.
+- Derives completed Series per signed-in user from Series user data and the user's played Episodes, then combines them with completed Movies for Watch Again completion-date ordering.
+- Prevents appearance-only Refresh Section actions from erasing saved Top 10-50 item IDs when a content preview is temporarily empty, and reconstructs an already-emptied Top section from its saved sources.
+- Corrects native Jellyfin square and circle geometry by replacing the original portrait bottom padding instead of stacking a second aspect-ratio padding value.
+- Clips native hover darkness to circular art and adds Jellyfin-style hover darkness plus a functional centered Play button to plugin-created cards.
+- Retains the confirmed sidebar glyph colors, Media Bar Series Logo resolution, My List behavior, and direct logo-to-Home navigation unchanged.
+
 ## [0.1.0.38-test] - 2026-08-13
 
 - Paints the configured solid color or gradient on sidebar icon circles while using the shared Accent Color for the smaller glyphs inside them.

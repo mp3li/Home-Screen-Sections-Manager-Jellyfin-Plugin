@@ -29,7 +29,7 @@ def run() -> None:
     settings = {
         "Sections": [
             {"Id": "jellyfin-0-resume", "Name": "Continue Watching", "PageId": "home", "Type": "resume", "ItemIds": [], "SourceIds": [], "IsApplied": True, "IsVisible": True, "IsMediaBar": False, "ArtSize": "large", "ArtType": "thumb", "ArtShape": "circle", "ShowText": False},
-            {"Id": "manager-home-top", "Name": "Top 10", "PageId": "home", "Type": "top-10-50", "ItemIds": ["resume-one", "resume-two"], "DisplayTopCount": 10, "IsApplied": True, "IsVisible": True, "IsMediaBar": False},
+            {"Id": "manager-home-top", "Name": "Top 20 in Foreign Collection", "PageId": "home", "Type": "top-10-50", "SourceIds": ["collection|top-source"], "ItemIds": [], "DisplayTopCount": 20, "ShowRankNumbers": True, "IsApplied": True, "IsVisible": True, "IsMediaBar": False},
             {"Id": "manager-home-test", "Name": "Test Section", "PageId": "home", "Type": "manual-content", "ItemIds": ["resume-two"], "IsApplied": True, "IsVisible": True, "IsMediaBar": False},
             {"Id": "manager-movies-one", "Name": "Movie Picks", "PageId": "manager-page-movies", "Type": "manual-content", "ItemIds": ["resume-one"], "IsApplied": True, "IsVisible": True, "IsMediaBar": True},
             {"Id": "manager-movies-two", "Name": "More Movies", "PageId": "manager-page-movies", "Type": "manual-content", "ItemIds": ["resume-two"], "IsApplied": True, "IsVisible": True, "IsMediaBar": True},
@@ -62,9 +62,15 @@ def run() -> None:
     liked_opaque["ImageTags"]["Logo"] = "opaque-logo-tag"
     watched_movie = base_item("watched-movie", "Completed Movie", "Movie")
     watched_series = base_item("watched-series", "Completed Series", "Series")
+    watched_episode = base_item("watched-episode", "Completed Finale", "Episode")
     watched_movie["UserData"]["LastPlayedDate"] = "2026-07-01T12:00:00Z"
-    watched_series["UserData"]["LastPlayedDate"] = "2026-08-01T12:00:00Z"
-    items_by_id = {item["Id"]: item for item in [resume, resume_two, series_two, liked, liked_opaque, watched_movie, watched_series]}
+    watched_series["UserData"].update({"Played": False, "UnplayedItemCount": 0})
+    watched_series["RecursiveItemCount"] = 12
+    watched_episode["SeriesId"] = "watched-series"
+    watched_episode["UserData"]["LastPlayedDate"] = "2026-08-01T12:00:00Z"
+    resume["CommunityRating"] = 8.8
+    resume_two["CommunityRating"] = 7.7
+    items_by_id = {item["Id"]: item for item in [resume, resume_two, series_two, liked, liked_opaque, watched_movie, watched_series, watched_episode]}
     requests: list[str] = []
     page_errors: list[str] = []
 
@@ -87,8 +93,14 @@ def run() -> None:
             elif path.endswith("/Users/user/Items"):
                 if query.get("Filters") == ["Likes"] and query.get("ParentId") == ["library-one"]:
                     route.fulfill(status=200, content_type="application/json", body=json.dumps({"Items": [liked, liked_opaque]}))
-                elif query.get("Filters") == ["IsPlayed"] and query.get("IncludeItemTypes") == ["Movie,Series"]:
-                    route.fulfill(status=200, content_type="application/json", body=json.dumps({"Items": [watched_movie, watched_series]}))
+                elif query.get("Filters") == ["IsPlayed"] and query.get("IncludeItemTypes") == ["Movie"]:
+                    route.fulfill(status=200, content_type="application/json", body=json.dumps({"Items": [watched_movie]}))
+                elif query.get("IncludeItemTypes") == ["Series"] and not query.get("Filters"):
+                    route.fulfill(status=200, content_type="application/json", body=json.dumps({"Items": [watched_series]}))
+                elif query.get("Filters") == ["IsPlayed"] and query.get("IncludeItemTypes") == ["Episode"]:
+                    route.fulfill(status=200, content_type="application/json", body=json.dumps({"Items": [watched_episode]}))
+                elif query.get("ParentId") == ["top-source"]:
+                    route.fulfill(status=200, content_type="application/json", body=json.dumps({"Items": [resume, resume_two]}))
                 elif query.get("Ids"):
                     ids = query["Ids"][0].split(",")
                     route.fulfill(status=200, content_type="application/json", body=json.dumps({"Items": [items_by_id[item_id] for item_id in ids if item_id in items_by_id]}))
@@ -116,7 +128,7 @@ def run() -> None:
         page.goto("http://jellyfin.test/web/#/home")
         page.set_content(
             """
-            <html><head></head><body>
+            <html><head><style>.cardPadder-overflowPortrait{padding-bottom:150%}.cardScalable{position:relative}.cardContent{position:absolute;inset:0}.cardOverlayContainer{position:absolute;inset:0;background:rgba(0,0,0,.5);opacity:0}.card-hoverable:hover .cardOverlayContainer{opacity:1}</style></head><body>
               <header class="skinHeader"><div class="headerLeft"></div><div class="headerTabs">
                 <div is="emby-tabs" class="tabs-viewmenubar" data-index="0"><div class="emby-tabs-slider">
                   <button class="emby-tab-button" data-index="0"><div class="emby-button-foreground">Home</div></button>
@@ -129,7 +141,7 @@ def run() -> None:
                 <div id="homeTab" class="tabContent pageTabContent" data-index="0">
                   <iframe class="featurediframe" src="about:blank" title="Abyss Spotlight"></iframe>
                   <div class="sections homeSectionsContainer">
-                    <div class="section0 verticalSection"><h2 class="sectionTitle">Continue Watching</h2><div class="card" data-id="resume-one"><div class="cardBox"><div class="cardScalable"><div class="cardPadder"></div><a class="cardImageContainer" style="background-image:url(original-one)"></a></div><div class="cardText">Resume One</div></div></div><div class="card" data-id="resume-two"><div class="cardBox"><div class="cardScalable"><div class="cardPadder"></div><a class="cardImageContainer" style="background-image:url(original-two)"></a></div><div class="cardText">Resume Two</div></div></div></div>
+                    <div class="section0 verticalSection"><h2 class="sectionTitle">Continue Watching</h2><div class="card card-hoverable" data-id="resume-one"><div class="cardBox"><div class="cardScalable"><div class="cardPadder cardPadder-overflowPortrait"></div><a class="cardImageContainer cardContent" style="background-image:url(original-one)"></a><div class="cardOverlayContainer"></div></div><div class="cardText">Resume One</div></div></div><div class="card card-hoverable" data-id="resume-two"><div class="cardBox"><div class="cardScalable"><div class="cardPadder cardPadder-overflowPortrait"></div><a class="cardImageContainer cardContent" style="background-image:url(original-two)"></a><div class="cardOverlayContainer"></div></div><div class="cardText">Resume Two</div></div></div></div>
                   </div>
                 </div>
                 <div id="favoritesTab" class="tabContent pageTabContent" data-index="1"><div class="sections"></div></div>
@@ -154,6 +166,12 @@ def run() -> None:
               updateUserItemRating: () => Promise.resolve({ Likes:true })
             };
             window.CustomElements = { upgradeSubtree(){} };
+            window.__playedIds = [];
+            document.addEventListener('click', event => {
+              const play = event.target.closest('[data-action="resume"]');
+              const card = play && play.closest('.card[data-id]');
+              if (card) window.__playedIds.push(card.dataset.id);
+            });
             document.querySelector('.tabs-viewmenubar').addEventListener('click', event => {
               const button=event.target.closest('.emby-tab-button');
               const tabs=event.currentTarget;
@@ -182,6 +200,9 @@ def run() -> None:
         page.wait_for_selector("#homeTab .section0.hssm-native-art-override.hssm-size-large.hssm-shape-circle.hssm-art-thumb")
         assert page.locator("#homeTab .section0").evaluate("node => getComputedStyle(node).getPropertyValue('--hssm-card-width').trim()") == "14.5em"
         assert page.locator("#homeTab .section0 .cardText").first.evaluate("node => getComputedStyle(node).display") == "none"
+        native_circle = page.locator("#homeTab .section0 .card").first.evaluate("card => { const scalable=card.querySelector('.cardScalable').getBoundingClientRect(); const overlay=getComputedStyle(card.querySelector('.cardOverlayContainer')); return {ratio:scalable.height/scalable.width, radius:overlay.borderRadius}; }")
+        assert abs(native_circle["ratio"] - 1) < 0.03, native_circle
+        assert native_circle["radius"] == "50%", native_circle
         assert page.locator("#homeTab [data-hssm-section-id='jellyfin-0-resume']").count() == 0
         assert page.locator("#homeTab [data-hssm-section-id='manager-home-top'] .hssm-rank-number").count() == 2
         assert page.locator("#homeTab [data-hssm-section-id='manager-home-top']").evaluate("node => node.classList.contains('hssm-top-ranked')")
@@ -215,7 +236,7 @@ def run() -> None:
             "myListTabCount": 1,
         }, result
         media_frame = page.frame_locator(".hssm-owned-media-bar")
-        media_frame.locator("#title").wait_for(state="visible")
+        media_frame.locator("#title").wait_for(state="attached")
         first_title = media_frame.locator("#title").text_content()
         page.wait_for_timeout(1200)
         second_title = media_frame.locator("#title").text_content()
@@ -290,22 +311,34 @@ def run() -> None:
         custom_logo.wait_for(state="visible")
         assert "/Items/series-two/Images/Logo" in custom_logo.get_attribute("src")
         page.frame_locator(".hssm-section-media-bar[data-hssm-media-section-id='manager-movies-two']").locator("body.hssm-media-bar-top-gradient").wait_for(state="attached")
-        assert any("Filters=IsPlayed" in url and "IncludeItemTypes=Movie%2CSeries" in url for url in requests), requests
+        assert any("Filters=IsPlayed" in url and "IncludeItemTypes=Movie" in url for url in requests), requests
+        assert any("IncludeItemTypes=Series" in url and "Filters=IsPlayed" not in url for url in requests), requests
+        assert any("Filters=IsPlayed" in url and "IncludeItemTypes=Episode" in url for url in requests), requests
         assert any("Filters=IsPlayed" in url and "SortOrder=Descending" in url for url in requests), requests
 
-        arrow_result = page.locator(".hssm-owned-custom-page.is-active [data-hssm-section-id='manager-watch-again']").evaluate("""section => {
+        scroll_result = page.locator(".hssm-owned-custom-page.is-active [data-hssm-section-id='manager-watch-again']").evaluate("""section => {
           const scroller=section.querySelector('.hssm-client-scroller');
-          let position=0;
-          scroller.getScrollPosition=()=>position;
-          scroller.scrollToPosition=value=>{position=value;};
-          const button=document.createElement('button');
-          button.className='emby-scrollbuttons-button';
-          button.dataset.direction='right';
-          section.prepend(button);
-          button.click();
-          return new Promise(resolve=>setTimeout(()=>resolve(position),450));
+          section.querySelector('.hssm-client-items').style.width='2400px';
+          window.dispatchEvent(new Event('resize'));
+          return new Promise(resolve=>setTimeout(()=>{
+            const button=section.querySelector('[data-hssm-scroll-direction="right"]');
+            button.disabled=false;
+            button.click();
+            setTimeout(()=>{
+              const afterArrow=scroller.scrollLeft;
+              scroller.dispatchEvent(new WheelEvent('wheel',{deltaY:240,bubbles:true,cancelable:true}));
+              setTimeout(()=>resolve({afterArrow,afterWheel:scroller.scrollLeft,owned:scroller.classList.contains('hssm-owned-horizontal-scroll')}),80);
+            },450);
+          },80));
         }""")
-        assert arrow_result > 0, arrow_result
+        assert scroll_result["owned"] and scroll_result["afterArrow"] > 0 and scroll_result["afterWheel"] > scroll_result["afterArrow"], scroll_result
+
+        custom_card = page.locator(".hssm-owned-custom-page.is-active [data-hssm-section-id='manager-watch-again'] .hssm-client-card[data-id='watched-series']")
+        custom_card.hover()
+        custom_card.locator(".cardOverlayContainer").wait_for(state="visible")
+        page.wait_for_function("node => Number(getComputedStyle(node).opacity) > .99", arg=custom_card.locator(".cardOverlayContainer").element_handle())
+        custom_card.locator("[data-action='resume']").click()
+        assert page.evaluate("window.__playedIds.includes('watched-series')")
 
         page.locator(".hssm-header-logo-link").click()
         page.wait_for_function("document.querySelector('#homeTab').classList.contains('is-active')")
