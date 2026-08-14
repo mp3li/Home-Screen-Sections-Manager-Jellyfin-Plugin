@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.0.49-test] - 2026-08-14
+
+- Renders **Display Logos Only** items as plain transparent logo links instead of Jellyfin card/shape elements, eliminating the saved art shape's outline and clipping boundary entirely.
+- Explicitly removes borders, radius, outlines, shadows, masks, and clip paths; preserves visible overflow; and adds transparent internal breathing room so complete source logos remain visible around every edge.
+- Extends the browser contract to prove the logo-only element has no card hierarchy or shape styling while retaining contained source-logo rendering, horizontal scrolling, normal header scrolling, and strict Media Bar separation.
+- Makes the existing Media Bar rotation test observe a real title transition rather than sampling after exactly two slide intervals and potentially seeing the first title again.
+
 ## [0.1.0.48-test] - 2026-08-14
 
 - Normalizes Collection Manager's dashed collection GUIDs and Jellyfin Web's undashed item IDs before matching Display Logos Only assignments, preventing an enabled Top Row from disappearing as empty.

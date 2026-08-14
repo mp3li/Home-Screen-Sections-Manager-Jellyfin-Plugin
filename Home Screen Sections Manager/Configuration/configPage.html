@@ -1734,7 +1734,7 @@
                 return body && (body.Detail || body.detail || body.Message || body.message || body.Title || body.title) || (text && String(text).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()) || (error && (error.message || error.statusText)) || 'Jellyfin returned no error details.';
             }
             function loadHomeScreenClient() {
-                const version = "0.1.0.48";
+                const version = "0.1.0.49";
                 let style = document.querySelector("link[data-hssm-client-style]");
                 if (!style || style.dataset.hssmClientVersion !== version) {
                     if (style) style.remove();

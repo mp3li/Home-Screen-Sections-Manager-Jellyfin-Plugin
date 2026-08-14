@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    var CLIENT_VERSION = "0.1.0.48";
+    var CLIENT_VERSION = "0.1.0.49";
     if (window.HomeScreenManagerClient) {
         if (window.HomeScreenManagerClient.version === CLIENT_VERSION) {
             window.HomeScreenManagerClient.refresh();
@@ -2754,10 +2754,11 @@
         var imageUrl = logosOnly ? '' : cardImage(item, section);
         var imageStyle = imageUrl ? ' style="background-image:url(&quot;' + escapeHtml(imageUrl) + '&quot;)"' : '';
         var shape = logosOnly ? cardShape({ ArtShape:'wide' }) : cardShape(section);
-        var art = logosOnly
-            ? '<a is="emby-linkbutton" href="' + escapeHtml(href) + '" data-action="link" class="cardImageContainer cardContent itemAction hssm-top-row-art hssm-top-row-logo-art" aria-label="' + escapeHtml(name) + '"><img class="hssm-top-row-logo-image" src="' + escapeHtml(logoUrl) + '" alt="" /><span class="hssm-top-row-hover"></span></a>'
-            : '<a is="emby-linkbutton" href="' + escapeHtml(href) + '" data-action="link" class="cardImageContainer coveredImage cardContent itemAction hssm-top-row-art" aria-label="' + escapeHtml(name) + '"' + imageStyle + '><span class="hssm-top-row-hover"></span></a>';
-        return '<div class="card ' + shape.card + ' card-hoverable hssm-client-card hssm-top-row-card' + (logosOnly ? ' hssm-top-row-logo-card' : '') + '" data-id="' + escapeHtml(id) + '"><div class="cardBox"><div class="cardScalable"><div class="cardPadder ' + shape.padder + '"></div>' + art + '</div></div></div>';
+        if (logosOnly) {
+            return '<a is="emby-linkbutton" href="' + escapeHtml(href) + '" data-action="link" class="itemAction hssm-top-row-card hssm-top-row-logo-card" data-id="' + escapeHtml(id) + '" aria-label="' + escapeHtml(name) + '"><img class="hssm-top-row-logo-image" src="' + escapeHtml(logoUrl) + '" alt="" /></a>';
+        }
+        var art = '<a is="emby-linkbutton" href="' + escapeHtml(href) + '" data-action="link" class="cardImageContainer coveredImage cardContent itemAction hssm-top-row-art" aria-label="' + escapeHtml(name) + '"' + imageStyle + '><span class="hssm-top-row-hover"></span></a>';
+        return '<div class="card ' + shape.card + ' card-hoverable hssm-client-card hssm-top-row-card" data-id="' + escapeHtml(id) + '"><div class="cardBox"><div class="cardScalable"><div class="cardPadder ' + shape.padder + '"></div>' + art + '</div></div></div>';
     }
 
     function syncTopRowCardGeometry(row, section) {
@@ -2769,16 +2770,12 @@
         });
         var probe = null;
         if (!source) {
-            var card = row.querySelector('.hssm-top-row-card');
-            if (!card) return;
             probe = document.createElement('div');
             probe.className = 'hssm-client-section hssm-size-extra-small hssm-shape-' + shapeName;
             probe.style.cssText = 'position:absolute;left:-10000px;top:0;visibility:hidden;pointer-events:none;';
-            var clone = card.cloneNode(true);
-            clone.classList.remove('hssm-top-row-card');
-            probe.appendChild(clone);
+            probe.innerHTML = '<div class="card card-hoverable hssm-client-card"><div class="cardBox"><div class="cardScalable"><div class="cardPadder ' + cardShape({ ArtShape:shapeName }).padder + '"></div><span class="cardImageContainer cardContent"></span></div></div></div>';
             document.body.appendChild(probe);
-            source = clone;
+            source = probe.querySelector('.hssm-client-card');
         }
         var sourceBox = source.getBoundingClientRect();
         var sourceScalable = source.querySelector('.cardScalable');
@@ -2787,6 +2784,7 @@
         var radius = sourceArt ? getComputedStyle(sourceArt).borderRadius : '';
         var scale = 0.82;
         if (sourceBox.width > 0) row.style.setProperty('--hssm-top-row-card-width', (sourceBox.width * scale).toFixed(2) + 'px');
+        if (scalableBox.height > 0) row.style.setProperty('--hssm-top-row-card-height', (scalableBox.height * scale).toFixed(2) + 'px');
         if (radius) {
             var radiusValue = parseFloat(radius);
             row.style.setProperty('--hssm-top-row-card-radius', Number.isFinite(radiusValue) && radius.indexOf('px') >= 0 ? (radiusValue * scale).toFixed(2) + 'px' : radius);

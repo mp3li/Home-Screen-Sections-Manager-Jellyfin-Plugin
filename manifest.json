@@ -9,13 +9,13 @@
     "imageUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Assets/Branding/home-screen-sections-manager-plugin-photo.png",
     "versions": [
       {
-        "version": "0.1.0.48",
-        "changelog": "Fixes an enabled Display Logos Only Top Row disappearing by matching Collection Manager's dashed collection GUIDs with Jellyfin Web's undashed item IDs, while preserving exact source logos, smaller geometry, normal scrolling, header positioning, and strict Media Bar separation.",
+        "version": "0.1.0.49",
+        "changelog": "Makes Display Logos Only truly shape-free by rendering only each complete source logo with no Jellyfin card hierarchy, background, outline, border, radius, shadow, mask, clip path, or clipped overflow, while preserving Top Row scrolling and Media Bar separation.",
         "targetAbi": "10.11.11.0",
         "framework": "net9.0",
-        "sourceUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Test%20Releases/0.1.0.48-test/Jellyfin.Plugin.HomeScreenSectionsManager_0.1.0.48-test.zip",
-        "checksum": "3e77eb805fd6145e2ab21971dd422de5",
-        "timestamp": "2026-08-14T09:45:27Z"
+        "sourceUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Test%20Releases/0.1.0.49-test/Jellyfin.Plugin.HomeScreenSectionsManager_0.1.0.49-test.zip",
+        "checksum": "3da23a697eb6d5206e81377933e86fb8",
+        "timestamp": "2026-08-14T09:55:36Z"
       }
     ]
   }

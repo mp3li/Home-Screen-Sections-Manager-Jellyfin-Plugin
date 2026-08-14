@@ -233,6 +233,7 @@ def run() -> None:
         page.wait_for_selector(f"#indexPage > .hssm-top-row .hssm-top-row-card[data-id='{first_top_row_id}']")
         top_row_state = page.evaluate("""() => {
           const header=document.querySelector('.skinHeader'), host=document.querySelector('#indexPage'), row=host.querySelector(':scope > .hssm-top-row'), track=row.querySelector('.hssm-top-row-track'), card=row.querySelector('.hssm-top-row-card');
+          const action=card.matches('.cardImageContainer,.itemAction')?card:card.querySelector('.cardImageContainer,.itemAction'), logoStyle=getComputedStyle(card);
           return {
             firstChild:host.firstElementChild===row,
             host:header.classList.contains('hssm-top-row-host'),
@@ -241,26 +242,31 @@ def run() -> None:
             noArrows:row.querySelectorAll('button,.hssm-scroll-button').length===0,
             noPlay:row.querySelectorAll('[data-action="resume"],.cardOverlayFab-primary').length===0,
             noHeart:row.querySelectorAll('.hssm-my-list-button').length===0,
-            hasDarkHover:!!row.querySelector('.hssm-top-row-hover'),
-            href:card.querySelector('.cardImageContainer').getAttribute('href'),
+            href:action.getAttribute('href'),
             backdropFilter:getComputedStyle(row,'::before').backdropFilter || getComputedStyle(row,'::before').webkitBackdropFilter,
-            standardCard:card.classList.contains('card') && !!card.querySelector('.cardBox .cardScalable .cardPadder.cardPadder-backdrop + .cardImageContainer'),
+            plainLogo:card.tagName==='A' && !card.classList.contains('card') && !card.querySelector('.cardBox,.cardScalable,.cardPadder'),
             gap:parseFloat(getComputedStyle(track).gap),
             normalGap:parseFloat(getComputedStyle(document.querySelector('#homeTab [data-hssm-section-id="manager-home-test"] .hssm-client-items')).gap),
             width:card.getBoundingClientRect().width,
-            scalableRatio:(() => { const box=card.querySelector('.cardScalable').getBoundingClientRect(); return box.height / box.width; })(),
+            scalableRatio:(() => { const scalable=card.querySelector('.cardScalable'), box=(scalable || card).getBoundingClientRect(); return box.height / box.width; })(),
             scrollable:track.scrollWidth>track.clientWidth,
             logosOnly:row.classList.contains('hssm-top-row-logos-only'),
             logoSrc:card.querySelector('.hssm-top-row-logo-image') && card.querySelector('.hssm-top-row-logo-image').getAttribute('src'),
             logoFit:card.querySelector('.hssm-top-row-logo-image') && getComputedStyle(card.querySelector('.hssm-top-row-logo-image')).objectFit,
-            logoOverflow:getComputedStyle(card.querySelector('.hssm-top-row-logo-art')).overflow,
-            logoRadius:getComputedStyle(card.querySelector('.hssm-top-row-logo-art')).borderRadius,
+            logoOverflow:logoStyle.overflow,
+            logoRadius:logoStyle.borderRadius,
+            logoBorder:logoStyle.borderStyle,
+            logoOutline:logoStyle.outlineStyle,
+            logoShadow:logoStyle.boxShadow,
+            logoClip:logoStyle.clipPath,
+            logoPadding:parseFloat(logoStyle.paddingTop),
             wideDespiteSavedCircle:row.classList.contains('hssm-shape-wide') && !row.classList.contains('hssm-shape-circle')
           };
         }""")
-        assert top_row_state["firstChild"] and top_row_state["host"] and top_row_state["position"] == "relative" and top_row_state["topGap"] >= 4 and top_row_state["noArrows"] and top_row_state["noPlay"] and top_row_state["noHeart"] and top_row_state["hasDarkHover"] and top_row_state["standardCard"] and top_row_state["logosOnly"] and top_row_state["wideDespiteSavedCircle"], top_row_state
+        assert top_row_state["firstChild"] and top_row_state["host"] and top_row_state["position"] == "relative" and top_row_state["topGap"] >= 4 and top_row_state["noArrows"] and top_row_state["noPlay"] and top_row_state["noHeart"] and top_row_state["plainLogo"] and top_row_state["logosOnly"] and top_row_state["wideDespiteSavedCircle"], top_row_state
         assert f"id={first_top_row_id}" in top_row_state["href"] and "blur" not in top_row_state["backdropFilter"] and top_row_state["scrollable"] and abs(top_row_state["gap"] - top_row_state["normalGap"]) < 1, top_row_state
         assert f"/HomeScreenSectionsManager/top-row-logo/{first_top_row_id}" in top_row_state["logoSrc"] and top_row_state["logoFit"] == "contain" and top_row_state["logoOverflow"] == "visible" and top_row_state["logoRadius"] == "0px", top_row_state
+        assert top_row_state["logoBorder"] == "none" and top_row_state["logoOutline"] == "none" and top_row_state["logoShadow"] == "none" and top_row_state["logoClip"] == "none" and top_row_state["logoPadding"] > 0, top_row_state
         assert parse_qs(urlparse(top_row_state["logoSrc"]).query).get("ApiKey") == ["test-token"], top_row_state
         assert page.locator(f".hssm-top-row-card[data-id='{missing_top_row_id}']").count() == 0
         top_row_scroll = page.locator(".hssm-top-row-track").evaluate("""track => { const before=track.scrollLeft; track.dispatchEvent(new WheelEvent('wheel',{deltaY:260,bubbles:true,cancelable:true})); return {before,after:track.scrollLeft}; }""")
@@ -368,7 +374,7 @@ def run() -> None:
         page.wait_for_function("document.querySelector('.hssm-owned-media-bar').dataset.hssmAppliedSlowZoom === 'true'")
         page.wait_for_function("document.querySelector('.hssm-owned-media-bar').contentDocument.querySelector('#backdrop-img').getAnimations().length > 0")
         first_title = media_frame.locator("#title").text_content()
-        page.wait_for_timeout(2200)
+        page.wait_for_function("first => document.querySelector('.hssm-owned-media-bar').contentDocument.querySelector('#title').textContent !== first", arg=first_title, timeout=3500)
         second_title = media_frame.locator("#title").text_content()
         assert first_title != second_title, {"first": first_title, "second": second_title}
         assert any("/Items/resume-one/Images/Primary" in url for url in requests), requests
