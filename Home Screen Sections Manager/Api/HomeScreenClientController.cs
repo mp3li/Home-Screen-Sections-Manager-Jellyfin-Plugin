@@ -53,6 +53,7 @@ public sealed class HomeScreenClientController : ControllerBase
             configuration.LogoImageDataUrl,
             configuration.MediaBarIntervalSeconds,
             configuration.MediaBarImageType,
+            configuration.EnableMediaBarSlowZoom,
         });
     }
 

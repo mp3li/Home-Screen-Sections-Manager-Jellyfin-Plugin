@@ -64,6 +64,8 @@ public sealed class PluginConfiguration : BasePluginConfiguration
 
     public string MediaBarImageType { get; set; } = "abyss-original";
 
+    public bool EnableMediaBarSlowZoom { get; set; } = true;
+
     public bool AutoRefreshSections { get; set; }
 
     public bool EnableRemoveContinueNextUp { get; set; }
@@ -175,6 +177,9 @@ public sealed class HomeScreenSectionDefinition
     public string RankNumberColorOne { get; set; } = "#f5f5f7";
 
     public string RankNumberColorTwo { get; set; } = "#f5f5f7";
+
+    /// <summary>Gets or sets the drop-shadow color used behind ranking numbers.</summary>
+    public string RankNumberShadowColor { get; set; } = "#000000";
 
     /// <summary>Gets or sets an optional TTF or OTF data URL used by ranking numbers.</summary>
     public string RankNumberFontDataUrl { get; set; } = string.Empty;
@@ -311,6 +316,8 @@ public sealed class CustomizationSettingsRequest
     public int MediaBarIntervalSeconds { get; set; } = 5;
 
     public string MediaBarImageType { get; set; } = "abyss-original";
+
+    public bool EnableMediaBarSlowZoom { get; set; } = true;
 }
 
 /// <summary>Request body for browser enhancement settings.</summary>
@@ -374,6 +381,8 @@ public sealed class ApplySectionRequest
     public string RankNumberColorOne { get; set; } = "#f5f5f7";
 
     public string RankNumberColorTwo { get; set; } = "#f5f5f7";
+
+    public string RankNumberShadowColor { get; set; } = "#000000";
 
     public string RankNumberFontDataUrl { get; set; } = string.Empty;
 

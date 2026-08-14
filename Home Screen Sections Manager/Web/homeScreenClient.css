@@ -79,19 +79,27 @@
     box-sizing: border-box;
     display: flex;
     gap: 0.8em;
-    min-width: max-content;
+    min-width: 0;
     padding-left: 0;
     padding-right: 0;
-    width: max-content;
+    width: auto;
 }
 
 .hssm-owned-scroll-shell {
     align-items: center;
+    box-sizing: border-box;
     display: flex;
     gap: 0.25em;
     min-width: 0;
     padding: 0 1.1em;
     width: 100%;
+}
+
+.hssm-owned-horizontal-scroll > .hssm-client-items {
+    min-width: max-content;
+    transform-origin: left center;
+    width: max-content;
+    will-change: transform;
 }
 
 .hssm-owned-horizontal-scroll {
@@ -100,11 +108,11 @@
     flex: 1 1 auto;
     max-width: 100%;
     min-width: 0;
-    overflow-x: auto;
+    overflow-x: hidden;
     overflow-y: hidden;
     scroll-behavior: smooth;
     scrollbar-width: none;
-    touch-action: pan-x;
+    touch-action: pan-y;
     user-select: none;
 }
 
@@ -755,22 +763,33 @@ body.hssm-infinite-scroll-active .listPaging {
     z-index: 2;
 }
 
+.hssm-top-ranked .cardScalable {
+    isolation: isolate;
+    overflow: visible !important;
+}
+
+.hssm-top-ranked .cardScalable > .cardImageContainer,
+.hssm-top-ranked .cardScalable > .cardOverlayContainer {
+    z-index: 2;
+}
+
 .hssm-rank-number {
-    bottom: 0.05em;
+    bottom: 0;
     color: var(--hssm-rank-one);
-    filter: drop-shadow(0 0.08em 0.06em rgba(0, 0, 0, 0.98)) drop-shadow(0 0 0.025em rgba(255, 255, 255, 0.7));
+    filter: drop-shadow(0 0.018em 0.018em var(--hssm-rank-shadow, #000000));
     font-family: var(--hssm-rank-font, inherit);
     display: block !important;
     font-size: var(--hssm-rank-size);
     font-weight: 900;
     height: 0.8em;
-    left: 0;
+    left: auto;
     line-height: 0.78;
     position: absolute;
     text-align: right;
     width: 0.82em;
     pointer-events: none;
-    z-index: 3;
+    right: calc(100% - 0.18em);
+    z-index: 0;
 }
 
 .hssm-rank-vertical-gradient .hssm-rank-number,
@@ -780,6 +799,8 @@ body.hssm-infinite-scroll-active .listPaging {
     color: transparent;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
+    background-repeat: no-repeat;
+    background-size: 100% 100%;
 }
 
 .hssm-rank-vertical-gradient .hssm-rank-number {
@@ -846,10 +867,11 @@ body.hssm-title-marquee-enabled .hssm-marquee-title > * {
 
 body.hssm-title-marquee-enabled .hssm-marquee-title {
     transform: translateX(0);
-    transition: transform var(--hssm-marquee-duration, 6s) linear 0.45s;
+    transition: none;
 }
 
 body.hssm-title-marquee-enabled .card:hover .hssm-marquee-title,
 body.hssm-title-marquee-enabled .card:focus-within .hssm-marquee-title {
     transform: translateX(var(--hssm-marquee-distance, 0));
+    transition: transform var(--hssm-marquee-duration, 6s) linear 0.45s;
 }

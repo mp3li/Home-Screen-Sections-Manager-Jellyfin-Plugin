@@ -127,6 +127,7 @@
             const initialParameters = new URLSearchParams(window.location.search);
             let intervalMilliseconds = normalizedIntervalSeconds(serverIntervalSeconds, normalizedIntervalSeconds(initialParameters.get('intervalSeconds'))) * 1000;
             let imageType = normalizedImageType(serverImageType, normalizedImageType(initialParameters.get('imageType')));
+            let slowZoomEnabled = initialParameters.get('slowZoom') !== 'false';
             let autoTimer = null;
             let preloadTimer = null;
             let renderController = null;
@@ -311,7 +312,7 @@
                 if (zoomAnimation) zoomAnimation.cancel();
                 zoomAnimation = null;
                 image.style.transform = 'scale(1) translate(0, 0)';
-                if (paused || reducedMotion.matches) return;
+                if (paused || reducedMotion.matches || !slowZoomEnabled) return;
                 const angle = Math.random() * Math.PI * 2;
                 zoomAnimation = image.animate([
                     { transform: 'scale(1) translate(0, 0)' },
@@ -543,7 +544,8 @@
                     type: 'home-screen-manager-media-bar',
                     action: 'rendered',
                     intervalSeconds: intervalMilliseconds / 1000,
-                    imageType
+                    imageType,
+                    slowZoom: slowZoomEnabled
                 }, window.location.origin);
             }
 
@@ -580,8 +582,9 @@
                 // runtime authority; HTML and URL values are startup fallbacks only.
                 const authoritativeInterval = normalizedIntervalSeconds(data.intervalSeconds);
                 const authoritativeImageType = normalizedImageType(data.imageType);
+                const authoritativeSlowZoom = data.slowZoom !== false;
                 const topGradient = data.topGradient === true;
-                const nextSignature = JSON.stringify([authoritativeInterval, authoritativeImageType, topGradient, nextItems.map(artworkSignature)]);
+                const nextSignature = JSON.stringify([authoritativeInterval, authoritativeImageType, authoritativeSlowZoom, topGradient, nextItems.map(artworkSignature)]);
                 if (document.body.dataset.hssmPayloadSignature === nextSignature) return;
                 document.body.dataset.hssmPayloadSignature = nextSignature;
                 document.body.classList.toggle('hssm-media-bar-top-gradient', topGradient);
@@ -592,6 +595,7 @@
                 renderSequence += 1;
                 intervalMilliseconds = Math.max(1000, Math.min(300000, Number(authoritativeInterval || 5) * 1000));
                 imageType = nextImageType;
+                slowZoomEnabled = authoritativeSlowZoom;
                 items = nextItems;
                 currentIndex = Math.max(0, items.findIndex(item => String(item.Id) === String(currentId || '')));
                 $('empty').style.display = items.length ? 'none' : 'flex';

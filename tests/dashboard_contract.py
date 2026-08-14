@@ -15,7 +15,7 @@ def run() -> None:
         browser = playwright.chromium.launch(headless=True)
         page = browser.new_page(viewport={"width": 1440, "height": 1000})
         page.set_default_timeout(8000)
-        page.on("pageerror", lambda error: page_errors.append(str(error)))
+        page.on("pageerror", lambda error: page_errors.append((error.stack or str(error))))
         page.goto("about:blank")
         page.evaluate(
             r"""
@@ -27,7 +27,7 @@ def run() -> None:
                 PageOrder:['home','favorites','my-list','manager-page-movies'],
                 Sections:[
                   {Id:'manager-one',Name:'Home Picks',PageId:'home',Type:'manual-content',ItemIds:['one'],SourceIds:[],IsApplied:true,IsVisible:true,IsMediaBar:false},
-                  {Id:'manager-top',Name:'Top 20 in Foreign Collection',PageId:'home',Type:'top-10-50',ItemIds:['stale-one'],SourceIds:['collection|foreign'],DisplayTopCount:20,ShowRankNumbers:true,IsApplied:true,IsVisible:true,IsMediaBar:false},
+                  {Id:'manager-top',Name:'Top 20 in Foreign Collection',PageId:'home',Type:'top-10-50',ItemIds:['stale-one'],SourceIds:['collection|foreign'],Drafts:[{Id:'top-draft-manager-top',SourceType:'top',SourceId:'combined',Name:'Top 20'}],DisplayTopCount:20,ShowRankNumbers:true,IsApplied:true,IsVisible:true,IsMediaBar:false},
                   {Id:'manager-two',Name:'Movie Picks',PageId:'manager-page-movies',Type:'manual-content',ItemIds:['two'],SourceIds:[],IsApplied:true,IsVisible:true,IsMediaBar:true}
                 ],
                 SectionOrder:['jellyfin-0-resume','manager-one','manager-top'],
@@ -37,6 +37,7 @@ def run() -> None:
                 ]
               };
               window.__mainSettings = {EnableMyList:true,HideFavorites:false,EnableRemoveContinueNextUp:false,EnableSeriesInfo:false,InfiniteScrollLibraryIds:[],EnableCollectionsOnDetailPage:false,EnableEnhancedSearch:false,EnableBreadcrumbs:false};
+              window.__customizationSettings = {};
               window.__applyCalls = [];
               window.__brandingWrites = [];
               window.Dashboard = { alert(){}, showLoadingMsg(){}, hideLoadingMsg(){} };
@@ -46,7 +47,7 @@ def run() -> None:
                 getJSON:(url)=> {
                   if(String(url).includes('section-settings')) return Promise.resolve(structuredClone(window.__sectionSettings));
                   if(String(url).includes('main-settings')) return Promise.resolve(structuredClone(window.__mainSettings));
-                  if(String(url).includes('customization-settings')) return Promise.resolve({});
+                  if(String(url).includes('customization-settings')) return Promise.resolve(structuredClone(window.__customizationSettings));
                   if(String(url).includes('DisplayPreferences')) return Promise.resolve({CustomPrefs:{homesection0:'resume'}});
                   if(String(url).includes('Users/user/Views')) return Promise.resolve({Items:[{Id:'library',Name:'Movies',CollectionType:'movies'}]});
                   if(String(url).includes('CollectionManager/settings/main')) return Promise.resolve({Configuration:{},Libraries:[]});
@@ -65,11 +66,13 @@ def run() -> None:
                       const applied = Object.assign({}, body);
                       if(applied.ItemIds === null) delete applied.ItemIds;
                       Object.assign(section, applied, {IsApplied:true});
+                      if(section.Type === 'top-10-50' && section.Drafts && section.Drafts.length && body.Name) section.Drafts[0].Name = body.Name;
                     }
                     window.__applyCalls.push({id, body});
                   }
                   if(String(options.url).includes('section-settings')) window.__sectionSettings = Object.assign({}, window.__sectionSettings, body);
                   if(String(options.url).includes('main-settings')) window.__mainSettings = Object.assign({}, window.__mainSettings, body);
+                  if(String(options.url).includes('customization-settings')) window.__customizationSettings = Object.assign({}, window.__customizationSettings, body);
                   if(String(options.url).includes('System/Configuration/Branding')) window.__brandingWrites.push(body);
                   return Promise.resolve(body);
                 },
@@ -79,7 +82,7 @@ def run() -> None:
                 getPluginConfiguration:()=>Promise.resolve({CustomJavaScripts:[]}),
                 updatePluginConfiguration:()=>Promise.resolve()
               };
-              window.HomeScreenManagerClient = { version:'0.1.0.40', refresh(){} };
+              window.HomeScreenManagerClient = { version:'0.1.0.41', refresh(){} };
               window.CustomElements = { upgradeSubtree(){} };
             }
             """
@@ -132,16 +135,25 @@ def run() -> None:
         assert page.locator("#hssmTypeSpecificSettings [data-hssm-content-order]").input_value() == "rating-descending"
         revised_top_name = "Top 20 in Foreign Collection - My Picks"
         page.locator("#hssmTypeSpecificSettings [data-hssm-top-draft-name]").fill(revised_top_name)
-        page.locator("#hssmTypeSpecificSettings [data-hssm-rank-numbers][value='yes']").check()
+        page.locator("#hssmTypeSpecificSettings [data-hssm-display-top]").select_option("30")
+        assert page.locator("#hssmTypeSpecificSettings [data-hssm-top-draft-name]").input_value() == revised_top_name
         page.evaluate("document.querySelector('#hssmTypeSpecificSettings [data-hssm-art-settings]').hidden = false")
+        page.locator("#hssmTypeSpecificSettings [data-hssm-rank-numbers][value='yes']").check()
+        page.locator("#hssmTypeSpecificSettings [data-hssm-rank-color-mode]").select_option("horizontal-gradient")
+        page.locator("#hssmTypeSpecificSettings [data-hssm-rank-color-one]").fill("#112233")
+        page.locator("#hssmTypeSpecificSettings [data-hssm-rank-color-two]").fill("#445566")
+        page.locator("#hssmTypeSpecificSettings [data-hssm-rank-shadow-color]").fill("#778899")
         page.locator("#hssmTypeSpecificSettings [data-hssm-apply-section]").click()
         page.wait_for_function("window.__applyCalls.some(call => call.id === 'manager-top')")
         assert page.evaluate("window.__applyCalls.find(call => call.id === 'manager-top').body.ItemIds === null")
         assert page.evaluate("window.__applyCalls.find(call => call.id === 'manager-top').body.ContentOrder") == "rating-descending"
         assert page.evaluate("window.__applyCalls.find(call => call.id === 'manager-top').body.ShowRankNumbers") is True
+        assert page.evaluate("window.__applyCalls.find(call => call.id === 'manager-top').body.RankNumberColorMode") == "horizontal-gradient"
+        assert page.evaluate("window.__applyCalls.find(call => call.id === 'manager-top').body.RankNumberShadowColor") == "#778899"
         assert page.evaluate("window.__applyCalls.find(call => call.id === 'manager-top').body.Name") == revised_top_name
         assert page.evaluate("window.__sectionSettings.Sections.find(s => s.Id === 'manager-top').ItemIds[0]") == "stale-one"
         assert page.evaluate("window.__sectionSettings.Sections.find(s => s.Id === 'manager-top').Name") == revised_top_name
+        assert page.evaluate("window.__sectionSettings.Sections.find(s => s.Id === 'manager-top').Drafts[0].Name") == revised_top_name
 
         page.locator("#hssmSectionPageSelect").select_option("my-list")
         page.wait_for_selector("#hssmSectionList [data-section-id='my-list-content']")
@@ -251,12 +263,16 @@ def run() -> None:
         assert page.locator("#hssmTypeSpecificSettings [data-hssm-top-draft-name]").input_value() == "Top 20 in Foreign Collection"
 
         page.locator("[data-tab='customization-settings']").click()
+        assert page.get_by_text("Media Bar Slow Zoom Settings", exact=True).count() == 1
+        assert page.locator("#hssmEnableMediaBarSlowZoom").is_checked()
+        page.locator("#hssmDisableMediaBarSlowZoom").check()
         page.locator("#hssmAbyssAccentColor").fill("#12ab34")
         page.locator("#hssmSidebarIconColorMode").select_option("horizontal-gradient")
         page.locator("#hssmSidebarIconColorOne").fill("#112233")
         page.locator("#hssmSidebarIconColorTwo").fill("#445566")
         page.locator("#hssmSaveCustomizationButton").click()
         page.wait_for_function("window.__brandingWrites.length > 0")
+        assert page.evaluate("window.__customizationSettings.EnableMediaBarSlowZoom") is False
         generated_css = page.evaluate("window.__brandingWrites.at(-1).CustomCss || window.__brandingWrites.at(-1).customCss")
         assert "background: linear-gradient(to right, #112233, #445566)" in generated_css
         assert "-webkit-text-fill-color: #12ab34" in generated_css

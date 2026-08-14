@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    var CLIENT_VERSION = "0.1.0.40";
+    var CLIENT_VERSION = "0.1.0.41";
     if (window.HomeScreenManagerClient) {
         if (window.HomeScreenManagerClient.version === CLIENT_VERSION) {
             window.HomeScreenManagerClient.refresh();
@@ -458,12 +458,36 @@
             IncludeItemTypes:'Series', Recursive:true, SortBy:'SortName',
             SortOrder:'Ascending', Limit:2000, EnableTotalRecordCount:false
         });
+        var playedSeriesRequest = queryItems({
+            Filters:'IsPlayed', IncludeItemTypes:'Series', Recursive:true,
+            SortBy:'DatePlayed,SortName', SortOrder:'Descending', Limit:2000,
+            EnableTotalRecordCount:false
+        });
         var episodeRequest = queryItems({
             IncludeItemTypes:'Episode', Recursive:true, IsVirtualItem:false,
             SortBy:'SortName', SortOrder:'Ascending', Limit:10000,
             EnableTotalRecordCount:false
         });
-        watchAgainRequests[context] = Promise.all([movieRequest, seriesRequest, episodeRequest]).then(function (groups) {
+        watchAgainRequests[context] = Promise.all([movieRequest, seriesRequest, episodeRequest, playedSeriesRequest]).then(function (groups) {
+            var knownSeries = {};
+            groups[1].concat(groups[3]).forEach(function (series) { knownSeries[String(prop(series, 'Id', 'id', ''))] = true; });
+            var missingSeriesIds = [];
+            groups[2].forEach(function (episode) {
+                var userData = prop(episode, 'UserData', 'userData', {}) || {};
+                var seriesId = String(prop(episode, 'SeriesId', 'seriesId', ''));
+                if (seriesId && prop(userData, 'Played', 'played', false) === true && !knownSeries[seriesId]) {
+                    knownSeries[seriesId] = true;
+                    missingSeriesIds.push(seriesId);
+                }
+            });
+            return (missingSeriesIds.length ? queryIds(missingSeriesIds) : Promise.resolve([])).then(function (resolvedSeries) {
+                groups[1] = uniqueItems(groups[1].concat(groups[3], resolvedSeries));
+                return groups;
+            }, function () {
+                groups[1] = uniqueItems(groups[1].concat(groups[3]));
+                return groups;
+            });
+        }).then(function (groups) {
             var latestBySeries = {};
             var totalBySeries = {};
             var playedBySeries = {};
@@ -820,8 +844,8 @@
         var rankMarkup = rank && prop(section, 'ShowRankNumbers', 'showRankNumbers', true) !== false ? '<span class="hssm-rank-number" aria-hidden="true">' + rank + '</span>' : '';
         var playMarkup = '<div class="cardOverlayContainer itemAction" data-action="link"><a href="' + escapeHtml(href) + '" class="cardImageContainer" aria-label="' + escapeHtml(name) + '"></a>' +
             '<button is="paper-icon-button-light" type="button" class="cardOverlayButton cardOverlayButton-hover itemAction paper-icon-button-light cardOverlayFab-primary" data-action="resume" title="Play" aria-label="Play ' + escapeHtml(name) + '"><span class="material-icons cardOverlayButtonIcon cardOverlayButtonIcon-hover play_arrow" aria-hidden="true"></span></button></div>';
-        return '<div class="card ' + shape.card + ' card-hoverable card-withuserdata hssm-client-card" data-id="' + escapeHtml(id) + '" data-serverid="' + escapeHtml(serverId) + '" data-type="' + escapeHtml(type) + '" data-mediatype="' + escapeHtml(mediaType) + '" data-isfolder="' + String(isFolder) + '">' + rankMarkup +
-            '<div class="cardBox' + (showText ? ' cardBox-bottompadded' : '') + '"><div class="cardScalable"><div class="cardPadder ' + shape.padder + '"></div>' +
+        return '<div class="card ' + shape.card + ' card-hoverable card-withuserdata hssm-client-card" data-id="' + escapeHtml(id) + '" data-serverid="' + escapeHtml(serverId) + '" data-type="' + escapeHtml(type) + '" data-mediatype="' + escapeHtml(mediaType) + '" data-isfolder="' + String(isFolder) + '">' +
+            '<div class="cardBox' + (showText ? ' cardBox-bottompadded' : '') + '"><div class="cardScalable">' + rankMarkup + '<div class="cardPadder ' + shape.padder + '"></div>' +
             '<a is="emby-linkbutton" href="' + escapeHtml(href) + '" data-action="link" class="cardImageContainer coveredImage cardContent itemAction" aria-label="' + escapeHtml(name) + '"' + imageStyle + '></a>' + playMarkup +
             '</div>' + footer + '</div></div>';
     }
@@ -839,6 +863,7 @@
         node.className = 'verticalSection emby-scroller-container hssm-client-section hssm-size-' + artSize + ' hssm-shape-' + artShape + ' hssm-art-' + artType + (ranked ? ' hssm-top-ranked hssm-rank-' + String(prop(section, 'RankNumberColorMode', 'rankNumberColorMode', 'solid')) : '');
         node.style.setProperty('--hssm-rank-one', String(prop(section, 'RankNumberColorOne', 'rankNumberColorOne', '#f5f5f7')));
         node.style.setProperty('--hssm-rank-two', String(prop(section, 'RankNumberColorTwo', 'rankNumberColorTwo', '#f5f5f7')));
+        node.style.setProperty('--hssm-rank-shadow', String(prop(section, 'RankNumberShadowColor', 'rankNumberShadowColor', '#000000')));
         var rankFont = String(prop(section, 'RankNumberFontDataUrl', 'rankNumberFontDataUrl', ''));
         if (rankFont && String(prop(section, 'Type', 'type', '')) === 'top-10-50') { var family = 'hssm-rank-' + id.replace(/[^a-z0-9_-]/gi, ''); var styleId = family + '-font'; var fontStyle = document.getElementById(styleId); if (!fontStyle) { fontStyle = document.createElement('style'); fontStyle.id = styleId; document.head.appendChild(fontStyle); } fontStyle.textContent = '@font-face{font-family:"' + family + '";src:url("' + rankFont.replace(/"/g, '') + '")}'; node.style.setProperty('--hssm-rank-font', '"' + family + '"'); }
         node.dataset.hssmSectionId = id;
@@ -901,8 +926,8 @@
             };
             var setOwnedOffset = function (value) {
                 var target = Math.max(0, Math.min(maximumOffset(), Number(value) || 0));
-                ownedScroller.scrollLeft = target;
-                if (target > 1 && ownedScroller.scrollLeft < 1 && ownedItems) {
+                ownedScroller.scrollLeft = 0;
+                if (target > 1 && ownedItems) {
                     ownedScroller.dataset.hssmTranslated = 'true';
                     ownedScroller.dataset.hssmOwnedOffset = String(target);
                     ownedItems.style.transform = 'translate3d(-' + target + 'px,0,0)';
@@ -913,6 +938,7 @@
                 }
                 ownedScroller.dispatchEvent(new Event('scroll'));
             };
+            ownedScroller._hssmSetOwnedOffset = setOwnedOffset;
             var updateButtons = function () {
                 var maximum = maximumOffset();
                 var current = currentOffset();
@@ -930,7 +956,7 @@
             });
             ownedScroller.addEventListener('scroll', updateButtons, { passive:true });
             ownedScroller.addEventListener('wheel', function (event) {
-                if (ownedScroller.scrollWidth <= ownedScroller.clientWidth) return;
+                if (maximumOffset() <= 1) return;
                 var amount = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
                 if (!amount) return;
                 setOwnedOffset(currentOffset() + amount);
@@ -968,7 +994,11 @@
                 event.preventDefault();
                 event.stopPropagation();
             }, true);
-            if (typeof ResizeObserver === 'function') new ResizeObserver(updateButtons).observe(ownedScroller);
+            if (typeof ResizeObserver === 'function') {
+                var scrollResizeObserver = new ResizeObserver(updateButtons);
+                scrollResizeObserver.observe(ownedScroller);
+                if (ownedItems) scrollResizeObserver.observe(ownedItems);
+            }
             window.setTimeout(updateButtons, 0);
         }
     }
@@ -1558,7 +1588,7 @@
 
     function mediaBarUrls(frame, settings) {
         var cssUrl = new URL('ui/spotlight.css', document.baseURI).href;
-        return { plugin:ApiClient.getUrl("HomeScreenSectionsManager/media-bar.html", { v:CLIENT_VERSION, abyssCss:cssUrl, intervalSeconds:Math.max(1, Math.min(300, Number(setting(settings || {}, 'MediaBarIntervalSeconds', 5)) || 5)), imageType:String(setting(settings || {}, 'MediaBarImageType', 'abyss-original')) }), css:cssUrl };
+        return { plugin:ApiClient.getUrl("HomeScreenSectionsManager/media-bar.html", { v:CLIENT_VERSION, abyssCss:cssUrl, intervalSeconds:Math.max(1, Math.min(300, Number(setting(settings || {}, 'MediaBarIntervalSeconds', 5)) || 5)), imageType:String(setting(settings || {}, 'MediaBarImageType', 'abyss-original')), slowZoom:setting(settings || {}, 'EnableMediaBarSlowZoom', true) !== false ? 'true' : 'false' }), css:cssUrl };
     }
 
     function mediaBarFrameForContainer(container) {
@@ -1643,6 +1673,7 @@
                 frame.dataset.hssmMediaBarReady = "true";
                 frame.dataset.hssmAppliedIntervalSeconds = String(event.data.intervalSeconds || '');
                 frame.dataset.hssmAppliedImageType = String(event.data.imageType || '');
+                frame.dataset.hssmAppliedSlowZoom = event.data.slowZoom === false ? 'false' : 'true';
                 delete frame.dataset.hssmMediaBarPending;
             }
         });
@@ -1658,13 +1689,15 @@
             var expectedKey = cachedSettings ? configuredMediaBarKey(cachedSettings, cachedPreferences) : '';
             var expectedInterval = cachedSettings ? Math.max(1, Math.min(300, Number(setting(cachedSettings, 'MediaBarIntervalSeconds', 5)) || 5)) : 0;
             var expectedImageType = cachedSettings ? String(setting(cachedSettings, 'MediaBarImageType', 'abyss-original')) : '';
-            if (!cached || !expectedKey || cached.key !== expectedKey || cached.intervalSeconds !== expectedInterval || cached.imageType !== expectedImageType || !Array.isArray(cached.items) || !cached.items.length) return false;
+            var expectedSlowZoom = cachedSettings ? setting(cachedSettings, 'EnableMediaBarSlowZoom', true) !== false : true;
+            if (!cached || !expectedKey || cached.key !== expectedKey || cached.intervalSeconds !== expectedInterval || cached.imageType !== expectedImageType || cached.slowZoom !== expectedSlowZoom || !Array.isArray(cached.items) || !cached.items.length) return false;
             mediaBarPayload = {
                 type:'home-screen-manager-media-bar',
                 action:'configure',
                 items:cached.items,
                 intervalSeconds:expectedInterval,
-                imageType:expectedImageType
+                imageType:expectedImageType,
+                slowZoom:expectedSlowZoom
             };
             sendMediaBarPayload(ensureMediaBarFrame(container, cachedSettings));
             return true;
@@ -1720,15 +1753,16 @@
         var source = mediaBarSource(settings, preferences, container, sections, sectionItemPromises);
         var interval = Math.max(1, Math.min(300, Number(setting(settings, 'MediaBarIntervalSeconds', 5)) || 5));
         var requestedImage = String(setting(settings, 'MediaBarImageType', 'abyss-original'));
+        var requestedSlowZoom = setting(settings, 'EnableMediaBarSlowZoom', true) !== false;
         var frame = ensureMediaBarFrame(container, settings);
         var matchingCachedPayload = null;
         try {
             var cached = cacheRead('media-bar', 24 * 60 * 60 * 1000);
-            if (cached && cached.key === source.key && cached.intervalSeconds === interval && cached.imageType === requestedImage && Array.isArray(cached.items) && cached.items.length) {
-                matchingCachedPayload = { type:'home-screen-manager-media-bar', action:'configure', items:cached.items, intervalSeconds:interval, imageType:requestedImage };
+            if (cached && cached.key === source.key && cached.intervalSeconds === interval && cached.imageType === requestedImage && cached.slowZoom === requestedSlowZoom && Array.isArray(cached.items) && cached.items.length) {
+                matchingCachedPayload = { type:'home-screen-manager-media-bar', action:'configure', items:cached.items, intervalSeconds:interval, imageType:requestedImage, slowZoom:requestedSlowZoom };
                 mediaBarPayload = matchingCachedPayload;
                 frame._hssmPayload = matchingCachedPayload;
-                mediaBarSourceKey = JSON.stringify([source.key, interval, requestedImage, cached.items]);
+                mediaBarSourceKey = JSON.stringify([source.key, interval, requestedImage, requestedSlowZoom, cached.items]);
             }
         } catch (_) {}
         if (matchingCachedPayload) sendMediaBarPayload(frame);
@@ -1740,16 +1774,17 @@
         }
         return source.items.then(resolveMediaBarLogos).then(function (items) {
             if (loadSequence !== mediaBarLoadSequence || container !== activeHomeContainer()) return;
-            var key = JSON.stringify([source.key, interval, requestedImage, items]);
+            var key = JSON.stringify([source.key, interval, requestedImage, requestedSlowZoom, items]);
             mediaBarPayload = {
                 type: 'home-screen-manager-media-bar',
                 action: 'configure',
                 items: items,
                 intervalSeconds: interval,
-                imageType: requestedImage
+                imageType: requestedImage,
+                slowZoom: requestedSlowZoom
             };
             frame._hssmPayload = mediaBarPayload;
-            cacheWrite('media-bar', { key:source.key, intervalSeconds:interval, imageType:requestedImage, items:items });
+            cacheWrite('media-bar', { key:source.key, intervalSeconds:interval, imageType:requestedImage, slowZoom:requestedSlowZoom, items:items });
             if (key !== mediaBarSourceKey) {
                 mediaBarSourceKey = key;
                 sendMediaBarPayload(frame);
@@ -1757,7 +1792,7 @@
         }).catch(function (error) {
             if (loadSequence !== mediaBarLoadSequence || container !== activeHomeContainer()) return;
             console.warn('[Home Screen Manager] Could not load the selected media-bar source.', error);
-            mediaBarPayload = { type: 'home-screen-manager-media-bar', action: 'configure', items: [], intervalSeconds: 5, imageType: 'backdrop' };
+            mediaBarPayload = { type: 'home-screen-manager-media-bar', action: 'configure', items: [], intervalSeconds: 5, imageType: 'backdrop', slowZoom:requestedSlowZoom };
             frame._hssmPayload = mediaBarPayload;
             sendMediaBarPayload(frame);
         });
@@ -1818,7 +1853,7 @@
             var firstOnPage = visibleOrder.length ? visibleOrder[0] === id : configured[0] === section;
             var frame = ensureSectionMediaBarFrame(container, settings, section, sourceNode, firstOnPage);
             if (!frame) return;
-            var payload = { type:'home-screen-manager-media-bar', action:'configure', items:[], intervalSeconds:Math.max(1,Math.min(300,Number(setting(settings,'MediaBarIntervalSeconds',5))||5)), imageType:String(setting(settings,'MediaBarImageType','abyss-original')), topGradient:!firstOnPage };
+            var payload = { type:'home-screen-manager-media-bar', action:'configure', items:[], intervalSeconds:Math.max(1,Math.min(300,Number(setting(settings,'MediaBarIntervalSeconds',5))||5)), imageType:String(setting(settings,'MediaBarImageType','abyss-original')), slowZoom:setting(settings,'EnableMediaBarSlowZoom',true)!==false, topGradient:!firstOnPage };
             frame._hssmPayload = payload;
             mediaBarSectionItems(section).then(resolveMediaBarLogos).then(function (items) { if(!frame.isConnected)return; payload.items=items; frame._hssmPayload=payload; sendMediaBarPayload(frame,true,payload); }, function () { sendMediaBarPayload(frame,true,payload); });
         });
@@ -2431,7 +2466,10 @@
         if (!scroller || scroller.dataset.hssmPagingBound === "true") return;
         scroller.dataset.hssmPagingBound = "true";
         scroller.addEventListener("scroll", function () {
-            if (scroller.scrollLeft + scroller.clientWidth < scroller.scrollWidth - Math.max(600, scroller.clientWidth)) return;
+            var current = Number(scroller.dataset.hssmOwnedOffset || scroller.scrollLeft || 0);
+            var items = scroller.querySelector('.hssm-client-items');
+            var total = items ? Math.max(items.scrollWidth || 0, items.getBoundingClientRect().width || 0) : scroller.scrollWidth;
+            if (current + scroller.clientWidth < total - Math.max(600, scroller.clientWidth)) return;
             if (state.dynamicLoader) loadDynamicPage(state);
             else loadSectionPage(state);
         }, { passive:true });
@@ -2464,7 +2502,7 @@
         if (!state || !sectionStateIsCurrent(state) || state.generation !== runtimeGeneration || !state.container.isConnected) return;
         var oldNode = state.node;
         var oldScroller = oldNode && oldNode.querySelector('.hssm-client-scroller');
-        var oldScrollLeft = oldScroller ? oldScroller.scrollLeft : 0;
+        var oldScrollLeft = oldScroller ? Number(oldScroller.dataset.hssmOwnedOffset || oldScroller.scrollLeft || 0) : 0;
         var ordered = orderItems(uniqueItems(state.items), state.section);
         var nextNode = sectionNode(state.section, ordered, loading, !!state.container.closest('.hssm-owned-custom-page'));
         if (oldNode && oldNode.isConnected) oldNode.replaceWith(nextNode);
@@ -2473,7 +2511,10 @@
         upgradeSectionControls(nextNode);
         applyTitleMarquee(state.settings, nextNode);
         var nextScroller = nextNode.querySelector('.hssm-client-scroller');
-        if (nextScroller && oldScrollLeft) nextScroller.scrollLeft = oldScrollLeft;
+        if (nextScroller && oldScrollLeft) {
+            if (typeof nextScroller._hssmSetOwnedOffset === 'function') nextScroller._hssmSetOwnedOffset(oldScrollLeft);
+            else nextScroller.scrollLeft = oldScrollLeft;
+        }
         attachSectionPaging(state);
         if (setting(state.settings, 'EnableMyList', false)) Array.from(nextNode.querySelectorAll('.card[data-id]')).forEach(addMyListButton);
         applyHybridOrder(state.container, state.settings, state.preferences);

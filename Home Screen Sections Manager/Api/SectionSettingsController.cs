@@ -131,6 +131,7 @@ public sealed class SectionSettingsController : ControllerBase
             LogoImageDataUrl = configuration.LogoImageDataUrl,
             MediaBarIntervalSeconds = configuration.MediaBarIntervalSeconds,
             MediaBarImageType = configuration.MediaBarImageType,
+            EnableMediaBarSlowZoom = configuration.EnableMediaBarSlowZoom,
         });
     }
 
@@ -171,6 +172,7 @@ public sealed class SectionSettingsController : ControllerBase
             LogoImageDataUrl = saved.LogoImageDataUrl,
             MediaBarIntervalSeconds = saved.MediaBarIntervalSeconds,
             MediaBarImageType = saved.MediaBarImageType,
+            EnableMediaBarSlowZoom = saved.EnableMediaBarSlowZoom,
         });
     }
 }

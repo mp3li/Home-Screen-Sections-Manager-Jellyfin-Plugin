@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.1.0.41-test] - 2026-08-13
+
+- Replaces custom-page row movement with a transform-driven horizontal track so right/left arrows, mouse-wheel scrolling, and mouse dragging work even when Jellyfin refuses native `scrollLeft`; limits that track sizing to custom pages so **Added to My List** remains left-aligned.
+- Adds a direct completed-Series query and watched-episode Series-ID recovery to per-user **Watch Again**, while retaining completed Movies and most/least recently completed ordering.
+- Aligns the bottom of each Top 10-50 number with the bottom of its artwork, layers the art in front of the number, restores solid and gradient number colors, tightens the shadow offset, and adds a saved **Shadow Color** picker.
+- Stops Display Top changes from rewriting custom section names and synchronizes the section title with its saved Top draft so Refresh Section retains administrator-entered wording.
+- Makes marquee titles snap back immediately when hover ends.
+- Adds default-on **Media Bar Slow Zoom Settings** immediately below Media Bar Image Type Settings, with On and Off choices that control every Media Bar background.
+
 ## [0.1.0.40-test] - 2026-08-13
 
 - Adds **Marquee Effect on Titles Settings** at the end of Main Settings, with mutually exclusive on/off controls and the hover-to-scroll title effect enabled by default.

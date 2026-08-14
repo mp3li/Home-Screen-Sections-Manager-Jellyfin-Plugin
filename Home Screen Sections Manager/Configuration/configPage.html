@@ -155,6 +155,7 @@
             <section class="hssm-section"><h2>Home Screen Logo Settings</h2><p class="fieldDescription">Add a logo beside the menu button on Home. On other pages, the same logo replaces the upper-left Home icon while keeping its Home button function.</p><input id="hssmLogoImageFile" type="file" accept="image/png,image/jpeg,image/webp,image/gif" /><img id="hssmLogoImagePreview" class="hssm-logo-preview" alt="Selected logo preview" hidden /><div class="hssm-actions"><button is="emby-button" type="button" class="raised" id="hssmRemoveLogoButton">Remove Logo</button></div></section>
             <section class="hssm-section"><h2>Media Bar Timing Settings</h2><p class="fieldDescription">Choose how many seconds each item remains visible before the top media bar advances. Abyss uses 5 seconds by default.</p><div class="inputContainer"><label class="inputLabel inputLabelUnfocused" for="hssmMediaBarIntervalSeconds">Seconds Per Item</label><input is="emby-input" id="hssmMediaBarIntervalSeconds" type="number" min="1" max="300" step="1" value="5" /></div></section>
             <section class="hssm-section"><h2>Media Bar Image Type Settings</h2><p class="fieldDescription">Choose the Jellyfin image type used behind items in the top media bar. Abyss Original keeps Abyss's hybrid behavior: episodes try their own Primary image first and then the series Backdrop, while other media tries its own Backdrop first. The named image types force that Jellyfin image type first, then use available fallbacks only when it cannot be loaded.</p><div class="selectContainer"><label class="selectLabel" for="hssmMediaBarImageType">Image Type</label><select is="emby-select" id="hssmMediaBarImageType"><option value="abyss-original">Abyss Original</option><option value="backdrop">Backdrop</option><option value="primary">Primary</option><option value="banner">Banner</option><option value="thumb">Thumbnail</option></select></div></section>
+            <section class="hssm-section"><h2>Media Bar Slow Zoom Settings</h2><p class="fieldDescription">Choose whether Media Bar background artwork slowly zooms while each item is displayed. Turn it off to keep the background image still.</p><div class="hssm-yes-no"><label class="checkboxContainer"><input is="emby-checkbox" id="hssmEnableMediaBarSlowZoom" type="radio" name="hssmMediaBarSlowZoom" value="on" checked /><span>Turn on Media Bar slow zoom</span></label><label class="checkboxContainer"><input is="emby-checkbox" id="hssmDisableMediaBarSlowZoom" type="radio" name="hssmMediaBarSlowZoom" value="off" /><span>Turn off Media Bar slow zoom</span></label></div></section>
 
             <section class="hssm-section">
                 <h2>Global Corner Rounding Settings</h2>
@@ -844,7 +845,7 @@
             const page = document.getElementById('homeScreenSectionsManagerPage');
             const host = page && page.querySelector('#hssmTypeSpecificSettings');
             if (!page || !host) return;
-            const state = { id:'', name:'', type:'', pageId:'home', isVisible:true, isMediaBar:false, isApplied:false, isEditing:false, nativeOnly:false, sources:[], items:{}, resolvedItemIds:[], contentItems:[], contentItemOrder:[], draggedContentId:null, contentPage:1, contentOrder:'title-ascending', artSize:'medium', artType:'automatic', artShape:'poster', showText:true, libraries:[], collections:[], manual:{}, manualStates:{}, tagSearch:'', tagSources:{}, tagTypeLoadIds:{}, tagCatalogLoadId:0, drafts:[], draftLibraryIds:[], draggedDraftId:null, rotationValue:1, rotationUnit:'days', draftPreviewLoadId:0, topLoadRunning:false, topPending:null, displayTop:10, showRankNumbers:true, rankNumberColorMode:'solid', rankNumberColorOne:'#f5f5f7', rankNumberColorTwo:'#f5f5f7', rankNumberFontDataUrl:'', activityMaxItems:20, activityMediaType:'movies', activityPreviewLoadId:0 };
+            const state = { id:'', name:'', type:'', pageId:'home', isVisible:true, isMediaBar:false, isApplied:false, isEditing:false, nativeOnly:false, sources:[], items:{}, resolvedItemIds:[], contentItems:[], contentItemOrder:[], draggedContentId:null, contentPage:1, contentOrder:'title-ascending', artSize:'medium', artType:'automatic', artShape:'poster', showText:true, libraries:[], collections:[], manual:{}, manualStates:{}, tagSearch:'', tagSources:{}, tagTypeLoadIds:{}, tagCatalogLoadId:0, drafts:[], draftLibraryIds:[], draggedDraftId:null, rotationValue:1, rotationUnit:'days', draftPreviewLoadId:0, topLoadRunning:false, topPending:null, displayTop:10, showRankNumbers:true, rankNumberColorMode:'solid', rankNumberColorOne:'#f5f5f7', rankNumberColorTwo:'#f5f5f7', rankNumberShadowColor:'#000000', rankNumberFontDataUrl:'', activityMaxItems:20, activityMediaType:'movies', activityPreviewLoadId:0 };
             const esc = value => { const el = document.createElement('span'); el.textContent = value == null ? '' : String(value); return el.innerHTML; };
             const cm = path => ApiClient.getJSON(ApiClient.getUrl('CollectionManager/' + path));
             const cmPost = (path, body) => ApiClient.ajax({ type:'POST', url:ApiClient.getUrl('CollectionManager/' + path), data:JSON.stringify(body), contentType:'application/json', dataType:'json' });
@@ -929,7 +930,7 @@
             }
             function numberingMarkup() {
                 if (!isTopType()) return '';
-                return '<div class="hssm-numbering-settings"><h3>Numbering Settings</h3><p class="fieldDescription">Select your preferences for if you want visible numbers on your Top 10-50 section, and their color(s).</p><div class="hssm-yes-no"><label class="checkboxContainer"><input is="emby-checkbox" type="radio" name="hssmRankNumbers" value="yes" data-hssm-rank-numbers' + (state.showRankNumbers ? ' checked' : '') + ' /><span>Yes</span></label><label class="checkboxContainer"><input is="emby-checkbox" type="radio" name="hssmRankNumbers" value="no" data-hssm-rank-numbers' + (!state.showRankNumbers ? ' checked' : '') + ' /><span>No</span></label></div><h4>Numbering Color(s):</h4><div class="hssm-numbering-colors"><div class="selectContainer"><label class="selectLabel">Color Style</label><select is="emby-select" data-hssm-rank-color-mode>' + selectOptions([['solid','Solid (Default)'],['vertical-gradient','Vertical Gradient'],['horizontal-gradient','Horizontal Gradient'],['center-gradient','Center Gradient']], state.rankNumberColorMode) + '</select></div><div class="inputContainer"><label class="inputLabel inputLabelUnfocused">First Color</label><input is="emby-input" type="color" data-hssm-rank-color-one value="' + esc(state.rankNumberColorOne) + '" /></div><div class="inputContainer"><label class="inputLabel inputLabelUnfocused">Second Color</label><input is="emby-input" type="color" data-hssm-rank-color-two value="' + esc(state.rankNumberColorTwo) + '" /></div></div><div class="inputContainer"><label class="inputLabel inputLabelUnfocused">Import Numbering Font</label><input is="emby-input" type="file" accept=".ttf,.otf,font/ttf,font/otf,application/x-font-ttf,application/x-font-opentype" data-hssm-rank-font /></div><p class="fieldDescription">The default Abyss theme font will be used unless you import a .ttf or .otf font file.</p><p class="fieldDescription" data-hssm-rank-font-status>' + (state.rankNumberFontDataUrl ? 'A custom numbering font is imported.' : 'Using the default Abyss theme font.') + '</p>' + (state.rankNumberFontDataUrl ? '<button is="emby-button" type="button" class="raised" data-hssm-remove-rank-font>Remove Imported Font</button>' : '') + '</div>';
+                return '<div class="hssm-numbering-settings"><h3>Numbering Settings</h3><p class="fieldDescription">Select your preferences for if you want visible numbers on your Top 10-50 section, and their color(s).</p><div class="hssm-yes-no"><label class="checkboxContainer"><input is="emby-checkbox" type="radio" name="hssmRankNumbers" value="yes" data-hssm-rank-numbers' + (state.showRankNumbers ? ' checked' : '') + ' /><span>Yes</span></label><label class="checkboxContainer"><input is="emby-checkbox" type="radio" name="hssmRankNumbers" value="no" data-hssm-rank-numbers' + (!state.showRankNumbers ? ' checked' : '') + ' /><span>No</span></label></div><h4>Numbering Color(s):</h4><div class="hssm-numbering-colors"><div class="selectContainer"><label class="selectLabel">Color Style</label><select is="emby-select" data-hssm-rank-color-mode>' + selectOptions([['solid','Solid (Default)'],['vertical-gradient','Vertical Gradient'],['horizontal-gradient','Horizontal Gradient'],['center-gradient','Center Gradient']], state.rankNumberColorMode) + '</select></div><div class="inputContainer"><label class="inputLabel inputLabelUnfocused">First Color</label><input is="emby-input" type="color" data-hssm-rank-color-one value="' + esc(state.rankNumberColorOne) + '" /></div><div class="inputContainer"><label class="inputLabel inputLabelUnfocused">Second Color</label><input is="emby-input" type="color" data-hssm-rank-color-two value="' + esc(state.rankNumberColorTwo) + '" /></div><div class="inputContainer"><label class="inputLabel inputLabelUnfocused">Shadow Color</label><input is="emby-input" type="color" data-hssm-rank-shadow-color value="' + esc(state.rankNumberShadowColor) + '" /></div></div><div class="inputContainer"><label class="inputLabel inputLabelUnfocused">Import Numbering Font</label><input is="emby-input" type="file" accept=".ttf,.otf,font/ttf,font/otf,application/x-font-ttf,application/x-font-opentype" data-hssm-rank-font /></div><p class="fieldDescription">The default Abyss theme font will be used unless you import a .ttf or .otf font file.</p><p class="fieldDescription" data-hssm-rank-font-status>' + (state.rankNumberFontDataUrl ? 'A custom numbering font is imported.' : 'Using the default Abyss theme font.') + '</p>' + (state.rankNumberFontDataUrl ? '<button is="emby-button" type="button" class="raised" data-hssm-remove-rank-font>Remove Imported Font</button>' : '') + '</div>';
             }
             function dynamicMarkup() {
                 const title = isSeasonalType() ? 'Seasonal Section Drafts' : 'Rotating Section Drafts';
@@ -1040,7 +1041,7 @@
                 if (isTopType()) {
                     const draft = state.drafts[0];
                     const preview = !draft ? 'Select at least one collection, library, or metadata tag above.' : draft.PreviewError ? 'The selected rated media could not be previewed right now.' : draft.PreviewCount == null ? 'Loading and ranking matching media…' : 'This draft currently includes ' + draft.PreviewCount + ' ranked media item' + (draft.PreviewCount === 1 ? '' : 's') + '.';
-                    target.innerHTML = '<div class="mcm-draft-card" data-hssm-source-draft="' + esc(draft ? draft.Id : 'top-draft') + '"><div class="inputContainer"><label class="inputLabel inputLabelUnfocused">Section Title</label><input is="emby-input" type="text" data-hssm-top-draft-name value="' + esc(draft ? draft.Name : state.name) + '" autocomplete="off" /></div><p class="fieldDescription">All selected sources are combined into one Top ' + state.displayTop + ' draft. Media without an IMDb rating tag is excluded.</p><p class="fieldDescription" data-hssm-draft-preview-status>' + preview + '</p></div>';
+                    target.innerHTML = '<div class="mcm-draft-card" data-hssm-source-draft="' + esc(draft ? draft.Id : 'top-draft') + '"><div class="inputContainer"><label class="inputLabel inputLabelUnfocused">Section Title</label><input is="emby-input" type="text" data-hssm-top-draft-name value="' + esc(draft ? draft.Name : state.name) + '" autocomplete="off" /></div><p class="fieldDescription" data-hssm-top-count-description>All selected sources are combined into one Top ' + state.displayTop + ' draft. Media without an IMDb rating tag is excluded.</p><p class="fieldDescription" data-hssm-draft-preview-status>' + preview + '</p></div>';
                     return;
                 }
                 target.innerHTML = state.drafts.length ? state.drafts.map((draft, index) => {
@@ -1495,7 +1496,8 @@
                 if (!required || (needsTwo && state.sources.length < 2)) { saveStatus.textContent = needsTwo ? 'Select at least two metadata tags before saving.' : isTopType() && state.sources.length ? 'No selected media has a recognized IMDb or Jellyfin community rating to rank.' : 'Select content before saving.'; return; }
                 const order = Array.from(page.querySelectorAll('#hssmSectionList .hssm-section-row')).map(row => { const toggle = row.querySelector('[data-hssm-native-section-toggle]'); return toggle && !toggle.checked ? 'hidden:' + row.dataset.sectionId : row.dataset.sectionId; });
                 const itemIds = state.contentItemOrder.slice();
-                const definition = { Id:state.id, Name:state.name, PageId:state.pageId, Type:state.type, IsVisible:state.isVisible, IsMediaBar:state.isMediaBar, SourceIds:state.sources, ItemIds:itemIds, ContentOrder:state.contentOrder, ArtSize:state.artSize, ArtType:state.artType, ArtShape:state.artShape, ShowText:state.showText, Drafts:state.drafts.map(draft => ({ Id:draft.Id, SourceType:draft.SourceType, SourceId:draft.SourceId, Name:draft.Name, StartMonth:draft.StartMonth, StartDay:draft.StartDay, EndMonth:draft.EndMonth, EndDay:draft.EndDay })), RotationIntervalMinutes:rotationIntervalMinutes(), RotationStartUnixMilliseconds:Date.now(), DisplayTopCount:state.displayTop, ShowRankNumbers:state.showRankNumbers, RankNumberColorMode:state.rankNumberColorMode, RankNumberColorOne:state.rankNumberColorOne, RankNumberColorTwo:state.rankNumberColorTwo, RankNumberFontDataUrl:state.rankNumberFontDataUrl, ActivityMaxItems:state.activityMaxItems, ActivityMediaType:state.activityMediaType, IsApplied:state.isApplied };
+                if (isTopType()) ensureTopDraft().Name = state.name;
+                const definition = { Id:state.id, Name:state.name, PageId:state.pageId, Type:state.type, IsVisible:state.isVisible, IsMediaBar:state.isMediaBar, SourceIds:state.sources, ItemIds:itemIds, ContentOrder:state.contentOrder, ArtSize:state.artSize, ArtType:state.artType, ArtShape:state.artShape, ShowText:state.showText, Drafts:state.drafts.map(draft => ({ Id:draft.Id, SourceType:draft.SourceType, SourceId:draft.SourceId, Name:draft.Name, StartMonth:draft.StartMonth, StartDay:draft.StartDay, EndMonth:draft.EndMonth, EndDay:draft.EndDay })), RotationIntervalMinutes:rotationIntervalMinutes(), RotationStartUnixMilliseconds:Date.now(), DisplayTopCount:state.displayTop, ShowRankNumbers:state.showRankNumbers, RankNumberColorMode:state.rankNumberColorMode, RankNumberColorOne:state.rankNumberColorOne, RankNumberColorTwo:state.rankNumberColorTwo, RankNumberShadowColor:state.rankNumberShadowColor, RankNumberFontDataUrl:state.rankNumberFontDataUrl, ActivityMaxItems:state.activityMaxItems, ActivityMediaType:state.activityMediaType, IsApplied:state.isApplied };
                 ApiClient.getJSON(ApiClient.getUrl('HomeScreenSectionsManager/section-settings')).then(saved => {
                     const existing = saved.Sections || saved.sections || [];
                     const sections = existing.filter(item => String(item.Id || item.id) !== state.id);
@@ -1522,7 +1524,7 @@
                 return body && (body.Detail || body.detail || body.Message || body.message || body.Title || body.title) || (text && String(text).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()) || (error && (error.message || error.statusText)) || 'Jellyfin returned no error details.';
             }
             function loadHomeScreenClient() {
-                const version = "0.1.0.40";
+                const version = "0.1.0.41";
                 let style = document.querySelector("link[data-hssm-client-style]");
                 if (!style || style.dataset.hssmClientVersion !== version) {
                     if (style) style.remove();
@@ -1617,12 +1619,15 @@
                 const selectedRankMode = host.querySelector('[data-hssm-rank-color-mode]');
                 const selectedRankOne = host.querySelector('[data-hssm-rank-color-one]');
                 const selectedRankTwo = host.querySelector('[data-hssm-rank-color-two]');
+                const selectedRankShadow = host.querySelector('[data-hssm-rank-shadow-color]');
                 if (isTopType()) {
                     state.contentOrder = 'rating-descending';
                     if (selectedRankNumbers) state.showRankNumbers = selectedRankNumbers.value === 'yes';
                     if (selectedRankMode) state.rankNumberColorMode = selectedRankMode.value;
                     if (selectedRankOne) state.rankNumberColorOne = selectedRankOne.value;
                     if (selectedRankTwo) state.rankNumberColorTwo = selectedRankTwo.value;
+                    if (selectedRankShadow) state.rankNumberShadowColor = selectedRankShadow.value;
+                    ensureTopDraft().Name = state.name;
                 }
                 button.disabled = true;
                 if (state.nativeOnly) {
@@ -1648,7 +1653,7 @@
                 const editing = state.isEditing;
                 applyStatus.textContent = editing ? 'Refreshing section…' : 'Adding section to ' + destination + '…';
                 const appliedItemIds = state.isEditing && !state.contentItemOrder.length ? null : state.contentItemOrder;
-                ensureJavaScriptInjectorLoader().then(() => ApiClient.ajax({ type:'POST', url:ApiClient.getUrl('HomeScreenSectionsManager/sections/' + encodeURIComponent(state.id) + '/apply'), data:JSON.stringify({ Name:state.name, ContentOrder:state.contentOrder, ItemIds:appliedItemIds, ArtSize:state.artSize, ArtType:state.artType, ArtShape:state.artShape, ShowText:state.showText, IsVisible:state.isVisible, IsMediaBar:state.isMediaBar, DisplayTopCount:state.displayTop, ShowRankNumbers:state.showRankNumbers, RankNumberColorMode:state.rankNumberColorMode, RankNumberColorOne:state.rankNumberColorOne, RankNumberColorTwo:state.rankNumberColorTwo, RankNumberFontDataUrl:state.rankNumberFontDataUrl, ActivityMaxItems:state.activityMaxItems, ActivityMediaType:state.activityMediaType }), contentType:'application/json', dataType:'json' })).then(response => { window.HSSMNotifyClientSettingsChanged(); return loadHomeScreenClient().then(() => response); }).then(() => {
+                ensureJavaScriptInjectorLoader().then(() => ApiClient.ajax({ type:'POST', url:ApiClient.getUrl('HomeScreenSectionsManager/sections/' + encodeURIComponent(state.id) + '/apply'), data:JSON.stringify({ Name:state.name, ContentOrder:state.contentOrder, ItemIds:appliedItemIds, ArtSize:state.artSize, ArtType:state.artType, ArtShape:state.artShape, ShowText:state.showText, IsVisible:state.isVisible, IsMediaBar:state.isMediaBar, DisplayTopCount:state.displayTop, ShowRankNumbers:state.showRankNumbers, RankNumberColorMode:state.rankNumberColorMode, RankNumberColorOne:state.rankNumberColorOne, RankNumberColorTwo:state.rankNumberColorTwo, RankNumberShadowColor:state.rankNumberShadowColor, RankNumberFontDataUrl:state.rankNumberFontDataUrl, ActivityMaxItems:state.activityMaxItems, ActivityMediaType:state.activityMediaType }), contentType:'application/json', dataType:'json' })).then(response => { window.HSSMNotifyClientSettingsChanged(); return loadHomeScreenClient().then(() => response); }).then(() => {
                     state.isApplied = true;
                     applyStatus.textContent = editing ? 'Section refreshed.' : 'Section added to ' + destination + '.';
                     if (window.Dashboard && typeof Dashboard.alert === 'function') Dashboard.alert(editing ? 'Section refreshed through JavaScript Injector.' : 'Section added to ' + destination + ' through JavaScript Injector.');
@@ -1720,13 +1725,13 @@
                 const rankMode = event.target.closest('[data-hssm-rank-color-mode]');
                 const rankOne = event.target.closest('[data-hssm-rank-color-one]');
                 const rankTwo = event.target.closest('[data-hssm-rank-color-two]');
+                const rankShadow = event.target.closest('[data-hssm-rank-shadow-color]');
                 const rankFont = event.target.closest('[data-hssm-rank-font]');
                 if (displayTop) {
-                    const oldAutomatic = /^Top (10|20|30|40|50)$/.test(state.name);
                     state.displayTop = [10,20,30,40,50].includes(Number(displayTop.value)) ? Number(displayTop.value) : 10;
-                    const draft = ensureTopDraft();
-                    if (oldAutomatic || /^Top (10|20|30|40|50)$/.test(draft.Name)) { draft.Name = 'Top ' + state.displayTop; setSectionName(draft.Name); }
-                    state.contentPage = 1; renderSourceDrafts(); renderContent(); return;
+                    const description = host.querySelector('[data-hssm-top-count-description]');
+                    if (description) description.textContent = 'All selected sources are combined into one Top ' + state.displayTop + ' draft. Media without an IMDb rating tag is excluded.';
+                    state.contentPage = 1; return;
                 }
                 if (activityType) { state.activityMediaType = activityType.value; setSectionName(activitySectionName(state.activityMediaType)); state.contentPage = 1; renderContent(); return; }
                 if (activityMax) { state.activityMaxItems = Math.max(1, Math.min(100, Math.floor(Number(activityMax.value) || 20))); state.contentPage = 1; renderContent(); return; }
@@ -1734,6 +1739,7 @@
                 if (rankMode) { state.rankNumberColorMode = rankMode.value; return; }
                 if (rankOne) { state.rankNumberColorOne = rankOne.value; return; }
                 if (rankTwo) { state.rankNumberColorTwo = rankTwo.value; return; }
+                if (rankShadow) { state.rankNumberShadowColor = rankShadow.value; return; }
                 if (rankFont) {
                     const file = rankFont.files && rankFont.files[0], status = host.querySelector('[data-hssm-rank-font-status]');
                     if (!file) return;
@@ -1874,6 +1880,7 @@
                 state.rankNumberColorMode = 'solid';
                 state.rankNumberColorOne = '#f5f5f7';
                 state.rankNumberColorTwo = '#f5f5f7';
+                state.rankNumberShadowColor = '#000000';
                 state.rankNumberFontDataUrl = '';
                 state.activityMaxItems = 20;
                 state.activityMediaType = 'movies';
@@ -1918,11 +1925,12 @@
                         state.rankNumberColorMode = String(definition.RankNumberColorMode || definition.rankNumberColorMode || 'solid');
                         state.rankNumberColorOne = String(definition.RankNumberColorOne || definition.rankNumberColorOne || '#f5f5f7');
                         state.rankNumberColorTwo = String(definition.RankNumberColorTwo || definition.rankNumberColorTwo || '#f5f5f7');
+                        state.rankNumberShadowColor = String(definition.RankNumberShadowColor || definition.rankNumberShadowColor || '#000000');
                         state.rankNumberFontDataUrl = String(definition.RankNumberFontDataUrl || definition.rankNumberFontDataUrl || '');
                         state.activityMaxItems = Number(definition.ActivityMaxItems || definition.activityMaxItems || 20);
                         state.activityMediaType = String(definition.ActivityMediaType || definition.activityMediaType || 'movies');
                         state.drafts = (definition.Drafts || definition.drafts || []).map(draft => { const sourceType = String(draft.SourceType || draft.sourceType); return { Id:String(draft.Id || draft.id), SourceType:sourceType, SourceId:sourceType === 'tag' ? window.HSSMMigrateSectionSource('individual-tag-content', draft.SourceId || draft.sourceId || '') : sourceType === 'library' ? window.HSSMResolveLibraryId(draft.SourceId || draft.sourceId || '') : String(draft.SourceId || draft.sourceId), Name:String(draft.Name || draft.name), StartMonth:Number(draft.StartMonth || draft.startMonth || 1), StartDay:Number(draft.StartDay || draft.startDay || 1), EndMonth:Number(draft.EndMonth || draft.endMonth || 12), EndDay:Number(draft.EndDay || draft.endDay || 31), PreviewCount:null }; });
-                        if (isTopType()) ensureTopDraft();
+                        if (isTopType()) ensureTopDraft().Name = state.name;
                         state.draftLibraryIds = [];
                         const interval = Number(definition.RotationIntervalMinutes || definition.rotationIntervalMinutes || 1440);
                         if (interval % 10080 === 0) { state.rotationValue = interval / 10080; state.rotationUnit = 'weeks'; } else if (interval % 1440 === 0) { state.rotationValue = interval / 1440; state.rotationUnit = 'days'; } else { state.rotationValue = Math.max(1, interval / 60); state.rotationUnit = 'hours'; }
@@ -2102,6 +2110,8 @@
             const removeLogo = page.querySelector('#hssmRemoveLogoButton');
             const mediaBarSeconds = page.querySelector('#hssmMediaBarIntervalSeconds');
             const mediaBarImageType = page.querySelector('#hssmMediaBarImageType');
+            const enableMediaBarSlowZoom = page.querySelector('#hssmEnableMediaBarSlowZoom');
+            const disableMediaBarSlowZoom = page.querySelector('#hssmDisableMediaBarSlowZoom');
             let logoImageDataUrl = '';
             const settingValue = (configuration, name, fallback) => valueOf(configuration, name, name.charAt(0).toLowerCase() + name.slice(1), fallback);
             function paint(control) {
@@ -2189,6 +2199,8 @@
                     logoPreview.hidden = !logoImageDataUrl;
                     mediaBarSeconds.value = settingValue(configuration, 'MediaBarIntervalSeconds', 5);
                     mediaBarImageType.value = settingValue(configuration, 'MediaBarImageType', 'abyss-original');
+                    enableMediaBarSlowZoom.checked = !!settingValue(configuration, 'EnableMediaBarSlowZoom', true);
+                    disableMediaBarSlowZoom.checked = !enableMediaBarSlowZoom.checked;
                 }, () => {
                     status.textContent = 'Customization settings could not be loaded.';
                 });
@@ -2207,7 +2219,8 @@
                     AbyssLiteMode:lite.checked,
                     LogoImageDataUrl:logoImageDataUrl,
                     MediaBarIntervalSeconds:Math.max(1, Math.min(300, Number(mediaBarSeconds.value) || 5)),
-                    MediaBarImageType:mediaBarImageType.value
+                    MediaBarImageType:mediaBarImageType.value,
+                    EnableMediaBarSlowZoom:enableMediaBarSlowZoom.checked
                 };
                 Object.keys(colorControls).forEach(name => {
                     data[name + 'ColorMode'] = colorControls[name].mode.value; data[name + 'ColorOne'] = colorControls[name].one.value; data[name + 'ColorTwo'] = colorControls[name].two.value;

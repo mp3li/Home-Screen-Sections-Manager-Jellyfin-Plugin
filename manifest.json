@@ -9,13 +9,13 @@
     "imageUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Assets/Branding/home-screen-sections-manager-plugin-photo.png",
     "versions": [
       {
-        "version": "0.1.0.40",
-        "changelog": "Adds default-on title marquee controls; hardens custom-page scrolling; restores completed Series through per-user episode history; and preserves Top names, order, settings, and visible numbers.",
+        "version": "0.1.0.41",
+        "changelog": "Makes custom-page rows move horizontally without centering My List; strengthens Watch Again Series recovery; corrects Top number alignment, layering, gradients, shadow, and title persistence; snaps marquee titles back; and adds Media Bar slow-zoom controls.",
         "targetAbi": "10.11.11.0",
         "framework": "net9.0",
-        "sourceUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Test%20Releases/0.1.0.40-test/Jellyfin.Plugin.HomeScreenSectionsManager_0.1.0.40-test.zip",
-        "checksum": "85541c74b1d2ace530647b0bb0aac24a",
-        "timestamp": "2026-08-14T05:52:57Z"
+        "sourceUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Test%20Releases/0.1.0.41-test/Jellyfin.Plugin.HomeScreenSectionsManager_0.1.0.41-test.zip",
+        "checksum": "ef2422a34db6d442585178fea54dbd24",
+        "timestamp": "2026-08-14T06:23:48Z"
       }
     ]
   }

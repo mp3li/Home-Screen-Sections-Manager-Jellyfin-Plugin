@@ -79,6 +79,7 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
         configuration.LogoImageDataUrl = NormalizeImageDataUrl(request.LogoImageDataUrl);
         configuration.MediaBarIntervalSeconds = Math.Clamp(request.MediaBarIntervalSeconds, 1, 300);
         configuration.MediaBarImageType = NormalizeMediaBarImageType(request.MediaBarImageType);
+        configuration.EnableMediaBarSlowZoom = request.EnableMediaBarSlowZoom;
 
         UpdateConfiguration(configuration);
         return configuration;
@@ -139,6 +140,9 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
                 RankNumberColorTwo = string.Equals(section.Id, normalizedId, StringComparison.Ordinal)
                     ? NormalizeColor(request.RankNumberColorTwo, "#f5f5f7")
                     : NormalizeColor(section.RankNumberColorTwo, "#f5f5f7"),
+                RankNumberShadowColor = string.Equals(section.Id, normalizedId, StringComparison.Ordinal)
+                    ? NormalizeColor(request.RankNumberShadowColor, "#000000")
+                    : NormalizeColor(section.RankNumberShadowColor, "#000000"),
                 RankNumberFontDataUrl = string.Equals(section.Id, normalizedId, StringComparison.Ordinal)
                     ? NormalizeFontDataUrl(request.RankNumberFontDataUrl)
                     : NormalizeFontDataUrl(section.RankNumberFontDataUrl),
@@ -153,6 +157,12 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
                 RotationStartUnixMilliseconds = Math.Max(0, section.RotationStartUnixMilliseconds),
                 IsApplied = string.Equals(section.Id, normalizedId, StringComparison.Ordinal) || section.IsApplied,
             }).ToList();
+
+        var appliedSection = configuration.Sections.FirstOrDefault(section => string.Equals(section.Id, normalizedId, StringComparison.Ordinal));
+        if (appliedSection is not null && string.Equals(appliedSection.Type, "top-10-50", StringComparison.Ordinal) && !string.IsNullOrWhiteSpace(request.Name) && appliedSection.Drafts.Count > 0)
+        {
+            appliedSection.Drafts[0].Name = request.Name.Trim();
+        }
 
         UpdateConfiguration(configuration);
         return configuration;
@@ -215,6 +225,7 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
             LogoImageDataUrl = source.LogoImageDataUrl,
             MediaBarIntervalSeconds = source.MediaBarIntervalSeconds,
             MediaBarImageType = source.MediaBarImageType,
+            EnableMediaBarSlowZoom = source.EnableMediaBarSlowZoom,
             AutoRefreshSections = source.AutoRefreshSections,
             EnableRemoveContinueNextUp = source.EnableRemoveContinueNextUp,
             EnableMyList = source.EnableMyList,
@@ -255,6 +266,7 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
             RankNumberColorMode = section.RankNumberColorMode,
             RankNumberColorOne = section.RankNumberColorOne,
             RankNumberColorTwo = section.RankNumberColorTwo,
+            RankNumberShadowColor = section.RankNumberShadowColor,
             RankNumberFontDataUrl = section.RankNumberFontDataUrl,
             ActivityMaxItems = section.ActivityMaxItems,
             ActivityMediaType = section.ActivityMediaType,
@@ -285,6 +297,7 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
         normalized.RankNumberColorMode = NormalizeColorMode(section.RankNumberColorMode);
         normalized.RankNumberColorOne = NormalizeColor(section.RankNumberColorOne, "#f5f5f7");
         normalized.RankNumberColorTwo = NormalizeColor(section.RankNumberColorTwo, "#f5f5f7");
+        normalized.RankNumberShadowColor = NormalizeColor(section.RankNumberShadowColor, "#000000");
         normalized.RankNumberFontDataUrl = NormalizeFontDataUrl(section.RankNumberFontDataUrl);
         normalized.ActivityMaxItems = Math.Clamp(section.ActivityMaxItems, 1, 100);
         normalized.ActivityMediaType = NormalizeActivityMediaType(section.ActivityMediaType);
