@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
+from uuid import UUID
 
 from playwright.sync_api import sync_playwright
 
@@ -88,11 +89,13 @@ def run() -> None:
     watched_special["UserData"]["Played"] = False
     resume["CommunityRating"] = 8.8
     resume_two["CommunityRating"] = 7.7
-    top_row_items = [base_item(f"top-row-{index}", f"Collection {index}", "BoxSet") for index in range(1, 17)]
+    top_row_items = [base_item(f"{index:032x}", f"Collection {index}", "BoxSet") for index in range(1, 17)]
     del top_row_items[-1]["ImageTags"]["Primary"]
     settings["TopRowSection"]["SourceIds"] = [item["Id"] for item in top_row_items]
     settings["TopRowSection"]["ItemIds"] = [item["Id"] for item in top_row_items]
-    settings["TopRowLogoCollectionIds"] = [item["Id"] for item in top_row_items[:-1]]
+    settings["TopRowLogoCollectionIds"] = [str(UUID(hex=item["Id"])) for item in top_row_items[:-1]]
+    first_top_row_id = top_row_items[0]["Id"]
+    missing_top_row_id = top_row_items[-1]["Id"]
     items_by_id = {item["Id"]: item for item in [resume, resume_two, series_two, liked, liked_opaque, watched_movie, watched_series, watched_episode_one, watched_episode_two, watched_special, *top_row_items]}
     requests: list[str] = []
     page_errors: list[str] = []
@@ -227,7 +230,7 @@ def run() -> None:
         assert long_section_heading.inner_text().strip() == "Top 20 in Foreign Collection With A Deliberately Long Custom Section Name"
         heading_style = long_section_heading.evaluate("node => ({overflow:getComputedStyle(node).overflow,textOverflow:getComputedStyle(node).textOverflow,whiteSpace:getComputedStyle(node).whiteSpace,lineClamp:getComputedStyle(node).webkitLineClamp,width:node.getBoundingClientRect().width,parentWidth:node.parentElement.getBoundingClientRect().width})")
         assert heading_style["overflow"] == "visible" and heading_style["textOverflow"] == "clip" and heading_style["whiteSpace"] == "normal" and heading_style["lineClamp"] == "none" and heading_style["width"] > heading_style["parentWidth"] * 0.9, heading_style
-        page.wait_for_selector("#indexPage > .hssm-top-row .hssm-top-row-card[data-id='top-row-1']")
+        page.wait_for_selector(f"#indexPage > .hssm-top-row .hssm-top-row-card[data-id='{first_top_row_id}']")
         top_row_state = page.evaluate("""() => {
           const header=document.querySelector('.skinHeader'), host=document.querySelector('#indexPage'), row=host.querySelector(':scope > .hssm-top-row'), track=row.querySelector('.hssm-top-row-track'), card=row.querySelector('.hssm-top-row-card');
           return {
@@ -256,10 +259,10 @@ def run() -> None:
           };
         }""")
         assert top_row_state["firstChild"] and top_row_state["host"] and top_row_state["position"] == "relative" and top_row_state["topGap"] >= 4 and top_row_state["noArrows"] and top_row_state["noPlay"] and top_row_state["noHeart"] and top_row_state["hasDarkHover"] and top_row_state["standardCard"] and top_row_state["logosOnly"] and top_row_state["wideDespiteSavedCircle"], top_row_state
-        assert "id=top-row-1" in top_row_state["href"] and "blur" not in top_row_state["backdropFilter"] and top_row_state["scrollable"] and abs(top_row_state["gap"] - top_row_state["normalGap"]) < 1, top_row_state
-        assert "/HomeScreenSectionsManager/top-row-logo/top-row-1" in top_row_state["logoSrc"] and top_row_state["logoFit"] == "contain" and top_row_state["logoOverflow"] == "visible" and top_row_state["logoRadius"] == "0px", top_row_state
+        assert f"id={first_top_row_id}" in top_row_state["href"] and "blur" not in top_row_state["backdropFilter"] and top_row_state["scrollable"] and abs(top_row_state["gap"] - top_row_state["normalGap"]) < 1, top_row_state
+        assert f"/HomeScreenSectionsManager/top-row-logo/{first_top_row_id}" in top_row_state["logoSrc"] and top_row_state["logoFit"] == "contain" and top_row_state["logoOverflow"] == "visible" and top_row_state["logoRadius"] == "0px", top_row_state
         assert parse_qs(urlparse(top_row_state["logoSrc"]).query).get("ApiKey") == ["test-token"], top_row_state
-        assert page.locator(".hssm-top-row-card[data-id='top-row-16']").count() == 0
+        assert page.locator(f".hssm-top-row-card[data-id='{missing_top_row_id}']").count() == 0
         top_row_scroll = page.locator(".hssm-top-row-track").evaluate("""track => { const before=track.scrollLeft; track.dispatchEvent(new WheelEvent('wheel',{deltaY:260,bubbles:true,cancelable:true})); return {before,after:track.scrollLeft}; }""")
         assert top_row_scroll["after"] > top_row_scroll["before"], top_row_scroll
         page.wait_for_selector("#homeTab .section0.hssm-native-art-override.hssm-size-large.hssm-shape-circle.hssm-art-thumb")
@@ -277,8 +280,8 @@ def run() -> None:
         assert abs((extra_small_wide_width * 0.82) - top_row_state["width"]) < 1, {"section": extra_small_wide_width, "topRow": top_row_state["width"]}
         normal_scalable_ratio = page.locator("#homeTab [data-hssm-section-id='manager-home-test'] .hssm-client-card .cardScalable").evaluate("node => node.getBoundingClientRect().height / node.getBoundingClientRect().width")
         assert abs(normal_scalable_ratio - top_row_state["scalableRatio"]) < 0.01, {"section": normal_scalable_ratio, "topRow": top_row_state["scalableRatio"]}
-        assert any("/HomeScreenSectionsManager/top-row-logo/top-row-1" in url for url in requests), requests
-        assert not any("/Items/top-row-1/Images/" in url for url in requests), requests
+        assert any(f"/HomeScreenSectionsManager/top-row-logo/{first_top_row_id}" in url for url in requests), requests
+        assert not any(f"/Items/{first_top_row_id}/Images/" in url for url in requests), requests
         page.wait_for_selector("#homeTab [data-hssm-section-id='manager-home-top'] .hssm-my-list-button")
         page.wait_for_selector("#homeTab [data-hssm-section-id='manager-home-test'] .hssm-my-list-button")
         page.wait_for_selector("#homeTab .section0 .hssm-my-list-button")

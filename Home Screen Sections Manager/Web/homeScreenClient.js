@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    var CLIENT_VERSION = "0.1.0.47";
+    var CLIENT_VERSION = "0.1.0.48";
     if (window.HomeScreenManagerClient) {
         if (window.HomeScreenManagerClient.version === CLIENT_VERSION) {
             window.HomeScreenManagerClient.refresh();
@@ -2737,13 +2737,17 @@
         return pageIdForContainer(container) || 'home';
     }
 
+    function normalizedTopRowItemId(value) {
+        return String(value || '').replace(/-/g, '').toLowerCase();
+    }
+
     function topRowCard(item, section, logoCollectionIds) {
         var id = String(prop(item, 'Id', 'id', ''));
         var name = String(prop(item, 'Name', 'name', ''));
         var serverId = typeof ApiClient.serverId === 'function' ? ApiClient.serverId() : '';
         var href = '#/details?id=' + encodeURIComponent(id) + (serverId ? '&serverId=' + encodeURIComponent(serverId) : '');
         var logosOnly = prop(section, 'DisplayLogosOnly', 'displayLogosOnly', false) === true;
-        if (logosOnly && !logoCollectionIds.has(id)) return '';
+        if (logosOnly && !logoCollectionIds.has(normalizedTopRowItemId(id))) return '';
         var logoOptions = { v:CLIENT_VERSION };
         if (typeof ApiClient.accessToken === 'function' && ApiClient.accessToken()) logoOptions.ApiKey = ApiClient.accessToken();
         var logoUrl = logosOnly ? ApiClient.getUrl('HomeScreenSectionsManager/top-row-logo/' + encodeURIComponent(id), logoOptions) : '';
@@ -2844,7 +2848,7 @@
         var pageIds = setting(settings, 'TopRowPageIds', ['home']) || ['home'];
         var pageId = activeTopRowPageId();
         var sourceIds = prop(section, 'ItemIds', 'itemIds', prop(section, 'SourceIds', 'sourceIds', []) || []).map(String).filter(Boolean);
-        var logoCollectionIds = new Set((setting(settings, 'TopRowLogoCollectionIds', []) || []).map(String));
+        var logoCollectionIds = new Set((setting(settings, 'TopRowLogoCollectionIds', []) || []).map(normalizedTopRowItemId));
         var visible = isHomeRoute() && enabled && section && sourceIds.length && pageIds.map(String).indexOf(pageId) >= 0;
         var header = document.querySelector('.skinHeader');
         var topRowHost = document.querySelector('#indexPage');

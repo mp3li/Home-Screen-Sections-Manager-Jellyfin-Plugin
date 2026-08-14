@@ -20,7 +20,8 @@ internal static class CollectionManagerLogoBridge
         {
             return GetSelections()
                 .Select(selection => Value(selection, "CollectionId")?.ToString())
-                .Where(id => !string.IsNullOrWhiteSpace(id))
+                .Select(id => Guid.TryParse(id, out var parsedId) ? parsedId.ToString("N") : null)
+                .Where(id => id is not null)
                 .Select(id => id!)
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToArray();

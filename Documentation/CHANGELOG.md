@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.1.0.48-test] - 2026-08-14
+
+- Normalizes Collection Manager's dashed collection GUIDs and Jellyfin Web's undashed item IDs before matching Display Logos Only assignments, preventing an enabled Top Row from disappearing as empty.
+- Adds a browser regression fixture using the two real ID formats while retaining source-logo-only rendering, the smaller Top Row geometry, normal vertical scrolling, the header's normal top position after the row scrolls away, and strict separation from the Media Bar.
+
 ## [0.1.0.47-test] - 2026-08-14
 
 - Places Top Row in normal page flow strictly above the Media Bar so it never covers or cuts off Media Bar artwork and scrolls away instead of remaining on screen.
