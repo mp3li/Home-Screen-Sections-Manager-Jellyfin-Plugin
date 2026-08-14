@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    var CLIENT_VERSION = "0.1.0.32";
+    var CLIENT_VERSION = "0.1.0.33";
     if (window.HomeScreenManagerClient) {
         if (window.HomeScreenManagerClient.version === CLIENT_VERSION) {
             window.HomeScreenManagerClient.refresh();
@@ -68,6 +68,7 @@
     var ownedMyListTabIndex = 2;
     var mediaBarOwnerObserver = null;
     var mediaBarOwnerHomeTab = null;
+    var initialHomeSelectionNormalized = false;
 
     function createLimiter(maximum) {
         var active = 0;
@@ -266,6 +267,10 @@
         order.forEach(function (entry) { var button=buttonById[entry.id]; if(button && !entry.hidden) slider.appendChild(button); });
         Object.keys(buttonById).forEach(function (id) { var button=buttonById[id]; if(button && !button.hidden && !order.some(function(entry){return entry.id===id;})) slider.appendChild(button); });
         if (buttonById.home) slider.insertBefore(buttonById.home, slider.firstChild);
+        if (buttonById.home && buttonById.home.dataset.hssmHomeBound !== 'true') {
+            buttonById.home.dataset.hssmHomeBound = 'true';
+            buttonById.home.addEventListener('click', function () { showOwnedHomePanel(0); }, true);
+        }
         if (window.CustomElements && typeof window.CustomElements.upgradeSubtree === 'function') window.CustomElements.upgradeSubtree(tabs);
         if (typeof tabs.refresh === 'function') tabs.refresh();
     }
@@ -285,6 +290,18 @@
         lastFeatureScope = null;
         lastFeatureRoute = '';
         queueRouteRefresh(true);
+    }
+
+    function normalizeInitialHomeSelection() {
+        if (initialHomeSelectionNormalized || !isHomeRoute()) return false;
+        var indexPage = visibleIndexPage();
+        var tabs = homeTabsElement();
+        var homePanel = indexPage && indexPage.querySelector(':scope > .pageTabContent[data-index="0"]');
+        var homeButton = tabs && tabs.querySelector('.emby-tab-button[data-index="0"]');
+        if (!indexPage || !tabs || !homePanel || !homeButton) return false;
+        initialHomeSelectionNormalized = true;
+        showOwnedHomePanel(0);
+        return true;
     }
 
     function activeMyListContainer() {
@@ -1272,7 +1289,6 @@
 
     function renderMediaBar(settings, preferences, container, sections, sectionItemPromises) {
         var panel = container && container.closest('.pageTabContent');
-        if (panel) Array.from(panel.querySelectorAll('.hssm-section-media-bar')).forEach(function (frame) { frame.remove(); });
         var loadSequence = ++mediaBarLoadSequence;
         var source = mediaBarSource(settings, preferences, container, sections, sectionItemPromises);
         var interval = Math.max(1, Math.min(300, Number(setting(settings, 'MediaBarIntervalSeconds', 5)) || 5));
@@ -1352,10 +1368,14 @@
         return frame;
     }
 
-    function renderExplicitMediaBars(settings, container, sections) {
+    function renderExplicitMediaBars(settings, container, sections, preferences) {
         var configured = explicitMediaBarSections(sections);
         var panel = container && container.closest('.pageTabContent');
         if (!panel) return;
+        if (pageIdForContainer(container) === 'home') {
+            var defaultKey = configuredMediaBarKey(settingsForPage(settings, 'home'), preferences || latestNativePreferences || {});
+            configured = configured.filter(function (section) { return String(prop(section, 'Id', 'id', '')) !== defaultKey; });
+        }
         Array.from(panel.querySelectorAll('.hssm-section-media-bar')).forEach(function (frame) {
             if (!configured.some(function (section) { return String(prop(section, 'Id', 'id', '')) === frame.dataset.hssmMediaSectionId; })) frame.remove();
         });
@@ -1363,8 +1383,6 @@
         if (pageIdForContainer(container) === 'home') {
             suppressAbyssMediaBar(panel);
             observeAbyssMediaBar(panel);
-            var legacy = mediaBarFrameForContainer(container);
-            if (legacy && !legacy.classList.contains('hssm-section-media-bar')) legacy.remove();
         }
         var scoped = settingsForPage(settings, pageIdForContainer(container));
         var visibleOrder = prop(scoped, 'SectionOrder', 'sectionOrder', []).map(sectionOrderEntry).filter(function (entry) { return !entry.hidden; }).map(function (entry) { return entry.id; });
@@ -2249,9 +2267,9 @@
         lastError = '';
         renderedSectionCount = sections.length;
         applyHybridOrder(container, scopedSettings, pageId === 'home' ? preferences : {});
-        applyRouteFeatures(settings, container.closest('.libraryPage, .page') || container, pageId === 'home', pageId === 'home' ? preferences : {});
         var customPanel = container.closest('.hssm-owned-custom-page');
-        if (customPanel) applyPageContextTitle(customPanel, customPanel.dataset.hssmPageTitle || '');
+        applyRouteFeatures(settings, container.closest('.libraryPage, .page') || container, pageId === 'home' || !!customPanel, pageId === 'home' ? preferences : {});
+        if (customPanel) clearPageContextTitle();
         return true;
     }
 
@@ -2266,18 +2284,18 @@
         });
     }
 
-    function renderActiveManagedPage(settings, generation) {
+    function renderActiveManagedPage(settings) {
         var container = activeManagedSectionContainer();
         if (!container || container === activeHomeContainer()) return false;
         var pageId = pageIdForContainer(container);
         var sections = sectionsForPage(settings, pageId);
-        if (homeContainerNeedsMount(container, sections, settings) || container !== lastContainer) renderHomeRows(settings, {}, generation, container);
+        if (homeContainerNeedsMount(container, sections, settings) || container !== lastContainer) renderHomeRows(settings, {}, ++runtimeGeneration, container);
         else {
             applyHybridOrder(container, settingsForPage(settings, pageId), {});
-            applyRouteFeatures(settings, container.closest('.libraryPage, .page') || container, false, {});
+            applyRouteFeatures(settings, container.closest('.libraryPage, .page') || container, !!container.closest('.hssm-owned-custom-page'), {});
         }
         var customPanel = container.closest('.hssm-owned-custom-page');
-        if (customPanel) applyPageContextTitle(customPanel, customPanel.dataset.hssmPageTitle || '');
+        if (customPanel) clearPageContextTitle();
         renderExplicitMediaBars(settings, container, sections);
         return true;
     }
@@ -2386,25 +2404,26 @@
             if (generation !== routeGeneration || isDashboardScreen() || isPlaybackScreen()) return;
             applyLogo(settings);
             ensureOwnedPages(settings);
+            if (normalizeInitialHomeSelection()) return;
             bindHomeTabs();
             var attempts = 0;
             function enterView() {
                 if (generation !== routeGeneration || isDashboardScreen() || isPlaybackScreen()) return;
                 var customPage = activeCustomPagePanel();
                 if (customPage) {
-                    renderActiveManagedPage(settings, ++runtimeGeneration);
+                    renderActiveManagedPage(settings);
                     return;
                 }
                 var myListContainer = activeMyListContainer();
                 if (myListContainer) {
                     applyRouteFeatures(settings, myListPageMarker(), false, {});
-                    renderActiveManagedPage(settings, ++runtimeGeneration);
+                    renderActiveManagedPage(settings);
                     return;
                 }
                 var favorites = activeFavoritesPanel();
                 if (favorites) {
                     applyRouteFeatures(settings, favorites, false, {});
-                    renderActiveManagedPage(settings, ++runtimeGeneration);
+                    renderActiveManagedPage(settings);
                     return;
                 }
                 var homeContainer = activeHomeContainer();
@@ -2421,16 +2440,16 @@
                         applyHybridOrder(homeContainer, settings, cachedPreferences);
                         applyRouteFeatures(settings, homeContainer.closest('.libraryPage, .page') || homeContainer, true, cachedPreferences);
                     }
-                    if (explicitMediaBarSections(sections).length) renderExplicitMediaBars(settings, homeContainer, sections);
-                    else if (!primeCachedMediaBar()) renderMediaBar(settings, cachedPreferences, homeContainer, sections);
+                    if (!primeCachedMediaBar()) renderMediaBar(settings, cachedPreferences, homeContainer, sections);
+                    renderExplicitMediaBars(settings, homeContainer, sections, cachedPreferences);
                     nativePreferences().then(function (preferences) {
                         if (generation !== routeGeneration || homeContainer !== activeHomeContainer()) return;
                         preferences = preferences || cachedPreferences;
                         latestNativePreferences = preferences;
                         applyHybridOrder(homeContainer, settings, preferences);
                         applyRemoveButtons(settings, homeContainer.closest('.libraryPage, .page') || homeContainer, preferences);
-                        if (explicitMediaBarSections(sections).length) renderExplicitMediaBars(settings, homeContainer, sections);
-                        else renderMediaBar(settings, preferences, homeContainer, sections);
+                        renderMediaBar(settings, preferences, homeContainer, sections);
+                        renderExplicitMediaBars(settings, homeContainer, sections, preferences);
                     });
                     return;
                 }

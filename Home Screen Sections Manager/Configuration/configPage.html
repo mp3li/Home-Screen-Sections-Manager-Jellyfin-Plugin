@@ -15,13 +15,13 @@
         #homeScreenSectionsManagerPage .hssm-colors .inputContainer { margin:0; min-width:14em; }
         #homeScreenSectionsManagerPage .hssm-color { width:3.5em !important; min-width:3.5em; max-width:3.5em; height:3.5em; padding:.1em; }
         #homeScreenSectionsManagerPage .hssm-section-list { margin-top:1em; border:1px solid var(--hssm-outline); border-radius:.45em; overflow:hidden; }
-        #homeScreenSectionsManagerPage .hssm-section-row { box-sizing:border-box; display:grid; grid-template-columns:auto minmax(12em,1fr) auto auto auto; align-items:center; gap:.75em; width:100%; min-height:3.3em; padding:.7em .8em; border:0; border-bottom:1px solid var(--hssm-outline); background:transparent; color:inherit; cursor:grab; user-select:none; text-align:left; }
+        #homeScreenSectionsManagerPage .hssm-section-row { box-sizing:border-box; display:grid; grid-template-columns:1.5em minmax(12em,1fr) 6em 8em 12em; align-items:center; gap:.75em; width:100%; min-height:3.3em; padding:.7em .8em; border:0; border-bottom:1px solid var(--hssm-outline); background:transparent; color:inherit; cursor:grab; user-select:none; text-align:left; }
         #homeScreenSectionsManagerPage .hssm-section-row:last-child { border-bottom:0; }
         #homeScreenSectionsManagerPage .hssm-section-row:hover { background:rgba(128,128,128,.12); }
         #homeScreenSectionsManagerPage .hssm-section-row.selected { outline:2px solid #00a4dc; outline-offset:-2px; background:rgba(0,164,220,.13); }
         #homeScreenSectionsManagerPage .hssm-section-row.dragging { opacity:.42; }
         #homeScreenSectionsManagerPage .hssm-section-row.hssm-section-disabled { opacity:.62; }
-        #homeScreenSectionsManagerPage .hssm-native-section-toggle { flex:0 0 auto; margin:0; cursor:pointer; }
+        #homeScreenSectionsManagerPage .hssm-native-section-toggle { display:inline-flex; align-items:center; flex:0 0 auto; margin:0; cursor:pointer; white-space:nowrap; }
         #homeScreenSectionsManagerPage .hssm-section-row.locked { cursor:default; }
         #homeScreenSectionsManagerPage .hssm-drag-handle { color:inherit; opacity:.62; font-size:1.25em; line-height:1; }
         #homeScreenSectionsManagerPage .hssm-section-row.locked .hssm-drag-handle { opacity:.4; }
@@ -30,6 +30,8 @@
         #homeScreenSectionsManagerPage .hssm-badge-jellyfin { background:var(--hssm-jellyfin); }
         #homeScreenSectionsManagerPage .hssm-badge-manager { background:var(--hssm-manager); }
         #homeScreenSectionsManagerPage .hssm-badge-media { background:var(--hssm-media-bar); }
+        #homeScreenSectionsManagerPage .hssm-row-slot { display:flex; align-items:center; min-width:0; }
+        #homeScreenSectionsManagerPage .hssm-origin-slot { justify-content:flex-start; }
         #homeScreenSectionsManagerPage .hssm-new-settings { border-top:1px solid var(--hssm-outline); margin-top:1.25em; padding-top:1.25em; }
         #homeScreenSectionsManagerPage .hssm-new-settings[hidden] { display:none !important; }
         #homeScreenSectionsManagerPage .hssm-type-picker { margin-top:.85em; }
@@ -51,7 +53,7 @@
         #homeScreenSectionsManagerPage .hssm-dialog-backdrop[hidden] { display:none !important; }
         #homeScreenSectionsManagerPage .hssm-dialog { box-sizing:border-box; width:min(34em,100%); max-height:90vh; overflow:auto; border:1px solid var(--hssm-outline); border-radius:.65em; padding:1.4em; background:var(--theme-background-level-1,#202020); color:var(--primary-text-color,#fff); box-shadow:0 1em 4em rgba(0,0,0,.55); }
         #homeScreenSectionsManagerPage .hssm-dialog h2 { margin:0 0 .5em; }
-        @media (max-width:50em) { #homeScreenSectionsManagerPage .hssm-section-row { grid-template-columns:auto minmax(0,1fr); align-items:center; } #homeScreenSectionsManagerPage .hssm-section-name { grid-column:2; } #homeScreenSectionsManagerPage .hssm-native-section-toggle, #homeScreenSectionsManagerPage .hssm-badge { grid-column:2; justify-self:start; } #homeScreenSectionsManagerPage .hssm-badge { white-space:normal; text-align:center; } }
+        @media (max-width:50em) { #homeScreenSectionsManagerPage .hssm-section-row { grid-template-columns:auto minmax(0,1fr); align-items:center; } #homeScreenSectionsManagerPage .hssm-section-name, #homeScreenSectionsManagerPage .hssm-row-slot { grid-column:2; } #homeScreenSectionsManagerPage .hssm-native-section-toggle, #homeScreenSectionsManagerPage .hssm-badge { justify-self:start; } #homeScreenSectionsManagerPage .hssm-badge { white-space:normal; text-align:center; } }
     </style>
 
     <div class="content-primary">
@@ -67,9 +69,9 @@
 
         <div class="hssm-panel active" data-panel="main-settings" role="tabpanel">
             <section class="hssm-section">
-                <h2>Refresh Home Screen Sections Settings</h2>
-                <p class="fieldDescription">Refresh your saved home screen sections after changing media, tags, collections, libraries, or library names. Rotating, seasonal, and user-activity sections update separately and do not require this refresh.</p>
-                <div class="hssm-actions"><button is="emby-button" type="button" class="raised button-submit" id="hssmRefreshSectionsButton">Refresh Home Screen Sections</button></div>
+                <h2>Refresh Home Screen and All Pages Sections Settings</h2>
+                <p class="fieldDescription">Refresh your saved Home screen and all pages sections after changing media, tags, collections, libraries, or library names. Sections from every page are refreshed together. Rotating, seasonal, and user-activity sections update separately and do not require this refresh.</p>
+                <div class="hssm-actions"><button is="emby-button" type="button" class="raised button-submit" id="hssmRefreshSectionsButton">Refresh Home Screen and All Pages Sections</button></div>
                 <p class="fieldDescription" id="hssmRefreshSectionsStatus" aria-live="polite"></p>
             </section>
             <section class="hssm-section">
@@ -190,6 +192,7 @@
                     <button is="emby-button" type="button" class="raised" id="hssmDeleteSectionButton" disabled>Delete Section</button>
                     <button is="emby-button" type="button" class="raised" id="hssmUndoDeleteSectionButton" disabled>Undo Delete Section</button>
                     <button is="emby-button" type="button" class="raised" id="hssmMoveSectionButton" disabled>Move Section</button>
+                    <button is="emby-button" type="button" class="raised" id="hssmCopySectionButton" disabled>Copy + Paste Section</button>
                 </div>
 
                 <div id="hssmNewSectionSettings" class="hssm-new-settings" hidden>
@@ -213,6 +216,14 @@
                     <p class="fieldDescription">The following section will be moved: <strong id="hssmMoveSectionName"></strong></p>
                     <div class="selectContainer"><label class="selectLabel" for="hssmMoveSectionPage">Home Screen Page</label><select is="emby-select" id="hssmMoveSectionPage"></select></div>
                     <div class="hssm-actions"><button is="emby-button" type="button" class="raised button-submit" id="hssmConfirmMoveSectionButton">Move Section</button><button is="emby-button" type="button" class="raised" id="hssmCloseMoveSectionButton">Close</button></div>
+                </div>
+            </div>
+            <div id="hssmCopySectionDialog" class="hssm-dialog-backdrop" hidden>
+                <div class="hssm-dialog" role="dialog" aria-modal="true" aria-labelledby="hssmCopySectionTitle">
+                    <h2 id="hssmCopySectionTitle">Copy + Paste Section To:</h2>
+                    <p class="fieldDescription">The following section will be copied: <strong id="hssmCopySectionName"></strong></p>
+                    <div class="selectContainer"><label class="selectLabel" for="hssmCopySectionPage">Home Screen Page</label><select is="emby-select" id="hssmCopySectionPage"></select></div>
+                    <div class="hssm-actions"><button is="emby-button" type="button" class="raised button-submit" id="hssmConfirmCopySectionButton">Copy + Paste Section</button><button is="emby-button" type="button" class="raised" id="hssmCloseCopySectionButton">Close</button></div>
                 </div>
             </div>
         </div>
@@ -311,8 +322,11 @@
             const deleteButton = page.querySelector('#hssmDeleteSectionButton');
             const undoDeleteButton = page.querySelector('#hssmUndoDeleteSectionButton');
             const moveButton = page.querySelector('#hssmMoveSectionButton');
+            const copyButton = page.querySelector('#hssmCopySectionButton');
             const moveDialog = page.querySelector('#hssmMoveSectionDialog');
             const movePageSelect = page.querySelector('#hssmMoveSectionPage');
+            const copyDialog = page.querySelector('#hssmCopySectionDialog');
+            const copyPageSelect = page.querySelector('#hssmCopySectionPage');
             const newSettings = page.querySelector('#hssmNewSectionSettings');
             const nameInput = page.querySelector('#hssmNewSectionName');
             const choices = page.querySelector('#hssmTypeChoices');
@@ -344,22 +358,23 @@
                 const options = pages.map(item => '<option value="' + escape(item.id) + '">' + escape(item.name) + '</option>').join('');
                 pageSelect.innerHTML = options; pageSelect.value = activePageId;
                 movePageSelect.innerHTML = options;
+                copyPageSelect.innerHTML = options;
                 window.HSSMDashboardPages = pages;
             }
 
             function normalizeMediaBarOrder() { return false; }
 
             function render() {
-                const hasExplicitMediaBar = sections.some(section => section.isMediaBar && mediaBarEligible(section));
                 list.innerHTML = sections.map(function (section, index) {
                     const editing = section.id === draftId;
                     const toggle = '<label class="checkboxContainer hssm-native-section-toggle" title="Show this section"><input is="emby-checkbox" type="checkbox" data-hssm-native-section-toggle="' + escape(section.id) + '"' + (section.enabled !== false ? ' checked' : '') + ' /><span>Show</span></label>';
-                    const mediaBar = section.isMediaBar || (!hasExplicitMediaBar && index === 0 && mediaBarEligible(section));
-                    return '<div class="hssm-section-row' + (section.id === selectedId ? ' selected' : '') + (section.enabled === false ? ' hssm-section-disabled' : '') + '" data-section-id="' + escape(section.id) + '" draggable="true" role="button" tabindex="0" aria-pressed="' + (section.id === selectedId) + '"><span class="hssm-drag-handle" aria-hidden="true">⠿</span><span class="hssm-section-name">' + (editing ? '<label class="inputLabel inputLabelUnfocused">Section Name:</label><input is="emby-input" type="text" data-hssm-inline-section-name value="' + escape(section.name) + '" autocomplete="off" />' : escape(section.name)) + '</span>' + toggle + (mediaBar ? '<span class="hssm-badge hssm-badge-media">Media Bar</span>' : '') + '<span class="hssm-badge ' + (section.origin === 'manager' ? 'hssm-badge-manager' : 'hssm-badge-jellyfin') + '">' + (section.origin === 'manager' ? 'Home Screen Manager' : 'Jellyfin') + '</span></div>';
+                    const mediaBar = section.isMediaBar || (activePageId === 'home' && index === 0 && mediaBarEligible(section));
+                    return '<div class="hssm-section-row' + (section.id === selectedId ? ' selected' : '') + (section.enabled === false ? ' hssm-section-disabled' : '') + '" data-section-id="' + escape(section.id) + '" draggable="true" role="button" tabindex="0" aria-pressed="' + (section.id === selectedId) + '"><span class="hssm-drag-handle" aria-hidden="true">⠿</span><span class="hssm-section-name">' + (editing ? '<label class="inputLabel inputLabelUnfocused">Section Name:</label><input is="emby-input" type="text" data-hssm-inline-section-name value="' + escape(section.name) + '" autocomplete="off" />' : escape(section.name)) + '</span><span class="hssm-row-slot">' + toggle + '</span><span class="hssm-row-slot">' + (mediaBar ? '<span class="hssm-badge hssm-badge-media">Media Bar</span>' : '') + '</span><span class="hssm-row-slot hssm-origin-slot"><span class="hssm-badge ' + (section.origin === 'manager' ? 'hssm-badge-manager' : 'hssm-badge-jellyfin') + '">' + (section.origin === 'manager' ? 'Home Screen Manager' : 'Jellyfin') + '</span></span></div>';
                 }).join('');
                 deleteButton.disabled = !(selected() && selected().origin === 'manager');
                 editButton.disabled = deleteButton.disabled;
                 moveButton.disabled = deleteButton.disabled;
+                copyButton.disabled = deleteButton.disabled;
                 undoDeleteButton.disabled = !(lastDeleted && lastDeleted.ready);
             }
 
@@ -527,6 +542,44 @@
                 }, () => { status.textContent = 'The section could not be moved.'; }).finally(() => { button.disabled = false; });
             });
 
+            copyButton.addEventListener('click', () => {
+                const item = selected();
+                if (!item || item.origin !== 'manager') return;
+                page.querySelector('#hssmCopySectionName').textContent = item.name;
+                const destination = Array.from(copyPageSelect.options).find(option => option.value !== activePageId);
+                copyPageSelect.value = destination ? destination.value : activePageId;
+                copyDialog.hidden = false;
+            });
+            page.querySelector('#hssmCloseCopySectionButton').addEventListener('click', () => { copyDialog.hidden = true; });
+            page.querySelector('#hssmConfirmCopySectionButton').addEventListener('click', () => {
+                const item = selected(), destination = copyPageSelect.value;
+                if (!item || item.origin !== 'manager' || !destination) { copyDialog.hidden = true; return; }
+                const button = page.querySelector('#hssmConfirmCopySectionButton');
+                button.disabled = true;
+                ApiClient.getJSON(ApiClient.getUrl('HomeScreenSectionsManager/section-settings')).then(saved => {
+                    const current = saved.Sections || saved.sections || [];
+                    const source = current.find(definition => String(definition.Id || definition.id) === item.id);
+                    if (!source) throw new Error('The selected section no longer exists.');
+                    let newId = 'manager-' + Date.now();
+                    while (current.some(definition => String(definition.Id || definition.id) === newId)) newId += '-copy';
+                    const clone = JSON.parse(JSON.stringify(source));
+                    clone.Id = newId;
+                    clone.PageId = destination;
+                    const definitions = current.concat([clone]);
+                    const layouts = (valueOf(saved, 'PageLayouts', 'pageLayouts', []) || []).map(layout => ({ PageId:String(valueOf(layout, 'PageId', 'pageId', 'home')), SectionOrder:[...(valueOf(layout, 'SectionOrder', 'sectionOrder', []) || [])] }));
+                    let target = layouts.find(layout => layout.PageId === destination);
+                    if (!target) { target = { PageId:destination, SectionOrder:[] }; layouts.push(target); }
+                    target.SectionOrder.push(item.enabled === false ? 'hidden:' + newId : newId);
+                    const home = layouts.find(layout => layout.PageId === 'home');
+                    return ApiClient.ajax({ type:'POST', url:ApiClient.getUrl('HomeScreenSectionsManager/section-settings'), data:JSON.stringify({ JellyfinSectionLabelColor:page.querySelector('#hssmJellyfinColor').value, ManagerSectionLabelColor:page.querySelector('#hssmManagerColor').value, MediaBarSectionLabelColor:page.querySelector('#hssmMediaBarColor').value, Sections:definitions, SectionOrder:home ? home.SectionOrder : (saved.SectionOrder || saved.sectionOrder || []), Pages:valueOf(saved,'Pages','pages',[]) || [], PageOrder:valueOf(saved,'PageOrder','pageOrder',[]) || [], PageLayouts:layouts }), contentType:'application/json', dataType:'json' });
+                }).then(() => {
+                    copyDialog.hidden = true;
+                    window.HSSMNotifyClientSettingsChanged();
+                    status.textContent = 'Section copied to ' + copyPageSelect.options[copyPageSelect.selectedIndex].textContent + '. The original section remains on ' + pageSelect.options[pageSelect.selectedIndex].textContent + '.';
+                    loadSections();
+                }, error => { status.textContent = 'The section could not be copied. ' + (error && error.message || ''); }).finally(() => { button.disabled = false; });
+            });
+
             addButton.addEventListener('click', () => {
                 const id = 'manager-' + Date.now();
                 const item = { id, name:'New Section', origin:'manager', type:'', enabled:true, isMediaBar:false, pageId:activePageId };
@@ -683,7 +736,7 @@
             const colors = () => ({ JellyfinSectionLabelColor:page.querySelector('#hssmPageJellyfinColor').value, ManagerSectionLabelColor:page.querySelector('#hssmPageManagerColor').value, MediaBarSectionLabelColor:page.querySelector('#hssmPageMediaBarColor').value });
 
             function render() {
-                list.innerHTML = rows.map(row => '<div class="hssm-section-row' + (row.id === selectedId ? ' selected' : '') + (row.enabled === false ? ' hssm-section-disabled' : '') + (row.id === 'home' ? ' locked' : '') + '" data-page-id="' + esc(row.id) + '" draggable="' + (row.id !== 'home') + '" role="button" tabindex="0" aria-pressed="' + (row.id === selectedId) + '"><span class="hssm-drag-handle" aria-hidden="true">' + (row.id === 'home' ? '●' : '⠿') + '</span><span class="hssm-section-name">' + esc(row.name) + '</span>' + (row.id === 'home' ? '' : '<label class="checkboxContainer hssm-native-section-toggle"><input is="emby-checkbox" type="checkbox" data-hssm-page-show="' + esc(row.id) + '"' + (row.enabled !== false ? ' checked' : '') + ' /><span>Show</span></label>') + '<span class="hssm-badge ' + (row.origin === 'manager' ? 'hssm-badge-manager' : 'hssm-badge-jellyfin') + '">' + (row.origin === 'manager' ? 'Home Screen Manager' : 'Jellyfin') + '</span></div>').join('');
+                list.innerHTML = rows.map(row => '<div class="hssm-section-row' + (row.id === selectedId ? ' selected' : '') + (row.enabled === false ? ' hssm-section-disabled' : '') + (row.id === 'home' ? ' locked' : '') + '" data-page-id="' + esc(row.id) + '" draggable="' + (row.id !== 'home') + '" role="button" tabindex="0" aria-pressed="' + (row.id === selectedId) + '"><span class="hssm-drag-handle" aria-hidden="true">' + (row.id === 'home' ? '' : '⠿') + '</span><span class="hssm-section-name">' + esc(row.name) + '</span><span class="hssm-row-slot">' + (row.id === 'home' ? '' : '<label class="checkboxContainer hssm-native-section-toggle"><input is="emby-checkbox" type="checkbox" data-hssm-page-show="' + esc(row.id) + '"' + (row.enabled !== false ? ' checked' : '') + ' /><span>Show</span></label>') + '</span><span class="hssm-row-slot"></span><span class="hssm-row-slot hssm-origin-slot"><span class="hssm-badge ' + (row.origin === 'manager' ? 'hssm-badge-manager' : 'hssm-badge-jellyfin') + '">' + (row.origin === 'manager' ? 'Home Screen Manager' : 'Jellyfin') + '</span></span></div>').join('');
                 const item = selected();
                 editButton.disabled = !(item && item.origin === 'manager');
                 deleteButton.disabled = !(item && item.origin === 'manager' && item.id !== 'my-list');
@@ -723,10 +776,9 @@
                     let sections = valueOf(saved,'Sections','sections',[]) || [];
                     let layouts = (valueOf(saved,'PageLayouts','pageLayouts',[]) || []).map(layout => ({ PageId:String(valueOf(layout,'PageId','pageId','home')), SectionOrder:[...(valueOf(layout,'SectionOrder','sectionOrder',[]) || [])] }));
                     if (options.removeId) {
-                        sections = sections.map(section => String(valueOf(section,'PageId','pageId','home')) === options.removeId ? Object.assign({}, section, { PageId:'home' }) : section);
-                        const removedLayout = layouts.find(layout => layout.PageId === options.removeId), home = layouts.find(layout => layout.PageId === 'home') || { PageId:'home', SectionOrder:[] };
-                        if (!layouts.includes(home)) layouts.push(home);
-                        if (removedLayout) home.SectionOrder.push(...removedLayout.SectionOrder);
+                        options.removedSections = sections;
+                        options.removedLayouts = layouts;
+                        sections = sections.filter(section => String(valueOf(section,'PageId','pageId','home')) !== options.removeId);
                         layouts = layouts.filter(layout => layout.PageId !== options.removeId);
                     }
                     if (options.restoreSections) sections = options.restoreSections;
@@ -740,7 +792,7 @@
             addButton.addEventListener('click', () => { const id='manager-page-'+Date.now(), row={ id, name:'New Page', origin:'manager', enabled:true }; const index=rows.findIndex(item=>item.id===selectedId); rows.splice(index<0?rows.length:index+1,0,row); selectedId=id; editId=id; titleInput.value=row.name; settings.hidden=false; render(); titleInput.focus(); titleInput.select(); });
             editButton.addEventListener('click', () => { const row=selected(); if(!row||row.origin!=='manager')return; editId=row.id; titleInput.value=row.name; settings.hidden=false; status.textContent=''; titleInput.focus(); });
             saveButton.addEventListener('click', () => { const row=rows.find(item=>item.id===editId), title=titleInput.value.trim(); if(!row||!title){status.textContent='Enter a page title before saving.';return;} row.name=title; saveButton.disabled=true; persist().then(()=>{status.textContent='Page added/refreshed on the home screen.';render();},()=>{status.textContent='The page could not be saved.';}).finally(()=>{saveButton.disabled=false;}); });
-            deleteButton.addEventListener('click', () => { const row=selected(); if(!row||row.origin!=='manager'||row.id==='my-list')return; const snapshot={ row:Object.assign({},row), index:rows.indexOf(row), definition:row.definition, sections:valueOf(savedSnapshot,'Sections','sections',[]) || [], layouts:valueOf(savedSnapshot,'PageLayouts','pageLayouts',[]) || [] }; lastDeleted=snapshot; rows.splice(snapshot.index,1); selectedId=null; settings.hidden=true; render(); persist({removeId:row.id}).then(()=>{status.textContent='Page deleted. Its sections were moved to Home, and you can undo this deletion.';load();},()=>{rows.splice(snapshot.index,0,row);lastDeleted=null;render();status.textContent='The page could not be deleted.';}); });
+            deleteButton.addEventListener('click', () => { const row=selected(); if(!row||row.origin!=='manager'||row.id==='my-list')return; const snapshot={ row:Object.assign({},row), index:rows.indexOf(row), definition:row.definition, sections:valueOf(savedSnapshot,'Sections','sections',[]) || [], layouts:valueOf(savedSnapshot,'PageLayouts','pageLayouts',[]) || [] }, deleteOptions={removeId:row.id}; lastDeleted=snapshot; rows.splice(snapshot.index,1); selectedId=null; settings.hidden=true; render(); persist(deleteOptions).then(()=>{snapshot.sections=deleteOptions.removedSections||snapshot.sections;snapshot.layouts=deleteOptions.removedLayouts||snapshot.layouts;status.textContent='Page and its sections deleted. You can undo this deletion.';load();},()=>{rows.splice(snapshot.index,0,row);lastDeleted=null;render();status.textContent='The page could not be deleted.';}); });
             undoButton.addEventListener('click', () => { const record=lastDeleted; if(!record)return; rows.splice(Math.min(record.index,rows.length),0,record.row); lastDeleted=null; render(); persist({restoreDefinition:record.definition||{Id:record.row.id,Name:record.row.name},restoreSections:record.sections,restoreLayouts:record.layouts}).then(()=>{status.textContent='Page deletion undone.';load();},()=>{status.textContent='The page could not be restored.';}); });
             list.addEventListener('dragstart', event => { const row=event.target.closest('[data-page-id]'); if(!row||row.dataset.pageId==='home')return event.preventDefault(); draggedId=row.dataset.pageId; row.classList.add('dragging'); event.dataTransfer.effectAllowed='move'; });
             list.addEventListener('dragend', event => { const row=event.target.closest('[data-page-id]'); if(row)row.classList.remove('dragging'); draggedId=null; });
@@ -846,8 +898,13 @@
                 const timing = isSeasonalType() ? '' : '<section class="hssm-conditional-section"><h2>Rotation Timing Settings</h2><p class="fieldDescription">Choose how often the home screen changes from one rotating section draft to the next.</p><div class="hssm-rotation-grid"><div class="inputContainer"><label class="inputLabel inputLabelUnfocused">Rotate Every</label><input is="emby-input" type="number" min="1" max="525600" step="1" data-hssm-rotation-value value="' + esc(state.rotationValue) + '" /></div><div class="selectContainer"><label class="selectLabel">Rotation Time Unit</label><select is="emby-select" data-hssm-rotation-unit>' + selectOptions([['hours','Hours'],['days','Days'],['weeks','Weeks']], state.rotationUnit) + '</select></div></div></section>';
                 return sourceDraftPickerMarkup() + '<section class="hssm-conditional-section"><h2>' + title + '</h2><p class="fieldDescription">' + draftDescription + '</p><div class="hssm-source-drafts" data-hssm-source-drafts></div></section>' + timing + contentMarkup();
             }
+            function destinationPageName() {
+                const pages = window.HSSMDashboardPages || [];
+                const match = pages.find(item => String(item.id) === String(state.pageId || 'home'));
+                return match ? String(match.name) : (state.pageId === 'home' ? 'Home' : 'Selected Page');
+            }
             function contentMarkup(rowMode) {
-                return '<section class="hssm-conditional-section"><h2>Content In Section</h2><p class="fieldDescription">This selected content will be displayed in your section.</p><div data-hssm-content class="' + (rowMode ? 'hssm-row-preview' : '') + '"><p class="fieldDescription">No content is currently selected.</p></div></section><div class="hssm-actions"><button is="emby-button" type="button" class="raised button-submit" data-hssm-save-move>Save and Move On</button></div><p class="fieldDescription" data-hssm-save-status aria-live="polite"></p><section class="hssm-conditional-section hssm-order-settings" data-hssm-order-settings hidden><h2>Section Content Order Settings</h2><p class="fieldDescription">Select which order you want your home screen section content to appear in. Ordering by rating requires ratings to be in your media tags.</p><div class="selectContainer"><label class="selectLabel" for="hssmSectionContentOrder">Content Order</label><select is="emby-select" id="hssmSectionContentOrder" data-hssm-content-order>' + orderOptions() + '</select></div><div class="hssm-manual-order-editor" data-hssm-manual-order hidden><p class="fieldDescription">Drag the content below into the exact order you want it to appear in this home screen section.</p><div class="hssm-manual-order-list" data-hssm-manual-order-list></div></div></section><section class="hssm-conditional-section hssm-art-settings" data-hssm-art-settings hidden><h2>Section Art Appearance Settings</h2><p class="fieldDescription">Choose the size, Jellyfin image type, shape, and title-text visibility for the art in this home screen section.</p><div class="selectContainer"><label class="selectLabel" for="hssmSectionArtSize">Art Size</label><select is="emby-select" id="hssmSectionArtSize" data-hssm-art-size>' + artSizeOptions() + '</select></div><div class="selectContainer"><label class="selectLabel" for="hssmSectionArtType">Art Type</label><select is="emby-select" id="hssmSectionArtType" data-hssm-art-type>' + artTypeOptions() + '</select></div><div class="selectContainer"><label class="selectLabel" for="hssmSectionArtShape">Art Shape</label><select is="emby-select" id="hssmSectionArtShape" data-hssm-art-shape>' + artShapeOptions() + '</select></div><label class="checkboxContainer"><input is="emby-checkbox" type="checkbox" data-hssm-show-text' + (state.showText ? ' checked' : '') + ' /><span>Show text under the art</span></label><p class="fieldDescription">Show the media name and year beneath each image.</p>' + numberingMarkup() + '<div class="hssm-actions"><button is="emby-button" type="button" class="raised button-submit" data-hssm-apply-section>Add Section to Home Screen</button></div><p class="fieldDescription" data-hssm-apply-status aria-live="polite"></p></section>';
+                return '<section class="hssm-conditional-section"><h2>Content In Section</h2><p class="fieldDescription">This selected content will be displayed in your section.</p><div data-hssm-content class="' + (rowMode ? 'hssm-row-preview' : '') + '"><p class="fieldDescription">No content is currently selected.</p></div></section><div class="hssm-actions"><button is="emby-button" type="button" class="raised button-submit" data-hssm-save-move>Save and Move On</button></div><p class="fieldDescription" data-hssm-save-status aria-live="polite"></p><section class="hssm-conditional-section hssm-order-settings" data-hssm-order-settings hidden><h2>Section Content Order Settings</h2><p class="fieldDescription">Select which order you want your home screen section content to appear in. Ordering by rating requires ratings to be in your media tags.</p><div class="selectContainer"><label class="selectLabel" for="hssmSectionContentOrder">Content Order</label><select is="emby-select" id="hssmSectionContentOrder" data-hssm-content-order>' + orderOptions() + '</select></div><div class="hssm-manual-order-editor" data-hssm-manual-order hidden><p class="fieldDescription">Drag the content below into the exact order you want it to appear in this home screen section.</p><div class="hssm-manual-order-list" data-hssm-manual-order-list></div></div></section><section class="hssm-conditional-section hssm-art-settings" data-hssm-art-settings hidden><h2>Section Art Appearance Settings</h2><p class="fieldDescription">Choose the size, Jellyfin image type, shape, and title-text visibility for the regular section row. When this section is a Media Bar, these settings affect the matching section directly below the Media Bar, not the Media Bar itself.</p><div class="selectContainer"><label class="selectLabel" for="hssmSectionArtSize">Art Size</label><select is="emby-select" id="hssmSectionArtSize" data-hssm-art-size>' + artSizeOptions() + '</select></div><div class="selectContainer"><label class="selectLabel" for="hssmSectionArtType">Art Type</label><select is="emby-select" id="hssmSectionArtType" data-hssm-art-type>' + artTypeOptions() + '</select></div><div class="selectContainer"><label class="selectLabel" for="hssmSectionArtShape">Art Shape</label><select is="emby-select" id="hssmSectionArtShape" data-hssm-art-shape>' + artShapeOptions() + '</select></div><label class="checkboxContainer"><input is="emby-checkbox" type="checkbox" data-hssm-show-text' + (state.showText ? ' checked' : '') + ' /><span>Show text under the art</span></label><p class="fieldDescription">Show the media name and year beneath each image.</p>' + numberingMarkup() + '<div class="hssm-actions"><button is="emby-button" type="button" class="raised button-submit" data-hssm-apply-section>Add Section to ' + esc(destinationPageName()) + ' Page</button></div><p class="fieldDescription" data-hssm-apply-status aria-live="polite"></p></section>';
             }
             function orderOptions() {
                 return [
@@ -1218,7 +1275,7 @@
                     return existing.reduce((work, definition, index) => work.then(() => {
                         update('Refreshing section ' + (index + 1) + ' of ' + existing.length + ': ' + String(definition.Name || definition.name || 'Unnamed Section') + '…');
                         return refreshDefinition(definition, update).then(result => { refreshed.push(result.definition); if (result.skipped) stats.skipped += 1; else stats.refreshed += 1; });
-                    }), Promise.resolve()).then(() => ApiClient.ajax({ type:'POST', url:ApiClient.getUrl('HomeScreenSectionsManager/section-settings'), data:JSON.stringify({ JellyfinSectionLabelColor:saved.JellyfinSectionLabelColor || saved.jellyfinSectionLabelColor || '#00a4dc', ManagerSectionLabelColor:saved.ManagerSectionLabelColor || saved.managerSectionLabelColor || '#aa5cc3', MediaBarSectionLabelColor:saved.MediaBarSectionLabelColor || saved.mediaBarSectionLabelColor || '#c78000', Sections:refreshed, SectionOrder:saved.SectionOrder || saved.sectionOrder || [] }), contentType:'application/json', dataType:'json' })).then(() => { window.HSSMNotifyClientSettingsChanged(); return stats; });
+                    }), Promise.resolve()).then(() => ApiClient.ajax({ type:'POST', url:ApiClient.getUrl('HomeScreenSectionsManager/section-settings'), data:JSON.stringify({ JellyfinSectionLabelColor:saved.JellyfinSectionLabelColor || saved.jellyfinSectionLabelColor || '#00a4dc', ManagerSectionLabelColor:saved.ManagerSectionLabelColor || saved.managerSectionLabelColor || '#aa5cc3', MediaBarSectionLabelColor:saved.MediaBarSectionLabelColor || saved.mediaBarSectionLabelColor || '#c78000', Sections:refreshed, SectionOrder:saved.SectionOrder || saved.sectionOrder || [], Pages:saved.Pages || saved.pages || [], PageOrder:saved.PageOrder || saved.pageOrder || [], PageLayouts:saved.PageLayouts || saved.pageLayouts || [] }), contentType:'application/json', dataType:'json' })).then(() => { window.HSSMNotifyClientSettingsChanged(); return stats; });
                 });
             };
             function renderManual() {
@@ -1407,7 +1464,7 @@
                 return body && (body.Detail || body.detail || body.Message || body.message || body.Title || body.title) || (text && String(text).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()) || (error && (error.message || error.statusText)) || 'Jellyfin returned no error details.';
             }
             function loadHomeScreenClient() {
-                const version = "0.1.0.32";
+                const version = "0.1.0.33";
                 let style = document.querySelector("link[data-hssm-client-style]");
                 if (!style || style.dataset.hssmClientVersion !== version) {
                     if (style) style.remove();
@@ -1498,13 +1555,14 @@
                 state.artShape = artShape.value;
                 state.showText = showText.checked;
                 button.disabled = true;
-                applyStatus.textContent = 'Adding section to the home screen…';
+                const destination = destinationPageName();
+                applyStatus.textContent = 'Adding section to ' + destination + '…';
                 ensureJavaScriptInjectorLoader().then(() => ApiClient.ajax({ type:'POST', url:ApiClient.getUrl('HomeScreenSectionsManager/sections/' + encodeURIComponent(state.id) + '/apply'), data:JSON.stringify({ ContentOrder:state.contentOrder, ItemIds:state.contentItemOrder, ArtSize:state.artSize, ArtType:state.artType, ArtShape:state.artShape, ShowText:state.showText, IsVisible:state.isVisible, IsMediaBar:state.isMediaBar, DisplayTopCount:state.displayTop, ShowRankNumbers:state.showRankNumbers, RankNumberColorMode:state.rankNumberColorMode, RankNumberColorOne:state.rankNumberColorOne, RankNumberColorTwo:state.rankNumberColorTwo, RankNumberFontDataUrl:state.rankNumberFontDataUrl, ActivityMaxItems:state.activityMaxItems, ActivityMediaType:state.activityMediaType }), contentType:'application/json', dataType:'json' })).then(response => { window.HSSMNotifyClientSettingsChanged(); return loadHomeScreenClient().then(() => response); }).then(() => {
                     state.isApplied = true;
-                    applyStatus.textContent = 'Section added to the home screen. Open Home and hard-refresh once to see it.';
-                    if (window.Dashboard && typeof Dashboard.alert === 'function') Dashboard.alert('Section added to the home screen through JavaScript Injector. Open Home and hard-refresh once to see it.');
+                    applyStatus.textContent = 'Section added to ' + destination + '.';
+                    if (window.Dashboard && typeof Dashboard.alert === 'function') Dashboard.alert('Section added to ' + destination + ' through JavaScript Injector.');
                 }, error => {
-                    const message = 'Section could not be added to the home screen: ' + errorMessage(error);
+                    const message = 'Section could not be added to ' + destination + ': ' + errorMessage(error);
                     applyStatus.textContent = message;
                     if (window.Dashboard && typeof Dashboard.alert === 'function') Dashboard.alert(message);
                 }).finally(() => { button.disabled = false; });
@@ -1885,11 +1943,11 @@
                 refreshSectionsButton.disabled = true;
                 refreshSectionsStatus.textContent = 'Queued…';
                 window.HSSMRefreshSavedSections(message => { refreshSectionsStatus.textContent = message; }).then(stats => {
-                    const message = 'Home Screen sections refreshed. Updated ' + stats.refreshed + ' saved section' + (stats.refreshed === 1 ? '' : 's') + '; ' + stats.skipped + ' dynamic, manual, or unfinished section' + (stats.skipped === 1 ? '' : 's') + ' did not require refresh.';
+                    const message = 'Home screen and all pages sections refreshed. Updated ' + stats.refreshed + ' saved section' + (stats.refreshed === 1 ? '' : 's') + '; ' + stats.skipped + ' dynamic, manual, or unfinished section' + (stats.skipped === 1 ? '' : 's') + ' did not require refresh.';
                     refreshSectionsStatus.textContent = message;
                     Dashboard.alert(message);
                 }, error => {
-                    const message = 'Home Screen sections could not be refreshed. ' + (error && (error.responseText || error.message || error.statusText) || 'Jellyfin returned no error details.');
+                    const message = 'Home screen and all pages sections could not be refreshed. ' + (error && (error.responseText || error.message || error.statusText) || 'Jellyfin returned no error details.');
                     refreshSectionsStatus.textContent = message;
                     Dashboard.alert(message);
                 }).finally(() => { refreshSectionsButton.disabled = false; });

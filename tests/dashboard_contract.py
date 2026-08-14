@@ -70,17 +70,47 @@ def run() -> None:
         page.wait_for_selector("#hssmSectionPageSelect option[value='manager-page-movies']", state="attached")
 
         assert page.locator("#hssmPageList [data-page-id='home'] [data-hssm-page-show]").count() == 0
+        assert page.locator("#hssmPageList [data-page-id='home'] .hssm-drag-handle").text_content() == ""
         assert page.locator("#hssmPageList [data-page-id='my-list'] .hssm-badge-manager").count() == 1
+        page.locator("[data-tab='create-pages']").click()
+        favorites_show_x = page.locator("#hssmPageList [data-page-id='favorites'] .hssm-native-section-toggle").bounding_box()["x"]
+        my_list_show_x = page.locator("#hssmPageList [data-page-id='my-list'] .hssm-native-section-toggle").bounding_box()["x"]
+        assert abs(favorites_show_x - my_list_show_x) < 1
 
         page.locator("[data-tab='create-sections']").click()
+        native_show_x = page.locator("#hssmSectionList [data-section-id^='jellyfin-'] .hssm-native-section-toggle").first.bounding_box()["x"]
+        manager_show_x = page.locator("#hssmSectionList [data-section-id='manager-one'] .hssm-native-section-toggle").bounding_box()["x"]
+        assert abs(native_show_x - manager_show_x) < 1
         page.locator("#hssmSectionList [data-section-id='manager-one']").click()
         assert page.locator("#hssmMoveSectionButton").is_enabled()
+        assert page.locator("#hssmCopySectionButton").is_enabled()
+        page.locator("#hssmCopySectionButton").click()
+        page.locator("#hssmCopySectionPage").select_option("manager-page-movies")
+        page.locator("#hssmConfirmCopySectionButton").click()
+        page.wait_for_function("window.__sectionSettings.Sections.filter(s => s.PageId === 'manager-page-movies').length === 2")
+        assert page.evaluate("window.__sectionSettings.Sections.some(s => s.Id === 'manager-one' && s.PageId === 'home')")
         page.locator("#hssmMoveSectionButton").click()
         page.locator("#hssmMoveSectionPage").select_option("manager-page-movies")
         page.locator("#hssmConfirmMoveSectionButton").click()
         page.wait_for_function("window.__sectionSettings.Sections.find(s => s.Id === 'manager-one').PageId === 'manager-page-movies'")
 
+        page.locator("#hssmSectionPageSelect").select_option("manager-page-movies")
+        page.locator("#hssmAddSectionButton").click()
+        draft_id = page.locator("#hssmSectionList [data-hssm-inline-section-name]").locator("xpath=ancestor::*[@data-section-id]").get_attribute("data-section-id")
+        assert page.locator(f"#hssmSectionList [data-section-id='{draft_id}'] .hssm-badge-media").count() == 0
+        page.locator("input[name='hssmMediaBarSection'][value='yes']").check()
+        assert page.locator(f"#hssmSectionList [data-section-id='{draft_id}'] .hssm-badge-media").count() == 1
+        page.locator("input[name='hssmMediaBarSection'][value='no']").check()
+        assert page.locator(f"#hssmSectionList [data-section-id='{draft_id}'] .hssm-badge-media").count() == 0
+
         page.locator("[data-tab='create-pages']").click()
+        page.locator("#hssmPageList [data-page-id='manager-page-movies']").click()
+        page.locator("#hssmDeletePageButton").click()
+        page.wait_for_function("!window.__sectionSettings.Pages.some(p => p.Id === 'manager-page-movies')")
+        assert page.evaluate("!window.__sectionSettings.Sections.some(s => s.PageId === 'manager-page-movies')")
+        page.locator("#hssmUndoDeletePageButton").click()
+        page.wait_for_function("window.__sectionSettings.Pages.some(p => p.Id === 'manager-page-movies')")
+        assert page.evaluate("window.__sectionSettings.Sections.filter(s => s.PageId === 'manager-page-movies').length === 3")
         page.locator("#hssmPageList [data-page-id='manager-page-movies']").click()
         page.locator("#hssmAddPageButton").click()
         page.locator("#hssmPageTitleInput").fill("Shows")
@@ -88,9 +118,11 @@ def run() -> None:
         page.wait_for_function("window.__sectionSettings.Pages.some(p => p.Name === 'Shows')")
 
         page.locator("[data-tab='create-sections']").click()
+        page.locator("#hssmSectionPageSelect").select_option("manager-page-movies")
         page.locator("#hssmAddSectionButton").click()
         assert page.locator("#hssmNewSectionSettings").is_visible()
         assert page.locator("input[name='hssmMediaBarSection'][value='yes']").count() == 1
+        assert page.locator("#hssmSectionList .hssm-badge-media").count() == 1
         assert not page_errors, page_errors
         browser.close()
 

@@ -27,15 +27,17 @@ def base_item(item_id: str, name: str, item_type: str = "Movie") -> dict:
 def run() -> None:
     settings = {
         "Sections": [
+            {"Id": "manager-home-top", "Name": "Top 10", "PageId": "home", "Type": "top-10-50", "ItemIds": ["resume-one", "resume-two"], "DisplayTopCount": 10, "IsApplied": True, "IsVisible": True, "IsMediaBar": False},
+            {"Id": "manager-home-test", "Name": "Test Section", "PageId": "home", "Type": "manual-content", "ItemIds": ["resume-two"], "IsApplied": True, "IsVisible": True, "IsMediaBar": False},
             {"Id": "manager-movies-one", "Name": "Movie Picks", "PageId": "manager-page-movies", "Type": "manual-content", "ItemIds": ["resume-one"], "IsApplied": True, "IsVisible": True, "IsMediaBar": True},
             {"Id": "manager-movies-two", "Name": "More Movies", "PageId": "manager-page-movies", "Type": "manual-content", "ItemIds": ["resume-two"], "IsApplied": True, "IsVisible": True, "IsMediaBar": True},
             {"Id": "manager-movies-hidden", "Name": "Saved for Later", "PageId": "manager-page-movies", "Type": "manual-content", "ItemIds": ["liked-one"], "IsApplied": True, "IsVisible": False, "IsMediaBar": False},
         ],
-        "SectionOrder": ["jellyfin-0-resume"],
+        "SectionOrder": ["jellyfin-0-resume", "manager-home-top", "manager-home-test"],
         "Pages": [{"Id": "my-list", "Name": "My List"}, {"Id": "manager-page-movies", "Name": "Movies"}],
         "PageOrder": ["home", "favorites", "my-list", "manager-page-movies"],
         "PageLayouts": [
-            {"PageId": "home", "SectionOrder": ["jellyfin-0-resume"]},
+            {"PageId": "home", "SectionOrder": ["jellyfin-0-resume", "manager-home-top", "manager-home-test"]},
             {"PageId": "manager-page-movies", "SectionOrder": ["manager-movies-one", "manager-movies-two", "hidden:manager-movies-hidden"]},
         ],
         "EnableMyList": True,
@@ -90,13 +92,14 @@ def run() -> None:
             <html><head></head><body>
               <header class="skinHeader"><div class="headerLeft"></div><div class="headerTabs">
                 <div is="emby-tabs" class="tabs-viewmenubar" data-index="0"><div class="emby-tabs-slider">
-                  <button class="emby-tab-button emby-tab-button-active" data-index="0"><div class="emby-button-foreground">Home</div></button>
+                  <button class="emby-tab-button" data-index="0"><div class="emby-button-foreground">Home</div></button>
                   <button class="emby-tab-button" data-index="1"><div class="emby-button-foreground">Favorites</div></button>
                   <button class="emby-tab-button legacy-my-list" data-index="2"><div class="emby-button-foreground">My List</div></button>
+                  <button class="emby-tab-button emby-tab-button-active hssm-custom-page-tab" data-index="3" data-hssm-page-id="manager-page-movies"><div class="emby-button-foreground">Movies</div></button>
                 </div></div>
               </div></header>
               <div id="indexPage" class="page homePage libraryPage">
-                <div id="homeTab" class="tabContent pageTabContent is-active" data-index="0">
+                <div id="homeTab" class="tabContent pageTabContent" data-index="0">
                   <iframe class="featurediframe" src="about:blank" title="Abyss Spotlight"></iframe>
                   <div class="sections homeSectionsContainer">
                     <div class="section0 verticalSection"><h2 class="sectionTitle">Continue Watching</h2><div class="card" data-id="resume-one"></div><div class="card" data-id="resume-two"></div></div>
@@ -104,6 +107,7 @@ def run() -> None:
                 </div>
                 <div id="favoritesTab" class="tabContent pageTabContent" data-index="1"><div class="sections"></div></div>
                 <div class="tabContent pageTabContent hssm-my-list-page" data-index="2"><div class="sections"></div></div>
+                <div class="tabContent pageTabContent hssm-owned-custom-page is-active" data-index="3" data-hssm-page-id="manager-page-movies"><div class="sections homeSectionsContainer hssm-custom-page-container"></div></div>
               </div>
             </body></html>
             """
@@ -144,6 +148,9 @@ def run() -> None:
         if page.locator(".hssm-owned-media-bar").count() == 0:
             raise AssertionError({"errors": page_errors, "hash": page.evaluate("location.hash"), "status": page.evaluate("window.HomeScreenManagerClient && window.HomeScreenManagerClient.status()"), "body": page.locator("body").inner_html(), "requests": requests})
         page.wait_for_selector(".hssm-owned-media-bar", state="attached")
+        page.wait_for_function("document.querySelector('#homeTab').classList.contains('is-active')")
+        page.wait_for_selector("#homeTab [data-hssm-section-id='manager-home-top'] .hssm-client-card")
+        page.wait_for_selector("#homeTab [data-hssm-section-id='manager-home-test'] .hssm-client-card")
         page.wait_for_selector(".hssm-my-list-tab")
         page.wait_for_selector(".hssm-custom-page-tab[data-hssm-page-id='manager-page-movies']")
         page.wait_for_function("document.querySelector('.hssm-owned-media-bar').dataset.hssmAppliedImageType === 'primary'")
@@ -206,14 +213,14 @@ def run() -> None:
         page.wait_for_function("document.querySelectorAll('.hssm-owned-custom-page.is-active .hssm-section-media-bar').length === 2")
         custom_page_state = page.evaluate(
             """() => ({
-              title: document.querySelector('.hssm-owned-custom-page.is-active .hssm-page-context-title').textContent.trim(),
+              titleAbsent: !document.querySelector('.hssm-owned-custom-page.is-active .hssm-page-context-title'),
               visibleSections: document.querySelectorAll('.hssm-owned-custom-page.is-active [data-hssm-section-id]').length,
               hiddenSectionAbsent: !document.querySelector('[data-hssm-section-id="manager-movies-hidden"]'),
               mediaBars: document.querySelectorAll('.hssm-owned-custom-page.is-active .hssm-section-media-bar').length,
               lowerBarMarked: document.querySelector('.hssm-section-media-bar[data-hssm-media-section-id="manager-movies-two"]').classList.contains('hssm-media-bar-not-first')
             })"""
         )
-        assert custom_page_state == {"title": "Movies", "visibleSections": 2, "hiddenSectionAbsent": True, "mediaBars": 2, "lowerBarMarked": True}, custom_page_state
+        assert custom_page_state == {"titleAbsent": True, "visibleSections": 2, "hiddenSectionAbsent": True, "mediaBars": 2, "lowerBarMarked": True}, custom_page_state
         page.frame_locator(".hssm-section-media-bar[data-hssm-media-section-id='manager-movies-two']").locator("body.hssm-media-bar-top-gradient").wait_for(state="attached")
         settings["HideFavorites"] = True
         settings["PageOrder"] = ["home", "hidden:favorites", "my-list", "manager-page-movies"]

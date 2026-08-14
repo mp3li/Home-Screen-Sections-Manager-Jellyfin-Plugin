@@ -33,7 +33,7 @@ expanded into one live **Recently Added to …** row per eligible library; those
 rows can be shown, hidden, and reordered independently without rebuilding their
 Jellyfin-owned content. The page selector switches the editor among Home and
 every enabled or custom top-navigation page. Every row has a **Show** control;
-plugin rows can be edited, deleted, or moved to another page; and every row can
+plugin rows can be edited, deleted, moved, or copied to another page; and every row can
 be dragged. Plugin sections can independently be marked as Media Bars, including
 more than one Media Bar on the same page. Jellyfin, plugin-created, and Media Bar
 badges have separately configurable label colors.
@@ -63,8 +63,10 @@ random order on every browser reload, or a text-only manual list that can be
 dragged into the exact desired order.
 **Section Art Appearance Settings** then controls Extra Small through Extra
 Large sizing, official Jellyfin image types, poster/wide/square/circle shapes,
-and whether the media name and year appear beneath the art. **Add Section to
-Home Screen** saves these choices and enables the section in Jellyfin Web.
+and whether the media name and year appear beneath the art. For a Media Bar,
+these options control the matching regular row below the bar, not the bar itself.
+The final Add Section button names the selected page and enables the section in
+Jellyfin Web.
 
 Home Screen Manager uses a credited, MIT-licensed adaptation of Abyss's
 spotlight logic together with the installed Abyss spotlight stylesheet. This
@@ -76,9 +78,9 @@ Home row remains the Home Media Bar until explicit plugin Media Bars are selecte
 My Media and Latest Media remain normal Home rows. Continue Watching supplies up to 30 available items
 to the media bar instead of limiting the spotlight to only a few. Saved custom
 rows render independently of media-bar artwork and live settings reconciliation.
-The Main Settings **Refresh Home Screen Sections** button refreshes applied
+The Main Settings **Refresh Home Screen and All Pages Sections** button refreshes applied
 collection, library, tag, and Top 10–50 rules sequentially and performs one
-final plugin-settings save. Rotating, seasonal, and cross-user activity rows
+final plugin-settings save while preserving every page and page layout. Rotating, seasonal, and cross-user activity rows
 remain dynamic without periodic whole-library browser polling.
 
 Library-backed settings use Jellyfin library IDs as their primary identity and

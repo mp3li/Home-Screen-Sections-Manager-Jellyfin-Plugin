@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.0.33-test] - 2026-08-13
+
+- Restores saved Top 10 and other plugin sections on Home and removes the custom-page render-generation race that could leave rows stuck on Loading section content.
+- Resets stale custom-page selections to Home on a fresh site load or browser refresh and removes the extra page-name heading from plugin-created pages.
+- Adds Copy + Paste Section, aligned Show controls, immediate Media Bar label updates, page-aware Add Section button text, and removes the gray Home drag marker.
+- Keeps the mandatory first Home Media Bar while making Media Bar Yes/No authoritative on every other page. Art Appearance settings continue to control the matching row below each Media Bar.
+- Deletes a plugin page together with only its own sections; Undo Delete Page restores the page, its layout, and its sections. The renamed refresh action preserves and refreshes every remaining page layout.
+
 ## [0.1.0.32-test] - 2026-08-13
 
 - Adds global top-navigation page creation, editing, visibility, ordering, and per-page section layouts.
