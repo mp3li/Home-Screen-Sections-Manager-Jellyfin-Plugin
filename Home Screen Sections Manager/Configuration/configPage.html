@@ -40,6 +40,10 @@
         #homeScreenSectionsManagerPage .hssm-type-picker .hssm-type-option + .hssm-type-option { margin-top:.85em; }
         #homeScreenSectionsManagerPage .hssm-type-picker .checkboxContainer { margin:0; }
         #homeScreenSectionsManagerPage .hssm-type-option > .fieldDescription { display:block; margin:.1em 0 0 2.4em; overflow-wrap:anywhere; }
+        #homeScreenSectionsManagerPage .hssm-top-row-picker-group { margin-top:1.35em; }
+        #homeScreenSectionsManagerPage .hssm-top-row-picker-group h3 { margin:0 0 .3em; font-size:1.08em; line-height:1.3; }
+        #homeScreenSectionsManagerPage .hssm-top-row-picker-group > .fieldDescription { margin:0 0 .75em; }
+        #homeScreenSectionsManagerPage #hssmTopRowSelectedOrder { margin-top:.1em; }
         #homeScreenSectionsManagerPage button:disabled { opacity:.45; cursor:not-allowed; }
         #homeScreenSectionsManagerPage .hssm-customization-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(16em,1fr)); gap:1em; align-items:end; }
         #homeScreenSectionsManagerPage .hssm-customization-grid .inputContainer { margin:0; }
@@ -199,11 +203,11 @@
                 <h2>Top Row Section Content</h2>
                 <p class="fieldDescription">Select whether the Top Row should display collections or libraries, then choose the items that belong in it.</p>
                 <div class="hssm-type-picker" id="hssmTopRowTypePicker">
-                    <label class="hssm-type-card"><input is="emby-checkbox" type="radio" name="hssmTopRowType" value="multiple-collections-in-a-row" checked /><span><strong>Collections in a Row</strong><small>Display selected collections as navigation art.</small></span></label>
-                    <label class="hssm-type-card"><input is="emby-checkbox" type="radio" name="hssmTopRowType" value="libraries-in-a-row" /><span><strong>Libraries in a Row</strong><small>Display selected Jellyfin libraries as navigation art.</small></span></label>
+                    <div class="hssm-type-option"><label class="checkboxContainer"><input is="emby-checkbox" type="radio" name="hssmTopRowType" value="multiple-collections-in-a-row" checked /><span>Collections in a Row</span></label><span class="fieldDescription">Display selected collections as navigation art.</span></div>
+                    <div class="hssm-type-option"><label class="checkboxContainer"><input is="emby-checkbox" type="radio" name="hssmTopRowType" value="libraries-in-a-row" /><span>Libraries in a Row</span></label><span class="fieldDescription">Display selected Jellyfin libraries as navigation art.</span></div>
                 </div>
-                <div id="hssmTopRowSourcePicker" class="mcm-art-picker"><p class="fieldDescription">Loading collections and libraries…</p></div>
-                <div id="hssmTopRowSelectedOrder" class="hssm-manual-order-list" aria-label="Selected Top Row item order"></div>
+                <div class="hssm-top-row-picker-group"><h3>Select Top Row Content</h3><p class="fieldDescription">Choose the collections or libraries that should appear in the Top Row.</p><div id="hssmTopRowSourcePicker" class="mcm-art-picker"><p class="fieldDescription">Loading collections and libraries…</p></div></div>
+                <div class="hssm-top-row-picker-group"><h3>Selected Top Row Content Order</h3><p class="fieldDescription">Drag the selected navigation items below into the order you want.</p><div id="hssmTopRowSelectedOrder" class="hssm-manual-order-list" aria-label="Selected Top Row item order"></div></div>
             </section>
             <section class="hssm-section">
                 <h2>Section Content Order Settings</h2>
@@ -1726,7 +1730,7 @@
                 return body && (body.Detail || body.detail || body.Message || body.message || body.Title || body.title) || (text && String(text).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()) || (error && (error.message || error.statusText)) || 'Jellyfin returned no error details.';
             }
             function loadHomeScreenClient() {
-                const version = "0.1.0.43";
+                const version = "0.1.0.44";
                 let style = document.querySelector("link[data-hssm-client-style]");
                 if (!style || style.dataset.hssmClientVersion !== version) {
                     if (style) style.remove();

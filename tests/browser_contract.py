@@ -75,6 +75,7 @@ def run() -> None:
     watched_series["RecursiveItemCount"] = 3
     for index, episode in enumerate([watched_episode_one, watched_episode_two], start=1):
         episode["SeriesId"] = "watched-series"
+        episode["SeriesName"] = "Completed Series"
         episode["ParentIndexNumber"] = 1
         episode["IndexNumber"] = index
         episode["PremiereDate"] = f"2026-07-{index:02d}T00:00:00Z"
@@ -147,7 +148,7 @@ def run() -> None:
         page.goto("http://jellyfin.test/web/#/home")
         page.set_content(
             """
-            <html><head><style>.cardPadder-overflowPortrait{padding-bottom:150%}.cardScalable{position:relative}.cardContent{position:absolute;inset:0}.cardOverlayContainer{position:absolute;inset:0;background:rgba(0,0,0,.5);opacity:0}.card-hoverable:hover .cardOverlayContainer{opacity:1}</style></head><body>
+            <html><head><style>.cardPadder-overflowPortrait{padding-bottom:150%}.cardPadder-backdrop{padding-bottom:56.25%}.cardScalable{position:relative}.cardContent{position:absolute;inset:0}.cardOverlayContainer{position:absolute;inset:0;background:rgba(0,0,0,.5);opacity:0}.card-hoverable:hover .cardOverlayContainer{opacity:1}.cardOverlayFab-primary:hover{transform:scale(1.2)}.hssm-my-list-button:hover{transform:scale(1.08)}</style></head><body>
               <header class="skinHeader"><div class="headerLeft"></div><div class="headerTabs">
                 <div is="emby-tabs" class="tabs-viewmenubar" data-index="0"><div class="emby-tabs-slider">
                   <button class="emby-tab-button" data-index="0"><div class="emby-button-foreground">Home</div></button>
@@ -227,13 +228,16 @@ def run() -> None:
             noHeart:row.querySelectorAll('.hssm-my-list-button').length===0,
             hasDarkHover:!!row.querySelector('.hssm-top-row-hover'),
             href:card.getAttribute('href'),
-            backdrop:getComputedStyle(row,'::before').backdropFilter || getComputedStyle(row,'::before').webkitBackdropFilter,
+            backdropFilter:getComputedStyle(row,'::before').backdropFilter || getComputedStyle(row,'::before').webkitBackdropFilter,
+            standardCard:card.classList.contains('card') && !!card.querySelector('.cardBox .cardScalable .cardPadder.cardPadder-backdrop + .cardImageContainer'),
+            gap:parseFloat(getComputedStyle(track).gap),
+            normalGap:parseFloat(getComputedStyle(document.querySelector('#homeTab [data-hssm-section-id="manager-home-test"] .hssm-client-items')).gap),
             width:card.getBoundingClientRect().width,
             scrollable:track.scrollWidth>track.clientWidth
           };
         }""")
-        assert top_row_state["firstChild"] and top_row_state["host"] and top_row_state["noArrows"] and top_row_state["noPlay"] and top_row_state["noHeart"] and top_row_state["hasDarkHover"], top_row_state
-        assert "id=top-row-1" in top_row_state["href"] and "blur" in top_row_state["backdrop"] and top_row_state["scrollable"], top_row_state
+        assert top_row_state["firstChild"] and top_row_state["host"] and top_row_state["noArrows"] and top_row_state["noPlay"] and top_row_state["noHeart"] and top_row_state["hasDarkHover"] and top_row_state["standardCard"], top_row_state
+        assert "id=top-row-1" in top_row_state["href"] and "blur" not in top_row_state["backdropFilter"] and top_row_state["scrollable"] and abs(top_row_state["gap"] - top_row_state["normalGap"]) < 1, top_row_state
         top_row_scroll = page.locator(".hssm-top-row-track").evaluate("""track => { const before=track.scrollLeft; track.dispatchEvent(new WheelEvent('wheel',{deltaY:260,bubbles:true,cancelable:true})); return {before,after:track.scrollLeft}; }""")
         assert top_row_scroll["after"] > top_row_scroll["before"], top_row_scroll
         page.wait_for_selector("#homeTab .section0.hssm-native-art-override.hssm-size-large.hssm-shape-circle.hssm-art-thumb")
@@ -249,6 +253,8 @@ def run() -> None:
         assert hidden_name_spacing >= 0.8, hidden_name_spacing
         extra_small_wide_width = page.locator("#homeTab [data-hssm-section-id='manager-home-test'] .hssm-client-card").evaluate("node => node.getBoundingClientRect().width")
         assert abs(extra_small_wide_width - top_row_state["width"]) < 1, {"section": extra_small_wide_width, "topRow": top_row_state["width"]}
+        top_row_radius = page.evaluate("""() => ({top:getComputedStyle(document.querySelector('.hssm-top-row-card .cardImageContainer')).borderRadius,section:getComputedStyle(document.querySelector('#homeTab [data-hssm-section-id="manager-home-test"] .cardImageContainer')).borderRadius})""")
+        assert top_row_radius["top"] == top_row_radius["section"], top_row_radius
         page.wait_for_selector("#homeTab [data-hssm-section-id='manager-home-top'] .hssm-my-list-button")
         page.wait_for_selector("#homeTab [data-hssm-section-id='manager-home-test'] .hssm-my-list-button")
         page.wait_for_selector("#homeTab .section0 .hssm-my-list-button")
@@ -265,6 +271,15 @@ def run() -> None:
         assert proportional_controls["mediumPlay"] > proportional_controls["smallPlay"], proportional_controls
         assert proportional_controls["mediumHeart"] > proportional_controls["smallHeart"], proportional_controls
         assert proportional_controls["largeNativeHeart"] > proportional_controls["mediumHeart"], proportional_controls
+        small_play = page.locator("#homeTab [data-hssm-section-id='manager-home-test'] .cardOverlayFab-primary")
+        small_play.hover()
+        small_play_hover_width = small_play.evaluate("node => node.getBoundingClientRect().width")
+        assert small_play_hover_width > proportional_controls["smallPlay"] and small_play_hover_width <= proportional_controls["mediumPlay"], {"before": proportional_controls["smallPlay"], "hover": small_play_hover_width, "normal": proportional_controls["mediumPlay"]}
+        small_heart = page.locator("#homeTab [data-hssm-section-id='manager-home-test'] .hssm-my-list-button")
+        small_heart.hover()
+        page.wait_for_timeout(220)
+        small_heart_hover_width = small_heart.evaluate("node => node.getBoundingClientRect().width")
+        assert small_heart_hover_width > proportional_controls["smallHeart"] and small_heart_hover_width <= proportional_controls["mediumHeart"], {"before": proportional_controls["smallHeart"], "hover": small_heart_hover_width, "normal": proportional_controls["mediumHeart"]}
         assert page.locator("#homeTab [data-hssm-section-id='manager-home-top'] .hssm-rank-number").count() == 2
         assert page.locator("#homeTab [data-hssm-section-id='manager-home-top']").evaluate("node => node.classList.contains('hssm-top-ranked')")
         rank_geometry = page.locator("#homeTab [data-hssm-section-id='manager-home-top'] .hssm-rank-number").first.evaluate("node => { const box=node.getBoundingClientRect(), scalable=node.closest('.cardScalable').getBoundingClientRect(), style=getComputedStyle(node), image=getComputedStyle(node.closest('.cardScalable').querySelector(':scope > .cardImageContainer')); return {width:box.width,height:box.height,fontSize:parseFloat(style.fontSize),display:style.display,visibility:style.visibility,bottomDelta:Math.abs(box.bottom-scalable.bottom),rankZ:Number(style.zIndex),imageZ:Number(image.zIndex),backgroundImage:style.backgroundImage,filter:style.filter,shadow:getComputedStyle(node.closest('.hssm-client-section')).getPropertyValue('--hssm-rank-shadow').trim()}; }")
@@ -278,6 +293,10 @@ def run() -> None:
         page.wait_for_selector(".hssm-my-list-tab")
         page.wait_for_selector(".hssm-custom-page-tab[data-hssm-page-id='manager-page-movies']")
         page.wait_for_function("document.querySelector('.hssm-owned-media-bar').dataset.hssmAppliedImageType === 'primary'")
+        page.wait_for_function("document.querySelector('.hssm-top-row').style.backgroundImage.includes('/Items/')")
+        shifted_top_geometry = page.evaluate("""() => { const row=document.querySelector('.hssm-top-row').getBoundingClientRect(), controls=document.querySelector('.headerLeft').getBoundingClientRect(), index=document.querySelector('#indexPage'); return {rowBottom:row.bottom,controlsTop:controls.top,rowHeight:row.height,pageShift:parseFloat(getComputedStyle(index).marginTop)}; }""")
+        assert shifted_top_geometry["controlsTop"] >= shifted_top_geometry["rowBottom"] - 1, shifted_top_geometry
+        assert shifted_top_geometry["pageShift"] >= shifted_top_geometry["rowHeight"] - 1, shifted_top_geometry
 
         result = page.evaluate(
             """
@@ -308,7 +327,7 @@ def run() -> None:
         page.wait_for_function("document.querySelector('.hssm-owned-media-bar').dataset.hssmAppliedSlowZoom === 'true'")
         page.wait_for_function("document.querySelector('.hssm-owned-media-bar').contentDocument.querySelector('#backdrop-img').getAnimations().length > 0")
         first_title = media_frame.locator("#title").text_content()
-        page.wait_for_timeout(1200)
+        page.wait_for_timeout(2200)
         second_title = media_frame.locator("#title").text_content()
         assert first_title != second_title, {"first": first_title, "second": second_title}
         assert any("/Items/resume-one/Images/Primary" in url for url in requests), requests
@@ -371,6 +390,9 @@ def run() -> None:
         page.wait_for_function("document.querySelectorAll('.hssm-owned-custom-page.is-active .hssm-section-media-bar').length === 3")
         assert page.locator(".hssm-owned-custom-page.is-active [data-hssm-section-id='manager-watch-again'] .hssm-client-card").first.get_attribute("data-id") == "watched-episode-two"
         assert page.locator(".hssm-owned-custom-page.is-active [data-hssm-section-id='manager-watch-again'] .hssm-client-card[data-type='Episode']").count() == 1
+        watch_again_episode = page.locator(".hssm-owned-custom-page.is-active [data-hssm-section-id='manager-watch-again'] .hssm-client-card[data-id='watched-episode-two']")
+        assert watch_again_episode.locator(".hssm-card-title").inner_text().strip() == "A Completed Episode With A Deliberately Very Long Title For Marquee Testing S01E02 Completed Series"
+        assert "/Items/watched-series/Images/Primary" in watch_again_episode.locator(".cardContent").get_attribute("style")
         custom_page_state = page.evaluate(
             """() => ({
               titleAbsent: !document.querySelector('.hssm-owned-custom-page.is-active .hssm-page-context-title'),

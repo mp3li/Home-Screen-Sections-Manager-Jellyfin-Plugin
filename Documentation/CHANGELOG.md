@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.0.44-test] - 2026-08-14
+
+- Shows the newest completed Watch Again episode with its Series Primary image and the title format **Episode Title S00E00 Series Name**, while retaining completed movies and one episode per series.
+- Rebuilds Top Row navigation items with the same card hierarchy, Extra Small sizing, wide-art spacing, and corner rounding used by ordinary sections.
+- Moves the media bar and page content down by the Top Row's actual height, keeps header controls directly beneath it, removes the glass overlay, and blends the Top Row with the active media-bar artwork without covering the media bar.
+- Restores hover enlargement for small play, heart, and removal controls while reducing their resting sizes so the enlarged controls remain proportional to small artwork.
+- Adds more separation when a section name is hidden, allows long section headings to use available width, and restores the dashboard's established type-picker typography and spacing throughout Top Row settings.
+
 ## [0.1.0.43-test] - 2026-08-14
 
 - Adds the default-disabled **Top Row Settings** tab with per-page visibility, Collections in a Row or Libraries in a Row content, drag ordering, constrained Extra Small non-poster art, and Add/Refresh behavior.

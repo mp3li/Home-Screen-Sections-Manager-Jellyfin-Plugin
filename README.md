@@ -32,7 +32,10 @@ logo, media-bar timing, and media-bar image type.
 library navigation row above Jellyfin's header controls. It can be enabled on
 any selected Home screen pages, uses constrained Extra Small non-poster art,
 and opens its selected collections or libraries without adding row arrows,
-heart buttons, or hover Play controls.
+heart buttons, or hover Play controls. The Top Row uses the same card geometry
+as ordinary Extra Small sections, shifts the header and page content downward
+instead of covering the Media Bar, and blends its background with the active
+Media Bar artwork.
 
 **Create and Manage Home Screen Sections** shows Jellyfin’s current home rows
 together with saved plugin sections. Jellyfin’s native Latest Media area is
@@ -65,6 +68,9 @@ metadata-tag, and library pickers reuse the same interface and preview patterns
 as Collection Manager. Poster-based Content In Section previews show 20 items
 per page. **Save and Move On** stores the current definition and reveals
 **Section Content Order Settings**.
+Watch Again combines completed movies with only the newest completed episode
+from each watched series for the signed-in user. Episode cards use their Series
+Primary image and display **Episode Title S00E00 Series Name**.
 Each section can be ordered by title, release date, date added, rating, a new
 random order on every browser reload, or a text-only manual list that can be
 dragged into the exact desired order.

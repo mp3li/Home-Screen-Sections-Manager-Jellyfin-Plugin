@@ -89,7 +89,7 @@ def run() -> None:
                 getPluginConfiguration:()=>Promise.resolve({CustomJavaScripts:[]}),
                 updatePluginConfiguration:()=>Promise.resolve()
               };
-              window.HomeScreenManagerClient = { version:'0.1.0.43', refresh(){} };
+              window.HomeScreenManagerClient = { version:'0.1.0.44', refresh(){} };
               window.CustomElements = { upgradeSubtree(){} };
             }
             """
@@ -119,7 +119,11 @@ def run() -> None:
         assert page.locator("#hssmTopRowPagePicker [data-hssm-top-row-page]").count() == 4
         assert page.locator("#hssmTopRowPagePicker [data-hssm-top-row-page='home']").is_checked()
         assert not page.locator("#hssmTopRowPagePicker [data-hssm-top-row-page='favorites']").is_checked()
-        assert page.locator("#hssmTopRowTypePicker .hssm-type-card strong").all_text_contents() == ["Collections in a Row", "Libraries in a Row"]
+        assert page.locator("#hssmTopRowTypePicker .hssm-type-option .checkboxContainer span").all_text_contents() == ["Collections in a Row", "Libraries in a Row"]
+        type_spacing = page.locator("#hssmTopRowTypePicker .hssm-type-option").first.evaluate("node => { const label=node.querySelector('.checkboxContainer').getBoundingClientRect(), description=node.querySelector('.fieldDescription').getBoundingClientRect(); return {display:getComputedStyle(node.querySelector('.fieldDescription')).display,gap:description.top-label.bottom}; }")
+        assert type_spacing["display"] == "block" and type_spacing["gap"] >= 0, type_spacing
+        picker_spacing = page.locator("#hssmTopRowSourcePicker").evaluate("node => { const group=node.closest('.hssm-top-row-picker-group').getBoundingClientRect(), previous=node.closest('.hssm-top-row-picker-group').previousElementSibling.getBoundingClientRect(), order=node.closest('.hssm-top-row-picker-group').nextElementSibling.getBoundingClientRect(); return {afterTypes:group.top-previous.bottom,beforeOrder:order.top-group.bottom}; }")
+        assert picker_spacing["afterTypes"] >= 15 and picker_spacing["beforeOrder"] >= 15, picker_spacing
         assert page.locator("#hssmTopRowArtSize").input_value() == "extra-small"
         assert page.locator("#hssmTopRowArtSize").is_disabled()
         assert "Poster / Tall Rectangle" not in page.locator("#hssmTopRowArtShape option").all_text_contents()

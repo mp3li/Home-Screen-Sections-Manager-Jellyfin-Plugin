@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    var CLIENT_VERSION = "0.1.0.43";
+    var CLIENT_VERSION = "0.1.0.44";
     if (window.HomeScreenManagerClient) {
         if (window.HomeScreenManagerClient.version === CLIENT_VERSION) {
             window.HomeScreenManagerClient.refresh();
@@ -772,6 +772,7 @@
         var name = String(prop(item, 'Name', 'name', ''));
         var type = String(prop(item, 'Type', 'type', ''));
         var isMyList = String(prop(section, 'Id', 'id', '')) === 'my-list' || String(prop(section, 'Type', 'type', '')) === 'my-list-content';
+        var isWatchAgain = String(prop(section, 'Type', 'type', '')) === 'watch-again';
         var seriesId = String(prop(item, 'SeriesId', 'seriesId', ''));
         var seriesName = String(prop(item, 'SeriesName', 'seriesName', ''));
         var year = prop(item, 'ProductionYear', 'productionYear', '');
@@ -781,14 +782,21 @@
         var href = '#/details?id=' + encodeURIComponent(id) + (serverId ? '&serverId=' + encodeURIComponent(serverId) : '');
         var seriesHref = '#/details?id=' + encodeURIComponent(seriesId || id) + (serverId ? '&serverId=' + encodeURIComponent(serverId) : '');
         var shape = cardShape(section);
-        var imageItem = isMyList && type === 'Episode' && seriesId ? Object.assign({}, item, { Id:seriesId, ImageTags:{ Primary:prop(item, 'SeriesPrimaryImageTag', 'seriesPrimaryImageTag', '') } }) : item;
-        var imageUrl = cardImage(imageItem, section);
+        var useSeriesPrimary = type === 'Episode' && seriesId && (isMyList || isWatchAgain);
+        var imageItem = useSeriesPrimary ? Object.assign({}, item, { Id:seriesId, ImageTags:{ Primary:prop(item, 'SeriesPrimaryImageTag', 'seriesPrimaryImageTag', '') || 'series-primary' }, BackdropImageTags:[], ParentBackdropImageTags:[] }) : item;
+        var imageUrl = cardImage(imageItem, isWatchAgain && type === 'Episode' ? Object.assign({}, section, { ArtType:'primary', artType:'primary' }) : section);
         var showText = prop(section, 'ShowText', 'showText', true) !== false;
         var imageStyle = imageUrl ? ' style="background-image:url(&quot;' + escapeHtml(imageUrl) + '&quot;)"' : '';
         var footer = '';
         var textClass = 'cardText hssm-card-text' + (shape.name === 'circle' ? ' cardTextCentered hssm-card-text-centered' : ' hssm-card-text-left');
         if (showText && isMyList && type === 'Episode') {
             footer = '<div class="' + textClass + ' cardText-first hssm-card-title"><bdi><a is="emby-linkbutton" href="' + escapeHtml(seriesHref) + '" class="itemAction textActionButton">' + escapeHtml(seriesName || 'Unknown Series') + '</a></bdi></div><div class="' + textClass + ' cardText-secondary hssm-card-year"><bdi><a is="emby-linkbutton" href="' + escapeHtml(href) + '" class="itemAction textActionButton">' + escapeHtml(name) + '</a></bdi></div>';
+        } else if (showText && isWatchAgain && type === 'Episode') {
+            var seasonNumber = Math.max(0, Number(prop(item, 'ParentIndexNumber', 'parentIndexNumber', 0)) || 0);
+            var episodeNumber = Math.max(0, Number(prop(item, 'IndexNumber', 'indexNumber', 0)) || 0);
+            var episodeCode = 'S' + String(seasonNumber).padStart(2, '0') + 'E' + String(episodeNumber).padStart(2, '0');
+            var watchAgainTitle = [name, episodeCode, seriesName].filter(Boolean).join(' ');
+            footer = '<div class="' + textClass + ' cardText-first hssm-card-title"><bdi><a is="emby-linkbutton" href="' + escapeHtml(href) + '" class="itemAction textActionButton">' + escapeHtml(watchAgainTitle) + '</a></bdi></div>';
         } else if (showText) {
             footer = '<div class="' + textClass + ' cardText-first hssm-card-title"><bdi><a is="emby-linkbutton" href="' + escapeHtml(href) + '" class="itemAction textActionButton">' + escapeHtml(name) + '</a></bdi></div>' + (year ? '<div class="' + textClass + ' cardText-secondary hssm-card-year"><bdi>' + escapeHtml(year) + '</bdi></div>' : '');
         }
@@ -1650,6 +1658,7 @@
                 frame.dataset.hssmAppliedImageType = reportedImageType;
                 frame.dataset.hssmAppliedSlowZoom = reportedSlowZoom;
                 delete frame.dataset.hssmMediaBarPending;
+                syncTopRowBackdrop(frame, event.data);
             }
         });
     }
@@ -2693,11 +2702,36 @@
             header.classList.remove('hssm-top-row-host');
         });
         document.body.classList.remove('hssm-top-row-enabled');
+        document.body.classList.remove('hssm-top-row-shape-wide', 'hssm-top-row-shape-square', 'hssm-top-row-shape-circle');
     }
 
     function activeTopRowPageId() {
         var container = activeManagedSectionContainer();
         return pageIdForContainer(container) || 'home';
+    }
+
+    function activeTopRowMediaBarFrame() {
+        var container = activeManagedSectionContainer();
+        if (!container) return null;
+        var homeFrame = mediaBarFrameForContainer(container);
+        if (homeFrame) return homeFrame;
+        return Array.from(container.querySelectorAll(':scope > .hssm-section-media-bar')).find(function (frame) {
+            return getComputedStyle(frame).display !== 'none';
+        }) || null;
+    }
+
+    function syncTopRowBackdrop(frame, renderedData) {
+        var row = document.querySelector('.hssm-top-row');
+        if (!row) return;
+        frame = frame || activeTopRowMediaBarFrame();
+        if (!frame || frame !== activeTopRowMediaBarFrame()) return;
+        var image = null;
+        try { image = frame.contentDocument && frame.contentDocument.querySelector('#backdrop-img'); } catch (_) {}
+        var url = String(renderedData && renderedData.backdropUrl || image && (image.currentSrc || image.src) || '');
+        if (!url) return;
+        var position = String(renderedData && renderedData.backdropPosition || image && image.style.objectPosition || 'center 20%');
+        row.style.backgroundImage = 'url(' + JSON.stringify(url) + ')';
+        row.style.backgroundPosition = position;
     }
 
     function topRowCard(item, section) {
@@ -2707,8 +2741,8 @@
         var href = '#/details?id=' + encodeURIComponent(id) + (serverId ? '&serverId=' + encodeURIComponent(serverId) : '');
         var imageUrl = cardImage(item, section);
         var imageStyle = imageUrl ? ' style="background-image:url(&quot;' + escapeHtml(imageUrl) + '&quot;)"' : '';
-        var shape = cardShape(section).name;
-        return '<a is="emby-linkbutton" class="hssm-top-row-card hssm-top-row-shape-' + shape + ' itemAction" data-action="link" data-id="' + escapeHtml(id) + '" href="' + escapeHtml(href) + '" aria-label="' + escapeHtml(name) + '"><span class="hssm-top-row-art"' + imageStyle + '><span class="hssm-top-row-hover"></span></span></a>';
+        var shape = cardShape(section);
+        return '<a is="emby-linkbutton" class="card ' + shape.card + ' card-hoverable hssm-client-card hssm-top-row-card itemAction" data-action="link" data-id="' + escapeHtml(id) + '" href="' + escapeHtml(href) + '" aria-label="' + escapeHtml(name) + '"><div class="cardBox"><div class="cardScalable"><div class="cardPadder ' + shape.padder + '"></div><span class="cardImageContainer coveredImage cardContent hssm-top-row-art"' + imageStyle + '><span class="hssm-top-row-hover"></span></span></div></div></a>';
     }
 
     function bindTopRowScroller(row) {
@@ -2765,15 +2799,19 @@
         var existing = header.querySelector(':scope > .hssm-top-row');
         header.classList.add('hssm-top-row-host');
         document.body.classList.add('hssm-top-row-enabled');
+        var rowShape = cardShape(section).name;
+        document.body.classList.remove('hssm-top-row-shape-wide', 'hssm-top-row-shape-square', 'hssm-top-row-shape-circle');
+        document.body.classList.add('hssm-top-row-shape-' + rowShape);
         if (existing && topRowRenderKey === signature) return;
         if (existing) existing.remove();
         topRowRenderKey = signature;
         var loadSequence = ++topRowLoadSequence;
         var row = document.createElement('nav');
-        row.className = 'hssm-top-row';
+        row.className = 'hssm-top-row hssm-size-extra-small hssm-shape-' + rowShape + ' hssm-art-' + String(prop(section, 'ArtType', 'artType', 'automatic'));
         row.setAttribute('aria-label', 'Top Row');
         row.innerHTML = '<div class="hssm-top-row-track" aria-busy="true"></div>';
         header.insertBefore(row, header.firstChild);
+        syncTopRowBackdrop();
         queryIds(sourceIds).then(function (items) {
             if (loadSequence !== topRowLoadSequence || !row.isConnected || topRowRenderKey !== signature) return;
             var ordered = orderItems(items, section);

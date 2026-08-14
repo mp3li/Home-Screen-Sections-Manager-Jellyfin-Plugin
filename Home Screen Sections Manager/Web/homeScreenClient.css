@@ -164,11 +164,11 @@
 
 .hssm-size-extra-small {
     --hssm-card-width: 6.5em;
-    --hssm-hover-control-size: 2.15em;
-    --hssm-hover-control-half: -1.075em;
-    --hssm-hover-icon-size: 1.12em;
-    --hssm-heart-control-size: 1.6em;
-    --hssm-heart-icon-size: 1em;
+    --hssm-hover-control-size: 1.8em;
+    --hssm-hover-control-half: -0.9em;
+    --hssm-hover-icon-size: 0.95em;
+    --hssm-heart-control-size: 1.35em;
+    --hssm-heart-icon-size: 0.85em;
 }
 
 .hssm-size-extra-small.hssm-shape-wide {
@@ -177,11 +177,11 @@
 
 .hssm-size-small {
     --hssm-card-width: 8em;
-    --hssm-hover-control-size: 2.55em;
-    --hssm-hover-control-half: -1.275em;
-    --hssm-hover-icon-size: 1.3em;
-    --hssm-heart-control-size: 1.9em;
-    --hssm-heart-icon-size: 1.18em;
+    --hssm-hover-control-size: 2.2em;
+    --hssm-hover-control-half: -1.1em;
+    --hssm-hover-icon-size: 1.12em;
+    --hssm-heart-control-size: 1.65em;
+    --hssm-heart-icon-size: 1em;
 }
 
 .hssm-size-large {
@@ -239,7 +239,16 @@
 
 .hssm-client-section.hssm-hide-section-name,
 .hssm-native-art-override.hssm-native-hide-section-name {
-    padding-top: 0.9em;
+    padding-top: 1.75em;
+}
+
+.hssm-client-section > .sectionTitleContainer,
+.hssm-client-section > .sectionTitleContainer > .sectionTitle {
+    max-width: none !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+    white-space: normal !important;
+    width: auto !important;
 }
 
 .hssm-client-section:not(.hssm-shape-circle) .hssm-card-title,
@@ -346,24 +355,15 @@
     font-size: var(--hssm-hover-icon-size, 1.5em) !important;
 }
 
-.hssm-size-extra-small .cardOverlayFab-primary:hover,
-.hssm-size-extra-small .cardOverlayFab-primary:focus,
-.hssm-size-extra-small .cardOverlayFab-primary:focus-visible,
-.hssm-size-small .cardOverlayFab-primary:hover,
-.hssm-size-small .cardOverlayFab-primary:focus,
-.hssm-size-small .cardOverlayFab-primary:focus-visible {
-    transform: none !important;
-}
-
-.hssm-size-extra-small .hssm-remove-row-button:hover,
-.hssm-size-extra-small .hssm-remove-row-button:focus-visible,
-.hssm-size-small .hssm-remove-row-button:hover,
-.hssm-size-small .hssm-remove-row-button:focus-visible {
-    transform: none !important;
-}
-
 .hssm-shape-circle .hssm-my-list-button {
     z-index: 20;
+}
+
+.hssm-client-section .hssm-my-list-button:hover,
+.hssm-client-section .hssm-my-list-button:focus-visible,
+.hssm-native-art-override .hssm-my-list-button:hover,
+.hssm-native-art-override .hssm-my-list-button:focus-visible {
+    transform: scale(1.08);
 }
 
 .hssm-shape-circle .cardText,
@@ -414,13 +414,29 @@
 
 .skinHeader.hssm-top-row-host {
     box-sizing: border-box;
-    padding-top: 6.15em !important;
+    padding-top: var(--hssm-top-row-height, 7em) !important;
     position: relative;
 }
 
+body.hssm-top-row-enabled {
+    --hssm-top-row-height: 7em;
+}
+
+body.hssm-top-row-enabled.hssm-top-row-shape-wide {
+    --hssm-top-row-height: 4.6em;
+}
+
+body.hssm-top-row-enabled #indexPage {
+    margin-top: var(--hssm-top-row-height, 7em) !important;
+}
+
 .hssm-top-row {
+    background-color: #090b11;
+    background-position: center 20%;
+    background-repeat: no-repeat;
+    background-size: cover;
     box-sizing: border-box;
-    height: 6.15em;
+    height: var(--hssm-top-row-height, 7em);
     left: 0;
     overflow: hidden;
     position: absolute;
@@ -431,8 +447,7 @@
 }
 
 .hssm-top-row::before {
-    background: linear-gradient(180deg, rgba(7, 10, 16, 0.64) 0%, rgba(7, 10, 16, 0.32) 60%, rgba(7, 10, 16, 0) 100%);
-    backdrop-filter: blur(9px) saturate(118%);
+    background: linear-gradient(180deg, rgba(7, 10, 16, 0.2) 0%, rgba(7, 10, 16, 0.08) 55%, rgba(7, 10, 16, 0) 100%);
     content: '';
     inset: 0;
     pointer-events: none;
@@ -443,11 +458,11 @@
     align-items: center;
     box-sizing: border-box;
     display: flex;
-    gap: 0.58em;
+    gap: 0.8em;
     height: 100%;
     overflow-x: auto;
     overflow-y: hidden;
-    padding: 0.52em 3.3% 0.78em;
+    padding: 0.24em 3.3% 0.26em;
     position: relative;
     scrollbar-width: none;
     touch-action: pan-x;
@@ -460,42 +475,15 @@
 }
 
 .hssm-top-row-card {
-    box-sizing: border-box;
     color: inherit;
     display: block;
-    flex: 0 0 7.25em;
     margin: 0;
     padding: 0;
     text-decoration: none;
-    width: 7.25em;
-}
-
-.hssm-top-row-card.hssm-top-row-shape-square,
-.hssm-top-row-card.hssm-top-row-shape-circle {
-    flex-basis: 4.65em;
-    width: 4.65em;
 }
 
 .hssm-top-row-art {
-    aspect-ratio: 16 / 9;
-    background-color: rgba(255, 255, 255, 0.08);
-    background-position: center;
-    background-repeat: no-repeat;
-    background-size: cover;
-    border-radius: var(--hssm-radius, 0.4em);
-    display: block;
-    overflow: hidden;
-    position: relative;
-    width: 100%;
-}
-
-.hssm-top-row-shape-square .hssm-top-row-art,
-.hssm-top-row-shape-circle .hssm-top-row-art {
-    aspect-ratio: 1 / 1;
-}
-
-.hssm-top-row-shape-circle .hssm-top-row-art {
-    border-radius: 50%;
+    overflow: hidden !important;
 }
 
 .hssm-top-row-hover {
@@ -513,15 +501,12 @@
 }
 
 @media (min-width: 80em) {
-    .hssm-top-row-card {
-        flex-basis: 8.35em;
-        width: 8.35em;
+    body.hssm-top-row-enabled {
+        --hssm-top-row-height: 8em;
     }
 
-    .hssm-top-row-card.hssm-top-row-shape-square,
-    .hssm-top-row-card.hssm-top-row-shape-circle {
-        flex-basis: 5.35em;
-        width: 5.35em;
+    body.hssm-top-row-enabled.hssm-top-row-shape-wide {
+        --hssm-top-row-height: 5.2em;
     }
 }
 

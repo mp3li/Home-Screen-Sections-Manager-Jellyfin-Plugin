@@ -540,12 +540,15 @@
             }
 
             function notifyRendered() {
+                const backdropImage = $('backdrop-img');
                 window.parent.postMessage({
                     type: 'home-screen-manager-media-bar',
                     action: 'rendered',
                     intervalSeconds: intervalMilliseconds / 1000,
                     imageType,
-                    slowZoom: slowZoomEnabled
+                    slowZoom: slowZoomEnabled,
+                    backdropUrl: backdropImage.currentSrc || backdropImage.src || '',
+                    backdropPosition: backdropImage.style.objectPosition || 'center 20%'
                 }, window.location.origin);
             }
 
