@@ -119,6 +119,9 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
                 ShowText = string.Equals(section.Id, normalizedId, StringComparison.Ordinal)
                     ? request.ShowText
                     : section.ShowText,
+                ShowSectionName = string.Equals(section.Id, normalizedId, StringComparison.Ordinal)
+                    ? request.ShowSectionName
+                    : section.ShowSectionName,
                 IsVisible = string.Equals(section.Id, normalizedId, StringComparison.Ordinal)
                     ? request.IsVisible
                     : section.IsVisible,
@@ -182,6 +185,7 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
         configuration.EnableEnhancedSearch = request.EnableEnhancedSearch;
         configuration.EnableBreadcrumbs = request.EnableBreadcrumbs;
         configuration.EnableTitleMarquee = request.EnableTitleMarquee;
+        configuration.TitleMarqueeSpeed = NormalizeTitleMarqueeSpeed(request.TitleMarqueeSpeed);
         if (request.EnableMyList && !configuration.Pages.Any(page => string.Equals(page.Id, "my-list", StringComparison.Ordinal)))
         {
             configuration.Pages.Insert(0, new HomeScreenPageDefinition { Id = "my-list", Name = "My List" });
@@ -236,6 +240,7 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
             EnableEnhancedSearch = source.EnableEnhancedSearch,
             EnableBreadcrumbs = source.EnableBreadcrumbs,
             EnableTitleMarquee = source.EnableTitleMarquee,
+            TitleMarqueeSpeed = NormalizeTitleMarqueeSpeed(source.TitleMarqueeSpeed),
             Sections = source.Sections.Select(CloneSection).ToList(),
             SectionOrder = [.. source.SectionOrder],
             Pages = source.Pages.Select(page => new HomeScreenPageDefinition { Id = page.Id, Name = page.Name }).ToList(),
@@ -259,6 +264,7 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
             ArtType = section.ArtType,
             ArtShape = section.ArtShape,
             ShowText = section.ShowText,
+            ShowSectionName = section.ShowSectionName,
             IsVisible = section.IsVisible,
             IsMediaBar = section.IsMediaBar,
             DisplayTopCount = section.DisplayTopCount,
@@ -395,6 +401,8 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
     private static string NormalizeColor(string? value, string fallback) => System.Text.RegularExpressions.Regex.IsMatch(value ?? string.Empty, "^#[0-9a-fA-F]{6}$") ? value! : fallback;
 
     private static string NormalizeMediaBarImageType(string? value) => value switch { "backdrop" => "backdrop", "primary" => "primary", "banner" => "banner", "thumb" => "thumb", _ => "abyss-original" };
+
+    private static string NormalizeTitleMarqueeSpeed(string? value) => value switch { "extra-slow" => "extra-slow", "slow" => "slow", "fast" => "fast", "faster" => "faster", _ => "normal" };
 
     private static List<HomeScreenSectionDraft> NormalizeSectionDrafts(IEnumerable<HomeScreenSectionDraft>? drafts)
     {

@@ -28,9 +28,9 @@ def base_item(item_id: str, name: str, item_type: str = "Movie") -> dict:
 def run() -> None:
     settings = {
         "Sections": [
-            {"Id": "jellyfin-0-resume", "Name": "Continue Watching", "PageId": "home", "Type": "resume", "ItemIds": [], "SourceIds": [], "IsApplied": True, "IsVisible": True, "IsMediaBar": False, "ArtSize": "large", "ArtType": "thumb", "ArtShape": "circle", "ShowText": False},
+            {"Id": "jellyfin-0-resume", "Name": "Continue Watching", "PageId": "home", "Type": "resume", "ItemIds": [], "SourceIds": [], "IsApplied": True, "IsVisible": True, "IsMediaBar": False, "ArtSize": "large", "ArtType": "thumb", "ArtShape": "circle", "ShowText": False, "ShowSectionName": False},
             {"Id": "manager-home-top", "Name": "Top 20 in Foreign Collection", "PageId": "home", "Type": "top-10-50", "SourceIds": ["collection|top-source"], "ItemIds": [], "DisplayTopCount": 20, "ShowRankNumbers": True, "RankNumberColorMode": "horizontal-gradient", "RankNumberColorOne": "#ff0000", "RankNumberColorTwo": "#0000ff", "RankNumberShadowColor": "#123456", "IsApplied": True, "IsVisible": True, "IsMediaBar": False},
-            {"Id": "manager-home-test", "Name": "Test Section", "PageId": "home", "Type": "manual-content", "ItemIds": ["resume-two"], "IsApplied": True, "IsVisible": True, "IsMediaBar": False},
+            {"Id": "manager-home-test", "Name": "Test Section", "PageId": "home", "Type": "manual-content", "ItemIds": ["resume-two"], "ArtSize": "extra-small", "ShowSectionName": False, "IsApplied": True, "IsVisible": True, "IsMediaBar": False},
             {"Id": "manager-movies-one", "Name": "Movie Picks", "PageId": "manager-page-movies", "Type": "manual-content", "ItemIds": ["resume-one"], "IsApplied": True, "IsVisible": True, "IsMediaBar": True},
             {"Id": "manager-movies-two", "Name": "More Movies", "PageId": "manager-page-movies", "Type": "manual-content", "ItemIds": ["resume-two"], "IsApplied": True, "IsVisible": True, "IsMediaBar": True},
             {"Id": "manager-watch-again", "Name": "Watch Again", "PageId": "manager-page-movies", "Type": "watch-again", "ItemIds": [], "SourceIds": [], "ContentOrder": "completed-descending", "IsApplied": True, "IsVisible": True, "IsMediaBar": True},
@@ -50,6 +50,7 @@ def run() -> None:
         "MediaBarIntervalSeconds": 1,
         "MediaBarImageType": "primary",
         "EnableMediaBarSlowZoom": True,
+        "TitleMarqueeSpeed": "normal",
         "LogoImageDataUrl": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='32'%3E%3C/svg%3E",
     }
     resume = base_item("resume-one", "Resume One")
@@ -62,9 +63,9 @@ def run() -> None:
     liked_opaque = base_item("liked-opaque", "Z Opaque Logo")
     liked_opaque["ImageTags"]["Logo"] = "opaque-logo-tag"
     watched_movie = base_item("watched-movie", "Completed Movie", "Movie")
-    watched_series = base_item("watched-series", "A Completed Series With A Deliberately Very Long Title For Marquee Testing", "Series")
+    watched_series = base_item("watched-series", "Completed Series", "Series")
     watched_episode_one = base_item("watched-episode-one", "Completed Premiere", "Episode")
-    watched_episode_two = base_item("watched-episode-two", "Completed Finale", "Episode")
+    watched_episode_two = base_item("watched-episode-two", "A Completed Episode With A Deliberately Very Long Title For Marquee Testing", "Episode")
     watched_special = base_item("watched-special", "Unplayed Special", "Episode")
     watched_movie["UserData"]["LastPlayedDate"] = "2026-07-01T12:00:00Z"
     watched_series["UserData"].update({"Played": False, "UnplayedItemCount": 2})
@@ -107,10 +108,10 @@ def run() -> None:
                     route.fulfill(status=200, content_type="application/json", body=json.dumps({"Items": [liked, liked_opaque]}))
                 elif query.get("Filters") == ["IsPlayed"] and query.get("IncludeItemTypes") == ["Movie"]:
                     route.fulfill(status=200, content_type="application/json", body=json.dumps({"Items": [watched_movie]}))
+                elif query.get("Filters") == ["IsPlayed"] and query.get("IncludeItemTypes") == ["Episode"]:
+                    route.fulfill(status=200, content_type="application/json", body=json.dumps({"Items": [watched_episode_one, watched_episode_two]}))
                 elif query.get("IncludeItemTypes") == ["Series"]:
                     route.fulfill(status=200, content_type="application/json", body=json.dumps({"Items": []}))
-                elif query.get("IncludeItemTypes") == ["Episode"] and not query.get("Filters"):
-                    route.fulfill(status=200, content_type="application/json", body=json.dumps({"Items": [watched_episode_one, watched_episode_two, watched_special]}))
                 elif query.get("ParentId") == ["top-source"]:
                     route.fulfill(status=200, content_type="application/json", body=json.dumps({"Items": [resume, resume_two]}))
                 elif query.get("Ids"):
@@ -212,16 +213,35 @@ def run() -> None:
         page.wait_for_selector("#homeTab .section0.hssm-native-art-override.hssm-size-large.hssm-shape-circle.hssm-art-thumb")
         assert page.locator("#homeTab .section0").evaluate("node => getComputedStyle(node).getPropertyValue('--hssm-card-width').trim()") == "14.5em"
         assert page.locator("#homeTab .section0 .cardText").first.evaluate("node => getComputedStyle(node).display") == "none"
+        assert page.locator("#homeTab .section0 > .sectionTitle").evaluate("node => getComputedStyle(node).display") == "none"
         native_circle = page.locator("#homeTab .section0 .card").first.evaluate("card => { const scalable=card.querySelector('.cardScalable').getBoundingClientRect(); const overlay=getComputedStyle(card.querySelector('.cardOverlayContainer')); return {ratio:scalable.height/scalable.width, radius:overlay.borderRadius}; }")
         assert abs(native_circle["ratio"] - 1) < 0.03, native_circle
         assert native_circle["radius"] == "50%", native_circle
         assert page.locator("#homeTab [data-hssm-section-id='jellyfin-0-resume']").count() == 0
+        assert page.locator("#homeTab [data-hssm-section-id='manager-home-test'] > .sectionTitleContainer").count() == 0
+        page.wait_for_selector("#homeTab [data-hssm-section-id='manager-home-top'] .hssm-my-list-button")
+        page.wait_for_selector("#homeTab [data-hssm-section-id='manager-home-test'] .hssm-my-list-button")
+        page.wait_for_selector("#homeTab .section0 .hssm-my-list-button")
+        proportional_controls = page.evaluate("""() => {
+          const width = selector => document.querySelector(selector).getBoundingClientRect().width;
+          return {
+            mediumPlay:width('#homeTab [data-hssm-section-id="manager-home-top"] .cardOverlayFab-primary'),
+            smallPlay:width('#homeTab [data-hssm-section-id="manager-home-test"] .cardOverlayFab-primary'),
+            mediumHeart:width('#homeTab [data-hssm-section-id="manager-home-top"] .hssm-my-list-button'),
+            smallHeart:width('#homeTab [data-hssm-section-id="manager-home-test"] .hssm-my-list-button'),
+            largeNativeHeart:width('#homeTab .section0 .hssm-my-list-button')
+          };
+        }""")
+        assert proportional_controls["mediumPlay"] > proportional_controls["smallPlay"], proportional_controls
+        assert proportional_controls["mediumHeart"] > proportional_controls["smallHeart"], proportional_controls
+        assert proportional_controls["largeNativeHeart"] > proportional_controls["mediumHeart"], proportional_controls
         assert page.locator("#homeTab [data-hssm-section-id='manager-home-top'] .hssm-rank-number").count() == 2
         assert page.locator("#homeTab [data-hssm-section-id='manager-home-top']").evaluate("node => node.classList.contains('hssm-top-ranked')")
         rank_geometry = page.locator("#homeTab [data-hssm-section-id='manager-home-top'] .hssm-rank-number").first.evaluate("node => { const box=node.getBoundingClientRect(), scalable=node.closest('.cardScalable').getBoundingClientRect(), style=getComputedStyle(node), image=getComputedStyle(node.closest('.cardScalable').querySelector(':scope > .cardImageContainer')); return {width:box.width,height:box.height,fontSize:parseFloat(style.fontSize),display:style.display,visibility:style.visibility,bottomDelta:Math.abs(box.bottom-scalable.bottom),rankZ:Number(style.zIndex),imageZ:Number(image.zIndex),backgroundImage:style.backgroundImage,filter:style.filter,shadow:getComputedStyle(node.closest('.hssm-client-section')).getPropertyValue('--hssm-rank-shadow').trim()}; }")
         assert rank_geometry["width"] > 20 and rank_geometry["height"] > 20 and rank_geometry["fontSize"] > 40 and rank_geometry["display"] != "none" and rank_geometry["visibility"] == "visible", rank_geometry
         assert rank_geometry["bottomDelta"] < 1 and rank_geometry["rankZ"] < rank_geometry["imageZ"], rank_geometry
-        assert "linear-gradient" in rank_geometry["backgroundImage"] and rank_geometry["shadow"] == "#123456", rank_geometry
+        assert "linear-gradient" in rank_geometry["backgroundImage"] and rank_geometry["shadow"] == "rgba(18, 52, 86, 0.55)", rank_geometry
+        assert "drop-shadow" in rank_geometry["filter"] and "rgba(18, 52, 86, 0.55)" in rank_geometry["filter"], rank_geometry
         title_year_alignment = page.locator("#homeTab [data-hssm-section-id='manager-home-top'] .hssm-client-card").first.evaluate("card => { const title=card.querySelector('.hssm-card-title'), year=card.querySelector('.hssm-card-year'); return {title:title.getBoundingClientRect().left,year:year.getBoundingClientRect().left}; }")
         assert abs(title_year_alignment["title"] - title_year_alignment["year"]) < 1, title_year_alignment
         assert page.locator("#homeTab [data-hssm-section-id^='manager-movies-']").count() == 0
@@ -313,10 +333,11 @@ def run() -> None:
         page.wait_for_selector(".hssm-owned-custom-page.is-active [data-hssm-section-id='manager-movies-one'] .hssm-client-card")
         page.wait_for_selector(".hssm-owned-custom-page.is-active .hssm-section-media-bar[data-hssm-media-section-id='manager-movies-two']")
         page.wait_for_selector(".hssm-owned-custom-page.is-active [data-hssm-section-id='manager-watch-again'] .hssm-client-card[data-id='watched-movie']")
-        page.wait_for_selector(".hssm-owned-custom-page.is-active [data-hssm-section-id='manager-watch-again'] .hssm-client-card[data-id='watched-series']")
+        page.wait_for_selector(".hssm-owned-custom-page.is-active [data-hssm-section-id='manager-watch-again'] .hssm-client-card[data-id='watched-episode-two']")
         page.wait_for_selector(".hssm-owned-custom-page.is-active .hssm-section-media-bar[data-hssm-media-section-id='manager-watch-again']")
         page.wait_for_function("document.querySelectorAll('.hssm-owned-custom-page.is-active .hssm-section-media-bar').length === 3")
-        assert page.locator(".hssm-owned-custom-page.is-active [data-hssm-section-id='manager-watch-again'] .hssm-client-card").first.get_attribute("data-id") == "watched-series"
+        assert page.locator(".hssm-owned-custom-page.is-active [data-hssm-section-id='manager-watch-again'] .hssm-client-card").first.get_attribute("data-id") == "watched-episode-two"
+        assert page.locator(".hssm-owned-custom-page.is-active [data-hssm-section-id='manager-watch-again'] .hssm-client-card[data-type='Episode']").count() == 1
         custom_page_state = page.evaluate(
             """() => ({
               titleAbsent: !document.querySelector('.hssm-owned-custom-page.is-active .hssm-page-context-title'),
@@ -334,9 +355,7 @@ def run() -> None:
         assert "/Items/series-two/Images/Logo" in custom_logo.get_attribute("src")
         page.frame_locator(".hssm-section-media-bar[data-hssm-media-section-id='manager-movies-two']").locator("body.hssm-media-bar-top-gradient").wait_for(state="attached")
         assert any("Filters=IsPlayed" in url and "IncludeItemTypes=Movie" in url for url in requests), requests
-        assert any("IncludeItemTypes=Series" in url and "Filters=IsPlayed" not in url for url in requests), requests
-        assert any("IncludeItemTypes=Series" in url and "Filters=IsPlayed" in url for url in requests), requests
-        assert any("IncludeItemTypes=Episode" in url and "Filters=IsPlayed" not in url for url in requests), requests
+        assert any("IncludeItemTypes=Episode" in url and "Filters=IsPlayed" in url for url in requests), requests
         assert any("Ids=watched-series" in url for url in requests), requests
         assert any("Filters=IsPlayed" in url and "SortOrder=Descending" in url for url in requests), requests
 
@@ -356,22 +375,23 @@ def run() -> None:
           },180));
         }""")
         assert scroll_result["owned"] and scroll_result["rightWasEnabled"] and scroll_result["afterArrow"] > 0 and scroll_result["afterWheel"] > scroll_result["afterArrow"] and scroll_result["transform"] != "none", scroll_result
+        page.locator(".hssm-owned-custom-page.is-active [data-hssm-section-id='manager-watch-again'] .hssm-client-scroller").evaluate("scroller => scroller._hssmSetOwnedOffset(0)")
 
-        custom_card = page.locator(".hssm-owned-custom-page.is-active [data-hssm-section-id='manager-watch-again'] .hssm-client-card[data-id='watched-series']")
+        custom_card = page.locator(".hssm-owned-custom-page.is-active [data-hssm-section-id='manager-watch-again'] .hssm-client-card[data-id='watched-episode-two']")
         page.wait_for_function("node => node.querySelector('.hssm-card-title bdi').classList.contains('hssm-marquee-title')", arg=custom_card.element_handle())
         marquee_state = custom_card.locator(".hssm-card-title bdi").evaluate("node => ({enabled:document.body.classList.contains('hssm-title-marquee-enabled'),distance:node.style.getPropertyValue('--hssm-marquee-distance'),host:node.closest('.cardText').classList.contains('hssm-marquee-title-host')})")
         assert marquee_state["enabled"] and marquee_state["distance"].startswith("-") and marquee_state["host"], marquee_state
         custom_card.hover()
-        page.wait_for_timeout(650)
-        moving_transform = custom_card.locator(".hssm-card-title bdi").evaluate("node => getComputedStyle(node).transform")
-        assert moving_transform not in ("none", "matrix(1, 0, 0, 1, 0, 0)"), moving_transform
+        page.wait_for_timeout(1200)
+        moving_state = custom_card.locator(".hssm-card-title bdi").evaluate("node => ({transform:getComputedStyle(node).transform,transition:getComputedStyle(node).transition,hover:node.closest('.card').matches(':hover'),distance:node.style.getPropertyValue('--hssm-marquee-distance')})")
+        assert moving_state["transform"] not in ("none", "matrix(1, 0, 0, 1, 0, 0)"), moving_state
         page.mouse.move(1, 1)
         page.wait_for_function("node => ['none','matrix(1, 0, 0, 1, 0, 0)'].includes(getComputedStyle(node).transform)", arg=custom_card.locator(".hssm-card-title bdi").element_handle())
         custom_card.hover()
         custom_card.locator(".cardOverlayContainer").wait_for(state="visible")
         page.wait_for_function("node => Number(getComputedStyle(node).opacity) > .99", arg=custom_card.locator(".cardOverlayContainer").element_handle())
         custom_card.locator("[data-action='resume']").click()
-        assert page.evaluate("window.__playedIds.includes('watched-series')")
+        assert page.evaluate("window.__playedIds.includes('watched-episode-two')")
 
         page.locator(".hssm-header-logo-link").click()
         page.wait_for_function("document.querySelector('#homeTab').classList.contains('is-active')")

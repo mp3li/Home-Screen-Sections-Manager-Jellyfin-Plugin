@@ -82,7 +82,7 @@ def run() -> None:
                 getPluginConfiguration:()=>Promise.resolve({CustomJavaScripts:[]}),
                 updatePluginConfiguration:()=>Promise.resolve()
               };
-              window.HomeScreenManagerClient = { version:'0.1.0.41', refresh(){} };
+              window.HomeScreenManagerClient = { version:'0.1.0.42', refresh(){} };
               window.CustomElements = { upgradeSubtree(){} };
             }
             """
@@ -95,10 +95,14 @@ def run() -> None:
         assert page.get_by_text("Select your preference for turning on and off the marquee feature when you hover on media items. Meaning, the title will slowly scroll instead of being truncated/cut off if its too long.", exact=True).count() == 1
         assert page.locator("#hssmEnableTitleMarquee").is_checked()
         assert not page.locator("#hssmDisableTitleMarquee").is_checked()
+        assert page.locator("#hssmTitleMarqueeSpeed").input_value() == "normal"
+        assert page.locator("#hssmTitleMarqueeSpeed option").all_text_contents() == ["Extra Slow", "Slow", "Normal Speed", "Fast", "Faster"]
+        page.locator("#hssmTitleMarqueeSpeed").select_option("fast")
         page.locator("#hssmDisableTitleMarquee").check()
         assert not page.locator("#hssmEnableTitleMarquee").is_checked()
         page.locator("#hssmSaveMainSettingsButton").click()
         page.wait_for_function("window.__mainSettings.EnableTitleMarquee === false")
+        assert page.evaluate("window.__mainSettings.TitleMarqueeSpeed") == "fast"
 
         assert page.locator("#hssmPageList [data-page-id='home'] [data-hssm-page-show]").count() == 0
         assert page.locator("#hssmPageList [data-page-id='home'] .hssm-drag-handle").text_content() == ""
@@ -124,17 +128,23 @@ def run() -> None:
         page.locator("#hssmTypeSpecificSettings [data-hssm-art-size]").select_option("large")
         page.locator("#hssmTypeSpecificSettings [data-hssm-art-shape]").select_option("circle")
         page.locator("#hssmTypeSpecificSettings [data-hssm-show-text]").uncheck()
+        assert page.locator("#hssmTypeSpecificSettings [data-hssm-show-section-name]").is_checked()
+        page.locator("#hssmTypeSpecificSettings [data-hssm-show-section-name]").uncheck()
         page.locator("#hssmTypeSpecificSettings [data-hssm-apply-section]").click()
-        page.wait_for_function("window.__sectionSettings.Sections.some(s => String(s.Id).startsWith('jellyfin-') && s.ArtSize === 'large' && s.ArtShape === 'circle' && s.ShowText === false)")
+        page.wait_for_function("window.__sectionSettings.Sections.some(s => String(s.Id).startsWith('jellyfin-') && s.ArtSize === 'large' && s.ArtShape === 'circle' && s.ShowText === false && s.ShowSectionName === false)")
 
         page.locator("#hssmSectionList [data-section-id='manager-top']").click()
         page.locator("#hssmEditSectionButton").click()
         page.wait_for_selector("input[name='hssmType'][value='top-10-50']:checked")
+        inline_top_name = "Top 20 Inline Title Works"
+        page.locator("#hssmSectionList [data-section-id='manager-top'] [data-hssm-inline-section-name]").fill(inline_top_name)
+        page.wait_for_function("name => { const section=window.__sectionSettings.Sections.find(s => s.Id === 'manager-top'); return section.Name === name && section.Drafts[0].Name === name; }", arg=inline_top_name)
         page.locator("#hssmFinishSectionButton").click()
         page.wait_for_function("!document.querySelector('#hssmTypeSpecificSettings [data-hssm-save-move]').disabled")
         assert page.locator("#hssmTypeSpecificSettings [data-hssm-content-order]").input_value() == "rating-descending"
         revised_top_name = "Top 20 in Foreign Collection - My Picks"
         page.locator("#hssmTypeSpecificSettings [data-hssm-top-draft-name]").fill(revised_top_name)
+        page.wait_for_function("name => { const section=window.__sectionSettings.Sections.find(s => s.Id === 'manager-top'); return section.Name === name && section.Drafts[0].Name === name; }", arg=revised_top_name)
         page.locator("#hssmTypeSpecificSettings [data-hssm-display-top]").select_option("30")
         assert page.locator("#hssmTypeSpecificSettings [data-hssm-top-draft-name]").input_value() == revised_top_name
         page.evaluate("document.querySelector('#hssmTypeSpecificSettings [data-hssm-art-settings]').hidden = false")
@@ -227,7 +237,8 @@ def run() -> None:
         page.wait_for_selector("#hssmTypeSpecificSettings >> text=No content selection is required.")
         assert page.locator("#hssmTypeSpecificSettings [data-hssm-content]").count() == 0
         page.locator("#hssmTypeSpecificSettings [data-hssm-save-move]").click()
-        page.wait_for_function("([id]) => window.__sectionSettings.Sections.some(s => s.Id === id && s.PageId === 'manager-page-movies' && s.ItemIds.length === 0)", arg=[created_id])
+        page.wait_for_function("([id]) => window.__sectionSettings.Sections.some(s => s.Id === id && s.PageId === 'manager-page-movies' && s.ItemIds.length === 0 && s.ShowSectionName === true)", arg=[created_id])
+        assert page.locator("#hssmTypeSpecificSettings [data-hssm-show-section-name]").is_checked()
         assert not page.evaluate("([id]) => window.__sectionSettings.Sections.some(s => s.Id === id && s.PageId === 'home')", [created_id])
         assert page.locator("#hssmNewSectionSettings").is_visible()
         assert page.locator("input[name='hssmMediaBarSection'][value='yes']").count() == 1
@@ -239,7 +250,7 @@ def run() -> None:
         page.locator("input[name='hssmType'][value='watch-again']").check()
         assert page.locator("#hssmFinishSectionButton").text_content().strip() == "Continue to Section Settings"
         page.locator("#hssmFinishSectionButton").click()
-        page.get_by_text("No content selection is required. This section automatically loads completed movies and completed series from the signed-in user’s own Jellyfin watch history.", exact=True).wait_for()
+        page.get_by_text("No content selection is required. This section automatically loads completed movies plus only the most recently completed episode from each series in the signed-in user’s own Jellyfin watch history.", exact=True).wait_for()
         assert page.locator("#hssmTypeSpecificSettings [data-hssm-content]").count() == 0
         order_labels = page.locator("#hssmTypeSpecificSettings [data-hssm-content-order] option").all_text_contents()
         assert "Most Recently Completed" in order_labels

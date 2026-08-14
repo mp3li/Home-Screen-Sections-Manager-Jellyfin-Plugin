@@ -116,6 +116,7 @@
                 <h2>Marquee Effect on Titles Settings</h2>
                 <p class="fieldDescription">Select your preference for turning on and off the marquee feature when you hover on media items. Meaning, the title will slowly scroll instead of being truncated/cut off if its too long.</p>
                 <div class="hssm-yes-no"><label class="checkboxContainer"><input is="emby-checkbox" id="hssmEnableTitleMarquee" type="radio" name="hssmTitleMarquee" value="on" checked /><span>Turn on marquee effect on titles</span></label><label class="checkboxContainer"><input is="emby-checkbox" id="hssmDisableTitleMarquee" type="radio" name="hssmTitleMarquee" value="off" /><span>Turn off marquee effect on titles</span></label></div>
+                <div class="selectContainer"><label class="selectLabel" for="hssmTitleMarqueeSpeed">Marquee Speed Settings</label><select is="emby-select" id="hssmTitleMarqueeSpeed"><option value="extra-slow">Extra Slow</option><option value="slow">Slow</option><option value="normal" selected>Normal Speed</option><option value="fast">Fast</option><option value="faster">Faster</option></select></div>
             </section>
             <div class="hssm-actions"><button is="emby-button" type="button" class="raised button-submit block" id="hssmSaveMainSettingsButton">Save Main Settings</button></div>
             <p class="fieldDescription" id="hssmMainSettingsStatus" aria-live="polite"></p>
@@ -307,7 +308,7 @@
             const mediaBarBlockedTypes = new Set(['smalllibrarytiles', 'librarybuttons', 'latestmedia']);
             const types = [
                 ['my-list-content', 'My List Content Section', 'Create a section that displays the signed-in user’s own My List content. No content selection is required, and every user sees only their own items.'],
-                ['watch-again', 'Watch Again', 'Create a section that automatically displays completed movies and completed series for the signed-in user. No content selection is required, and every user sees only their own watch history.'],
+                ['watch-again', 'Watch Again', 'Create a section that automatically displays completed movies and the most recently completed episode from each watched series for the signed-in user. No content selection is required, and every user sees only their own watch history.'],
                 ['manual-content', 'Manual Content', 'Create a section that displays manually selected content.'],
                 ['individual-collection-content', 'Individual Collection Content', 'Create a section that displays all content of one selected collection. For example, all content in the Thrillers Collection.'],
                 ['multiple-collection-content', 'Multiple Collection Content', 'Create a section that displays all content of multiple selected collections. For example, all content in the Thrillers Collection and all content in the Horror Collection.'],
@@ -364,7 +365,7 @@
                 return order;
             }
             function defaultMyListDefinition() {
-                return { Id:'my-list-content', Name:'Added to My List', PageId:'my-list', Type:'my-list-content', SourceIds:[], ItemIds:[], ContentOrder:'title-ascending', ArtSize:'medium', ArtType:'automatic', ArtShape:'poster', ShowText:true, IsVisible:true, IsMediaBar:false, IsApplied:true };
+                return { Id:'my-list-content', Name:'Added to My List', PageId:'my-list', Type:'my-list-content', SourceIds:[], ItemIds:[], ContentOrder:'title-ascending', ArtSize:'medium', ArtType:'automatic', ArtShape:'poster', ShowText:true, ShowSectionName:true, IsVisible:true, IsMediaBar:false, IsApplied:true };
             }
             function refreshPageChoices(saved) {
                 const pages = savedPages(saved);
@@ -515,13 +516,21 @@
                     removedDefinition = current.find(item => String(item.Id || item.id) === String(removeId || "")) || null;
                     const models = {};
                     sections.filter(item => item.origin === 'manager').forEach(item => { models[item.id] = item; });
+                    function updateDefinition(definition, model) {
+                        const updated = Object.assign({}, definition, { PageId:activePageId, Name:model.name, IsVisible:model.enabled !== false, IsMediaBar:!!model.isMediaBar });
+                        if (String(definition.Type || definition.type || '') === 'top-10-50') {
+                            const drafts = definition.Drafts || definition.drafts || [];
+                            updated.Drafts = drafts.map((draft, index) => index === 0 ? Object.assign({}, draft, { Name:model.name }) : draft);
+                        }
+                        return updated;
+                    }
                     const definitions = current.filter(item => String(item.Id || item.id) !== String(removeId || "")).map(definition => {
                         const id = String(definition.Id || definition.id), model = models[id];
                         if (!model) return definition;
-                        return Object.assign({}, definition, { PageId:activePageId, IsVisible:model.enabled !== false, IsMediaBar:!!model.isMediaBar });
+                        return updateDefinition(definition, model);
                     });
                     sections.filter(item => item.origin === 'manager' && item.definition).forEach(model => {
-                        if (!definitions.some(item => String(item.Id || item.id) === model.id)) definitions.push(Object.assign({}, model.definition, { PageId:activePageId, IsVisible:model.enabled !== false, IsMediaBar:!!model.isMediaBar }));
+                        if (!definitions.some(item => String(item.Id || item.id) === model.id)) definitions.push(updateDefinition(model.definition, model));
                     });
                     if (restoreDefinition && !definitions.some(item => String(item.Id || item.id) === String(restoreDefinition.Id || restoreDefinition.id))) definitions.push(restoreDefinition);
                     const knownManagerIds = definitions.map(item => String(item.Id || item.id));
@@ -688,7 +697,15 @@
             list.addEventListener('input', event => {
                 const input = event.target.closest('[data-hssm-inline-section-name]'), item = draft();
                 if (!input || !item) return;
-                item.name = input.value; nameInput.value = input.value; finishButton.disabled = !(item.name.trim() && item.type);
+                item.name = input.value;
+                nameInput.value = input.value;
+                if (item.definition) {
+                    item.definition.Name = input.value;
+                    const drafts = item.definition.Drafts || item.definition.drafts || [];
+                    if (String(item.type || item.definition.Type || item.definition.type || '') === 'top-10-50' && drafts[0]) drafts[0].Name = input.value;
+                }
+                finishButton.disabled = !(item.name.trim() && item.type);
+                scheduleLayoutSave();
             });
             list.addEventListener('change', event => {
                 const toggle = event.target.closest('[data-hssm-native-section-toggle]');
@@ -845,7 +862,7 @@
             const page = document.getElementById('homeScreenSectionsManagerPage');
             const host = page && page.querySelector('#hssmTypeSpecificSettings');
             if (!page || !host) return;
-            const state = { id:'', name:'', type:'', pageId:'home', isVisible:true, isMediaBar:false, isApplied:false, isEditing:false, nativeOnly:false, sources:[], items:{}, resolvedItemIds:[], contentItems:[], contentItemOrder:[], draggedContentId:null, contentPage:1, contentOrder:'title-ascending', artSize:'medium', artType:'automatic', artShape:'poster', showText:true, libraries:[], collections:[], manual:{}, manualStates:{}, tagSearch:'', tagSources:{}, tagTypeLoadIds:{}, tagCatalogLoadId:0, drafts:[], draftLibraryIds:[], draggedDraftId:null, rotationValue:1, rotationUnit:'days', draftPreviewLoadId:0, topLoadRunning:false, topPending:null, displayTop:10, showRankNumbers:true, rankNumberColorMode:'solid', rankNumberColorOne:'#f5f5f7', rankNumberColorTwo:'#f5f5f7', rankNumberShadowColor:'#000000', rankNumberFontDataUrl:'', activityMaxItems:20, activityMediaType:'movies', activityPreviewLoadId:0 };
+            const state = { id:'', name:'', type:'', pageId:'home', isVisible:true, isMediaBar:false, isApplied:false, isEditing:false, nativeOnly:false, sources:[], items:{}, resolvedItemIds:[], contentItems:[], contentItemOrder:[], draggedContentId:null, contentPage:1, contentOrder:'title-ascending', artSize:'medium', artType:'automatic', artShape:'poster', showText:true, showSectionName:true, libraries:[], collections:[], manual:{}, manualStates:{}, tagSearch:'', tagSources:{}, tagTypeLoadIds:{}, tagCatalogLoadId:0, drafts:[], draftLibraryIds:[], draggedDraftId:null, rotationValue:1, rotationUnit:'days', draftPreviewLoadId:0, topLoadRunning:false, topPending:null, displayTop:10, showRankNumbers:true, rankNumberColorMode:'solid', rankNumberColorOne:'#f5f5f7', rankNumberColorTwo:'#f5f5f7', rankNumberShadowColor:'#000000', rankNumberFontDataUrl:'', activityMaxItems:20, activityMediaType:'movies', activityPreviewLoadId:0 };
             const esc = value => { const el = document.createElement('span'); el.textContent = value == null ? '' : String(value); return el.innerHTML; };
             const cm = path => ApiClient.getJSON(ApiClient.getUrl('CollectionManager/' + path));
             const cmPost = (path, body) => ApiClient.ajax({ type:'POST', url:ApiClient.getUrl('CollectionManager/' + path), data:JSON.stringify(body), contentType:'application/json', dataType:'json' });
@@ -944,7 +961,7 @@
                 return match ? String(match.name) : (state.pageId === 'home' ? 'Home' : 'Selected Page');
             }
             function contentMarkup(rowMode) {
-                return '<section class="hssm-conditional-section"><h2>Content In Section</h2><p class="fieldDescription">This selected content will be displayed in your section.</p><div data-hssm-content class="' + (rowMode ? 'hssm-row-preview' : '') + '"><p class="fieldDescription">No content is currently selected.</p></div></section><div class="hssm-actions"><button is="emby-button" type="button" class="raised button-submit" data-hssm-save-move>Save and Move On</button></div><p class="fieldDescription" data-hssm-save-status aria-live="polite"></p><section class="hssm-conditional-section hssm-order-settings" data-hssm-order-settings hidden><h2>Section Content Order Settings</h2><p class="fieldDescription">Select which order you want your home screen section content to appear in. Ordering by rating requires ratings to be in your media tags.</p><div class="selectContainer"><label class="selectLabel" for="hssmSectionContentOrder">Content Order</label><select is="emby-select" id="hssmSectionContentOrder" data-hssm-content-order>' + orderOptions() + '</select></div><div class="hssm-manual-order-editor" data-hssm-manual-order hidden><p class="fieldDescription">Drag the content below into the exact order you want it to appear in this home screen section.</p><div class="hssm-manual-order-list" data-hssm-manual-order-list></div></div></section><section class="hssm-conditional-section hssm-art-settings" data-hssm-art-settings hidden><h2>Section Art Appearance Settings</h2><p class="fieldDescription">Choose the size, Jellyfin image type, shape, and title-text visibility for the regular section row. When this section is a Media Bar, these settings affect the matching section directly below the Media Bar, not the Media Bar itself.</p><div class="selectContainer"><label class="selectLabel" for="hssmSectionArtSize">Art Size</label><select is="emby-select" id="hssmSectionArtSize" data-hssm-art-size>' + artSizeOptions() + '</select></div><div class="selectContainer"><label class="selectLabel" for="hssmSectionArtType">Art Type</label><select is="emby-select" id="hssmSectionArtType" data-hssm-art-type>' + artTypeOptions() + '</select></div><div class="selectContainer"><label class="selectLabel" for="hssmSectionArtShape">Art Shape</label><select is="emby-select" id="hssmSectionArtShape" data-hssm-art-shape>' + artShapeOptions() + '</select></div><label class="checkboxContainer"><input is="emby-checkbox" type="checkbox" data-hssm-show-text' + (state.showText ? ' checked' : '') + ' /><span>Show text under the art</span></label><p class="fieldDescription">Show the media name and year beneath each image.</p>' + numberingMarkup() + '<div class="hssm-actions"><button is="emby-button" type="button" class="raised button-submit" data-hssm-apply-section>' + (state.isEditing ? 'Refresh Section' : 'Add Section to ' + esc(destinationPageName()) + ' Page') + '</button></div><p class="fieldDescription" data-hssm-apply-status aria-live="polite"></p></section>';
+                return '<section class="hssm-conditional-section"><h2>Content In Section</h2><p class="fieldDescription">This selected content will be displayed in your section.</p><div data-hssm-content class="' + (rowMode ? 'hssm-row-preview' : '') + '"><p class="fieldDescription">No content is currently selected.</p></div></section><div class="hssm-actions"><button is="emby-button" type="button" class="raised button-submit" data-hssm-save-move>Save and Move On</button></div><p class="fieldDescription" data-hssm-save-status aria-live="polite"></p><section class="hssm-conditional-section hssm-order-settings" data-hssm-order-settings hidden><h2>Section Content Order Settings</h2><p class="fieldDescription">Select which order you want your home screen section content to appear in. Ordering by rating requires ratings to be in your media tags.</p><div class="selectContainer"><label class="selectLabel" for="hssmSectionContentOrder">Content Order</label><select is="emby-select" id="hssmSectionContentOrder" data-hssm-content-order>' + orderOptions() + '</select></div><div class="hssm-manual-order-editor" data-hssm-manual-order hidden><p class="fieldDescription">Drag the content below into the exact order you want it to appear in this home screen section.</p><div class="hssm-manual-order-list" data-hssm-manual-order-list></div></div></section><section class="hssm-conditional-section hssm-art-settings" data-hssm-art-settings hidden><h2>Section Art Appearance Settings</h2><p class="fieldDescription">Choose the size, Jellyfin image type, shape, and title-text visibility for the regular section row. When this section is a Media Bar, these settings affect the matching section directly below the Media Bar, not the Media Bar itself.</p><div class="selectContainer"><label class="selectLabel" for="hssmSectionArtSize">Art Size</label><select is="emby-select" id="hssmSectionArtSize" data-hssm-art-size>' + artSizeOptions() + '</select></div><div class="selectContainer"><label class="selectLabel" for="hssmSectionArtType">Art Type</label><select is="emby-select" id="hssmSectionArtType" data-hssm-art-type>' + artTypeOptions() + '</select></div><div class="selectContainer"><label class="selectLabel" for="hssmSectionArtShape">Art Shape</label><select is="emby-select" id="hssmSectionArtShape" data-hssm-art-shape>' + artShapeOptions() + '</select></div><label class="checkboxContainer"><input is="emby-checkbox" type="checkbox" data-hssm-show-text' + (state.showText ? ' checked' : '') + ' /><span>Show text under the art</span></label><p class="fieldDescription">Show the media name and year beneath each image.</p><label class="checkboxContainer"><input is="emby-checkbox" type="checkbox" data-hssm-show-section-name' + (state.showSectionName ? ' checked' : '') + ' /><span>Show section name</span></label>' + numberingMarkup() + '<div class="hssm-actions"><button is="emby-button" type="button" class="raised button-submit" data-hssm-apply-section>' + (state.isEditing ? 'Refresh Section' : 'Add Section to ' + esc(destinationPageName()) + ' Page') + '</button></div><p class="fieldDescription" data-hssm-apply-status aria-live="polite"></p></section>';
             }
             function orderOptions() {
                 const options = [
@@ -962,7 +979,7 @@
                 return options.map(option => '<option value="' + option[0] + '"' + (state.contentOrder === option[0] ? ' selected' : '') + '>' + option[1] + '</option>').join('');
             }
             function nativeArtMarkup() {
-                return '<section class="hssm-conditional-section hssm-art-settings"><h2>Section Art Appearance Settings</h2><p class="fieldDescription">Choose the size, Jellyfin image type, shape, and title-text visibility for this native Jellyfin section. Only its art appearance can be edited.</p><div class="selectContainer"><label class="selectLabel" for="hssmSectionArtSize">Art Size</label><select is="emby-select" id="hssmSectionArtSize" data-hssm-art-size>' + artSizeOptions() + '</select></div><div class="selectContainer"><label class="selectLabel" for="hssmSectionArtType">Art Type</label><select is="emby-select" id="hssmSectionArtType" data-hssm-art-type>' + artTypeOptions() + '</select></div><div class="selectContainer"><label class="selectLabel" for="hssmSectionArtShape">Art Shape</label><select is="emby-select" id="hssmSectionArtShape" data-hssm-art-shape>' + artShapeOptions() + '</select></div><label class="checkboxContainer"><input is="emby-checkbox" type="checkbox" data-hssm-show-text' + (state.showText ? ' checked' : '') + ' /><span>Show text under the art</span></label><p class="fieldDescription">Show the media name and year beneath each image.</p><div class="hssm-actions"><button is="emby-button" type="button" class="raised button-submit" data-hssm-apply-section>Refresh Section</button></div><p class="fieldDescription" data-hssm-apply-status aria-live="polite"></p></section>';
+                return '<section class="hssm-conditional-section hssm-art-settings"><h2>Section Art Appearance Settings</h2><p class="fieldDescription">Choose the size, Jellyfin image type, shape, and title-text visibility for this native Jellyfin section. Only its art appearance can be edited.</p><div class="selectContainer"><label class="selectLabel" for="hssmSectionArtSize">Art Size</label><select is="emby-select" id="hssmSectionArtSize" data-hssm-art-size>' + artSizeOptions() + '</select></div><div class="selectContainer"><label class="selectLabel" for="hssmSectionArtType">Art Type</label><select is="emby-select" id="hssmSectionArtType" data-hssm-art-type>' + artTypeOptions() + '</select></div><div class="selectContainer"><label class="selectLabel" for="hssmSectionArtShape">Art Shape</label><select is="emby-select" id="hssmSectionArtShape" data-hssm-art-shape>' + artShapeOptions() + '</select></div><label class="checkboxContainer"><input is="emby-checkbox" type="checkbox" data-hssm-show-text' + (state.showText ? ' checked' : '') + ' /><span>Show text under the art</span></label><p class="fieldDescription">Show the media name and year beneath each image.</p><label class="checkboxContainer"><input is="emby-checkbox" type="checkbox" data-hssm-show-section-name' + (state.showSectionName ? ' checked' : '') + ' /><span>Show section name</span></label><div class="hssm-actions"><button is="emby-button" type="button" class="raised button-submit" data-hssm-apply-section>Refresh Section</button></div><p class="fieldDescription" data-hssm-apply-status aria-live="polite"></p></section>';
             }
             function selectOptions(options, selected) {
                 return options.map(option => '<option value="' + option[0] + '"' + (selected === option[0] ? ' selected' : '') + '>' + option[1] + '</option>').join('');
@@ -1403,7 +1420,7 @@
                 if (isWatchAgainType()) {
                     host.innerHTML = contentMarkup();
                     const contentSection = host.querySelector('[data-hssm-content]').closest('section');
-                    contentSection.innerHTML = '<h2>Watch Again</h2><p class="fieldDescription">No content selection is required. This section automatically loads completed movies and completed series from the signed-in user’s own Jellyfin watch history.</p>';
+                    contentSection.innerHTML = '<h2>Watch Again</h2><p class="fieldDescription">No content selection is required. This section automatically loads completed movies plus only the most recently completed episode from each series in the signed-in user’s own Jellyfin watch history.</p>';
                     return;
                 }
                 if (isActivityType()) {
@@ -1497,7 +1514,7 @@
                 const order = Array.from(page.querySelectorAll('#hssmSectionList .hssm-section-row')).map(row => { const toggle = row.querySelector('[data-hssm-native-section-toggle]'); return toggle && !toggle.checked ? 'hidden:' + row.dataset.sectionId : row.dataset.sectionId; });
                 const itemIds = state.contentItemOrder.slice();
                 if (isTopType()) ensureTopDraft().Name = state.name;
-                const definition = { Id:state.id, Name:state.name, PageId:state.pageId, Type:state.type, IsVisible:state.isVisible, IsMediaBar:state.isMediaBar, SourceIds:state.sources, ItemIds:itemIds, ContentOrder:state.contentOrder, ArtSize:state.artSize, ArtType:state.artType, ArtShape:state.artShape, ShowText:state.showText, Drafts:state.drafts.map(draft => ({ Id:draft.Id, SourceType:draft.SourceType, SourceId:draft.SourceId, Name:draft.Name, StartMonth:draft.StartMonth, StartDay:draft.StartDay, EndMonth:draft.EndMonth, EndDay:draft.EndDay })), RotationIntervalMinutes:rotationIntervalMinutes(), RotationStartUnixMilliseconds:Date.now(), DisplayTopCount:state.displayTop, ShowRankNumbers:state.showRankNumbers, RankNumberColorMode:state.rankNumberColorMode, RankNumberColorOne:state.rankNumberColorOne, RankNumberColorTwo:state.rankNumberColorTwo, RankNumberShadowColor:state.rankNumberShadowColor, RankNumberFontDataUrl:state.rankNumberFontDataUrl, ActivityMaxItems:state.activityMaxItems, ActivityMediaType:state.activityMediaType, IsApplied:state.isApplied };
+                const definition = { Id:state.id, Name:state.name, PageId:state.pageId, Type:state.type, IsVisible:state.isVisible, IsMediaBar:state.isMediaBar, SourceIds:state.sources, ItemIds:itemIds, ContentOrder:state.contentOrder, ArtSize:state.artSize, ArtType:state.artType, ArtShape:state.artShape, ShowText:state.showText, ShowSectionName:state.showSectionName, Drafts:state.drafts.map(draft => ({ Id:draft.Id, SourceType:draft.SourceType, SourceId:draft.SourceId, Name:draft.Name, StartMonth:draft.StartMonth, StartDay:draft.StartDay, EndMonth:draft.EndMonth, EndDay:draft.EndDay })), RotationIntervalMinutes:rotationIntervalMinutes(), RotationStartUnixMilliseconds:Date.now(), DisplayTopCount:state.displayTop, ShowRankNumbers:state.showRankNumbers, RankNumberColorMode:state.rankNumberColorMode, RankNumberColorOne:state.rankNumberColorOne, RankNumberColorTwo:state.rankNumberColorTwo, RankNumberShadowColor:state.rankNumberShadowColor, RankNumberFontDataUrl:state.rankNumberFontDataUrl, ActivityMaxItems:state.activityMaxItems, ActivityMediaType:state.activityMediaType, IsApplied:state.isApplied };
                 ApiClient.getJSON(ApiClient.getUrl('HomeScreenSectionsManager/section-settings')).then(saved => {
                     const existing = saved.Sections || saved.sections || [];
                     const sections = existing.filter(item => String(item.Id || item.id) !== state.id);
@@ -1524,7 +1541,7 @@
                 return body && (body.Detail || body.detail || body.Message || body.message || body.Title || body.title) || (text && String(text).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()) || (error && (error.message || error.statusText)) || 'Jellyfin returned no error details.';
             }
             function loadHomeScreenClient() {
-                const version = "0.1.0.41";
+                const version = "0.1.0.42";
                 let style = document.querySelector("link[data-hssm-client-style]");
                 if (!style || style.dataset.hssmClientVersion !== version) {
                     if (style) style.remove();
@@ -1608,11 +1625,13 @@
                 const artType = host.querySelector('[data-hssm-art-type]');
                 const artShape = host.querySelector('[data-hssm-art-shape]');
                 const showText = host.querySelector('[data-hssm-show-text]');
-                if (!button || !applyStatus || !artSize || !artType || !artShape || !showText || (!state.nativeOnly && !select)) return;
+                const showSectionName = host.querySelector('[data-hssm-show-section-name]');
+                if (!button || !applyStatus || !artSize || !artType || !artShape || !showText || !showSectionName || (!state.nativeOnly && !select)) return;
                 state.artSize = artSize.value;
                 state.artType = artType.value;
                 state.artShape = artShape.value;
                 state.showText = showText.checked;
+                state.showSectionName = showSectionName.checked;
                 const topName = host.querySelector('[data-hssm-top-draft-name]');
                 if (topName && topName.value.trim()) setSectionName(topName.value.trim());
                 const selectedRankNumbers = host.querySelector('[data-hssm-rank-numbers]:checked');
@@ -1634,12 +1653,12 @@
                     applyStatus.textContent = 'Refreshing section…';
                     ensureJavaScriptInjectorLoader().then(() => ApiClient.getJSON(ApiClient.getUrl('HomeScreenSectionsManager/section-settings'))).then(saved => {
                         const definitions = (saved.Sections || saved.sections || []).filter(definition => String(definition.Id || definition.id) !== state.id);
-                        definitions.push({ Id:state.id, Name:state.name, PageId:'home', Type:state.type, SourceIds:[], ItemIds:[], ContentOrder:'title-ascending', ArtSize:state.artSize, ArtType:state.artType, ArtShape:state.artShape, ShowText:state.showText, IsVisible:true, IsMediaBar:false, IsApplied:true });
+                        definitions.push({ Id:state.id, Name:state.name, PageId:'home', Type:state.type, SourceIds:[], ItemIds:[], ContentOrder:'title-ascending', ArtSize:state.artSize, ArtType:state.artType, ArtShape:state.artShape, ShowText:state.showText, ShowSectionName:state.showSectionName, IsVisible:true, IsMediaBar:false, IsApplied:true });
                         return ApiClient.ajax({ type:'POST', url:ApiClient.getUrl('HomeScreenSectionsManager/section-settings'), data:JSON.stringify({ JellyfinSectionLabelColor:saved.JellyfinSectionLabelColor || saved.jellyfinSectionLabelColor || '#00a4dc', ManagerSectionLabelColor:saved.ManagerSectionLabelColor || saved.managerSectionLabelColor || '#aa5cc3', MediaBarSectionLabelColor:saved.MediaBarSectionLabelColor || saved.mediaBarSectionLabelColor || '#c78000', Sections:definitions, SectionOrder:saved.SectionOrder || saved.sectionOrder || [], Pages:saved.Pages || saved.pages || [], PageOrder:saved.PageOrder || saved.pageOrder || [], PageLayouts:saved.PageLayouts || saved.pageLayouts || [] }), contentType:'application/json', dataType:'json' });
                     }).then(response => { window.HSSMNotifyClientSettingsChanged(); return loadHomeScreenClient().then(() => response); }).then(() => {
                         applyStatus.textContent = 'Section refreshed.';
                         const model = (window.HSSMDashboardSectionModels || []).find(item => String(item.id) === state.id);
-                        if (model) model.definition = { Id:state.id, Name:state.name, PageId:'home', Type:state.type, ArtSize:state.artSize, ArtType:state.artType, ArtShape:state.artShape, ShowText:state.showText, IsApplied:true };
+                        if (model) model.definition = { Id:state.id, Name:state.name, PageId:'home', Type:state.type, ArtSize:state.artSize, ArtType:state.artType, ArtShape:state.artShape, ShowText:state.showText, ShowSectionName:state.showSectionName, IsApplied:true };
                         if (window.Dashboard && typeof Dashboard.alert === 'function') Dashboard.alert('Native Jellyfin section art appearance refreshed.');
                     }, error => {
                         const message = 'Section could not be refreshed: ' + errorMessage(error);
@@ -1653,7 +1672,7 @@
                 const editing = state.isEditing;
                 applyStatus.textContent = editing ? 'Refreshing section…' : 'Adding section to ' + destination + '…';
                 const appliedItemIds = state.isEditing && !state.contentItemOrder.length ? null : state.contentItemOrder;
-                ensureJavaScriptInjectorLoader().then(() => ApiClient.ajax({ type:'POST', url:ApiClient.getUrl('HomeScreenSectionsManager/sections/' + encodeURIComponent(state.id) + '/apply'), data:JSON.stringify({ Name:state.name, ContentOrder:state.contentOrder, ItemIds:appliedItemIds, ArtSize:state.artSize, ArtType:state.artType, ArtShape:state.artShape, ShowText:state.showText, IsVisible:state.isVisible, IsMediaBar:state.isMediaBar, DisplayTopCount:state.displayTop, ShowRankNumbers:state.showRankNumbers, RankNumberColorMode:state.rankNumberColorMode, RankNumberColorOne:state.rankNumberColorOne, RankNumberColorTwo:state.rankNumberColorTwo, RankNumberShadowColor:state.rankNumberShadowColor, RankNumberFontDataUrl:state.rankNumberFontDataUrl, ActivityMaxItems:state.activityMaxItems, ActivityMediaType:state.activityMediaType }), contentType:'application/json', dataType:'json' })).then(response => { window.HSSMNotifyClientSettingsChanged(); return loadHomeScreenClient().then(() => response); }).then(() => {
+                ensureJavaScriptInjectorLoader().then(() => ApiClient.ajax({ type:'POST', url:ApiClient.getUrl('HomeScreenSectionsManager/sections/' + encodeURIComponent(state.id) + '/apply'), data:JSON.stringify({ Name:state.name, ContentOrder:state.contentOrder, ItemIds:appliedItemIds, ArtSize:state.artSize, ArtType:state.artType, ArtShape:state.artShape, ShowText:state.showText, ShowSectionName:state.showSectionName, IsVisible:state.isVisible, IsMediaBar:state.isMediaBar, DisplayTopCount:state.displayTop, ShowRankNumbers:state.showRankNumbers, RankNumberColorMode:state.rankNumberColorMode, RankNumberColorOne:state.rankNumberColorOne, RankNumberColorTwo:state.rankNumberColorTwo, RankNumberShadowColor:state.rankNumberShadowColor, RankNumberFontDataUrl:state.rankNumberFontDataUrl, ActivityMaxItems:state.activityMaxItems, ActivityMediaType:state.activityMediaType }), contentType:'application/json', dataType:'json' })).then(response => { window.HSSMNotifyClientSettingsChanged(); return loadHomeScreenClient().then(() => response); }).then(() => {
                     state.isApplied = true;
                     applyStatus.textContent = editing ? 'Section refreshed.' : 'Section added to ' + destination + '.';
                     if (window.Dashboard && typeof Dashboard.alert === 'function') Dashboard.alert(editing ? 'Section refreshed through JavaScript Injector.' : 'Section added to ' + destination + ' through JavaScript Injector.');
@@ -1754,11 +1773,13 @@
                 const artType = event.target.closest('[data-hssm-art-type]');
                 const artShape = event.target.closest('[data-hssm-art-shape]');
                 const showText = event.target.closest('[data-hssm-show-text]');
+                const showSectionName = event.target.closest('[data-hssm-show-section-name]');
                 if (order) { state.contentOrder = order.value; renderManualOrder(); return; }
                 if (artSize) { state.artSize = artSize.value; return; }
                 if (artType) { state.artType = artType.value; return; }
                 if (artShape) { state.artShape = artShape.value; return; }
                 if (showText) { state.showText = showText.checked; return; }
+                if (showSectionName) { state.showSectionName = showSectionName.checked; return; }
                 const rotationUnit = event.target.closest('[data-hssm-rotation-unit]');
                 if (rotationUnit) { state.rotationUnit = rotationUnit.value; return; }
                 const draftWindow = event.target.closest('[data-hssm-draft-window]');
@@ -1832,6 +1853,7 @@
                 state.artType = String(definition.ArtType || definition.artType || 'automatic');
                 state.artShape = String(definition.ArtShape || definition.artShape || 'poster');
                 state.showText = definition.ShowText !== undefined ? !!definition.ShowText : (definition.showText !== undefined ? !!definition.showText : true);
+                state.showSectionName = definition.ShowSectionName !== undefined ? !!definition.ShowSectionName : (definition.showSectionName !== undefined ? !!definition.showSectionName : true);
                 const newSectionSettings = page.querySelector('#hssmNewSectionSettings');
                 newSectionSettings.hidden = false;
                 newSectionSettings.classList.add('hssm-native-only');
@@ -1864,6 +1886,7 @@
                 state.artType = 'automatic';
                 state.artShape = 'poster';
                 state.showText = true;
+                state.showSectionName = true;
                 state.tagSearch = '';
                 state.tagSources = {};
                 state.tagTypeLoadIds = {};
@@ -1919,6 +1942,7 @@
                         state.artType = String(definition.ArtType || definition.artType || 'automatic');
                         state.artShape = String(definition.ArtShape || definition.artShape || 'poster');
                         state.showText = definition.ShowText !== undefined ? !!definition.ShowText : (definition.showText !== undefined ? !!definition.showText : true);
+                        state.showSectionName = definition.ShowSectionName !== undefined ? !!definition.ShowSectionName : (definition.showSectionName !== undefined ? !!definition.showSectionName : true);
                         state.contentPage = 1;
                         state.displayTop = Number(definition.DisplayTopCount || definition.displayTopCount || 10);
                         state.showRankNumbers = definition.ShowRankNumbers !== undefined ? !!definition.ShowRankNumbers : (definition.showRankNumbers !== undefined ? !!definition.showRankNumbers : true);
@@ -2000,6 +2024,7 @@
                 EnableBreadcrumbs:page.querySelector('#hssmEnableBreadcrumbs'),
                 EnableTitleMarquee:page.querySelector('#hssmEnableTitleMarquee')
             };
+            const titleMarqueeSpeed = page.querySelector('#hssmTitleMarqueeSpeed');
             const libraryHost = page.querySelector('#hssmInfiniteScrollLibraries');
             const status = page.querySelector('#hssmMainSettingsStatus');
             const saveButton = page.querySelector('#hssmSaveMainSettingsButton');
@@ -2028,6 +2053,7 @@
                     const settings = values[0] || {};
                     Object.keys(controls).forEach(key => { controls[key].checked = !!valueOf(settings, key, key.charAt(0).toLowerCase() + key.slice(1), key === 'EnableTitleMarquee'); });
                     page.querySelector('#hssmDisableTitleMarquee').checked = !controls.EnableTitleMarquee.checked;
+                    titleMarqueeSpeed.value = valueOf(settings, 'TitleMarqueeSpeed', 'titleMarqueeSpeed', 'normal');
                     selectedLibraries = new Set((valueOf(settings, 'InfiniteScrollLibraryIds', 'infiniteScrollLibraryIds', []) || []).map(window.HSSMResolveLibraryId));
                     libraries = valueOf(values[1], 'Items', 'items', []) || [];
                     renderLibraries();
@@ -2045,6 +2071,7 @@
                 selectedLibraries = new Set(Array.from(libraryHost.querySelectorAll('[data-hssm-infinite-library]:checked')).map(input => input.dataset.hssmInfiniteLibrary));
                 const data = { AutoRefreshSections:false, InfiniteScrollLibraryIds:Array.from(selectedLibraries) };
                 Object.keys(controls).forEach(key => { data[key] = controls[key].checked; });
+                data.TitleMarqueeSpeed = titleMarqueeSpeed.value;
                 const loader = typeof window.HSSMEnsureJavaScriptInjectorLoader === 'function' ? window.HSSMEnsureJavaScriptInjectorLoader() : Promise.resolve();
                 const myListTab = typeof window.HSSMEnsureMyListCustomTab === 'function' ? window.HSSMEnsureMyListCustomTab(false) : Promise.resolve();
                 Promise.all([loader, myListTab]).then(() => ApiClient.ajax({ type:'POST', url:ApiClient.getUrl('HomeScreenSectionsManager/main-settings'), data:JSON.stringify(data), contentType:'application/json', dataType:'json' })).then(() => {

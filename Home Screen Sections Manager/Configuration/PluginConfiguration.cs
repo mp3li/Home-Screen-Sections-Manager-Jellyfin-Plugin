@@ -87,6 +87,8 @@ public sealed class PluginConfiguration : BasePluginConfiguration
 
     public bool EnableTitleMarquee { get; set; } = true;
 
+    public string TitleMarqueeSpeed { get; set; } = "normal";
+
     /// <summary>Gets or sets the saved plugin-created home screen sections.</summary>
     public List<HomeScreenSectionDefinition> Sections { get; set; } = [];
 
@@ -158,6 +160,9 @@ public sealed class HomeScreenSectionDefinition
 
     /// <summary>Gets or sets whether item text is displayed under the art.</summary>
     public bool ShowText { get; set; } = true;
+
+    /// <summary>Gets or sets whether the section heading is displayed above the row.</summary>
+    public bool ShowSectionName { get; set; } = true;
 
     /// <summary>Gets or sets whether this saved section is rendered on its page.</summary>
     public bool IsVisible { get; set; } = true;
@@ -342,6 +347,8 @@ public sealed class MainSettingsRequest
     public bool EnableBreadcrumbs { get; set; }
 
     public bool EnableTitleMarquee { get; set; } = true;
+
+    public string TitleMarqueeSpeed { get; set; } = "normal";
 }
 
 /// <summary>Request body used when the administrator adds one completed section to the home screen.</summary>
@@ -367,6 +374,9 @@ public sealed class ApplySectionRequest
 
     /// <summary>Gets or sets whether item text is displayed under the art.</summary>
     public bool ShowText { get; set; } = true;
+
+    /// <summary>Gets or sets whether the section heading is displayed above the row.</summary>
+    public bool ShowSectionName { get; set; } = true;
 
     public bool IsVisible { get; set; } = true;
 

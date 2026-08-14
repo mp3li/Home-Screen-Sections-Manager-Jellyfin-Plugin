@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    var CLIENT_VERSION = "0.1.0.41";
+    var CLIENT_VERSION = "0.1.0.42";
     if (window.HomeScreenManagerClient) {
         if (window.HomeScreenManagerClient.version === CLIENT_VERSION) {
             window.HomeScreenManagerClient.refresh();
@@ -390,7 +390,7 @@
         return {
             Id:'my-list-content', Name:'Added to My List', PageId:'my-list', Type:'my-list-content',
             SourceIds:[], ItemIds:[], ContentOrder:'title-ascending', ArtSize:'medium', ArtType:'automatic',
-            ArtShape:'poster', ShowText:true, IsVisible:true, IsMediaBar:false, IsApplied:true
+            ArtShape:'poster', ShowText:true, ShowSectionName:true, IsVisible:true, IsMediaBar:false, IsApplied:true
         };
     }
 
@@ -451,76 +451,25 @@
             SortBy:'DatePlayed,SortName', SortOrder:'Descending', Limit:2000,
             EnableTotalRecordCount:false
         });
-        // Jellyfin does not consistently return completed Series through the
-        // IsPlayed filter. Read Series user data plus played Episodes and derive
-        // a per-user completion date from the most recently completed episode.
-        var seriesRequest = queryItems({
-            IncludeItemTypes:'Series', Recursive:true, SortBy:'SortName',
-            SortOrder:'Ascending', Limit:2000, EnableTotalRecordCount:false
-        });
-        var playedSeriesRequest = queryItems({
-            Filters:'IsPlayed', IncludeItemTypes:'Series', Recursive:true,
-            SortBy:'DatePlayed,SortName', SortOrder:'Descending', Limit:2000,
-            EnableTotalRecordCount:false
-        });
         var episodeRequest = queryItems({
-            IncludeItemTypes:'Episode', Recursive:true, IsVirtualItem:false,
-            SortBy:'SortName', SortOrder:'Ascending', Limit:10000,
+            Filters:'IsPlayed', IncludeItemTypes:'Episode', Recursive:true, IsVirtualItem:false,
+            SortBy:'DatePlayed,SortName', SortOrder:'Descending', Limit:10000,
             EnableTotalRecordCount:false
         });
-        watchAgainRequests[context] = Promise.all([movieRequest, seriesRequest, episodeRequest, playedSeriesRequest]).then(function (groups) {
-            var knownSeries = {};
-            groups[1].concat(groups[3]).forEach(function (series) { knownSeries[String(prop(series, 'Id', 'id', ''))] = true; });
-            var missingSeriesIds = [];
-            groups[2].forEach(function (episode) {
+        watchAgainRequests[context] = Promise.all([movieRequest, episodeRequest]).then(function (groups) {
+            var latestEpisodeBySeries = {};
+            groups[1].forEach(function (episode) {
                 var userData = prop(episode, 'UserData', 'userData', {}) || {};
                 var seriesId = String(prop(episode, 'SeriesId', 'seriesId', ''));
-                if (seriesId && prop(userData, 'Played', 'played', false) === true && !knownSeries[seriesId]) {
-                    knownSeries[seriesId] = true;
-                    missingSeriesIds.push(seriesId);
+                if (!seriesId || prop(userData, 'Played', 'played', false) !== true) return;
+                var existing = latestEpisodeBySeries[seriesId];
+                if (!existing || dateValue(episode, 'completed') > dateValue(existing, 'completed')) {
+                    latestEpisodeBySeries[seriesId] = episode;
                 }
             });
-            return (missingSeriesIds.length ? queryIds(missingSeriesIds) : Promise.resolve([])).then(function (resolvedSeries) {
-                groups[1] = uniqueItems(groups[1].concat(groups[3], resolvedSeries));
-                return groups;
-            }, function () {
-                groups[1] = uniqueItems(groups[1].concat(groups[3]));
-                return groups;
-            });
-        }).then(function (groups) {
-            var latestBySeries = {};
-            var totalBySeries = {};
-            var playedBySeries = {};
-            var now = Date.now();
-            groups[2].forEach(function (episode) {
-                var seriesId = String(prop(episode, 'SeriesId', 'seriesId', ''));
-                var seasonNumber = Number(prop(episode, 'ParentIndexNumber', 'parentIndexNumber', NaN));
-                var premiere = Date.parse(prop(episode, 'PremiereDate', 'premiereDate', ''));
-                if (!seriesId || seasonNumber === 0 || (Number.isFinite(premiere) && premiere > now)) return;
-                totalBySeries[seriesId] = (totalBySeries[seriesId] || 0) + 1;
-                var userData = prop(episode, 'UserData', 'userData', {}) || {};
-                if (prop(userData, 'Played', 'played', false) !== true) return;
-                playedBySeries[seriesId] = (playedBySeries[seriesId] || 0) + 1;
-                var playedAt = dateValue(episode, 'completed');
-                if (seriesId && playedAt > (latestBySeries[seriesId] || 0)) latestBySeries[seriesId] = playedAt;
-            });
-            var completedSeries = groups[1].filter(function (series) {
-                var userData = prop(series, 'UserData', 'userData', {}) || {};
-                var played = prop(userData, 'Played', 'played', false) === true;
-                var unplayed = Number(prop(userData, 'UnplayedItemCount', 'unplayedItemCount', NaN));
-                var episodeCount = Number(prop(series, 'RecursiveItemCount', 'recursiveItemCount', 0)) || 0;
-                var id = String(prop(series, 'Id', 'id', ''));
-                var countedAllEpisodes = (totalBySeries[id] || 0) > 0 && (playedBySeries[id] || 0) >= totalBySeries[id];
-                return played || (episodeCount > 0 && Number.isFinite(unplayed) && unplayed === 0) || countedAllEpisodes;
-            }).map(function (series) {
-                var id = String(prop(series, 'Id', 'id', ''));
-                var userData = Object.assign({}, prop(series, 'UserData', 'userData', {}) || {});
-                var existing = dateValue(series, 'completed');
-                var completed = Math.max(existing, latestBySeries[id] || 0);
-                if (completed) userData.LastPlayedDate = new Date(completed).toISOString();
-                return Object.assign({}, series, { UserData:userData });
-            });
-            var combined = uniqueItems(groups[0].concat(completedSeries));
+            var combined = uniqueItems(groups[0].concat(Object.keys(latestEpisodeBySeries).map(function (seriesId) {
+                return latestEpisodeBySeries[seriesId];
+            })));
             watchAgainCaches[context] = { savedAt:Date.now(), items:combined };
             return combined;
         }).finally(function () { delete watchAgainRequests[context]; });
@@ -858,21 +807,29 @@
         var artShape = cardShape(section).name;
         var artType = String(prop(section, 'ArtType', 'artType', 'automatic'));
         var pageId = String(prop(section, 'PageId', 'pageId', 'home'));
+        var showSectionName = prop(section, 'ShowSectionName', 'showSectionName', true) !== false;
+        var sectionTitleMarkup = showSectionName ? '<div class="sectionTitleContainer sectionTitleContainer-cards padded-left"><h2 class="sectionTitle sectionTitle-cards">' + escapeHtml(name) + '</h2></div>' : '';
         var ownsScroller = forceOwnedScroller === true || (pageId !== 'home' && pageId !== 'my-list');
         var ranked = String(prop(section, 'Type', 'type', '')) === 'top-10-50' && prop(section, 'ShowRankNumbers', 'showRankNumbers', true) !== false;
         node.className = 'verticalSection emby-scroller-container hssm-client-section hssm-size-' + artSize + ' hssm-shape-' + artShape + ' hssm-art-' + artType + (ranked ? ' hssm-top-ranked hssm-rank-' + String(prop(section, 'RankNumberColorMode', 'rankNumberColorMode', 'solid')) : '');
         node.style.setProperty('--hssm-rank-one', String(prop(section, 'RankNumberColorOne', 'rankNumberColorOne', '#f5f5f7')));
         node.style.setProperty('--hssm-rank-two', String(prop(section, 'RankNumberColorTwo', 'rankNumberColorTwo', '#f5f5f7')));
-        node.style.setProperty('--hssm-rank-shadow', String(prop(section, 'RankNumberShadowColor', 'rankNumberShadowColor', '#000000')));
+        var rankShadow = String(prop(section, 'RankNumberShadowColor', 'rankNumberShadowColor', '#000000'));
+        var rankShadowMatch = /^#([0-9a-f]{6})$/i.exec(rankShadow);
+        if (rankShadowMatch) {
+            var rankShadowNumber = parseInt(rankShadowMatch[1], 16);
+            rankShadow = 'rgba(' + ((rankShadowNumber >> 16) & 255) + ', ' + ((rankShadowNumber >> 8) & 255) + ', ' + (rankShadowNumber & 255) + ', 0.55)';
+        }
+        node.style.setProperty('--hssm-rank-shadow', rankShadow);
         var rankFont = String(prop(section, 'RankNumberFontDataUrl', 'rankNumberFontDataUrl', ''));
         if (rankFont && String(prop(section, 'Type', 'type', '')) === 'top-10-50') { var family = 'hssm-rank-' + id.replace(/[^a-z0-9_-]/gi, ''); var styleId = family + '-font'; var fontStyle = document.getElementById(styleId); if (!fontStyle) { fontStyle = document.createElement('style'); fontStyle.id = styleId; document.head.appendChild(fontStyle); } fontStyle.textContent = '@font-face{font-family:"' + family + '";src:url("' + rankFont.replace(/"/g, '') + '")}'; node.style.setProperty('--hssm-rank-font', '"' + family + '"'); }
         node.dataset.hssmSectionId = id;
         if (!items.length) {
             if (loading) {
-                node.innerHTML = '<div class="sectionTitleContainer sectionTitleContainer-cards padded-left"><h2 class="sectionTitle sectionTitle-cards">' + escapeHtml(name) + '</h2></div><p class="hssm-section-loading padded-left">Loading section content…</p>';
+                node.innerHTML = sectionTitleMarkup + '<p class="hssm-section-loading padded-left">Loading section content…</p>';
                 node.dataset.hssmLoading = 'true';
             } else if (String(prop(section, 'Type', 'type', '')) === 'my-list-content') {
-                node.innerHTML = '<div class="sectionTitleContainer sectionTitleContainer-cards padded-left"><h2 class="sectionTitle sectionTitle-cards">' + escapeHtml(name) + '</h2></div><p class="hssm-empty-list padded-left">My List is empty.</p>';
+                node.innerHTML = sectionTitleMarkup + '<p class="hssm-empty-list padded-left">My List is empty.</p>';
             } else {
                 node.hidden = true;
             }
@@ -882,7 +839,7 @@
         var scroller = ownsScroller
             ? '<div class="hssm-owned-scroll-shell"><button type="button" class="hssm-scroll-button hssm-scroll-button-left emby-button" data-hssm-scroll-direction="left" aria-label="Scroll ' + escapeHtml(name) + ' left"><span class="material-icons chevron_left" aria-hidden="true"></span></button><div class="hssm-client-scroller hssm-owned-horizontal-scroll padded-top-focusscale padded-bottom-focusscale"><div class="focuscontainer-x itemsContainer hssm-client-items">' + cards + '</div></div><button type="button" class="hssm-scroll-button hssm-scroll-button-right emby-button" data-hssm-scroll-direction="right" aria-label="Scroll ' + escapeHtml(name) + ' right"><span class="material-icons chevron_right" aria-hidden="true"></span></button></div>'
             : '<div is="emby-scroller" class="hssm-client-scroller padded-top-focusscale padded-bottom-focusscale" data-horizontal="true" data-centerfocus="true"><div is="emby-itemscontainer" class="focuscontainer-x itemsContainer scrollSlider animatedScrollX hssm-client-items">' + cards + '</div></div>';
-        node.innerHTML = '<div class="sectionTitleContainer sectionTitleContainer-cards padded-left"><h2 class="sectionTitle sectionTitle-cards">' + escapeHtml(name) + '</h2></div>' + scroller;
+        node.innerHTML = sectionTitleMarkup + scroller;
         return node;
     }
 
@@ -1140,7 +1097,7 @@
     function restoreNativeAppearance(node) {
         if (!node) return;
         node.className = String(node.className || '').split(/\s+/).filter(function (name) {
-            return name && name !== 'hssm-native-art-override' && name !== 'hssm-native-hide-text' && name.indexOf('hssm-size-') !== 0 && name.indexOf('hssm-shape-') !== 0 && name.indexOf('hssm-art-') !== 0;
+            return name && name !== 'hssm-native-art-override' && name !== 'hssm-native-hide-text' && name !== 'hssm-native-hide-section-name' && name.indexOf('hssm-size-') !== 0 && name.indexOf('hssm-shape-') !== 0 && name.indexOf('hssm-art-') !== 0;
         }).join(' ');
         node.style.removeProperty('--hssm-card-width');
         delete node.dataset.hssmNativeOverrideId;
@@ -1171,11 +1128,12 @@
             var artSize = String(prop(definition, 'ArtSize', 'artSize', 'medium'));
             var artShape = cardShape(definition).name;
             var artType = String(prop(definition, 'ArtType', 'artType', 'automatic'));
-            var signature = JSON.stringify([artSize, artShape, artType, prop(definition, 'ShowText', 'showText', true) !== false, cardIds]);
+            var signature = JSON.stringify([artSize, artShape, artType, prop(definition, 'ShowText', 'showText', true) !== false, prop(definition, 'ShowSectionName', 'showSectionName', true) !== false, cardIds]);
             if (node.dataset.hssmNativeOverrideId && node.dataset.hssmNativeOverrideId !== id) restoreNativeAppearance(node);
             node.className = String(node.className || '').split(/\s+/).filter(function (name) { return name && name.indexOf('hssm-size-') !== 0 && name.indexOf('hssm-shape-') !== 0 && name.indexOf('hssm-art-') !== 0; }).join(' ');
             node.classList.add('hssm-native-art-override', 'hssm-size-' + artSize, 'hssm-shape-' + artShape, 'hssm-art-' + artType);
             node.classList.toggle('hssm-native-hide-text', prop(definition, 'ShowText', 'showText', true) === false);
+            node.classList.toggle('hssm-native-hide-section-name', prop(definition, 'ShowSectionName', 'showSectionName', true) === false);
             node.dataset.hssmNativeOverrideId = id;
             if (node.dataset.hssmNativeOverrideSignature === signature) return;
             node.dataset.hssmNativeOverrideSignature = signature;
@@ -1332,6 +1290,15 @@
 
     function applyTitleMarquee(settings, scope) {
         var enabled = setting(settings, 'EnableTitleMarquee', true) !== false;
+        var speedName = String(setting(settings, 'TitleMarqueeSpeed', 'normal') || 'normal').toLowerCase();
+        var speeds = {
+            'extra-slow':{ pixelsPerSecond:14, minimumSeconds:6 },
+            'slow':{ pixelsPerSecond:24, minimumSeconds:4 },
+            'normal':{ pixelsPerSecond:38, minimumSeconds:3 },
+            'fast':{ pixelsPerSecond:54, minimumSeconds:2 },
+            'faster':{ pixelsPerSecond:72, minimumSeconds:1.5 }
+        };
+        var speed = speeds[speedName] || speeds.normal;
         document.body.classList.toggle('hssm-title-marquee-enabled', enabled);
         if (!enabled) {
             Array.from(document.querySelectorAll('.hssm-marquee-title')).forEach(function (target) {
@@ -1359,7 +1326,7 @@
                     host.classList.add('hssm-marquee-title-host');
                     target.classList.add('hssm-marquee-title');
                     target.style.setProperty('--hssm-marquee-distance', '-' + (overflow + 8) + 'px');
-                    target.style.setProperty('--hssm-marquee-duration', Math.max(4, (overflow + available) / 24).toFixed(2) + 's');
+                    target.style.setProperty('--hssm-marquee-duration', Math.max(speed.minimumSeconds, (overflow + available) / speed.pixelsPerSecond).toFixed(2) + 's');
                 } else {
                     host.classList.remove('hssm-marquee-title-host');
                     target.classList.remove('hssm-marquee-title');

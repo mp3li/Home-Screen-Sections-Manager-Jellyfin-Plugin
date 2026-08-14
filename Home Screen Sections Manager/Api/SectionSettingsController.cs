@@ -71,6 +71,7 @@ public sealed class SectionSettingsController : ControllerBase
             EnableEnhancedSearch = configuration.EnableEnhancedSearch,
             EnableBreadcrumbs = configuration.EnableBreadcrumbs,
             EnableTitleMarquee = configuration.EnableTitleMarquee,
+            TitleMarqueeSpeed = configuration.TitleMarqueeSpeed,
         });
     }
 
@@ -96,6 +97,7 @@ public sealed class SectionSettingsController : ControllerBase
             EnableEnhancedSearch = configuration.EnableEnhancedSearch,
             EnableBreadcrumbs = configuration.EnableBreadcrumbs,
             EnableTitleMarquee = configuration.EnableTitleMarquee,
+            TitleMarqueeSpeed = configuration.TitleMarqueeSpeed,
         });
     }
 
