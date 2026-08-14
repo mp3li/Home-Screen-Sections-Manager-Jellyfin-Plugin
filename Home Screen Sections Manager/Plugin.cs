@@ -468,6 +468,8 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
             "release-date-descending" => "release-date-descending",
             "date-added-descending" => "date-added-descending",
             "date-added-ascending" => "date-added-ascending",
+            "completed-descending" => "completed-descending",
+            "completed-ascending" => "completed-ascending",
             "rating-descending" => "rating-descending",
             "random" => "random",
             "manual" => "manual",

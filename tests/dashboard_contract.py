@@ -36,6 +36,7 @@ def run() -> None:
               };
               window.__mainSettings = {EnableMyList:true,HideFavorites:false,EnableRemoveContinueNextUp:false,EnableSeriesInfo:false,InfiniteScrollLibraryIds:[],EnableCollectionsOnDetailPage:false,EnableEnhancedSearch:false,EnableBreadcrumbs:false};
               window.__applyCalls = [];
+              window.__brandingWrites = [];
               window.Dashboard = { alert(){}, showLoadingMsg(){}, hideLoadingMsg(){} };
               window.ApiClient = {
                 getCurrentUserId:()=> 'user', serverId:()=> 'server',
@@ -46,6 +47,8 @@ def run() -> None:
                   if(String(url).includes('customization-settings')) return Promise.resolve({});
                   if(String(url).includes('DisplayPreferences')) return Promise.resolve({CustomPrefs:{homesection0:'resume'}});
                   if(String(url).includes('Users/user/Views')) return Promise.resolve({Items:[{Id:'library',Name:'Movies',CollectionType:'movies'}]});
+                  if(String(url).includes('CollectionManager/settings/main')) return Promise.resolve({Configuration:{},Libraries:[]});
+                  if(String(url).includes('CollectionManager/art/collections')) return Promise.resolve([]);
                   if(String(url).includes('Plugins')) return Promise.resolve([{Name:'JavaScript Injector',Id:'injector'}]);
                   if(String(url).includes('Branding/Configuration')) return Promise.resolve({CustomCss:''});
                   return Promise.resolve({Items:[]});
@@ -61,6 +64,7 @@ def run() -> None:
                   }
                   if(String(options.url).includes('section-settings')) window.__sectionSettings = Object.assign({}, window.__sectionSettings, body);
                   if(String(options.url).includes('main-settings')) window.__mainSettings = Object.assign({}, window.__mainSettings, body);
+                  if(String(options.url).includes('System/Configuration/Branding')) window.__brandingWrites.push(body);
                   return Promise.resolve(body);
                 },
                 getDisplayPreferences:()=>Promise.resolve({CustomPrefs:{homesection0:'resume'}}),
@@ -69,7 +73,7 @@ def run() -> None:
                 getPluginConfiguration:()=>Promise.resolve({CustomJavaScripts:[]}),
                 updatePluginConfiguration:()=>Promise.resolve()
               };
-              window.HomeScreenManagerClient = { version:'0.1.0.37', refresh(){} };
+              window.HomeScreenManagerClient = { version:'0.1.0.38', refresh(){} };
               window.CustomElements = { upgradeSubtree(){} };
             }
             """
@@ -90,6 +94,20 @@ def run() -> None:
         native_show_x = page.locator("#hssmSectionList [data-section-id^='jellyfin-'] .hssm-native-section-toggle").first.bounding_box()["x"]
         manager_show_x = page.locator("#hssmSectionList [data-section-id='manager-one'] .hssm-native-section-toggle").bounding_box()["x"]
         assert abs(native_show_x - manager_show_x) < 1
+
+        page.locator("#hssmSectionList [data-section-id^='jellyfin-']").first.click()
+        assert page.locator("#hssmEditSectionButton").is_enabled()
+        page.locator("#hssmEditSectionButton").click()
+        page.get_by_text("Only its art appearance can be edited.", exact=False).wait_for()
+        assert page.locator("#hssmNewSectionSettings").is_visible()
+        assert page.locator("#hssmNewSectionSettings").evaluate("node => node.classList.contains('hssm-native-only')")
+        assert page.locator("#hssmNewSectionSettings > .hssm-conditional-section").first.is_hidden()
+        assert page.locator("#hssmTypeSpecificSettings [data-hssm-content-order]").count() == 0
+        page.locator("#hssmTypeSpecificSettings [data-hssm-art-size]").select_option("large")
+        page.locator("#hssmTypeSpecificSettings [data-hssm-art-shape]").select_option("circle")
+        page.locator("#hssmTypeSpecificSettings [data-hssm-show-text]").uncheck()
+        page.locator("#hssmTypeSpecificSettings [data-hssm-apply-section]").click()
+        page.wait_for_function("window.__sectionSettings.Sections.some(s => String(s.Id).startsWith('jellyfin-') && s.ArtSize === 'large' && s.ArtShape === 'circle' && s.ShowText === false)")
 
         page.locator("#hssmSectionPageSelect").select_option("my-list")
         page.wait_for_selector("#hssmSectionList [data-section-id='my-list-content']")
@@ -177,11 +195,37 @@ def run() -> None:
         page.locator("#hssmFinishSectionButton").click()
         page.get_by_text("No content selection is required. This section automatically loads completed movies and completed series from the signed-in user’s own Jellyfin watch history.", exact=True).wait_for()
         assert page.locator("#hssmTypeSpecificSettings [data-hssm-content]").count() == 0
+        order_labels = page.locator("#hssmTypeSpecificSettings [data-hssm-content-order] option").all_text_contents()
+        assert "Most Recently Completed" in order_labels
+        assert "Least Recently Completed" in order_labels
         page.locator("#hssmTypeSpecificSettings [data-hssm-save-move]").click()
         page.wait_for_function(
-            "([id]) => window.__sectionSettings.Sections.some(s => s.Id === id && s.Type === 'watch-again' && s.PageId === 'manager-page-movies' && s.ItemIds.length === 0 && s.SourceIds.length === 0)",
+            "([id]) => window.__sectionSettings.Sections.some(s => s.Id === id && s.Type === 'watch-again' && s.PageId === 'manager-page-movies' && s.ContentOrder === 'completed-descending' && s.ItemIds.length === 0 && s.SourceIds.length === 0)",
             arg=[watch_again_id],
         )
+        page.locator("#hssmTypeSpecificSettings [data-hssm-content-order]").select_option("completed-ascending")
+        page.locator("#hssmTypeSpecificSettings [data-hssm-apply-section]").click()
+        page.wait_for_function("([id]) => window.__sectionSettings.Sections.some(s => s.Id === id && s.ContentOrder === 'completed-ascending')", arg=[watch_again_id])
+
+        page.locator("#hssmAddSectionButton").click()
+        page.locator("#hssmSectionList [data-hssm-inline-section-name]").fill("Top 20 in Foreign Collection")
+        page.locator("input[name='hssmType'][value='top-10-50']").check()
+        page.locator("#hssmFinishSectionButton").click()
+        page.wait_for_selector("#hssmTypeSpecificSettings [data-hssm-top-draft-name]")
+        assert page.locator("#hssmTypeSpecificSettings [data-hssm-top-draft-name]").input_value() == "Top 20 in Foreign Collection"
+        page.locator("#hssmTypeSpecificSettings [data-hssm-display-top]").select_option("20")
+        assert page.locator("#hssmTypeSpecificSettings [data-hssm-top-draft-name]").input_value() == "Top 20 in Foreign Collection"
+
+        page.locator("[data-tab='customization-settings']").click()
+        page.locator("#hssmAbyssAccentColor").fill("#12ab34")
+        page.locator("#hssmSidebarIconColorMode").select_option("horizontal-gradient")
+        page.locator("#hssmSidebarIconColorOne").fill("#112233")
+        page.locator("#hssmSidebarIconColorTwo").fill("#445566")
+        page.locator("#hssmSaveCustomizationButton").click()
+        page.wait_for_function("window.__brandingWrites.length > 0")
+        generated_css = page.evaluate("window.__brandingWrites.at(-1).CustomCss || window.__brandingWrites.at(-1).customCss")
+        assert "background: linear-gradient(to right, #112233, #445566)" in generated_css
+        assert "-webkit-text-fill-color: #12ab34" in generated_css
         assert not page_errors, page_errors
         browser.close()
 

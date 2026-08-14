@@ -117,6 +117,7 @@
                     String(item && item.Id || ''),
                     item && item.ImageTags || {},
                     item && item.BackdropImageTags || [],
+                    String(item && item.SeriesId || ''),
                     String(item && item.ParentLogoImageTag || ''),
                     String(item && item.ParentLogoItemId || '')
                 ];
@@ -212,13 +213,13 @@
             }
 
             function logoUrl(itemId, tag) {
-                if (!itemId || !tag || !base) return '';
+                if (!itemId || !base) return '';
                 const path = `Items/${encodeURIComponent(itemId)}/Images/Logo`;
-                const parameters = { tag };
+                const parameters = tag ? { tag } : {};
                 try {
                     if (window.top.ApiClient && typeof window.top.ApiClient.getUrl === 'function') return window.top.ApiClient.getUrl(path, parameters);
                 } catch (_) { /* Fall back to the same-origin server address below. */ }
-                return `${base}/${path}?tag=${encodeURIComponent(tag)}`;
+                return `${base}/${path}${tag ? `?tag=${encodeURIComponent(tag)}` : ''}`;
             }
 
             function firstCandidate(candidates) {
@@ -268,11 +269,14 @@
                 return uniqueCandidates(preferred.concat(backdrop, primary, thumb, banner));
             }
 
-            function logoCandidate(item) {
+            function logoCandidates(item) {
                 const tags = item.ImageTags || {};
-                if (tags.Logo) return logoUrl(item.Id, tags.Logo);
-                if (item.ParentLogoImageTag && item.ParentLogoItemId) return logoUrl(item.ParentLogoItemId, item.ParentLogoImageTag);
-                return '';
+                const candidates = [];
+                if (tags.Logo) candidates.push(logoUrl(item.Id, tags.Logo));
+                if (item.ParentLogoItemId) candidates.push(logoUrl(item.ParentLogoItemId, item.ParentLogoImageTag));
+                if (item.SeriesId) candidates.push(logoUrl(item.SeriesId, item.ParentLogoImageTag));
+                candidates.push(logoUrl(item.Id, ''));
+                return Array.from(new Set(candidates.filter(Boolean)));
             }
 
             function logoHasTransparentBackground(image) {
@@ -300,7 +304,7 @@
                 if (signal.aborted) return Promise.reject(new DOMException('Aborted', 'AbortError'));
                 const candidates = backgroundCandidates(item);
                 const background = firstCandidate(candidates);
-                return Promise.resolve({ backdrop: background.image, logo: logoCandidate(item), centered: background.centered, candidates });
+                return Promise.resolve({ backdrop: background.image, logos: logoCandidates(item), centered: background.centered, candidates });
             }
 
             function startZoom(image) {
@@ -458,13 +462,23 @@
                 logo.style.display = 'none';
                 $('title').style.display = 'block';
                 $('title').textContent = title || '';
-                if (artwork.logo) {
-                    logo.onload = () => {
-                        if (sequence !== renderSequence) return;
-                        if (!logoHasTransparentBackground(logo)) {
+                if (artwork.logos && artwork.logos.length) {
+                    let logoIndex = 0;
+                    const applyLogoCandidate = () => {
+                        const candidate = artwork.logos[logoIndex];
+                        if (!candidate) {
                             logo.removeAttribute('src');
                             logo.style.display = 'none';
                             $('title').style.display = 'block';
+                            return;
+                        }
+                        logo.src = candidate;
+                    };
+                    logo.onload = () => {
+                        if (sequence !== renderSequence) return;
+                        if (!logoHasTransparentBackground(logo)) {
+                            logoIndex += 1;
+                            applyLogoCandidate();
                             return;
                         }
                         logo.style.display = 'block';
@@ -472,11 +486,10 @@
                     };
                     logo.onerror = () => {
                         if (sequence !== renderSequence) return;
-                        logo.removeAttribute('src');
-                        logo.style.display = 'none';
-                        $('title').style.display = 'block';
+                        logoIndex += 1;
+                        applyLogoCandidate();
                     };
-                    logo.src = artwork.logo;
+                    applyLogoCandidate();
                 }
 
                 let episodePrefix = '';

@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.1.0.38-test] - 2026-08-13
+
+- Paints the configured solid color or gradient on sidebar icon circles while using the shared Accent Color for the smaller glyphs inside them.
+- Tries the actual Series Logo endpoint when episode metadata omits its Logo tag, while retaining transparent-logo validation and the clean text fallback.
+- Adds **Most Recently Completed** and **Least Recently Completed** ordering exclusively to per-user Watch Again sections.
+- Adds a guarded fallback for Jellyfin scroller-arrow clicks that do not move plugin sections on custom pages.
+- Shows Top 10-50 ranking numbers reliably, reserves number spacing only while numbering is enabled, and aligns non-circular title/year text while keeping circular text centered.
+- Preserves administrator-entered Top 10-50 section titles when the displayed Top count changes.
+- Allows native Jellyfin sections to be edited through Section Art Appearance Settings only, applying size, image type, shape, and title-text visibility without duplicating the native section.
+- Retains the working My List and direct custom-logo-to-Home behavior.
+
 ## [0.1.0.37-test] - 2026-08-13
 
 - Requests Jellyfin's original Logo image without resize or quality conversion, preserving transparency that could otherwise be flattened into an opaque miniature backdrop.

@@ -9,13 +9,13 @@
     "imageUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Assets/Branding/home-screen-sections-manager-plugin-photo.png",
     "versions": [
       {
-        "version": "0.1.0.37",
-        "changelog": "Adds per-user Watch Again rows and Media Bars for completed movies and series, makes the custom logo directly activate Home, and improves transparent Logo retrieval and Series-logo fallback.",
+        "version": "0.1.0.38",
+        "changelog": "Adds completion-date Watch Again ordering, native-section art editing, reliable custom-page arrows and Top numbering, accent-colored sidebar glyphs, and direct Series Logo fallback.",
         "targetAbi": "10.11.11.0",
         "framework": "net9.0",
-        "sourceUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Test%20Releases/0.1.0.37-test/Jellyfin.Plugin.HomeScreenSectionsManager_0.1.0.37-test.zip",
-        "checksum": "93e3bac88381f046884bf63e45d5df31",
-        "timestamp": "2026-08-14T03:49:47Z"
+        "sourceUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Test%20Releases/0.1.0.38-test/Jellyfin.Plugin.HomeScreenSectionsManager_0.1.0.38-test.zip",
+        "checksum": "4d756cd004fd36ee54627ce8c5e4e9c7",
+        "timestamp": "2026-08-14T04:35:06Z"
       }
     ]
   }

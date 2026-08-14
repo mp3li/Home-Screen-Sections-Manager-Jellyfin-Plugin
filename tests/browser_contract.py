@@ -28,11 +28,12 @@ def base_item(item_id: str, name: str, item_type: str = "Movie") -> dict:
 def run() -> None:
     settings = {
         "Sections": [
+            {"Id": "jellyfin-0-resume", "Name": "Continue Watching", "PageId": "home", "Type": "resume", "ItemIds": [], "SourceIds": [], "IsApplied": True, "IsVisible": True, "IsMediaBar": False, "ArtSize": "large", "ArtType": "thumb", "ArtShape": "circle", "ShowText": False},
             {"Id": "manager-home-top", "Name": "Top 10", "PageId": "home", "Type": "top-10-50", "ItemIds": ["resume-one", "resume-two"], "DisplayTopCount": 10, "IsApplied": True, "IsVisible": True, "IsMediaBar": False},
             {"Id": "manager-home-test", "Name": "Test Section", "PageId": "home", "Type": "manual-content", "ItemIds": ["resume-two"], "IsApplied": True, "IsVisible": True, "IsMediaBar": False},
             {"Id": "manager-movies-one", "Name": "Movie Picks", "PageId": "manager-page-movies", "Type": "manual-content", "ItemIds": ["resume-one"], "IsApplied": True, "IsVisible": True, "IsMediaBar": True},
             {"Id": "manager-movies-two", "Name": "More Movies", "PageId": "manager-page-movies", "Type": "manual-content", "ItemIds": ["resume-two"], "IsApplied": True, "IsVisible": True, "IsMediaBar": True},
-            {"Id": "manager-watch-again", "Name": "Watch Again", "PageId": "manager-page-movies", "Type": "watch-again", "ItemIds": [], "SourceIds": [], "IsApplied": True, "IsVisible": True, "IsMediaBar": True},
+            {"Id": "manager-watch-again", "Name": "Watch Again", "PageId": "manager-page-movies", "Type": "watch-again", "ItemIds": [], "SourceIds": [], "ContentOrder": "completed-descending", "IsApplied": True, "IsVisible": True, "IsMediaBar": True},
             {"Id": "manager-movies-hidden", "Name": "Saved for Later", "PageId": "manager-page-movies", "Type": "manual-content", "ItemIds": ["liked-one"], "IsApplied": True, "IsVisible": False, "IsMediaBar": False},
             {"Id": "my-list-content", "Name": "Added to My List", "PageId": "my-list", "Type": "my-list-content", "ItemIds": [], "IsApplied": True, "IsVisible": True, "IsMediaBar": True, "ArtShape": "circle"},
         ],
@@ -55,13 +56,14 @@ def run() -> None:
     resume_two["SeriesId"] = "series-two"
     resume_two["SeriesName"] = "Series Two"
     series_two = base_item("series-two", "Series Two", "Series")
-    series_two["ImageTags"]["Logo"] = "logo-two-tag"
     liked = base_item("liked-one", "A Good Logo")
     liked["ImageTags"]["Logo"] = "logo-tag"
     liked_opaque = base_item("liked-opaque", "Z Opaque Logo")
     liked_opaque["ImageTags"]["Logo"] = "opaque-logo-tag"
     watched_movie = base_item("watched-movie", "Completed Movie", "Movie")
     watched_series = base_item("watched-series", "Completed Series", "Series")
+    watched_movie["UserData"]["LastPlayedDate"] = "2026-07-01T12:00:00Z"
+    watched_series["UserData"]["LastPlayedDate"] = "2026-08-01T12:00:00Z"
     items_by_id = {item["Id"]: item for item in [resume, resume_two, series_two, liked, liked_opaque, watched_movie, watched_series]}
     requests: list[str] = []
     page_errors: list[str] = []
@@ -127,7 +129,7 @@ def run() -> None:
                 <div id="homeTab" class="tabContent pageTabContent" data-index="0">
                   <iframe class="featurediframe" src="about:blank" title="Abyss Spotlight"></iframe>
                   <div class="sections homeSectionsContainer">
-                    <div class="section0 verticalSection"><h2 class="sectionTitle">Continue Watching</h2><div class="card" data-id="resume-one"></div><div class="card" data-id="resume-two"></div></div>
+                    <div class="section0 verticalSection"><h2 class="sectionTitle">Continue Watching</h2><div class="card" data-id="resume-one"><div class="cardBox"><div class="cardScalable"><div class="cardPadder"></div><a class="cardImageContainer" style="background-image:url(original-one)"></a></div><div class="cardText">Resume One</div></div></div><div class="card" data-id="resume-two"><div class="cardBox"><div class="cardScalable"><div class="cardPadder"></div><a class="cardImageContainer" style="background-image:url(original-two)"></a></div><div class="cardText">Resume Two</div></div></div></div>
                   </div>
                 </div>
                 <div id="favoritesTab" class="tabContent pageTabContent" data-index="1"><div class="sections"></div></div>
@@ -177,6 +179,14 @@ def run() -> None:
         page.wait_for_function("document.querySelector('#homeTab').classList.contains('is-active')")
         page.wait_for_selector("#homeTab [data-hssm-section-id='manager-home-top'] .hssm-client-card")
         page.wait_for_selector("#homeTab [data-hssm-section-id='manager-home-test'] .hssm-client-card")
+        page.wait_for_selector("#homeTab .section0.hssm-native-art-override.hssm-size-large.hssm-shape-circle.hssm-art-thumb")
+        assert page.locator("#homeTab .section0").evaluate("node => getComputedStyle(node).getPropertyValue('--hssm-card-width').trim()") == "14.5em"
+        assert page.locator("#homeTab .section0 .cardText").first.evaluate("node => getComputedStyle(node).display") == "none"
+        assert page.locator("#homeTab [data-hssm-section-id='jellyfin-0-resume']").count() == 0
+        assert page.locator("#homeTab [data-hssm-section-id='manager-home-top'] .hssm-rank-number").count() == 2
+        assert page.locator("#homeTab [data-hssm-section-id='manager-home-top']").evaluate("node => node.classList.contains('hssm-top-ranked')")
+        title_year_alignment = page.locator("#homeTab [data-hssm-section-id='manager-home-top'] .hssm-client-card").first.evaluate("card => { const title=card.querySelector('.hssm-card-title'), year=card.querySelector('.hssm-card-year'); return {title:title.getBoundingClientRect().left,year:year.getBoundingClientRect().left}; }")
+        assert abs(title_year_alignment["title"] - title_year_alignment["year"]) < 1, title_year_alignment
         assert page.locator("#homeTab [data-hssm-section-id^='manager-movies-']").count() == 0
         page.wait_for_selector(".hssm-my-list-tab")
         page.wait_for_selector(".hssm-custom-page-tab[data-hssm-page-id='manager-page-movies']")
@@ -254,7 +264,7 @@ def run() -> None:
         # Jellyfin's documented emby-tabs event owns the return to Home.
         page.evaluate("document.querySelector('.emby-tab-button[data-index=\"0\"]').click()")
         page.wait_for_function("getComputedStyle(document.querySelector('#homeTab > .hssm-owned-media-bar')).display === 'block'")
-        assert page.locator("#homeTab .homeSectionsContainer").count() == 1
+        assert page.locator("#homeTab > .homeSectionsContainer").count() == 1
         assert page.locator("#homeTab .section0").count() == 1
         page.locator(".hssm-custom-page-tab[data-hssm-page-id='manager-page-movies']").click()
         page.wait_for_selector(".hssm-owned-custom-page.is-active [data-hssm-section-id='manager-movies-one'] .hssm-client-card")
@@ -263,6 +273,7 @@ def run() -> None:
         page.wait_for_selector(".hssm-owned-custom-page.is-active [data-hssm-section-id='manager-watch-again'] .hssm-client-card[data-id='watched-series']")
         page.wait_for_selector(".hssm-owned-custom-page.is-active .hssm-section-media-bar[data-hssm-media-section-id='manager-watch-again']")
         page.wait_for_function("document.querySelectorAll('.hssm-owned-custom-page.is-active .hssm-section-media-bar').length === 3")
+        assert page.locator(".hssm-owned-custom-page.is-active [data-hssm-section-id='manager-watch-again'] .hssm-client-card").first.get_attribute("data-id") == "watched-series"
         custom_page_state = page.evaluate(
             """() => ({
               titleAbsent: !document.querySelector('.hssm-owned-custom-page.is-active .hssm-page-context-title'),
@@ -280,11 +291,30 @@ def run() -> None:
         assert "/Items/series-two/Images/Logo" in custom_logo.get_attribute("src")
         page.frame_locator(".hssm-section-media-bar[data-hssm-media-section-id='manager-movies-two']").locator("body.hssm-media-bar-top-gradient").wait_for(state="attached")
         assert any("Filters=IsPlayed" in url and "IncludeItemTypes=Movie%2CSeries" in url for url in requests), requests
+        assert any("Filters=IsPlayed" in url and "SortOrder=Descending" in url for url in requests), requests
+
+        arrow_result = page.locator(".hssm-owned-custom-page.is-active [data-hssm-section-id='manager-watch-again']").evaluate("""section => {
+          const scroller=section.querySelector('.hssm-client-scroller');
+          let position=0;
+          scroller.getScrollPosition=()=>position;
+          scroller.scrollToPosition=value=>{position=value;};
+          const button=document.createElement('button');
+          button.className='emby-scrollbuttons-button';
+          button.dataset.direction='right';
+          section.prepend(button);
+          button.click();
+          return new Promise(resolve=>setTimeout(()=>resolve(position),450));
+        }""")
+        assert arrow_result > 0, arrow_result
 
         page.locator(".hssm-header-logo-link").click()
         page.wait_for_function("document.querySelector('#homeTab').classList.contains('is-active')")
         assert page.locator(".emby-tab-button[data-index='0']").evaluate("button => button.classList.contains('emby-tab-button-active')")
         assert not page.locator(".hssm-owned-custom-page[data-hssm-page-id='manager-page-movies']").evaluate("panel => panel.classList.contains('is-active')")
+        settings["Sections"][1]["ShowRankNumbers"] = False
+        page.evaluate("window.HomeScreenManagerClient.invalidate(); window.HomeScreenManagerClient.refresh();")
+        page.wait_for_function("!document.querySelector('#homeTab [data-hssm-section-id=\"manager-home-top\"]').classList.contains('hssm-top-ranked')")
+        assert page.locator("#homeTab [data-hssm-section-id='manager-home-top'] .hssm-rank-number").count() == 0
         settings["HideFavorites"] = True
         settings["PageOrder"] = ["home", "hidden:favorites", "my-list", "manager-page-movies"]
         page.evaluate("window.HomeScreenManagerClient.invalidate(); window.HomeScreenManagerClient.refresh();")

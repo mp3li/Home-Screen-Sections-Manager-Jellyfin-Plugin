@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    var CLIENT_VERSION = "0.1.0.37";
+    var CLIENT_VERSION = "0.1.0.38";
     if (window.HomeScreenManagerClient) {
         if (window.HomeScreenManagerClient.version === CLIENT_VERSION) {
             window.HomeScreenManagerClient.refresh();
@@ -394,7 +394,8 @@
     function sectionsForPage(settings, pageId) {
         var allSections = prop(settings, 'Sections', 'sections', []);
         var sections = allSections.filter(function (section) {
-            return String(prop(section, 'PageId', 'pageId', 'home') || 'home') === pageId && prop(section, 'IsVisible', 'isVisible', true) !== false;
+            var id = String(prop(section, 'Id', 'id', ''));
+            return id.indexOf('jellyfin-') !== 0 && String(prop(section, 'PageId', 'pageId', 'home') || 'home') === pageId && prop(section, 'IsVisible', 'isVisible', true) !== false;
         });
         if (pageId === 'my-list' && setting(settings, 'EnableMyList', false) && !allSections.some(function (section) { return String(prop(section, 'Id', 'id', '')) === 'my-list-content'; })) sections.unshift(defaultMyListSection());
         return sections;
@@ -437,13 +438,14 @@
         });
     }
 
-    function loadWatchAgainItems(start, limit) {
+    function loadWatchAgainItems(start, limit, order) {
+        var ascending = String(order || '') === 'completed-ascending';
         return queryItems({
             Filters:'IsPlayed',
             IncludeItemTypes:'Movie,Series',
             Recursive:true,
             SortBy:'DatePlayed,SortName',
-            SortOrder:'Descending',
+            SortOrder:ascending ? 'Ascending' : 'Descending',
             StartIndex:Math.max(0, Number(start) || 0),
             Limit:Math.max(1, Math.min(100, Number(limit) || 40)),
             EnableTotalRecordCount:false
@@ -572,6 +574,12 @@
     }
 
     function dateValue(item, field) {
+        if (field === 'completed') {
+            var userData = prop(item, 'UserData', 'userData', {}) || {};
+            var completed = prop(userData, 'LastPlayedDate', 'lastPlayedDate', '');
+            var completedParsed = Date.parse(completed);
+            return Number.isFinite(completedParsed) ? completedParsed : 0;
+        }
         var value = field === 'release'
             ? prop(item, 'PremiereDate', 'premiereDate', '') || prop(item, 'ProductionYear', 'productionYear', 0)
             : prop(item, 'DateCreated', 'dateCreated', '');
@@ -606,6 +614,8 @@
         if (order === 'release-date-descending') return sorted.sort(function (left, right) { return dateValue(right, 'release') - dateValue(left, 'release'); });
         if (order === 'date-added-descending') return sorted.sort(function (left, right) { return dateValue(right, 'added') - dateValue(left, 'added'); });
         if (order === 'date-added-ascending') return sorted.sort(function (left, right) { return dateValue(left, 'added') - dateValue(right, 'added'); });
+        if (order === 'completed-descending') return sorted.sort(function (left, right) { return dateValue(right, 'completed') - dateValue(left, 'completed'); });
+        if (order === 'completed-ascending') return sorted.sort(function (left, right) { return dateValue(left, 'completed') - dateValue(right, 'completed'); });
         if (order === 'rating-descending') return sorted.sort(function (left, right) { var leftRating = String(prop(section, 'Type', 'type', '')) === 'top-10-50' ? imdbTaggedRating(left) : taggedRating(left); var rightRating = String(prop(section, 'Type', 'type', '')) === 'top-10-50' ? imdbTaggedRating(right) : taggedRating(right); return (rightRating || 0) - (leftRating || 0); });
         return sorted.sort(function (left, right) { return String(prop(left, 'SortName', 'sortName', prop(left, 'Name', 'name', ''))).localeCompare(String(prop(right, 'SortName', 'sortName', prop(right, 'Name', 'name', '')))); });
     }
@@ -724,7 +734,8 @@
         var artSize = String(prop(section, 'ArtSize', 'artSize', 'medium'));
         var artShape = cardShape(section).name;
         var artType = String(prop(section, 'ArtType', 'artType', 'automatic'));
-        node.className = 'verticalSection emby-scroller-container hssm-client-section hssm-size-' + artSize + ' hssm-shape-' + artShape + ' hssm-art-' + artType + (String(prop(section, 'Type', 'type', '')) === 'top-10-50' ? ' hssm-top-ranked hssm-rank-' + String(prop(section, 'RankNumberColorMode', 'rankNumberColorMode', 'solid')) : '');
+        var ranked = String(prop(section, 'Type', 'type', '')) === 'top-10-50' && prop(section, 'ShowRankNumbers', 'showRankNumbers', true) !== false;
+        node.className = 'verticalSection emby-scroller-container hssm-client-section hssm-size-' + artSize + ' hssm-shape-' + artShape + ' hssm-art-' + artType + (ranked ? ' hssm-top-ranked hssm-rank-' + String(prop(section, 'RankNumberColorMode', 'rankNumberColorMode', 'solid')) : '');
         node.style.setProperty('--hssm-rank-one', String(prop(section, 'RankNumberColorOne', 'rankNumberColorOne', '#f5f5f7')));
         node.style.setProperty('--hssm-rank-two', String(prop(section, 'RankNumberColorTwo', 'rankNumberColorTwo', '#f5f5f7')));
         var rankFont = String(prop(section, 'RankNumberFontDataUrl', 'rankNumberFontDataUrl', ''));
@@ -751,6 +762,26 @@
         if (!node) return;
         if (window.CustomElements && typeof window.CustomElements.upgradeSubtree === 'function') {
             window.CustomElements.upgradeSubtree(node);
+        }
+        if (node.dataset.hssmArrowFallbackBound !== 'true') {
+            node.dataset.hssmArrowFallbackBound = 'true';
+            node.addEventListener('click', function (event) {
+                var button = event.target.closest('.emby-scrollbuttons-button');
+                var scroller = node.querySelector('.hssm-client-scroller');
+                if (!button || !scroller) return;
+                var before = typeof scroller.getScrollPosition === 'function' ? Number(scroller.getScrollPosition()) || 0 : Number(scroller.scrollLeft) || 0;
+                var direction = button.getAttribute('data-direction') === 'left' ? -1 : 1;
+                window.setTimeout(function () {
+                    if (!node.isConnected || !scroller.isConnected) return;
+                    var after = typeof scroller.getScrollPosition === 'function' ? Number(scroller.getScrollPosition()) || 0 : Number(scroller.scrollLeft) || 0;
+                    if (Math.abs(after - before) > 1) return;
+                    var distance = Math.max(240, Math.round((scroller.clientWidth || node.clientWidth || 800) * 0.82));
+                    var target = Math.max(0, before + direction * distance);
+                    if (typeof scroller.scrollToPosition === 'function') scroller.scrollToPosition(target, false);
+                    else if (typeof scroller.scrollTo === 'function') scroller.scrollTo({ left:target, behavior:'smooth' });
+                    else scroller.scrollLeft = target;
+                }, 360);
+            }, true);
         }
     }
 
@@ -878,6 +909,80 @@
         desired.forEach(function (node) {
             if (node.parentNode !== container && !node.dataset.hssmLatestOrderId) return;
             node.style.order = String(nextOrder++);
+        });
+        applyNativeAppearanceOverrides(container, settings);
+    }
+
+    function nativeOverrideNode(container, id) {
+        if (id.indexOf('jellyfin-latest-') === 0) return container.querySelector('[data-hssm-latest-order-id="' + CSS.escape(id) + '"]');
+        var match = id.match(/^jellyfin-(\d+)-/);
+        return match ? container.querySelector('.section' + match[1]) : null;
+    }
+
+    function restoreNativeAppearance(node) {
+        if (!node) return;
+        node.className = String(node.className || '').split(/\s+/).filter(function (name) {
+            return name && name !== 'hssm-native-art-override' && name !== 'hssm-native-hide-text' && name.indexOf('hssm-size-') !== 0 && name.indexOf('hssm-shape-') !== 0 && name.indexOf('hssm-art-') !== 0;
+        }).join(' ');
+        node.style.removeProperty('--hssm-card-width');
+        delete node.dataset.hssmNativeOverrideId;
+        delete node.dataset.hssmNativeOverrideSignature;
+        Array.from(node.querySelectorAll('.cardImageContainer[data-hssm-original-background]')).forEach(function (image) {
+            var original = image.dataset.hssmOriginalBackground;
+            image.style.backgroundImage = original === '__empty__' ? '' : original;
+            delete image.dataset.hssmOriginalBackground;
+        });
+    }
+
+    function applyNativeAppearanceOverrides(container, settings) {
+        if (!container || pageIdForContainer(container) !== 'home') return;
+        var definitions = prop(settings, 'Sections', 'sections', []).filter(function (section) {
+            return String(prop(section, 'Id', 'id', '')).indexOf('jellyfin-') === 0 && prop(section, 'IsApplied', 'isApplied', true) !== false;
+        });
+        var active = {};
+        definitions.forEach(function (definition) { active[String(prop(definition, 'Id', 'id', ''))] = definition; });
+        Array.from(container.querySelectorAll('.hssm-native-art-override')).forEach(function (node) {
+            if (!active[node.dataset.hssmNativeOverrideId]) restoreNativeAppearance(node);
+        });
+        definitions.forEach(function (definition) {
+            var id = String(prop(definition, 'Id', 'id', ''));
+            var node = nativeOverrideNode(container, id);
+            if (!node) return;
+            var cards = Array.from(node.querySelectorAll('.card[data-id]'));
+            var cardIds = cards.map(function (cardNode) { return String(cardNode.dataset.id || ''); }).filter(Boolean);
+            var artSize = String(prop(definition, 'ArtSize', 'artSize', 'medium'));
+            var artShape = cardShape(definition).name;
+            var artType = String(prop(definition, 'ArtType', 'artType', 'automatic'));
+            var signature = JSON.stringify([artSize, artShape, artType, prop(definition, 'ShowText', 'showText', true) !== false, cardIds]);
+            if (node.dataset.hssmNativeOverrideId && node.dataset.hssmNativeOverrideId !== id) restoreNativeAppearance(node);
+            node.className = String(node.className || '').split(/\s+/).filter(function (name) { return name && name.indexOf('hssm-size-') !== 0 && name.indexOf('hssm-shape-') !== 0 && name.indexOf('hssm-art-') !== 0; }).join(' ');
+            node.classList.add('hssm-native-art-override', 'hssm-size-' + artSize, 'hssm-shape-' + artShape, 'hssm-art-' + artType);
+            node.classList.toggle('hssm-native-hide-text', prop(definition, 'ShowText', 'showText', true) === false);
+            node.dataset.hssmNativeOverrideId = id;
+            if (node.dataset.hssmNativeOverrideSignature === signature) return;
+            node.dataset.hssmNativeOverrideSignature = signature;
+            cards.forEach(function (cardNode) {
+                var image = cardNode.querySelector('.cardImageContainer');
+                if (image && image.dataset.hssmOriginalBackground === undefined) image.dataset.hssmOriginalBackground = image.style.backgroundImage || '__empty__';
+            });
+            if (artType === 'automatic') {
+                cards.forEach(function (cardNode) {
+                    var image = cardNode.querySelector('.cardImageContainer[data-hssm-original-background]');
+                    if (image) image.style.backgroundImage = image.dataset.hssmOriginalBackground === '__empty__' ? '' : image.dataset.hssmOriginalBackground;
+                });
+                return;
+            }
+            queryIds(cardIds).then(function (items) {
+                if (!node.isConnected || node.dataset.hssmNativeOverrideSignature !== signature) return;
+                var byId = {};
+                items.forEach(function (item) { byId[String(prop(item, 'Id', 'id', ''))] = item; });
+                cards.forEach(function (cardNode) {
+                    var item = byId[String(cardNode.dataset.id || '')];
+                    var image = cardNode.querySelector('.cardImageContainer');
+                    var url = item && cardImage(item, definition);
+                    if (image && url) image.style.backgroundImage = 'url("' + String(url).replace(/"/g, '%22') + '")';
+                });
+            }, function () {});
         });
     }
 
@@ -1118,7 +1223,7 @@
     function mediaBarSectionItems(section) {
         var type = String(prop(section, 'Type', 'type', ''));
         if (type === 'watch-again') {
-            return loadWatchAgainItems(0, 30).then(function (items) {
+            return loadWatchAgainItems(0, 30, prop(section, 'ContentOrder', 'contentOrder', 'completed-descending')).then(function (items) {
                 return orderItems(uniqueItems(items), section).slice(0, 30);
             });
         }
@@ -2176,7 +2281,7 @@
                 return items;
             });
         } else if (type === "watch-again") {
-            state.dynamicLoader = function (start, limit) { return loadWatchAgainItems(start, limit); };
+            state.dynamicLoader = function (start, limit) { return loadWatchAgainItems(start, limit, prop(state.section, 'ContentOrder', 'contentOrder', 'completed-descending')); };
             request = state.dynamicLoader(0, 40);
         } else if (type === "other-users-activity") {
             var maximum = Math.max(1, Math.min(100, Number(prop(state.section, "ActivityMaxItems", "activityMaxItems", 20)) || 20));

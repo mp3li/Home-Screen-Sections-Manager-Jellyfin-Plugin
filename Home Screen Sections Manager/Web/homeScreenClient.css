@@ -88,6 +88,10 @@
     --hssm-card-width: 10em;
 }
 
+.hssm-native-art-override {
+    --hssm-card-width: 10em;
+}
+
 .hssm-size-extra-small {
     --hssm-card-width: 6.5em;
 }
@@ -107,6 +111,28 @@
 .hssm-client-card {
     flex: 0 0 var(--hssm-card-width);
     width: var(--hssm-card-width);
+}
+
+.hssm-native-art-override .card {
+    flex: 0 0 var(--hssm-card-width) !important;
+    width: var(--hssm-card-width) !important;
+}
+
+.hssm-native-art-override.hssm-shape-poster .cardPadder {
+    padding-top: 150% !important;
+}
+
+.hssm-native-art-override.hssm-shape-wide .cardPadder {
+    padding-top: 56.25% !important;
+}
+
+.hssm-native-art-override.hssm-shape-square .cardPadder,
+.hssm-native-art-override.hssm-shape-circle .cardPadder {
+    padding-top: 100% !important;
+}
+
+.hssm-native-art-override.hssm-native-hide-text .cardText {
+    display: none !important;
 }
 
 .hssm-client-section:not(.hssm-shape-circle) .hssm-card-title,
@@ -131,6 +157,25 @@
     text-indent: 0 !important;
     transform: none !important;
     width: 100%;
+}
+
+.hssm-client-section:not(.hssm-shape-circle) .hssm-card-title a,
+.hssm-client-section:not(.hssm-shape-circle) .hssm-card-year a {
+    box-sizing: border-box;
+    display: block;
+    margin: 0 !important;
+    padding: 0 !important;
+    text-align: left !important;
+    text-indent: 0 !important;
+    width: 100%;
+}
+
+.hssm-shape-circle .hssm-card-title a,
+.hssm-shape-circle .hssm-card-year a {
+    display: block;
+    margin: 0 auto !important;
+    padding: 0 !important;
+    text-align: center !important;
 }
 
 .hssm-client-section:not(.hssm-shape-circle) .hssm-card-year {
@@ -172,6 +217,10 @@
 
 @media (min-width: 80em) {
     .hssm-client-section {
+        --hssm-card-width: 11.5em;
+    }
+
+    .hssm-native-art-override {
         --hssm-card-width: 11.5em;
     }
 
@@ -595,7 +644,8 @@ body.hssm-infinite-scroll-active .listPaging {
     position: absolute;
     text-align: right;
     width: calc(var(--hssm-card-width) * 0.92);
-    z-index: 1;
+    pointer-events: none;
+    z-index: 3;
 }
 
 .hssm-rank-vertical-gradient .hssm-rank-number,
