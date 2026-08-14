@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    var CLIENT_VERSION = "0.1.0.42";
+    var CLIENT_VERSION = "0.1.0.43";
     if (window.HomeScreenManagerClient) {
         if (window.HomeScreenManagerClient.version === CLIENT_VERSION) {
             window.HomeScreenManagerClient.refresh();
@@ -72,6 +72,8 @@
     var watchAgainCaches = {};
     var watchAgainRequests = {};
     var topRecoveryRequests = {};
+    var topRowRenderKey = '';
+    var topRowLoadSequence = 0;
 
     function createLimiter(maximum) {
         var active = 0;
@@ -811,7 +813,7 @@
         var sectionTitleMarkup = showSectionName ? '<div class="sectionTitleContainer sectionTitleContainer-cards padded-left"><h2 class="sectionTitle sectionTitle-cards">' + escapeHtml(name) + '</h2></div>' : '';
         var ownsScroller = forceOwnedScroller === true || (pageId !== 'home' && pageId !== 'my-list');
         var ranked = String(prop(section, 'Type', 'type', '')) === 'top-10-50' && prop(section, 'ShowRankNumbers', 'showRankNumbers', true) !== false;
-        node.className = 'verticalSection emby-scroller-container hssm-client-section hssm-size-' + artSize + ' hssm-shape-' + artShape + ' hssm-art-' + artType + (ranked ? ' hssm-top-ranked hssm-rank-' + String(prop(section, 'RankNumberColorMode', 'rankNumberColorMode', 'solid')) : '');
+        node.className = 'verticalSection emby-scroller-container hssm-client-section hssm-size-' + artSize + ' hssm-shape-' + artShape + ' hssm-art-' + artType + (showSectionName ? '' : ' hssm-hide-section-name') + (ranked ? ' hssm-top-ranked hssm-rank-' + String(prop(section, 'RankNumberColorMode', 'rankNumberColorMode', 'solid')) : '');
         node.style.setProperty('--hssm-rank-one', String(prop(section, 'RankNumberColorOne', 'rankNumberColorOne', '#f5f5f7')));
         node.style.setProperty('--hssm-rank-two', String(prop(section, 'RankNumberColorTwo', 'rankNumberColorTwo', '#f5f5f7')));
         var rankShadow = String(prop(section, 'RankNumberShadowColor', 'rankNumberShadowColor', '#000000'));
@@ -1294,9 +1296,9 @@
         var speeds = {
             'extra-slow':{ pixelsPerSecond:14, minimumSeconds:6 },
             'slow':{ pixelsPerSecond:24, minimumSeconds:4 },
-            'normal':{ pixelsPerSecond:38, minimumSeconds:3 },
-            'fast':{ pixelsPerSecond:54, minimumSeconds:2 },
-            'faster':{ pixelsPerSecond:72, minimumSeconds:1.5 }
+            'normal':{ pixelsPerSecond:54, minimumSeconds:2 },
+            'fast':{ pixelsPerSecond:72, minimumSeconds:1.5 },
+            'faster':{ pixelsPerSecond:96, minimumSeconds:1 }
         };
         var speed = speeds[speedName] || speeds.normal;
         document.body.classList.toggle('hssm-title-marquee-enabled', enabled);
@@ -1637,10 +1639,16 @@
             if (!frame || event.source !== frame.contentWindow) return;
             if (event.data.action === 'ready') sendMediaBarPayload(frame, true);
             if (event.data.action === "rendered") {
+                var reportedInterval = String(event.data.intervalSeconds || '');
+                var reportedImageType = String(event.data.imageType || '');
+                var reportedSlowZoom = event.data.slowZoom === false ? 'false' : 'true';
+                if ((frame.dataset.hssmExpectedIntervalSeconds && frame.dataset.hssmExpectedIntervalSeconds !== reportedInterval)
+                    || (frame.dataset.hssmExpectedImageType && frame.dataset.hssmExpectedImageType !== reportedImageType)
+                    || (frame.dataset.hssmExpectedSlowZoom && frame.dataset.hssmExpectedSlowZoom !== reportedSlowZoom)) return;
                 frame.dataset.hssmMediaBarReady = "true";
-                frame.dataset.hssmAppliedIntervalSeconds = String(event.data.intervalSeconds || '');
-                frame.dataset.hssmAppliedImageType = String(event.data.imageType || '');
-                frame.dataset.hssmAppliedSlowZoom = event.data.slowZoom === false ? 'false' : 'true';
+                frame.dataset.hssmAppliedIntervalSeconds = reportedInterval;
+                frame.dataset.hssmAppliedImageType = reportedImageType;
+                frame.dataset.hssmAppliedSlowZoom = reportedSlowZoom;
                 delete frame.dataset.hssmMediaBarPending;
             }
         });
@@ -1686,11 +1694,23 @@
         }
         frame.dataset.hssmMediaBar = "true";
         frame.dataset.hssmClientVersion = CLIENT_VERSION;
+        var expectedInterval = String(Math.max(1, Math.min(300, Number(setting(settings || {}, 'MediaBarIntervalSeconds', 5)) || 5)));
+        var expectedImageType = String(setting(settings || {}, 'MediaBarImageType', 'abyss-original'));
+        var expectedSlowZoom = setting(settings || {}, 'EnableMediaBarSlowZoom', true) === false ? 'false' : 'true';
+        frame.dataset.hssmExpectedIntervalSeconds = expectedInterval;
+        frame.dataset.hssmExpectedImageType = expectedImageType;
+        frame.dataset.hssmExpectedSlowZoom = expectedSlowZoom;
         bindMediaBarMessages();
         var urls = mediaBarUrls(frame, settings);
         if (frame.src !== urls.plugin) {
+            delete frame.dataset.hssmAppliedIntervalSeconds;
+            delete frame.dataset.hssmAppliedImageType;
+            delete frame.dataset.hssmAppliedSlowZoom;
             frame.addEventListener('load', function handleLoad() {
                 frame.removeEventListener('load', handleLoad);
+                frame.dataset.hssmAppliedIntervalSeconds = expectedInterval;
+                frame.dataset.hssmAppliedImageType = expectedImageType;
+                frame.dataset.hssmAppliedSlowZoom = expectedSlowZoom;
                 sendMediaBarPayload(frame, true);
             });
             frame.src = urls.plugin;
@@ -2664,9 +2684,117 @@
         if (libraryId) queueLibraryPageContextTitle(scope, libraryId);
     }
 
+    function removeTopRow() {
+        topRowLoadSequence += 1;
+        topRowRenderKey = '';
+        var row = document.querySelector('.hssm-top-row');
+        if (row) row.remove();
+        Array.from(document.querySelectorAll('.skinHeader.hssm-top-row-host')).forEach(function (header) {
+            header.classList.remove('hssm-top-row-host');
+        });
+        document.body.classList.remove('hssm-top-row-enabled');
+    }
+
+    function activeTopRowPageId() {
+        var container = activeManagedSectionContainer();
+        return pageIdForContainer(container) || 'home';
+    }
+
+    function topRowCard(item, section) {
+        var id = String(prop(item, 'Id', 'id', ''));
+        var name = String(prop(item, 'Name', 'name', ''));
+        var serverId = typeof ApiClient.serverId === 'function' ? ApiClient.serverId() : '';
+        var href = '#/details?id=' + encodeURIComponent(id) + (serverId ? '&serverId=' + encodeURIComponent(serverId) : '');
+        var imageUrl = cardImage(item, section);
+        var imageStyle = imageUrl ? ' style="background-image:url(&quot;' + escapeHtml(imageUrl) + '&quot;)"' : '';
+        var shape = cardShape(section).name;
+        return '<a is="emby-linkbutton" class="hssm-top-row-card hssm-top-row-shape-' + shape + ' itemAction" data-action="link" data-id="' + escapeHtml(id) + '" href="' + escapeHtml(href) + '" aria-label="' + escapeHtml(name) + '"><span class="hssm-top-row-art"' + imageStyle + '><span class="hssm-top-row-hover"></span></span></a>';
+    }
+
+    function bindTopRowScroller(row) {
+        var track = row && row.querySelector('.hssm-top-row-track');
+        if (!track || track.dataset.hssmTopRowScrollBound === 'true') return;
+        track.dataset.hssmTopRowScrollBound = 'true';
+        track.addEventListener('wheel', function (event) {
+            var amount = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
+            if (!amount || track.scrollWidth <= track.clientWidth + 1) return;
+            track.scrollLeft += amount;
+            event.preventDefault();
+        }, { passive:false });
+        var drag = null;
+        track.addEventListener('pointerdown', function (event) {
+            if (event.pointerType !== 'mouse' || event.button !== 0) return;
+            drag = { id:event.pointerId, x:event.clientX, start:track.scrollLeft, moved:false };
+        });
+        track.addEventListener('pointermove', function (event) {
+            if (!drag || drag.id !== event.pointerId) return;
+            var distance = event.clientX - drag.x;
+            if (Math.abs(distance) > 4) drag.moved = true;
+            if (!drag.moved) return;
+            track.scrollLeft = drag.start - distance;
+            event.preventDefault();
+        });
+        function endDrag(event) {
+            if (!drag || drag.id !== event.pointerId) return;
+            if (drag.moved) row.dataset.hssmSuppressTopRowClick = 'true';
+            drag = null;
+        }
+        track.addEventListener('pointerup', endDrag);
+        track.addEventListener('pointercancel', endDrag);
+        row.addEventListener('click', function (event) {
+            if (row.dataset.hssmSuppressTopRowClick !== 'true') return;
+            delete row.dataset.hssmSuppressTopRowClick;
+            event.preventDefault();
+            event.stopPropagation();
+        }, true);
+    }
+
+    function renderTopRow(settings) {
+        var enabled = setting(settings, 'EnableTopRow', false) === true;
+        var section = setting(settings, 'TopRowSection', null);
+        var pageIds = setting(settings, 'TopRowPageIds', ['home']) || ['home'];
+        var pageId = activeTopRowPageId();
+        var sourceIds = prop(section, 'ItemIds', 'itemIds', prop(section, 'SourceIds', 'sourceIds', []) || []).map(String).filter(Boolean);
+        var visible = isHomeRoute() && enabled && section && sourceIds.length && pageIds.map(String).indexOf(pageId) >= 0;
+        var header = document.querySelector('.skinHeader');
+        if (!visible || !header) {
+            removeTopRow();
+            return;
+        }
+        var signature = JSON.stringify([pageId, sourceIds, prop(section, 'ContentOrder', 'contentOrder', 'manual'), prop(section, 'ArtType', 'artType', 'automatic'), prop(section, 'ArtShape', 'artShape', 'wide')]);
+        var existing = header.querySelector(':scope > .hssm-top-row');
+        header.classList.add('hssm-top-row-host');
+        document.body.classList.add('hssm-top-row-enabled');
+        if (existing && topRowRenderKey === signature) return;
+        if (existing) existing.remove();
+        topRowRenderKey = signature;
+        var loadSequence = ++topRowLoadSequence;
+        var row = document.createElement('nav');
+        row.className = 'hssm-top-row';
+        row.setAttribute('aria-label', 'Top Row');
+        row.innerHTML = '<div class="hssm-top-row-track" aria-busy="true"></div>';
+        header.insertBefore(row, header.firstChild);
+        queryIds(sourceIds).then(function (items) {
+            if (loadSequence !== topRowLoadSequence || !row.isConnected || topRowRenderKey !== signature) return;
+            var ordered = orderItems(items, section);
+            var track = row.querySelector('.hssm-top-row-track');
+            track.innerHTML = ordered.map(function (item) { return topRowCard(item, section); }).join('');
+            track.setAttribute('aria-busy', 'false');
+            if (!ordered.length) {
+                removeTopRow();
+                return;
+            }
+            bindTopRowScroller(row);
+            if (window.CustomElements && typeof window.CustomElements.upgradeSubtree === 'function') window.CustomElements.upgradeSubtree(row);
+        }).catch(function () {
+            if (loadSequence === topRowLoadSequence) removeTopRow();
+        });
+    }
+
     function applyRouteFeatures(settings, scope, home, preferences) {
         document.body.classList.add('hssm-client-enabled');
         applyLogo(settings);
+        renderTopRow(settings);
         applyTitleMarquee(settings, scope);
         applyMyListHeartColor(settings);
         applyMyList(settings, scope);
@@ -2843,6 +2971,7 @@
                 clientReadyTimer = window.setTimeout(function () { routeRefresh(false); }, 100);
             }
             applyLogo(isPlaybackScreen() ? {} : (settingsCache || cacheRead('client-settings', 24 * 60 * 60 * 1000) || {}));
+            if (!isHomeRoute()) removeTopRow();
             return;
         }
         clientReadyAttempts = 0;
@@ -2850,6 +2979,7 @@
         clientReadyTimer = null;
         if (isDashboardScreen() || isPlaybackScreen()) {
             applyLogo(isPlaybackScreen() ? {} : (settingsCache || cacheRead('client-settings', 24 * 60 * 60 * 1000) || {}));
+            removeTopRow();
             return;
         }
         liveUserViews(false);

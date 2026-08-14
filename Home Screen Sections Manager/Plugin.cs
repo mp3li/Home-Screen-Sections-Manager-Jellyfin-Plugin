@@ -197,6 +197,51 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
         return configuration;
     }
 
+    /// <summary>Updates the independently rendered global navigation Top Row.</summary>
+    public PluginConfiguration UpdateTopRowSettings(TopRowSettingsRequest request)
+    {
+        var configuration = CloneConfiguration(Configuration);
+        var validPageIds = configuration.Pages.Select(page => page.Id).Append("home").Append("favorites").ToHashSet(StringComparer.Ordinal);
+        var requestedPages = request.TopRowPageIds ?? ["home"];
+        configuration.TopRowPageIds = requestedPages
+            .Where(validPageIds.Contains)
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+        if (configuration.TopRowPageIds.Count == 0)
+        {
+            configuration.TopRowPageIds.Add("home");
+        }
+
+        var requested = request.TopRowSection ?? new HomeScreenSectionDefinition();
+        var type = requested.Type is "libraries-in-a-row" ? "libraries-in-a-row" : "multiple-collections-in-a-row";
+        var sources = (requested.SourceIds ?? []).Where(id => !string.IsNullOrWhiteSpace(id)).Distinct(StringComparer.Ordinal).ToList();
+        var requestedOrder = (requested.ItemIds ?? []).Where(sources.Contains).Distinct(StringComparer.Ordinal).ToList();
+        sources.ForEach(id => { if (!requestedOrder.Contains(id, StringComparer.Ordinal)) requestedOrder.Add(id); });
+        var contentOrder = requested.ContentOrder is "title-ascending" or "title-descending" ? requested.ContentOrder : "manual";
+        var artShape = requested.ArtShape is "square" or "circle" ? requested.ArtShape : "wide";
+        configuration.TopRowSection = new HomeScreenSectionDefinition
+        {
+            Id = "top-row",
+            Name = "Top Row",
+            PageId = "home",
+            Type = type,
+            SourceIds = sources,
+            ItemIds = requestedOrder,
+            ContentOrder = contentOrder,
+            ArtSize = "extra-small",
+            ArtType = NormalizeArtType(requested.ArtType),
+            ArtShape = artShape,
+            ShowText = false,
+            ShowSectionName = false,
+            IsVisible = true,
+            IsMediaBar = false,
+            IsApplied = sources.Count > 0,
+        };
+        configuration.EnableTopRow = request.EnableTopRow;
+        UpdateConfiguration(configuration);
+        return configuration;
+    }
+
     private static PluginConfiguration CloneConfiguration(PluginConfiguration source)
     {
         return new PluginConfiguration
@@ -241,6 +286,9 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
             EnableBreadcrumbs = source.EnableBreadcrumbs,
             EnableTitleMarquee = source.EnableTitleMarquee,
             TitleMarqueeSpeed = NormalizeTitleMarqueeSpeed(source.TitleMarqueeSpeed),
+            EnableTopRow = source.EnableTopRow,
+            TopRowPageIds = [.. (source.TopRowPageIds ?? ["home"])],
+            TopRowSection = CloneSection(source.TopRowSection ?? new HomeScreenSectionDefinition()),
             Sections = source.Sections.Select(CloneSection).ToList(),
             SectionOrder = [.. source.SectionOrder],
             Pages = source.Pages.Select(page => new HomeScreenPageDefinition { Id = page.Id, Name = page.Name }).ToList(),

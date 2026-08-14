@@ -37,6 +37,11 @@ def run() -> None:
                 ]
               };
               window.__mainSettings = {EnableMyList:true,HideFavorites:false,EnableRemoveContinueNextUp:false,EnableSeriesInfo:false,InfiniteScrollLibraryIds:[],EnableCollectionsOnDetailPage:false,EnableEnhancedSearch:false,EnableBreadcrumbs:false};
+              window.__topRowSettings = {
+                EnableTopRow:false,
+                TopRowPageIds:['home'],
+                TopRowSection:{Id:'top-row',Name:'Top Row',PageId:'home',Type:'multiple-collections-in-a-row',SourceIds:[],ItemIds:[],ContentOrder:'manual',ArtSize:'extra-small',ArtType:'automatic',ArtShape:'wide',ShowText:false,ShowSectionName:false,IsVisible:true,IsMediaBar:false,IsApplied:false}
+              };
               window.__customizationSettings = {};
               window.__applyCalls = [];
               window.__brandingWrites = [];
@@ -45,13 +50,14 @@ def run() -> None:
                 getCurrentUserId:()=> 'user', serverId:()=> 'server',
                 getUrl:(path)=>path,
                 getJSON:(url)=> {
+                  if(String(url).includes('top-row-settings')) return Promise.resolve(structuredClone(window.__topRowSettings));
                   if(String(url).includes('section-settings')) return Promise.resolve(structuredClone(window.__sectionSettings));
                   if(String(url).includes('main-settings')) return Promise.resolve(structuredClone(window.__mainSettings));
                   if(String(url).includes('customization-settings')) return Promise.resolve(structuredClone(window.__customizationSettings));
                   if(String(url).includes('DisplayPreferences')) return Promise.resolve({CustomPrefs:{homesection0:'resume'}});
                   if(String(url).includes('Users/user/Views')) return Promise.resolve({Items:[{Id:'library',Name:'Movies',CollectionType:'movies'}]});
-                  if(String(url).includes('CollectionManager/settings/main')) return Promise.resolve({Configuration:{},Libraries:[]});
-                  if(String(url).includes('CollectionManager/art/collections')) return Promise.resolve([]);
+                  if(String(url).includes('CollectionManager/settings/main')) return Promise.resolve({Configuration:{},Libraries:[{ItemId:'library',Name:'Movies'}]});
+                  if(String(url).includes('CollectionManager/art/collections')) return Promise.resolve([{Id:'foreign',Name:'Foreign Collection',MediaItems:20}]);
                   if(String(url).includes('Plugins')) return Promise.resolve([{Name:'JavaScript Injector',Id:'injector'}]);
                   if(String(url).includes('Branding/Configuration')) return Promise.resolve({CustomCss:''});
                   return Promise.resolve({Items:[]});
@@ -71,6 +77,7 @@ def run() -> None:
                     window.__applyCalls.push({id, body});
                   }
                   if(String(options.url).includes('section-settings')) window.__sectionSettings = Object.assign({}, window.__sectionSettings, body);
+                  if(String(options.url).includes('top-row-settings')) window.__topRowSettings = Object.assign({}, window.__topRowSettings, body);
                   if(String(options.url).includes('main-settings')) window.__mainSettings = Object.assign({}, window.__mainSettings, body);
                   if(String(options.url).includes('customization-settings')) window.__customizationSettings = Object.assign({}, window.__customizationSettings, body);
                   if(String(options.url).includes('System/Configuration/Branding')) window.__brandingWrites.push(body);
@@ -82,7 +89,7 @@ def run() -> None:
                 getPluginConfiguration:()=>Promise.resolve({CustomJavaScripts:[]}),
                 updatePluginConfiguration:()=>Promise.resolve()
               };
-              window.HomeScreenManagerClient = { version:'0.1.0.42', refresh(){} };
+              window.HomeScreenManagerClient = { version:'0.1.0.43', refresh(){} };
               window.CustomElements = { upgradeSubtree(){} };
             }
             """
@@ -103,6 +110,34 @@ def run() -> None:
         page.locator("#hssmSaveMainSettingsButton").click()
         page.wait_for_function("window.__mainSettings.EnableTitleMarquee === false")
         assert page.evaluate("window.__mainSettings.TitleMarqueeSpeed") == "fast"
+
+        page.locator("[data-tab='top-row-settings']").click()
+        assert page.get_by_text("Enable or Disable Top Row Settings", exact=True).count() == 1
+        assert page.get_by_text("Select if you want to enable or disable the Top Row section.", exact=True).count() == 1
+        assert page.locator("#hssmDisableTopRow").is_checked()
+        assert not page.locator("#hssmEnableTopRow").is_checked()
+        assert page.locator("#hssmTopRowPagePicker [data-hssm-top-row-page]").count() == 4
+        assert page.locator("#hssmTopRowPagePicker [data-hssm-top-row-page='home']").is_checked()
+        assert not page.locator("#hssmTopRowPagePicker [data-hssm-top-row-page='favorites']").is_checked()
+        assert page.locator("#hssmTopRowTypePicker .hssm-type-card strong").all_text_contents() == ["Collections in a Row", "Libraries in a Row"]
+        assert page.locator("#hssmTopRowArtSize").input_value() == "extra-small"
+        assert page.locator("#hssmTopRowArtSize").is_disabled()
+        assert "Poster / Tall Rectangle" not in page.locator("#hssmTopRowArtShape option").all_text_contents()
+        assert page.locator("#hssmTopRowSettingsPanel [data-hssm-show-text]").count() == 0
+        assert page.locator("#hssmTopRowSettingsPanel [data-hssm-show-section-name]").count() == 0
+        page.locator("#hssmEnableTopRow").check()
+        page.locator("#hssmTopRowPagePicker [data-hssm-top-row-page='manager-page-movies']").check()
+        page.locator("#hssmTopRowSourcePicker [data-hssm-top-row-source='foreign']").check()
+        page.locator("#hssmTopRowArtType").select_option("thumb")
+        page.locator("#hssmTopRowArtShape").select_option("circle")
+        page.locator("#hssmSaveTopRowButton").click()
+        page.wait_for_function("window.__topRowSettings.EnableTopRow === true && window.__topRowSettings.TopRowSection.SourceIds[0] === 'foreign'")
+        assert page.evaluate("window.__topRowSettings.TopRowPageIds") == ["home", "manager-page-movies"]
+        assert page.evaluate("window.__topRowSettings.TopRowSection.ArtSize") == "extra-small"
+        assert page.evaluate("window.__topRowSettings.TopRowSection.ShowText") is False
+        assert page.evaluate("window.__topRowSettings.TopRowSection.ShowSectionName") is False
+        assert page.evaluate("window.__topRowSettings.TopRowSection.IsMediaBar") is False
+        assert page.locator("#hssmSaveTopRowButton").text_content().strip() == "Refresh Top Row"
 
         assert page.locator("#hssmPageList [data-page-id='home'] [data-hssm-page-show]").count() == 0
         assert page.locator("#hssmPageList [data-page-id='home'] .hssm-drag-handle").text_content() == ""
@@ -136,6 +171,7 @@ def run() -> None:
         page.locator("#hssmSectionList [data-section-id='manager-top']").click()
         page.locator("#hssmEditSectionButton").click()
         page.wait_for_selector("input[name='hssmType'][value='top-10-50']:checked")
+        assert page.locator("#hssmSectionList [data-section-id='manager-top'] [data-hssm-inline-section-name]").evaluate("input => input.selectionStart === input.value.length && input.selectionEnd === input.value.length")
         inline_top_name = "Top 20 Inline Title Works"
         page.locator("#hssmSectionList [data-section-id='manager-top'] [data-hssm-inline-section-name]").fill(inline_top_name)
         page.wait_for_function("name => { const section=window.__sectionSettings.Sections.find(s => s.Id === 'manager-top'); return section.Name === name && section.Drafts[0].Name === name; }", arg=inline_top_name)

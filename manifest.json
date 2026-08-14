@@ -9,13 +9,13 @@
     "imageUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Assets/Branding/home-screen-sections-manager-plugin-photo.png",
     "versions": [
       {
-        "version": "0.1.0.42",
-        "changelog": "Makes Watch Again show completed movies plus only the newest completed episode per series; saves Top titles from both editors; adds five marquee speeds; softens Top number shadows; adds per-section heading visibility; and scales hover controls with art size.",
+        "version": "0.1.0.43",
+        "changelog": "Adds a page-selectable Collections or Libraries Top Row above Jellyfin navigation; synchronizes section-title edits; corrects marquee speed mapping and hidden-title spacing; and improves Extra Small wide art and hover-control sizing.",
         "targetAbi": "10.11.11.0",
         "framework": "net9.0",
-        "sourceUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Test%20Releases/0.1.0.42-test/Jellyfin.Plugin.HomeScreenSectionsManager_0.1.0.42-test.zip",
-        "checksum": "5e7a575c0193f26cfcf6ef39d5ab8489",
-        "timestamp": "2026-08-14T06:58:01Z"
+        "sourceUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Test%20Releases/0.1.0.43-test/Jellyfin.Plugin.HomeScreenSectionsManager_0.1.0.43-test.zip",
+        "checksum": "47d0a697c633cc784f53437d17c09195",
+        "timestamp": "2026-08-14T07:42:09Z"
       }
     ]
   }

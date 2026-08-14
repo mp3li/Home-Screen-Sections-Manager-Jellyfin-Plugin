@@ -101,6 +101,37 @@ public sealed class SectionSettingsController : ControllerBase
         });
     }
 
+    /// <summary>Gets the independently configured global navigation Top Row.</summary>
+    [HttpGet("top-row-settings")]
+    public ActionResult<TopRowSettingsRequest> GetTopRowSettings()
+    {
+        var configuration = Plugin.Instance?.Configuration ?? new PluginConfiguration();
+        return Ok(new TopRowSettingsRequest
+        {
+            EnableTopRow = configuration.EnableTopRow,
+            TopRowPageIds = [.. configuration.TopRowPageIds],
+            TopRowSection = configuration.TopRowSection,
+        });
+    }
+
+    /// <summary>Saves the independently configured global navigation Top Row.</summary>
+    [HttpPost("top-row-settings")]
+    public ActionResult<TopRowSettingsRequest> SaveTopRowSettings([FromBody] TopRowSettingsRequest request)
+    {
+        if (Plugin.Instance is null)
+        {
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, "Home Screen Manager is not initialized.");
+        }
+
+        var configuration = Plugin.Instance.UpdateTopRowSettings(request);
+        return Ok(new TopRowSettingsRequest
+        {
+            EnableTopRow = configuration.EnableTopRow,
+            TopRowPageIds = [.. configuration.TopRowPageIds],
+            TopRowSection = configuration.TopRowSection,
+        });
+    }
+
     /// <summary>Gets the saved Abyss CSS generator settings.</summary>
     [HttpGet("customization-settings")]
     public ActionResult<CustomizationSettingsRequest> GetCustomizationSettings()

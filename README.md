@@ -10,6 +10,7 @@
 
 - Main Settings
 - Customization Settings
+- Top Row Settings
 - Create and Manage Home Screen Sections
 - Create and Manage Home Screen Pages
 
@@ -26,6 +27,12 @@ the shared Abyss hover accent, top navigation, play buttons, watched progress,
 sidebar icons, and My List hearts into explicit controls, with a separate color
 for the selected top-navigation tab's non-hovered text. It also supplies the Home
 logo, media-bar timing, and media-bar image type.
+
+**Top Row Settings** optionally adds a compact, mouse-scrollable collection or
+library navigation row above Jellyfin's header controls. It can be enabled on
+any selected Home screen pages, uses constrained Extra Small non-poster art,
+and opens its selected collections or libraries without adding row arrows,
+heart buttons, or hover Play controls.
 
 **Create and Manage Home Screen Sections** shows Jellyfin’s current home rows
 together with saved plugin sections. Jellyfin’s native Latest Media area is
@@ -44,8 +51,8 @@ Plugin pages can be created, renamed, deleted, and restored. Page definitions
 and their section layouts are server-wide, while My List content remains
 per-user.
 
-The current section types are My List Content Section, Manual Content, individual or multiple collection
-content, multiple collections in a row, individual or combined tags,
+The current section types are My List Content Section, Watch Again, Manual Content, individual or multiple collection
+content, collections in a row, individual or combined tags,
 multi-match tags, individual or multiple library content, libraries in a row,
 Rotating Sections, Seasonal Sections, Top 10–50, and What Other Users Are
 Watching/Reading/Listening To. Top 10–50 combines selected collections,

@@ -30,7 +30,7 @@ def run() -> None:
         "Sections": [
             {"Id": "jellyfin-0-resume", "Name": "Continue Watching", "PageId": "home", "Type": "resume", "ItemIds": [], "SourceIds": [], "IsApplied": True, "IsVisible": True, "IsMediaBar": False, "ArtSize": "large", "ArtType": "thumb", "ArtShape": "circle", "ShowText": False, "ShowSectionName": False},
             {"Id": "manager-home-top", "Name": "Top 20 in Foreign Collection", "PageId": "home", "Type": "top-10-50", "SourceIds": ["collection|top-source"], "ItemIds": [], "DisplayTopCount": 20, "ShowRankNumbers": True, "RankNumberColorMode": "horizontal-gradient", "RankNumberColorOne": "#ff0000", "RankNumberColorTwo": "#0000ff", "RankNumberShadowColor": "#123456", "IsApplied": True, "IsVisible": True, "IsMediaBar": False},
-            {"Id": "manager-home-test", "Name": "Test Section", "PageId": "home", "Type": "manual-content", "ItemIds": ["resume-two"], "ArtSize": "extra-small", "ShowSectionName": False, "IsApplied": True, "IsVisible": True, "IsMediaBar": False},
+            {"Id": "manager-home-test", "Name": "Test Section", "PageId": "home", "Type": "manual-content", "ItemIds": ["resume-two"], "ArtSize": "extra-small", "ArtShape": "wide", "ShowSectionName": False, "IsApplied": True, "IsVisible": True, "IsMediaBar": False},
             {"Id": "manager-movies-one", "Name": "Movie Picks", "PageId": "manager-page-movies", "Type": "manual-content", "ItemIds": ["resume-one"], "IsApplied": True, "IsVisible": True, "IsMediaBar": True},
             {"Id": "manager-movies-two", "Name": "More Movies", "PageId": "manager-page-movies", "Type": "manual-content", "ItemIds": ["resume-two"], "IsApplied": True, "IsVisible": True, "IsMediaBar": True},
             {"Id": "manager-watch-again", "Name": "Watch Again", "PageId": "manager-page-movies", "Type": "watch-again", "ItemIds": [], "SourceIds": [], "ContentOrder": "completed-descending", "IsApplied": True, "IsVisible": True, "IsMediaBar": True},
@@ -51,6 +51,9 @@ def run() -> None:
         "MediaBarImageType": "primary",
         "EnableMediaBarSlowZoom": True,
         "TitleMarqueeSpeed": "normal",
+        "EnableTopRow": True,
+        "TopRowPageIds": ["home", "manager-page-movies"],
+        "TopRowSection": {"Id": "top-row", "Name": "Top Row", "PageId": "home", "Type": "multiple-collections-in-a-row", "SourceIds": [], "ItemIds": [], "ContentOrder": "manual", "ArtSize": "extra-small", "ArtType": "automatic", "ArtShape": "wide", "ShowText": False, "ShowSectionName": False, "IsApplied": True},
         "LogoImageDataUrl": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='32'%3E%3C/svg%3E",
     }
     resume = base_item("resume-one", "Resume One")
@@ -83,7 +86,10 @@ def run() -> None:
     watched_special["UserData"]["Played"] = False
     resume["CommunityRating"] = 8.8
     resume_two["CommunityRating"] = 7.7
-    items_by_id = {item["Id"]: item for item in [resume, resume_two, series_two, liked, liked_opaque, watched_movie, watched_series, watched_episode_one, watched_episode_two, watched_special]}
+    top_row_items = [base_item(f"top-row-{index}", f"Collection {index}", "BoxSet") for index in range(1, 13)]
+    settings["TopRowSection"]["SourceIds"] = [item["Id"] for item in top_row_items]
+    settings["TopRowSection"]["ItemIds"] = [item["Id"] for item in top_row_items]
+    items_by_id = {item["Id"]: item for item in [resume, resume_two, series_two, liked, liked_opaque, watched_movie, watched_series, watched_episode_one, watched_episode_two, watched_special, *top_row_items]}
     requests: list[str] = []
     page_errors: list[str] = []
 
@@ -210,6 +216,26 @@ def run() -> None:
         page.wait_for_function("document.querySelector('#homeTab').classList.contains('is-active')")
         page.wait_for_selector("#homeTab [data-hssm-section-id='manager-home-top'] .hssm-client-card")
         page.wait_for_selector("#homeTab [data-hssm-section-id='manager-home-test'] .hssm-client-card")
+        page.wait_for_selector(".skinHeader > .hssm-top-row .hssm-top-row-card[data-id='top-row-1']")
+        top_row_state = page.evaluate("""() => {
+          const header=document.querySelector('.skinHeader'), row=header.querySelector(':scope > .hssm-top-row'), track=row.querySelector('.hssm-top-row-track'), card=row.querySelector('.hssm-top-row-card');
+          return {
+            firstChild:header.firstElementChild===row,
+            host:header.classList.contains('hssm-top-row-host'),
+            noArrows:row.querySelectorAll('button,.hssm-scroll-button').length===0,
+            noPlay:row.querySelectorAll('[data-action="resume"],.cardOverlayFab-primary').length===0,
+            noHeart:row.querySelectorAll('.hssm-my-list-button').length===0,
+            hasDarkHover:!!row.querySelector('.hssm-top-row-hover'),
+            href:card.getAttribute('href'),
+            backdrop:getComputedStyle(row,'::before').backdropFilter || getComputedStyle(row,'::before').webkitBackdropFilter,
+            width:card.getBoundingClientRect().width,
+            scrollable:track.scrollWidth>track.clientWidth
+          };
+        }""")
+        assert top_row_state["firstChild"] and top_row_state["host"] and top_row_state["noArrows"] and top_row_state["noPlay"] and top_row_state["noHeart"] and top_row_state["hasDarkHover"], top_row_state
+        assert "id=top-row-1" in top_row_state["href"] and "blur" in top_row_state["backdrop"] and top_row_state["scrollable"], top_row_state
+        top_row_scroll = page.locator(".hssm-top-row-track").evaluate("""track => { const before=track.scrollLeft; track.dispatchEvent(new WheelEvent('wheel',{deltaY:260,bubbles:true,cancelable:true})); return {before,after:track.scrollLeft}; }""")
+        assert top_row_scroll["after"] > top_row_scroll["before"], top_row_scroll
         page.wait_for_selector("#homeTab .section0.hssm-native-art-override.hssm-size-large.hssm-shape-circle.hssm-art-thumb")
         assert page.locator("#homeTab .section0").evaluate("node => getComputedStyle(node).getPropertyValue('--hssm-card-width').trim()") == "14.5em"
         assert page.locator("#homeTab .section0 .cardText").first.evaluate("node => getComputedStyle(node).display") == "none"
@@ -219,6 +245,10 @@ def run() -> None:
         assert native_circle["radius"] == "50%", native_circle
         assert page.locator("#homeTab [data-hssm-section-id='jellyfin-0-resume']").count() == 0
         assert page.locator("#homeTab [data-hssm-section-id='manager-home-test'] > .sectionTitleContainer").count() == 0
+        hidden_name_spacing = page.locator("#homeTab [data-hssm-section-id='manager-home-test']").evaluate("node => parseFloat(getComputedStyle(node).paddingTop)")
+        assert hidden_name_spacing >= 0.8, hidden_name_spacing
+        extra_small_wide_width = page.locator("#homeTab [data-hssm-section-id='manager-home-test'] .hssm-client-card").evaluate("node => node.getBoundingClientRect().width")
+        assert abs(extra_small_wide_width - top_row_state["width"]) < 1, {"section": extra_small_wide_width, "topRow": top_row_state["width"]}
         page.wait_for_selector("#homeTab [data-hssm-section-id='manager-home-top'] .hssm-my-list-button")
         page.wait_for_selector("#homeTab [data-hssm-section-id='manager-home-test'] .hssm-my-list-button")
         page.wait_for_selector("#homeTab .section0 .hssm-my-list-button")
@@ -289,6 +319,7 @@ def run() -> None:
         assert page.locator(".hssm-owned-media-bar").count() == 1
 
         page.locator(".hssm-my-list-tab").click()
+        page.wait_for_function("!document.querySelector('.hssm-top-row') && !document.querySelector('.skinHeader').classList.contains('hssm-top-row-host')")
         page.wait_for_selector(".hssm-owned-my-list-page.is-active .hssm-client-card[data-id='liked-one']")
         page.wait_for_selector(".hssm-owned-my-list-page.is-active .hssm-section-media-bar[data-hssm-media-section-id='my-list-content']")
         my_list_frame = page.frame_locator(".hssm-owned-my-list-page.is-active .hssm-section-media-bar[data-hssm-media-section-id='my-list-content']")
@@ -327,9 +358,11 @@ def run() -> None:
         # Jellyfin's documented emby-tabs event owns the return to Home.
         page.evaluate("document.querySelector('.emby-tab-button[data-index=\"0\"]').click()")
         page.wait_for_function("getComputedStyle(document.querySelector('#homeTab > .hssm-owned-media-bar')).display === 'block'")
+        page.wait_for_selector(".skinHeader > .hssm-top-row")
         assert page.locator("#homeTab > .homeSectionsContainer").count() == 1
         assert page.locator("#homeTab .section0").count() == 1
         page.locator(".hssm-custom-page-tab[data-hssm-page-id='manager-page-movies']").click()
+        page.wait_for_selector(".skinHeader > .hssm-top-row")
         page.wait_for_selector(".hssm-owned-custom-page.is-active [data-hssm-section-id='manager-movies-one'] .hssm-client-card")
         page.wait_for_selector(".hssm-owned-custom-page.is-active .hssm-section-media-bar[data-hssm-media-section-id='manager-movies-two']")
         page.wait_for_selector(".hssm-owned-custom-page.is-active [data-hssm-section-id='manager-watch-again'] .hssm-client-card[data-id='watched-movie']")
@@ -400,7 +433,16 @@ def run() -> None:
         settings["EnableMediaBarSlowZoom"] = False
         settings["Sections"][1]["ShowRankNumbers"] = False
         page.evaluate("window.HomeScreenManagerClient.invalidate(); window.HomeScreenManagerClient.refresh();")
-        page.wait_for_function("document.querySelector('#homeTab > .hssm-owned-media-bar').dataset.hssmAppliedSlowZoom === 'false'")
+        try:
+            page.wait_for_function("document.querySelector('#homeTab > .hssm-owned-media-bar').dataset.hssmAppliedSlowZoom === 'false'", timeout=10000)
+        except Exception as error:
+            raise AssertionError({
+                "message": str(error),
+                "errors": page_errors,
+                "status": page.evaluate("window.HomeScreenManagerClient.status()"),
+                "media": page.locator("#homeTab > .hssm-owned-media-bar").evaluate("node => ({connected:node.isConnected,zoom:node.dataset.hssmAppliedSlowZoom,image:node.dataset.hssmAppliedImageType,display:getComputedStyle(node).display})") if page.locator("#homeTab > .hssm-owned-media-bar").count() else None,
+                "recentRequests": requests[-20:],
+            }) from error
         page.wait_for_function("document.querySelector('#homeTab > .hssm-owned-media-bar').contentDocument.querySelector('#backdrop-img').getAnimations().length === 0")
         page.wait_for_function("!document.querySelector('#homeTab [data-hssm-section-id=\"manager-home-top\"]').classList.contains('hssm-top-ranked')")
         assert page.locator("#homeTab [data-hssm-section-id='manager-home-top'] .hssm-rank-number").count() == 0

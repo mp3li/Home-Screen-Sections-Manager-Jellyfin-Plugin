@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.0.43-test] - 2026-08-14
+
+- Adds the default-disabled **Top Row Settings** tab with per-page visibility, Collections in a Row or Libraries in a Row content, drag ordering, constrained Extra Small non-poster art, and Add/Refresh behavior.
+- Renders Top Row above Jellyfin's header controls with a glassy media-bar-compatible fade, mouse/trackpad horizontal scrolling, direct navigation, hover darkness, and no arrows, hearts, or Play button.
+- Synchronizes section-title edits between the draggable row and deep editor, preserves custom Top 10-50 wording, and places the inline-edit caret at the end.
+- Makes the former Fast marquee rate the new Normal Speed, adds spacing when section names are hidden, prevents small-art hover controls from growing, and slightly widens Extra Small wide art without changing gaps.
+- Renames the visible **Multiple Collections in a Row** label to **Collections in a Row** while preserving existing saved section compatibility.
+
 ## [0.1.0.41-test] - 2026-08-13
 
 - Replaces custom-page row movement with a transform-driven horizontal track so right/left arrows, mouse-wheel scrolling, and mouse dragging work even when Jellyfin refuses native `scrollLeft`; limits that track sizing to custom pages so **Added to My List** remains left-aligned.

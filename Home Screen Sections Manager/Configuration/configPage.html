@@ -64,6 +64,7 @@
         <div class="hssm-tabs" role="tablist" aria-label="Home Screen Manager tabs">
             <button type="button" class="hssm-tab active" data-tab="main-settings" role="tab" aria-selected="true">Main Settings</button>
             <button type="button" class="hssm-tab" data-tab="customization-settings" role="tab" aria-selected="false">Customization Settings</button>
+            <button type="button" class="hssm-tab" data-tab="top-row-settings" role="tab" aria-selected="false">Top Row Settings</button>
             <button type="button" class="hssm-tab" data-tab="create-sections" role="tab" aria-selected="false">Create and Manage Home Screen Sections</button>
             <button type="button" class="hssm-tab" data-tab="create-pages" role="tab" aria-selected="false">Create and Manage Home Screen Pages</button>
         </div>
@@ -182,6 +183,42 @@
 
             <div class="hssm-actions"><button is="emby-button" type="button" class="raised button-submit block" id="hssmSaveCustomizationButton">Save &amp; Apply Customization Settings</button></div>
             <p class="fieldDescription" id="hssmCustomizationStatus" aria-live="polite"></p>
+        </div>
+        <div class="hssm-panel" data-panel="top-row-settings" role="tabpanel">
+            <section class="hssm-section">
+                <h2>Enable or Disable Top Row Settings</h2>
+                <p class="fieldDescription">Select if you want to enable or disable the Top Row section.</p>
+                <div class="hssm-yes-no"><label class="checkboxContainer"><input is="emby-checkbox" type="radio" name="hssmTopRowEnabled" id="hssmEnableTopRow" value="enable" /><span>Enable Top Row</span></label><label class="checkboxContainer"><input is="emby-checkbox" type="radio" name="hssmTopRowEnabled" id="hssmDisableTopRow" value="disable" checked /><span>Disable Top Row</span></label></div>
+            </section>
+            <section class="hssm-section">
+                <h2>Top Row Page Visibility Settings</h2>
+                <p class="fieldDescription">Select which existing home screen pages should display the Top Row. Home is selected by default.</p>
+                <div id="hssmTopRowPagePicker"><p class="fieldDescription">Loading home screen pages…</p></div>
+            </section>
+            <section class="hssm-section">
+                <h2>Top Row Section Content</h2>
+                <p class="fieldDescription">Select whether the Top Row should display collections or libraries, then choose the items that belong in it.</p>
+                <div class="hssm-type-picker" id="hssmTopRowTypePicker">
+                    <label class="hssm-type-card"><input is="emby-checkbox" type="radio" name="hssmTopRowType" value="multiple-collections-in-a-row" checked /><span><strong>Collections in a Row</strong><small>Display selected collections as navigation art.</small></span></label>
+                    <label class="hssm-type-card"><input is="emby-checkbox" type="radio" name="hssmTopRowType" value="libraries-in-a-row" /><span><strong>Libraries in a Row</strong><small>Display selected Jellyfin libraries as navigation art.</small></span></label>
+                </div>
+                <div id="hssmTopRowSourcePicker" class="mcm-art-picker"><p class="fieldDescription">Loading collections and libraries…</p></div>
+                <div id="hssmTopRowSelectedOrder" class="hssm-manual-order-list" aria-label="Selected Top Row item order"></div>
+            </section>
+            <section class="hssm-section">
+                <h2>Section Content Order Settings</h2>
+                <p class="fieldDescription">Choose the order for the selected Top Row navigation items. Drag the selected items above to set the manual order.</p>
+                <div class="selectContainer"><label class="selectLabel" for="hssmTopRowContentOrder">Content Order</label><select is="emby-select" id="hssmTopRowContentOrder"><option value="manual" selected>Manual (Drag to Choose Exact Order)</option><option value="title-ascending">Title (A–Z)</option><option value="title-descending">Title (Z–A)</option></select></div>
+            </section>
+            <section class="hssm-section">
+                <h2>Section Art Appearance Settings</h2>
+                <p class="fieldDescription">Top Row art is always Extra Small, never uses poster/tall rectangle art, and does not display media text or a section name.</p>
+                <div class="selectContainer"><label class="selectLabel" for="hssmTopRowArtSize">Art Size</label><select is="emby-select" id="hssmTopRowArtSize" disabled><option value="extra-small" selected>Extra Small</option></select></div>
+                <div class="selectContainer"><label class="selectLabel" for="hssmTopRowArtType">Art Type</label><select is="emby-select" id="hssmTopRowArtType"><option value="automatic">Automatic</option><option value="primary">Primary</option><option value="art">Art</option><option value="backdrop">Backdrop</option><option value="banner">Banner</option><option value="logo">Logo</option><option value="thumb">Thumb</option><option value="disc">Disc</option><option value="box">Box</option><option value="box-rear">Box Rear</option><option value="screenshot">Screenshot</option><option value="menu">Menu</option><option value="chapter">Chapter</option></select></div>
+                <div class="selectContainer"><label class="selectLabel" for="hssmTopRowArtShape">Art Shape</label><select is="emby-select" id="hssmTopRowArtShape"><option value="wide" selected>Wide Rectangle</option><option value="square">Square</option><option value="circle">Circle</option></select></div>
+            </section>
+            <div class="hssm-actions"><button is="emby-button" type="button" class="raised button-submit" id="hssmSaveTopRowButton">Add Top Row</button></div>
+            <p class="fieldDescription" id="hssmTopRowStatus" aria-live="polite"></p>
         </div>
         <div class="hssm-panel" data-panel="create-sections" role="tabpanel">
             <section class="hssm-section">
@@ -312,7 +349,7 @@
                 ['manual-content', 'Manual Content', 'Create a section that displays manually selected content.'],
                 ['individual-collection-content', 'Individual Collection Content', 'Create a section that displays all content of one selected collection. For example, all content in the Thrillers Collection.'],
                 ['multiple-collection-content', 'Multiple Collection Content', 'Create a section that displays all content of multiple selected collections. For example, all content in the Thrillers Collection and all content in the Horror Collection.'],
-                ['multiple-collections-in-a-row', 'Multiple Collections in a Row', "Create a section that displays multiple collections in a row, by their image. Similar to Jellyfin's main/big My Media section, but showing selected collections instead. For example, Netflix Collection, Hulu Collection, etc. Or another example: the primary images for multiple collections, like Horror Collection, Thriller Collection, 70s Scary Movies Collection, 80s Scary Movies Collection, 90s Scary Movie Collection, 2000s Scary Movie Collection, 2010s Scary Movie Collection."],
+                ['multiple-collections-in-a-row', 'Collections in a Row', "Create a section that displays collections in a row, by their image. Similar to Jellyfin's main/big My Media section, but showing selected collections instead. For example, Netflix Collection, Hulu Collection, etc. Or another example: the primary images for multiple collections, like Horror Collection, Thriller Collection, 70s Scary Movies Collection, 80s Scary Movies Collection, 90s Scary Movie Collection, 2000s Scary Movie Collection, 2010s Scary Movie Collection."],
                 ['individual-tag-content', 'Individual Tag Content', 'Create a section that displays all content of one selected tag. For example, all content with a horror genre tag.'],
                 ['multiple-tag-content', 'Multiple Tag Content', 'Create a section that displays all content of multiple selected tags. For example, all content with a horror tag, and all content with a thriller tag, combined all together.'],
                 ['muilti-match-tag-collection-content', 'Muilti-Match Tag Collection Content', "Create a section that displays all content that matches all selected tags. For example, if 'thriller genre' and 'horror genre' tag are both selected, then the content must have BOTH a thriller and horror tag to be in this section. Or if 'thriller genre' and 'M. Night Shyamalan Director' tag are selected, the content must be a thriller directed by M. Night Shyamalan to be in this section."],
@@ -645,6 +682,12 @@
                 draftId = item.id;
                 render();
                 showDraft();
+                const inlineName = list.querySelector('[data-section-id="' + CSS.escape(item.id) + '"] [data-hssm-inline-section-name]');
+                if (inlineName) {
+                    inlineName.focus();
+                    const end = inlineName.value.length;
+                    inlineName.setSelectionRange(end, end);
+                }
             });
 
             deleteButton.addEventListener("click", () => {
@@ -704,6 +747,7 @@
                     const drafts = item.definition.Drafts || item.definition.drafts || [];
                     if (String(item.type || item.definition.Type || item.definition.type || '') === 'top-10-50' && drafts[0]) drafts[0].Name = input.value;
                 }
+                page.dispatchEvent(new CustomEvent('hssm-section-name-changed', { detail:{ id:item.id, name:input.value } }));
                 finishButton.disabled = !(item.name.trim() && item.type);
                 scheduleLayoutSave();
             });
@@ -778,6 +822,147 @@
             }
             syncThemeOutlineColor();
             loadSections();
+        })();
+
+        (() => {
+            const page = document.getElementById('homeScreenSectionsManagerPage');
+            if (!page || !window.ApiClient) return;
+            const pagePicker = page.querySelector('#hssmTopRowPagePicker');
+            const sourcePicker = page.querySelector('#hssmTopRowSourcePicker');
+            const selectedOrder = page.querySelector('#hssmTopRowSelectedOrder');
+            const contentOrder = page.querySelector('#hssmTopRowContentOrder');
+            const artType = page.querySelector('#hssmTopRowArtType');
+            const artShape = page.querySelector('#hssmTopRowArtShape');
+            const saveButton = page.querySelector('#hssmSaveTopRowButton');
+            const status = page.querySelector('#hssmTopRowStatus');
+            let pages = [];
+            let collections = [];
+            let libraries = [];
+            let selectedIds = [];
+            let applied = false;
+            let draggedId = '';
+            const esc = value => { const node = document.createElement('span'); node.textContent = value == null ? '' : String(value); return node.innerHTML; };
+            const valueOf = (value, pascal, camel, fallback) => value && value[pascal] !== undefined ? value[pascal] : value && value[camel] !== undefined ? value[camel] : fallback;
+            const selectedType = () => (page.querySelector('input[name="hssmTopRowType"]:checked') || {}).value || 'multiple-collections-in-a-row';
+            const available = () => selectedType() === 'libraries-in-a-row' ? libraries : collections;
+            const itemId = item => String(item.ItemId || item.Id || item.id || '');
+            const itemName = item => String(item.Name || item.name || 'Unnamed item');
+            function selectedItems() {
+                const byId = {};
+                available().forEach(item => { byId[itemId(item)] = item; });
+                return selectedIds.map(id => byId[id]).filter(Boolean);
+            }
+            function renderPages(selected) {
+                const chosen = new Set((selected && selected.length ? selected : ['home']).map(String));
+                pagePicker.innerHTML = pages.map(item => '<label class="checkboxContainer"><input is="emby-checkbox" type="checkbox" data-hssm-top-row-page="' + esc(item.id) + '"' + (chosen.has(item.id) ? ' checked' : '') + ' /><span>' + esc(item.name) + '</span></label>').join('');
+            }
+            function renderSelectedOrder() {
+                const items = selectedItems();
+                selectedOrder.innerHTML = items.length ? items.map(item => '<div class="hssm-manual-order-row" draggable="true" data-hssm-top-row-order-id="' + esc(itemId(item)) + '"><span class="hssm-manual-order-handle" aria-hidden="true">⠿</span><span>' + esc(itemName(item)) + '</span></div>').join('') : '<p class="fieldDescription" style="padding:.75em">No Top Row navigation items are selected.</p>';
+            }
+            function renderSources() {
+                const selected = new Set(selectedIds);
+                const label = selectedType() === 'libraries-in-a-row' ? 'library' : 'collection';
+                sourcePicker.innerHTML = available().map(item => {
+                    const id = itemId(item);
+                    return '<label class="checkboxContainer"><input is="emby-checkbox" type="checkbox" data-hssm-top-row-source="' + esc(id) + '"' + (selected.has(id) ? ' checked' : '') + ' /><span>' + esc(itemName(item)) + '</span></label>';
+                }).join('') || '<p class="fieldDescription">No selectable ' + label + ' items are currently available.</p>';
+                renderSelectedOrder();
+            }
+            function load() {
+                Promise.all([
+                    ApiClient.getJSON(ApiClient.getUrl('HomeScreenSectionsManager/top-row-settings')),
+                    ApiClient.getJSON(ApiClient.getUrl('HomeScreenSectionsManager/section-settings')),
+                    ApiClient.getJSON(ApiClient.getUrl('CollectionManager/settings/main')),
+                    ApiClient.getJSON(ApiClient.getUrl('CollectionManager/art/collections'))
+                ]).then(values => {
+                    const settings = values[0] || {};
+                    const sectionSettings = values[1] || {};
+                    const collectionSettings = values[2] || {};
+                    const definition = valueOf(settings, 'TopRowSection', 'topRowSection', {}) || {};
+                    const savedPages = valueOf(sectionSettings, 'Pages', 'pages', []) || [];
+                    const pageMap = new Map([['home', { id:'home', name:'Home' }], ['favorites', { id:'favorites', name:'Favorites' }]]);
+                    savedPages.forEach(item => { const id = String(item.Id || item.id || ''); if (id) pageMap.set(id, { id, name:String(item.Name || item.name || id) }); });
+                    pages = Array.from(pageMap.values());
+                    libraries = valueOf(collectionSettings, 'Libraries', 'libraries', []) || [];
+                    collections = Array.isArray(values[3]) ? values[3] : [];
+                    const type = String(valueOf(definition, 'Type', 'type', 'multiple-collections-in-a-row')) === 'libraries-in-a-row' ? 'libraries-in-a-row' : 'multiple-collections-in-a-row';
+                    const typeInput = page.querySelector('input[name="hssmTopRowType"][value="' + type + '"]');
+                    if (typeInput) typeInput.checked = true;
+                    selectedIds = (valueOf(definition, 'ItemIds', 'itemIds', []) || valueOf(definition, 'SourceIds', 'sourceIds', []) || []).map(String);
+                    contentOrder.value = String(valueOf(definition, 'ContentOrder', 'contentOrder', 'manual'));
+                    artType.value = String(valueOf(definition, 'ArtType', 'artType', 'automatic'));
+                    artShape.value = ['wide','square','circle'].includes(String(valueOf(definition, 'ArtShape', 'artShape', 'wide'))) ? String(valueOf(definition, 'ArtShape', 'artShape', 'wide')) : 'wide';
+                    const enabled = valueOf(settings, 'EnableTopRow', 'enableTopRow', false) === true;
+                    page.querySelector('#hssmEnableTopRow').checked = enabled;
+                    page.querySelector('#hssmDisableTopRow').checked = !enabled;
+                    applied = valueOf(definition, 'IsApplied', 'isApplied', false) === true || selectedIds.length > 0;
+                    saveButton.textContent = applied ? 'Refresh Top Row' : 'Add Top Row';
+                    renderPages(valueOf(settings, 'TopRowPageIds', 'topRowPageIds', ['home']) || ['home']);
+                    renderSources();
+                }, error => {
+                    status.textContent = 'Top Row settings could not be loaded. ' + (error && (error.message || error.statusText) || '');
+                });
+            }
+            page.querySelector('#hssmTopRowTypePicker').addEventListener('change', event => {
+                if (!event.target.closest('input[name="hssmTopRowType"]')) return;
+                selectedIds = [];
+                renderSources();
+            });
+            sourcePicker.addEventListener('change', event => {
+                const input = event.target.closest('[data-hssm-top-row-source]');
+                if (!input) return;
+                const id = input.dataset.hssmTopRowSource;
+                if (input.checked && selectedIds.indexOf(id) < 0) selectedIds.push(id);
+                if (!input.checked) selectedIds = selectedIds.filter(value => value !== id);
+                renderSelectedOrder();
+            });
+            selectedOrder.addEventListener('dragstart', event => {
+                const row = event.target.closest('[data-hssm-top-row-order-id]');
+                if (!row) return;
+                draggedId = row.dataset.hssmTopRowOrderId;
+                row.classList.add('dragging');
+                event.dataTransfer.effectAllowed = 'move';
+            });
+            selectedOrder.addEventListener('dragend', event => {
+                const row = event.target.closest('[data-hssm-top-row-order-id]');
+                if (row) row.classList.remove('dragging');
+                draggedId = '';
+            });
+            selectedOrder.addEventListener('dragover', event => { if (draggedId && event.target.closest('[data-hssm-top-row-order-id]')) event.preventDefault(); });
+            selectedOrder.addEventListener('drop', event => {
+                const target = event.target.closest('[data-hssm-top-row-order-id]');
+                if (!target || !draggedId || target.dataset.hssmTopRowOrderId === draggedId) return;
+                event.preventDefault();
+                const from = selectedIds.indexOf(draggedId), to = selectedIds.indexOf(target.dataset.hssmTopRowOrderId);
+                if (from < 0 || to < 0) return;
+                const moved = selectedIds.splice(from, 1)[0];
+                selectedIds.splice(to, 0, moved);
+                renderSelectedOrder();
+            });
+            saveButton.addEventListener('click', () => {
+                const enabled = page.querySelector('#hssmEnableTopRow').checked;
+                const selectedPages = Array.from(pagePicker.querySelectorAll('[data-hssm-top-row-page]:checked')).map(input => input.dataset.hssmTopRowPage);
+                if (enabled && !selectedIds.length) { status.textContent = 'Select at least one collection or library before enabling the Top Row.'; return; }
+                if (!selectedPages.length) { status.textContent = 'Select at least one home screen page for the Top Row.'; return; }
+                const payload = {
+                    EnableTopRow:enabled,
+                    TopRowPageIds:selectedPages,
+                    TopRowSection:{ Id:'top-row', Name:'Top Row', PageId:'home', Type:selectedType(), SourceIds:selectedIds, ItemIds:selectedIds, ContentOrder:contentOrder.value, ArtSize:'extra-small', ArtType:artType.value, ArtShape:artShape.value, ShowText:false, ShowSectionName:false, IsVisible:true, IsMediaBar:false, IsApplied:selectedIds.length > 0 }
+                };
+                saveButton.disabled = true;
+                status.textContent = applied ? 'Refreshing Top Row…' : 'Adding Top Row…';
+                ApiClient.ajax({ type:'POST', url:ApiClient.getUrl('HomeScreenSectionsManager/top-row-settings'), data:JSON.stringify(payload), contentType:'application/json', dataType:'json' }).then(() => {
+                    applied = selectedIds.length > 0;
+                    saveButton.textContent = applied ? 'Refresh Top Row' : 'Add Top Row';
+                    status.textContent = enabled ? 'Top Row settings saved and enabled.' : 'Top Row settings saved and disabled.';
+                    window.HSSMNotifyClientSettingsChanged();
+                }, error => { status.textContent = 'Top Row settings could not be saved. ' + (error && (error.message || error.statusText) || ''); }).finally(() => { saveButton.disabled = false; });
+            });
+            page.addEventListener('click', event => {
+                if (event.target.closest('[data-tab="top-row-settings"]')) window.setTimeout(load, 0);
+            });
+            load();
         })();
 
         (() => {
@@ -1541,7 +1726,7 @@
                 return body && (body.Detail || body.detail || body.Message || body.message || body.Title || body.title) || (text && String(text).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()) || (error && (error.message || error.statusText)) || 'Jellyfin returned no error details.';
             }
             function loadHomeScreenClient() {
-                const version = "0.1.0.42";
+                const version = "0.1.0.43";
                 let style = document.querySelector("link[data-hssm-client-style]");
                 if (!style || style.dataset.hssmClientVersion !== version) {
                     if (style) style.remove();
@@ -1858,6 +2043,12 @@
                 newSectionSettings.hidden = false;
                 newSectionSettings.classList.add('hssm-native-only');
                 host.innerHTML = nativeArtMarkup();
+            });
+            page.addEventListener('hssm-section-name-changed', event => {
+                const detail = event.detail || {};
+                if (String(detail.id || '') !== state.id) return;
+                state.name = String(detail.name || '');
+                if (isTopType()) ensureTopDraft().Name = state.name;
             });
             page.addEventListener('hssm-section-type-created', event => {
                 const detail = event.detail || {};

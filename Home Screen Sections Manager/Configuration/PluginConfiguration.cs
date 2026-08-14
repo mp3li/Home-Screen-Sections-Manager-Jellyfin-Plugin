@@ -89,6 +89,29 @@ public sealed class PluginConfiguration : BasePluginConfiguration
 
     public string TitleMarqueeSpeed { get; set; } = "normal";
 
+    /// <summary>Gets or sets whether the global navigation Top Row is enabled.</summary>
+    public bool EnableTopRow { get; set; }
+
+    /// <summary>Gets or sets the home-screen pages on which the Top Row is displayed.</summary>
+    public List<string> TopRowPageIds { get; set; } = ["home"];
+
+    /// <summary>Gets or sets the navigation content and constrained art settings for the Top Row.</summary>
+    public HomeScreenSectionDefinition TopRowSection { get; set; } = new()
+    {
+        Id = "top-row",
+        Name = "Top Row",
+        PageId = "home",
+        Type = "multiple-collections-in-a-row",
+        ContentOrder = "manual",
+        ArtSize = "extra-small",
+        ArtType = "automatic",
+        ArtShape = "wide",
+        ShowText = false,
+        ShowSectionName = false,
+        IsVisible = true,
+        IsMediaBar = false,
+    };
+
     /// <summary>Gets or sets the saved plugin-created home screen sections.</summary>
     public List<HomeScreenSectionDefinition> Sections { get; set; } = [];
 
@@ -349,6 +372,16 @@ public sealed class MainSettingsRequest
     public bool EnableTitleMarquee { get; set; } = true;
 
     public string TitleMarqueeSpeed { get; set; } = "normal";
+}
+
+/// <summary>Request body for the global navigation Top Row.</summary>
+public sealed class TopRowSettingsRequest
+{
+    public bool EnableTopRow { get; set; }
+
+    public List<string> TopRowPageIds { get; set; } = ["home"];
+
+    public HomeScreenSectionDefinition TopRowSection { get; set; } = new();
 }
 
 /// <summary>Request body used when the administrator adds one completed section to the home screen.</summary>
