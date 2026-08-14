@@ -111,6 +111,16 @@
                 const type = String(value || '');
                 return validImageTypes.includes(type) ? type : fallback;
             }
+
+            function artworkSignature(item) {
+                return [
+                    String(item && item.Id || ''),
+                    item && item.ImageTags || {},
+                    item && item.BackdropImageTags || [],
+                    String(item && item.ParentLogoImageTag || ''),
+                    String(item && item.ParentLogoItemId || '')
+                ];
+            }
             let items = [];
             let currentIndex = 0;
             const initialParameters = new URLSearchParams(window.location.search);
@@ -264,6 +274,27 @@
                 if (tags.Logo) return logoUrl(item.Id, tags.Logo);
                 if (item.ParentLogoImageTag && item.ParentLogoItemId) return logoUrl(item.ParentLogoItemId, item.ParentLogoImageTag);
                 return '';
+            }
+
+            function logoHasTransparentBackground(image) {
+                if (!image || !image.naturalWidth || !image.naturalHeight) return false;
+                try {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = 64;
+                    canvas.height = Math.max(16, Math.min(64, Math.round(64 * image.naturalHeight / image.naturalWidth)));
+                    const context = canvas.getContext('2d', { willReadFrequently: true });
+                    if (!context) return false;
+                    context.clearRect(0, 0, canvas.width, canvas.height);
+                    context.drawImage(image, 0, 0, canvas.width, canvas.height);
+                    const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+                    let transparent = 0;
+                    for (let index = 3; index < pixels.length; index += 4) {
+                        if (pixels[index] < 245) transparent += 1;
+                    }
+                    return transparent / (pixels.length / 4) >= 0.03;
+                } catch (_) {
+                    return false;
+                }
             }
 
             function fetchArtwork(item, signal) {
@@ -431,6 +462,12 @@
                 if (artwork.logo) {
                     logo.onload = () => {
                         if (sequence !== renderSequence) return;
+                        if (!logoHasTransparentBackground(logo)) {
+                            logo.removeAttribute('src');
+                            logo.style.display = 'none';
+                            $('title').style.display = 'block';
+                            return;
+                        }
                         logo.style.display = 'block';
                         $('title').style.display = 'none';
                     };
@@ -532,7 +569,7 @@
                 const authoritativeInterval = normalizedIntervalSeconds(data.intervalSeconds);
                 const authoritativeImageType = normalizedImageType(data.imageType);
                 const topGradient = data.topGradient === true;
-                const nextSignature = JSON.stringify([authoritativeInterval, authoritativeImageType, topGradient, nextItems.map(item => String(item.Id))]);
+                const nextSignature = JSON.stringify([authoritativeInterval, authoritativeImageType, topGradient, nextItems.map(artworkSignature)]);
                 if (document.body.dataset.hssmPayloadSignature === nextSignature) return;
                 document.body.dataset.hssmPayloadSignature = nextSignature;
                 document.body.classList.toggle('hssm-media-bar-top-gradient', topGradient);

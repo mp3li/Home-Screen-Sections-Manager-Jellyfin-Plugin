@@ -9,13 +9,13 @@
     "imageUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Assets/Branding/home-screen-sections-manager-plugin-photo.png",
     "versions": [
       {
-        "version": "0.1.0.35",
-        "changelog": "Fixes edit-in-place Media Bar refresh without duplicate sections, restricts the logo slot to real Jellyfin Logo artwork, and adds safe top spacing to plugin-created pages.",
+        "version": "0.1.0.36",
+        "changelog": "Pairs explicit Media Bars with their matching rows, restores current Logo metadata on My List and custom-page bars, and rejects opaque backdrop-like Logo images.",
         "targetAbi": "10.11.11.0",
         "framework": "net9.0",
-        "sourceUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Test%20Releases/0.1.0.35-test/Jellyfin.Plugin.HomeScreenSectionsManager_0.1.0.35-test.zip",
-        "checksum": "46162abe6f1c07396ff7858abd5e567b",
-        "timestamp": "2026-08-14T02:51:53Z"
+        "sourceUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Test%20Releases/0.1.0.36-test/Jellyfin.Plugin.HomeScreenSectionsManager_0.1.0.36-test.zip",
+        "checksum": "2975c5e281c6c1383f7dc2fbb9b8484d",
+        "timestamp": "2026-08-14T03:26:02Z"
       }
     ]
   }

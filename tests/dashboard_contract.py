@@ -69,7 +69,7 @@ def run() -> None:
                 getPluginConfiguration:()=>Promise.resolve({CustomJavaScripts:[]}),
                 updatePluginConfiguration:()=>Promise.resolve()
               };
-              window.HomeScreenManagerClient = { version:'0.1.0.35', refresh(){} };
+              window.HomeScreenManagerClient = { version:'0.1.0.36', refresh(){} };
               window.CustomElements = { upgradeSubtree(){} };
             }
             """

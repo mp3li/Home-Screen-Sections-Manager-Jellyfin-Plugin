@@ -50,8 +50,12 @@ def run() -> None:
     }
     resume = base_item("resume-one", "Resume One")
     resume_two = base_item("resume-two", "Resume Two")
-    liked = base_item("liked-one", "Liked One")
+    resume_two["ImageTags"]["Logo"] = "logo-two-tag"
+    liked = base_item("liked-one", "A Good Logo")
     liked["ImageTags"]["Logo"] = "logo-tag"
+    liked_opaque = base_item("liked-opaque", "Z Opaque Logo")
+    liked_opaque["ImageTags"]["Logo"] = "opaque-logo-tag"
+    items_by_id = {item["Id"]: item for item in [resume, resume_two, liked, liked_opaque]}
     requests: list[str] = []
     page_errors: list[str] = []
 
@@ -73,9 +77,10 @@ def run() -> None:
                 route.fulfill(status=200, content_type="application/json", body=json.dumps({"Items": [resume, resume_two]}))
             elif path.endswith("/Users/user/Items"):
                 if query.get("Filters") == ["Likes"] and query.get("ParentId") == ["library-one"]:
-                    route.fulfill(status=200, content_type="application/json", body=json.dumps({"Items": [liked]}))
+                    route.fulfill(status=200, content_type="application/json", body=json.dumps({"Items": [liked, liked_opaque]}))
                 elif query.get("Ids"):
-                    route.fulfill(status=200, content_type="application/json", body=json.dumps({"Items": [resume, resume_two]}))
+                    ids = query["Ids"][0].split(",")
+                    route.fulfill(status=200, content_type="application/json", body=json.dumps({"Items": [items_by_id[item_id] for item_id in ids if item_id in items_by_id]}))
                 else:
                     route.fulfill(status=200, content_type="application/json", body=json.dumps({"Items": []}))
             elif path.endswith("/DisplayPreferences/usersettings"):
@@ -83,7 +88,14 @@ def run() -> None:
             elif path.endswith("/media-bar.html"):
                 route.fulfill(status=200, content_type="text/html", body=MEDIA_BAR.read_text().replace("__HSSM_MEDIA_BAR_INTERVAL__", "1").replace("__HSSM_MEDIA_BAR_IMAGE_TYPE__", "primary"))
             elif "/Items/" in path and "/Images/" in path:
-                route.fulfill(status=200, content_type="image/svg+xml", body='<svg xmlns="http://www.w3.org/2000/svg" width="32" height="18"><rect width="32" height="18" fill="blue"/></svg>')
+                if path.endswith("/Items/liked-one/Images/Logo"):
+                    route.fulfill(status=200, content_type="image/svg+xml", body='<svg xmlns="http://www.w3.org/2000/svg" width="320" height="120"><text x="12" y="82" fill="white" font-size="72">LOGO</text></svg>')
+                elif path.endswith("/Items/liked-opaque/Images/Logo"):
+                    route.fulfill(status=200, content_type="image/svg+xml", body='<svg xmlns="http://www.w3.org/2000/svg" width="320" height="180"><rect width="320" height="180" fill="blue"/><text x="20" y="100" fill="white" font-size="52">LOGO</text></svg>')
+                elif path.endswith("/Images/Logo"):
+                    route.fulfill(status=200, content_type="image/svg+xml", body='<svg xmlns="http://www.w3.org/2000/svg" width="320" height="120"><text x="12" y="82" fill="white" font-size="72">LOGO</text></svg>')
+                else:
+                    route.fulfill(status=200, content_type="image/svg+xml", body='<svg xmlns="http://www.w3.org/2000/svg" width="32" height="18"><rect width="32" height="18" fill="blue"/></svg>')
             elif path.endswith("/ui/spotlight.css"):
                 route.fulfill(status=200, content_type="text/css", body="body{margin:0;background:#000;color:#fff}")
             else:
@@ -203,6 +215,17 @@ def run() -> None:
         my_list_frame.locator("#logo").wait_for(state="visible")
         assert "/Items/liked-one/Images/Logo" in my_list_frame.locator("#logo").get_attribute("src")
         assert all("/Images/Backdrop" not in url and "/Images/Primary" not in url and "/Images/Thumb" not in url and "/Images/Banner" not in url for url in [my_list_frame.locator("#logo").get_attribute("src")])
+        page.wait_for_function("""() => {
+          const panel = document.querySelector('.hssm-owned-my-list-page.is-active');
+          const container = panel && panel.querySelector('.hssm-my-list-container');
+          const bar = container && container.querySelector(':scope > .hssm-section-media-bar[data-hssm-media-section-id="my-list-content"]');
+          const row = container && container.querySelector(':scope > [data-hssm-section-id="my-list-content"]');
+          return bar && row && Array.from(container.children).indexOf(bar) + 1 === Array.from(container.children).indexOf(row) && getComputedStyle(row).display !== 'none';
+        }""")
+        my_list_frame.locator("#title").filter(has_text="Z Opaque Logo").wait_for(state="visible", timeout=4000)
+        assert my_list_frame.locator("#logo").is_hidden()
+        assert page.locator(".hssm-owned-my-list-page.is-active .hssm-section-media-bar[data-hssm-media-section-id='my-list-content']").is_visible()
+        assert page.locator(".hssm-owned-my-list-page.is-active [data-hssm-section-id='my-list-content'] .hssm-client-card").count() == 2
         my_list_state = page.evaluate(
             """() => ({
               homeActive: document.querySelector('#homeTab').classList.contains('is-active'),
@@ -238,6 +261,9 @@ def run() -> None:
         )
         assert {key: value for key, value in custom_page_state.items() if key != "topPadding"} == {"titleAbsent": True, "visibleSections": 2, "hiddenSectionAbsent": True, "mediaBars": 2, "lowerBarMarked": True}, custom_page_state
         assert custom_page_state["topPadding"] >= 60, custom_page_state
+        custom_logo = page.frame_locator(".hssm-section-media-bar[data-hssm-media-section-id='manager-movies-two']").locator("#logo")
+        custom_logo.wait_for(state="visible")
+        assert "/Items/resume-two/Images/Logo" in custom_logo.get_attribute("src")
         page.frame_locator(".hssm-section-media-bar[data-hssm-media-section-id='manager-movies-two']").locator("body.hssm-media-bar-top-gradient").wait_for(state="attached")
         settings["HideFavorites"] = True
         settings["PageOrder"] = ["home", "hidden:favorites", "my-list", "manager-page-movies"]

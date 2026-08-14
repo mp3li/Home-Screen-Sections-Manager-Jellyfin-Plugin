@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.1.0.36-test] - 2026-08-13
+
+- Keeps every explicitly configured Media Bar paired immediately above its regular section row, including **Added to My List**, so Section Art Appearance Settings continue to control the matching row beneath the bar.
+- Rehydrates Media Bar items with current Jellyfin artwork metadata instead of relying on older cached records, restoring Logo artwork on My List and plugin-created custom-page Media Bars.
+- Refreshes a Media Bar when artwork metadata changes even when its item IDs stay the same.
+- Rejects opaque Logo images that contain a miniature backdrop or other rectangular artwork and uses the clean text title instead; transparent Jellyfin Logo artwork remains unchanged.
+- Keeps the My List Media Bar and its per-user matching row mounted together while items load and rotate.
+- Extends browser coverage for paired-row order, per-user My List content, persistence through rotation, custom-page Logo loading, and backdrop-like Logo rejection.
+
 ## [0.1.0.35-test] - 2026-08-13
 
 - Keeps an edited section's saved ID, content, placement, and applied state when continuing through Section Type Settings, so converting **Added to My List** into a Media Bar refreshes the existing section instead of resetting it as a new draft.

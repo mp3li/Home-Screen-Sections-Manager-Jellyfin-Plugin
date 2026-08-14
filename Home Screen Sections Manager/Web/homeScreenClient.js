@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    var CLIENT_VERSION = "0.1.0.35";
+    var CLIENT_VERSION = "0.1.0.36";
     if (window.HomeScreenManagerClient) {
         if (window.HomeScreenManagerClient.version === CLIENT_VERSION) {
             window.HomeScreenManagerClient.refresh();
@@ -164,7 +164,7 @@
             existing = document.createElement('div');
             existing.className = 'tabContent pageTabContent hssm-my-list-page hssm-owned-my-list-page';
             existing.dataset.index = String(ownedMyListTabIndex);
-            existing.innerHTML = '<div class="sections hssm-my-list-container"></div>';
+            existing.innerHTML = '<div class="sections homeSectionsContainer hssm-my-list-container"></div>';
             indexPage.appendChild(existing);
         }
         if (!tabButton) {
@@ -314,9 +314,10 @@
         var container = marker.querySelector(".hssm-my-list-container");
         if (!container) {
             container = document.createElement("div");
-            container.className = "sections hssm-my-list-container";
+            container.className = "sections homeSectionsContainer hssm-my-list-container";
             marker.appendChild(container);
         }
+        container.classList.add("homeSectionsContainer");
         return container;
     }
 
@@ -833,6 +834,8 @@
             var manager = container.querySelector('[data-hssm-section-id="' + CSS.escape(id) + '"]');
             if (manager) {
                 manager.hidden = entry.hidden;
+                var mediaBar = container.querySelector(':scope > .hssm-section-media-bar[data-hssm-media-section-id="' + CSS.escape(id) + '"]');
+                if (mediaBar) { mediaBar.hidden = entry.hidden; add(mediaBar); }
                 add(manager);
                 return;
             }
@@ -1096,17 +1099,25 @@
 
     function mediaBarSectionItems(section) {
         if (String(prop(section, 'Type', 'type', '')) === 'my-list-content') {
-            return loadLikedItems(false).then(function (items) { return orderItems(uniqueItems(items), section).slice(0, 30); });
+            return loadLikedItems(false).then(function (items) {
+                items = orderItems(uniqueItems(items), section).slice(0, 30);
+                var ids = items.map(function (item) { return String(prop(item, 'Id', 'id', '')); }).filter(Boolean);
+                if (!ids.length) return [];
+                return queryIds(ids).then(function (fresh) {
+                    var freshById = {};
+                    fresh.forEach(function (item) { freshById[String(prop(item, 'Id', 'id', ''))] = item; });
+                    return items.map(function (item) { return freshById[String(prop(item, 'Id', 'id', ''))] || item; });
+                }, function () { return items; });
+            });
         }
         var ids = prop(section, 'ItemIds', 'itemIds', []).map(String).slice(0, 30);
         var cached = sectionCache(section);
-        if (cached && cached.items.length) {
-            var allowed = {}; ids.forEach(function (id) { allowed[id] = true; });
-            var cachedItems = cached.items.filter(function (item) { return allowed[String(prop(item, 'Id', 'id', ''))]; });
-            if (cachedItems.length) return Promise.resolve(orderItems(uniqueItems(cachedItems), section).slice(0, 30));
-        }
         if (!ids.length) return Promise.resolve([]);
-        return queryIds(ids).then(function (items) { return orderItems(uniqueItems(items), section).slice(0, 30); });
+        return queryIds(ids).then(function (items) { return orderItems(uniqueItems(items), section).slice(0, 30); }, function () {
+            if (!cached || !cached.items.length) return [];
+            var allowed = {}; ids.forEach(function (id) { allowed[id] = true; });
+            return orderItems(uniqueItems(cached.items.filter(function (item) { return allowed[String(prop(item, 'Id', 'id', ''))]; })), section).slice(0, 30);
+        });
     }
 
     function mediaBarSource(settings, preferences, container, sections) {
@@ -1207,7 +1218,15 @@
         return JSON.stringify([
             payload.intervalSeconds,
             payload.imageType,
-            (payload.items || []).map(function (item) { return String(prop(item, 'Id', 'id', '')); })
+            (payload.items || []).map(function (item) {
+                return [
+                    String(prop(item, 'Id', 'id', '')),
+                    prop(item, 'ImageTags', 'imageTags', {}),
+                    prop(item, 'BackdropImageTags', 'backdropImageTags', []),
+                    String(prop(item, 'ParentLogoImageTag', 'parentLogoImageTag', '')),
+                    String(prop(item, 'ParentLogoItemId', 'parentLogoItemId', ''))
+                ];
+            })
         ]);
     }
 
@@ -1373,8 +1392,7 @@
         frame.style.order = !firstOnPage && sourceNode ? sourceNode.style.order : '';
         frame.dataset.hssmMediaBar = 'true';
         frame.dataset.hssmClientVersion = CLIENT_VERSION;
-        if (firstOnPage) panel.insertBefore(frame, container);
-        else if (sourceNode && sourceNode.parentNode === container) container.insertBefore(frame, sourceNode);
+        if (sourceNode && sourceNode.parentNode === container) container.insertBefore(frame, sourceNode);
         else container.appendChild(frame);
         bindMediaBarMessages();
         var urls = mediaBarUrls(frame, settings);
@@ -1414,6 +1432,7 @@
             frame._hssmPayload = payload;
             mediaBarSectionItems(section).then(function (items) { if(!frame.isConnected)return; payload.items=items; frame._hssmPayload=payload; sendMediaBarPayload(frame,true,payload); }, function () { sendMediaBarPayload(frame,true,payload); });
         });
+        applyHybridOrder(container, scoped, preferences || {});
     }
 
     function userDataPath(itemId) {
@@ -1515,9 +1534,9 @@
                         Filters: 'Likes',
                         IncludeItemTypes: 'Movie,Series,Season,Episode,Video,BoxSet,Playlist,Audio,MusicAlbum,MusicArtist,Book,AudioBook',
                         Recursive: true,
-                        Fields: 'PrimaryImageAspectRatio,DateCreated,PremiereDate,ProductionYear,CommunityRating,SortName,Tags,Overview,RunTimeTicks,ChildCount,RecursiveItemCount,ParentId,SeriesId,SeriesName,SeriesPrimaryImageTag,UserData',
+                        Fields: 'PrimaryImageAspectRatio,DateCreated,PremiereDate,ProductionYear,CommunityRating,SortName,Tags,Overview,RunTimeTicks,ChildCount,RecursiveItemCount,ParentId,SeriesId,SeriesName,SeriesPrimaryImageTag,ParentLogoImageTag,ParentLogoItemId,UserData',
                         ImageTypeLimit: 1,
-                        EnableImageTypes: 'Primary,Backdrop,Thumb',
+                        EnableImageTypes: 'Primary,Backdrop,Banner,Logo,Thumb',
                         EnableTotalRecordCount: false
                     };
                     return ApiClient.getItems(currentUserId(), options).then(function (result) {
