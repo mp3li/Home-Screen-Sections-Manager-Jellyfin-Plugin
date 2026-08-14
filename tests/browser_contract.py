@@ -53,7 +53,8 @@ def run() -> None:
         "TitleMarqueeSpeed": "normal",
         "EnableTopRow": True,
         "TopRowPageIds": ["home", "manager-page-movies"],
-        "TopRowSection": {"Id": "top-row", "Name": "Top Row", "PageId": "home", "Type": "multiple-collections-in-a-row", "SourceIds": [], "ItemIds": [], "ContentOrder": "manual", "ArtSize": "extra-small", "ArtType": "automatic", "ArtShape": "circle", "DisplayLogosOnly": True, "ShowText": False, "ShowSectionName": False, "IsApplied": True},
+        "TopRowSection": {"Id": "top-row", "Name": "Top Row", "PageId": "home", "Type": "multiple-collections-in-a-row", "SourceIds": [], "ItemIds": [], "ContentOrder": "manual", "ArtSize": "extra-small", "ArtType": "primary", "ArtShape": "circle", "DisplayLogosOnly": True, "ShowText": False, "ShowSectionName": False, "IsApplied": True},
+        "TopRowLogoCollectionIds": [],
         "LogoImageDataUrl": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='32'%3E%3C/svg%3E",
     }
     resume = base_item("resume-one", "Resume One")
@@ -87,12 +88,11 @@ def run() -> None:
     watched_special["UserData"]["Played"] = False
     resume["CommunityRating"] = 8.8
     resume_two["CommunityRating"] = 7.7
-    top_row_items = [base_item(f"top-row-{index}", f"Collection {index}", "BoxSet") for index in range(1, 13)]
-    for item in top_row_items:
-        item["ImageTags"]["Logo"] = "logo-tag"
-    del top_row_items[-1]["ImageTags"]["Logo"]
+    top_row_items = [base_item(f"top-row-{index}", f"Collection {index}", "BoxSet") for index in range(1, 17)]
+    del top_row_items[-1]["ImageTags"]["Primary"]
     settings["TopRowSection"]["SourceIds"] = [item["Id"] for item in top_row_items]
     settings["TopRowSection"]["ItemIds"] = [item["Id"] for item in top_row_items]
+    settings["TopRowLogoCollectionIds"] = [item["Id"] for item in top_row_items[:-1]]
     items_by_id = {item["Id"]: item for item in [resume, resume_two, series_two, liked, liked_opaque, watched_movie, watched_series, watched_episode_one, watched_episode_two, watched_special, *top_row_items]}
     requests: list[str] = []
     page_errors: list[str] = []
@@ -133,6 +133,8 @@ def run() -> None:
                 route.fulfill(status=200, content_type="application/json", body=json.dumps({"CustomPrefs": {"homesection0": "resume"}}))
             elif path.endswith("/media-bar.html"):
                 route.fulfill(status=200, content_type="text/html", body=MEDIA_BAR.read_text().replace("__HSSM_MEDIA_BAR_INTERVAL__", "1").replace("__HSSM_MEDIA_BAR_IMAGE_TYPE__", "primary"))
+            elif "/HomeScreenSectionsManager/top-row-logo/" in path:
+                route.fulfill(status=200, content_type="image/svg+xml", body='<svg xmlns="http://www.w3.org/2000/svg" width="320" height="120"><text x="12" y="82" fill="white" font-size="72">SOURCE LOGO</text></svg>')
             elif "/Items/" in path and "/Images/" in path:
                 if path.endswith("/Items/liked-one/Images/Logo"):
                     route.fulfill(status=200, content_type="image/svg+xml", body='<svg xmlns="http://www.w3.org/2000/svg" width="320" height="120"><text x="12" y="82" fill="white" font-size="72">LOGO</text></svg>')
@@ -151,7 +153,7 @@ def run() -> None:
         page.goto("http://jellyfin.test/web/#/home")
         page.set_content(
             """
-            <html><head><style>.skinHeader{position:fixed;left:0;right:0;top:0}.tabContent:not(.is-active){display:none}.cardPadder-overflowPortrait{padding-bottom:150%}.cardPadder-backdrop{padding-bottom:56.25%}.cardScalable{position:relative}.cardContent{position:absolute;inset:0}.cardOverlayContainer{position:absolute;inset:0;background:rgba(0,0,0,.5);opacity:0}.card-hoverable:hover .cardOverlayContainer{opacity:1}.cardOverlayFab-primary:hover{transform:scale(1.2)}.hssm-my-list-button:hover{transform:scale(1.08)}</style></head><body>
+            <html><head><style>body{margin:0}.skinHeader{position:fixed;left:0;right:0;top:0}.tabContent:not(.is-active){display:none}.cardPadder-overflowPortrait{padding-bottom:150%}.cardPadder-backdrop{padding-bottom:56.25%}.cardScalable{position:relative}.cardContent{position:absolute;inset:0}.cardOverlayContainer{position:absolute;inset:0;background:rgba(0,0,0,.5);opacity:0}.card-hoverable:hover .cardOverlayContainer{opacity:1}.cardOverlayFab-primary:hover{transform:scale(1.2)}.hssm-my-list-button:hover{transform:scale(1.08)}</style></head><body>
               <header class="skinHeader"><div class="headerLeft"></div><div class="headerTabs">
                 <div is="emby-tabs" class="tabs-viewmenubar" data-index="0"><div class="emby-tabs-slider">
                   <button class="emby-tab-button" data-index="0"><div class="emby-button-foreground">Home</div></button>
@@ -160,7 +162,7 @@ def run() -> None:
                   <button class="emby-tab-button emby-tab-button-active hssm-custom-page-tab" data-index="3" data-hssm-page-id="manager-page-movies"><div class="emby-button-foreground">Movies</div></button>
                 </div></div>
               </div></header>
-              <div id="indexPage" class="page homePage libraryPage">
+              <div id="indexPage" class="page homePage libraryPage" style="min-height:2200px">
                 <div id="homeTab" class="tabContent pageTabContent" data-index="0">
                   <iframe class="featurediframe" src="about:blank" title="Abyss Spotlight"></iframe>
                   <div class="sections homeSectionsContainer">
@@ -179,6 +181,7 @@ def run() -> None:
             """
             window.ApiClient = {
               getCurrentUserId: () => 'user',
+              accessToken: () => 'test-token',
               serverId: () => 'server',
               getUrl: (path, params) => { const u = new URL('/' + path, location.origin); Object.entries(params || {}).forEach(([k,v]) => u.searchParams.set(k, v)); return u.href; },
               getJSON: url => fetch(url).then(r => r.json()),
@@ -224,12 +227,14 @@ def run() -> None:
         assert long_section_heading.inner_text().strip() == "Top 20 in Foreign Collection With A Deliberately Long Custom Section Name"
         heading_style = long_section_heading.evaluate("node => ({overflow:getComputedStyle(node).overflow,textOverflow:getComputedStyle(node).textOverflow,whiteSpace:getComputedStyle(node).whiteSpace,lineClamp:getComputedStyle(node).webkitLineClamp,width:node.getBoundingClientRect().width,parentWidth:node.parentElement.getBoundingClientRect().width})")
         assert heading_style["overflow"] == "visible" and heading_style["textOverflow"] == "clip" and heading_style["whiteSpace"] == "normal" and heading_style["lineClamp"] == "none" and heading_style["width"] > heading_style["parentWidth"] * 0.9, heading_style
-        page.wait_for_selector(".skinHeader > .hssm-top-row .hssm-top-row-card[data-id='top-row-1']")
+        page.wait_for_selector("#indexPage > .hssm-top-row .hssm-top-row-card[data-id='top-row-1']")
         top_row_state = page.evaluate("""() => {
-          const header=document.querySelector('.skinHeader'), row=header.querySelector(':scope > .hssm-top-row'), track=row.querySelector('.hssm-top-row-track'), card=row.querySelector('.hssm-top-row-card');
+          const header=document.querySelector('.skinHeader'), host=document.querySelector('#indexPage'), row=host.querySelector(':scope > .hssm-top-row'), track=row.querySelector('.hssm-top-row-track'), card=row.querySelector('.hssm-top-row-card');
           return {
-            firstChild:header.firstElementChild===row,
+            firstChild:host.firstElementChild===row,
             host:header.classList.contains('hssm-top-row-host'),
+            position:getComputedStyle(row).position,
+            topGap:parseFloat(getComputedStyle(track).paddingTop),
             noArrows:row.querySelectorAll('button,.hssm-scroll-button').length===0,
             noPlay:row.querySelectorAll('[data-action="resume"],.cardOverlayFab-primary').length===0,
             noHeart:row.querySelectorAll('.hssm-my-list-button').length===0,
@@ -250,10 +255,11 @@ def run() -> None:
             wideDespiteSavedCircle:row.classList.contains('hssm-shape-wide') && !row.classList.contains('hssm-shape-circle')
           };
         }""")
-        assert top_row_state["firstChild"] and top_row_state["host"] and top_row_state["noArrows"] and top_row_state["noPlay"] and top_row_state["noHeart"] and top_row_state["hasDarkHover"] and top_row_state["standardCard"] and top_row_state["logosOnly"] and top_row_state["wideDespiteSavedCircle"], top_row_state
+        assert top_row_state["firstChild"] and top_row_state["host"] and top_row_state["position"] == "relative" and top_row_state["topGap"] >= 4 and top_row_state["noArrows"] and top_row_state["noPlay"] and top_row_state["noHeart"] and top_row_state["hasDarkHover"] and top_row_state["standardCard"] and top_row_state["logosOnly"] and top_row_state["wideDespiteSavedCircle"], top_row_state
         assert "id=top-row-1" in top_row_state["href"] and "blur" not in top_row_state["backdropFilter"] and top_row_state["scrollable"] and abs(top_row_state["gap"] - top_row_state["normalGap"]) < 1, top_row_state
-        assert "/Items/top-row-1/Images/Logo" in top_row_state["logoSrc"] and top_row_state["logoFit"] == "contain" and top_row_state["logoOverflow"] == "visible" and top_row_state["logoRadius"] == "0px", top_row_state
-        assert page.locator(".hssm-top-row-card[data-id='top-row-12']").count() == 0
+        assert "/HomeScreenSectionsManager/top-row-logo/top-row-1" in top_row_state["logoSrc"] and top_row_state["logoFit"] == "contain" and top_row_state["logoOverflow"] == "visible" and top_row_state["logoRadius"] == "0px", top_row_state
+        assert parse_qs(urlparse(top_row_state["logoSrc"]).query).get("ApiKey") == ["test-token"], top_row_state
+        assert page.locator(".hssm-top-row-card[data-id='top-row-16']").count() == 0
         top_row_scroll = page.locator(".hssm-top-row-track").evaluate("""track => { const before=track.scrollLeft; track.dispatchEvent(new WheelEvent('wheel',{deltaY:260,bubbles:true,cancelable:true})); return {before,after:track.scrollLeft}; }""")
         assert top_row_scroll["after"] > top_row_scroll["before"], top_row_scroll
         page.wait_for_selector("#homeTab .section0.hssm-native-art-override.hssm-size-large.hssm-shape-circle.hssm-art-thumb")
@@ -268,11 +274,11 @@ def run() -> None:
         hidden_name_spacing = page.locator("#homeTab [data-hssm-section-id='manager-home-test']").evaluate("node => parseFloat(getComputedStyle(node).paddingTop)")
         assert hidden_name_spacing >= 0.8, hidden_name_spacing
         extra_small_wide_width = page.locator("#homeTab [data-hssm-section-id='manager-home-test'] .hssm-client-card").evaluate("node => node.getBoundingClientRect().width")
-        assert abs(extra_small_wide_width - top_row_state["width"]) < 1, {"section": extra_small_wide_width, "topRow": top_row_state["width"]}
+        assert abs((extra_small_wide_width * 0.82) - top_row_state["width"]) < 1, {"section": extra_small_wide_width, "topRow": top_row_state["width"]}
         normal_scalable_ratio = page.locator("#homeTab [data-hssm-section-id='manager-home-test'] .hssm-client-card .cardScalable").evaluate("node => node.getBoundingClientRect().height / node.getBoundingClientRect().width")
         assert abs(normal_scalable_ratio - top_row_state["scalableRatio"]) < 0.01, {"section": normal_scalable_ratio, "topRow": top_row_state["scalableRatio"]}
-        assert any("/Items/top-row-1/Images/Logo" in url for url in requests), requests
-        assert not any("/Items/top-row-1/Images/Primary" in url for url in requests), requests
+        assert any("/HomeScreenSectionsManager/top-row-logo/top-row-1" in url for url in requests), requests
+        assert not any("/Items/top-row-1/Images/" in url for url in requests), requests
         page.wait_for_selector("#homeTab [data-hssm-section-id='manager-home-top'] .hssm-my-list-button")
         page.wait_for_selector("#homeTab [data-hssm-section-id='manager-home-test'] .hssm-my-list-button")
         page.wait_for_selector("#homeTab .section0 .hssm-my-list-button")
@@ -317,10 +323,18 @@ def run() -> None:
         media_bar_fade = page.frame_locator("#homeTab > .hssm-owned-media-bar").locator("#backdrop").evaluate("node => ({mask:getComputedStyle(node).maskImage,webkitMask:getComputedStyle(node).webkitMaskImage,topClass:document.body.classList.contains('hssm-media-bar-top-gradient')})")
         active_mask = media_bar_fade["mask"] if media_bar_fade["mask"] != "none" else media_bar_fade["webkitMask"]
         assert media_bar_fade["topClass"] and "rgba(0, 0, 0, 0) 0%" in active_mask and "rgba(0, 0, 0, 0) 100%" in active_mask and "36%" in active_mask and "64%" in active_mask, media_bar_fade
-        shifted_top_geometry = page.evaluate("""() => { const row=document.querySelector('.hssm-top-row').getBoundingClientRect(), controls=document.querySelector('.headerLeft').getBoundingClientRect(), index=document.querySelector('#indexPage'), media=document.querySelector('#homeTab > .hssm-owned-media-bar').getBoundingClientRect(); return {rowTop:row.top,rowBottom:row.bottom,controlsTop:controls.top,rowHeight:row.height,pageShift:parseFloat(getComputedStyle(index).marginTop),mediaTop:media.top}; }""")
-        assert shifted_top_geometry["controlsTop"] >= shifted_top_geometry["rowBottom"] - 1 and shifted_top_geometry["controlsTop"] - shifted_top_geometry["rowBottom"] <= 4, shifted_top_geometry
-        assert shifted_top_geometry["pageShift"] >= shifted_top_geometry["rowHeight"] - 1, shifted_top_geometry
-        assert shifted_top_geometry["mediaTop"] <= shifted_top_geometry["rowTop"] + 1, shifted_top_geometry
+        page.evaluate("window.scrollTo(0, 0)")
+        page.wait_for_function("Math.abs(document.querySelector('.hssm-top-row').getBoundingClientRect().top) < 1 && document.querySelector('.skinHeader').getBoundingClientRect().top >= document.querySelector('.hssm-top-row').getBoundingClientRect().bottom - 1")
+        shifted_top_geometry = page.evaluate("""() => { const row=document.querySelector('.hssm-top-row').getBoundingClientRect(), header=document.querySelector('.skinHeader').getBoundingClientRect(), index=document.querySelector('#indexPage'), media=document.querySelector('#homeTab > .hssm-owned-media-bar').getBoundingClientRect(); return {rowTop:row.top,rowBottom:row.bottom,headerTop:header.top,rowHeight:row.height,pageShift:parseFloat(getComputedStyle(index).marginTop),mediaTop:media.top}; }""")
+        assert shifted_top_geometry["headerTop"] >= shifted_top_geometry["rowBottom"] - 1 and shifted_top_geometry["headerTop"] - shifted_top_geometry["rowBottom"] <= 4, shifted_top_geometry
+        assert shifted_top_geometry["pageShift"] == 0, shifted_top_geometry
+        assert shifted_top_geometry["mediaTop"] >= shifted_top_geometry["rowBottom"] - 1, shifted_top_geometry
+        page.evaluate("window.scrollTo(0, document.querySelector('.hssm-top-row').getBoundingClientRect().height + 30)")
+        page.wait_for_function("document.querySelector('.hssm-top-row').getBoundingClientRect().bottom <= 0 && Math.abs(document.querySelector('.skinHeader').getBoundingClientRect().top) < 1")
+        scrolled_top_row = page.evaluate("""() => ({rowBottom:document.querySelector('.hssm-top-row').getBoundingClientRect().bottom,headerTop:document.querySelector('.skinHeader').getBoundingClientRect().top})""")
+        assert scrolled_top_row["rowBottom"] <= 0 and abs(scrolled_top_row["headerTop"]) < 1, scrolled_top_row
+        page.evaluate("window.scrollTo(0, 0)")
+        page.wait_for_function("document.querySelector('.skinHeader').getBoundingClientRect().top >= document.querySelector('.hssm-top-row').getBoundingClientRect().bottom - 1")
 
         result = page.evaluate(
             """
@@ -401,19 +415,19 @@ def run() -> None:
         # Jellyfin's documented emby-tabs event owns the return to Home.
         page.evaluate("document.querySelector('.emby-tab-button[data-index=\"0\"]').click()")
         page.wait_for_function("getComputedStyle(document.querySelector('#homeTab > .hssm-owned-media-bar')).display === 'block'")
-        page.wait_for_selector(".skinHeader > .hssm-top-row")
+        page.wait_for_selector("#indexPage > .hssm-top-row")
         assert page.locator("#homeTab > .homeSectionsContainer").count() == 1
         assert page.locator("#homeTab .section0").count() == 1
         page.locator(".hssm-custom-page-tab[data-hssm-page-id='manager-page-movies']").click()
-        page.wait_for_selector(".skinHeader > .hssm-top-row")
+        page.wait_for_selector("#indexPage > .hssm-top-row")
         page.wait_for_selector(".hssm-owned-custom-page.is-active [data-hssm-section-id='manager-movies-one'] .hssm-client-card")
         page.wait_for_selector(".hssm-owned-custom-page.is-active .hssm-section-media-bar[data-hssm-media-section-id='manager-movies-two']")
         page.wait_for_selector(".hssm-owned-custom-page.is-active [data-hssm-section-id='manager-watch-again'] .hssm-client-card[data-id='watched-movie']")
         page.wait_for_selector(".hssm-owned-custom-page.is-active [data-hssm-section-id='manager-watch-again'] .hssm-client-card[data-id='watched-episode-two']")
         page.wait_for_selector(".hssm-owned-custom-page.is-active .hssm-section-media-bar[data-hssm-media-section-id='manager-watch-again']")
         page.wait_for_function("document.querySelectorAll('.hssm-owned-custom-page.is-active .hssm-section-media-bar').length === 3")
-        custom_media_bars = page.evaluate("""() => { const row=document.querySelector('.hssm-top-row').getBoundingClientRect(); const bars=Array.from(document.querySelectorAll('.hssm-owned-custom-page.is-active .hssm-section-media-bar')); return {firstTop:bars[0].getBoundingClientRect().top,rowTop:row.top,allSymmetric:bars.every(frame=>frame.contentDocument.body.classList.contains('hssm-media-bar-top-gradient') && getComputedStyle(frame.contentDocument.querySelector('#backdrop')).maskImage.includes('36%') && getComputedStyle(frame.contentDocument.querySelector('#backdrop')).maskImage.includes('64%'))}; }""")
-        assert custom_media_bars["firstTop"] <= custom_media_bars["rowTop"] + 1 and custom_media_bars["allSymmetric"], custom_media_bars
+        custom_media_bars = page.evaluate("""() => { const row=document.querySelector('.hssm-top-row').getBoundingClientRect(); const bars=Array.from(document.querySelectorAll('.hssm-owned-custom-page.is-active .hssm-section-media-bar')); return {firstTop:bars[0].getBoundingClientRect().top,rowBottom:row.bottom,allSymmetric:bars.every(frame=>frame.contentDocument.body.classList.contains('hssm-media-bar-top-gradient') && getComputedStyle(frame.contentDocument.querySelector('#backdrop')).maskImage.includes('36%') && getComputedStyle(frame.contentDocument.querySelector('#backdrop')).maskImage.includes('64%'))}; }""")
+        assert custom_media_bars["firstTop"] >= custom_media_bars["rowBottom"] - 1 and custom_media_bars["allSymmetric"], custom_media_bars
         assert page.locator(".hssm-owned-custom-page.is-active [data-hssm-section-id='manager-watch-again'] .hssm-client-card").first.get_attribute("data-id") == "watched-episode-two"
         assert page.locator(".hssm-owned-custom-page.is-active [data-hssm-section-id='manager-watch-again'] .hssm-client-card[data-type='Episode']").count() == 1
         watch_again_episode = page.locator(".hssm-owned-custom-page.is-active [data-hssm-section-id='manager-watch-again'] .hssm-client-card[data-id='watched-episode-two']")

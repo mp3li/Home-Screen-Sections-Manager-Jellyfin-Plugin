@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.0.47-test] - 2026-08-14
+
+- Places Top Row in normal page flow strictly above the Media Bar so it never covers or cuts off Media Bar artwork and scrolls away instead of remaining on screen.
+- Makes Top Row cards 18 percent smaller than measured Extra Small section cards, adds a six-pixel gap above them, and keeps mouse-wheel horizontal scrolling.
+- Keeps every Media Bar's matching long, soft top and bottom fades while beginning the Media Bar at or below the Top Row's bottom edge.
+- Changes **Display Logos Only** to use the exact source logo assigned to each collection by Collection Manager, including imported logos, with no generated background, card edge, or clipping; these server-wide assignments are identical for all users.
+- Omits collections without a saved Collection Manager logo assignment instead of falling back to unrelated Jellyfin Primary, Backdrop, Thumbnail, or Logo artwork.
+
 ## [0.1.0.46-test] - 2026-08-14
 
 - Measures a live normal Extra Small section card and applies its exact rendered width, wide-rectangle aspect ratio, and corner radius to Top Row cards, avoiding Jellyfin header-relative sizing differences.

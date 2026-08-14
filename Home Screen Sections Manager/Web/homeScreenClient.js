@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    var CLIENT_VERSION = "0.1.0.46";
+    var CLIENT_VERSION = "0.1.0.47";
     if (window.HomeScreenManagerClient) {
         if (window.HomeScreenManagerClient.version === CLIENT_VERSION) {
             window.HomeScreenManagerClient.refresh();
@@ -2721,9 +2721,11 @@
         topRowRenderKey = '';
         var row = document.querySelector('.hssm-top-row');
         if (row && row._hssmGeometryResizeHandler) window.removeEventListener('resize', row._hssmGeometryResizeHandler);
+        if (row && row._hssmHeaderScrollHandler) window.removeEventListener('scroll', row._hssmHeaderScrollHandler);
         if (row) row.remove();
         Array.from(document.querySelectorAll('.skinHeader.hssm-top-row-host')).forEach(function (header) {
             header.classList.remove('hssm-top-row-host');
+            header.style.removeProperty('--hssm-top-row-header-offset');
         });
         document.body.classList.remove('hssm-top-row-enabled');
         document.body.classList.remove('hssm-top-row-shape-wide', 'hssm-top-row-shape-square', 'hssm-top-row-shape-circle');
@@ -2735,15 +2737,16 @@
         return pageIdForContainer(container) || 'home';
     }
 
-    function topRowCard(item, section) {
+    function topRowCard(item, section, logoCollectionIds) {
         var id = String(prop(item, 'Id', 'id', ''));
         var name = String(prop(item, 'Name', 'name', ''));
         var serverId = typeof ApiClient.serverId === 'function' ? ApiClient.serverId() : '';
         var href = '#/details?id=' + encodeURIComponent(id) + (serverId ? '&serverId=' + encodeURIComponent(serverId) : '');
         var logosOnly = prop(section, 'DisplayLogosOnly', 'displayLogosOnly', false) === true;
-        var logoCandidate = logosOnly ? imageCandidate(item, 'Logo') : null;
-        if (logosOnly && !logoCandidate) return '';
-        var logoUrl = logoCandidate ? ApiClient.getUrl('Items/' + encodeURIComponent(logoCandidate.id) + '/Images/Logo', { maxWidth:640, maxHeight:240, quality:90 }) : '';
+        if (logosOnly && !logoCollectionIds.has(id)) return '';
+        var logoOptions = { v:CLIENT_VERSION };
+        if (typeof ApiClient.accessToken === 'function' && ApiClient.accessToken()) logoOptions.ApiKey = ApiClient.accessToken();
+        var logoUrl = logosOnly ? ApiClient.getUrl('HomeScreenSectionsManager/top-row-logo/' + encodeURIComponent(id), logoOptions) : '';
         var imageUrl = logosOnly ? '' : cardImage(item, section);
         var imageStyle = imageUrl ? ' style="background-image:url(&quot;' + escapeHtml(imageUrl) + '&quot;)"' : '';
         var shape = logosOnly ? cardShape({ ArtShape:'wide' }) : cardShape(section);
@@ -2778,10 +2781,23 @@
         var scalableBox = sourceScalable ? sourceScalable.getBoundingClientRect() : sourceBox;
         var sourceArt = source.querySelector('.cardImageContainer');
         var radius = sourceArt ? getComputedStyle(sourceArt).borderRadius : '';
-        if (sourceBox.width > 0) row.style.setProperty('--hssm-top-row-card-width', sourceBox.width.toFixed(2) + 'px');
-        if (radius) row.style.setProperty('--hssm-top-row-card-radius', radius);
-        if (scalableBox.height > 0) document.body.style.setProperty('--hssm-top-row-height', Math.ceil(scalableBox.height + 4) + 'px');
+        var scale = 0.82;
+        if (sourceBox.width > 0) row.style.setProperty('--hssm-top-row-card-width', (sourceBox.width * scale).toFixed(2) + 'px');
+        if (radius) {
+            var radiusValue = parseFloat(radius);
+            row.style.setProperty('--hssm-top-row-card-radius', Number.isFinite(radiusValue) && radius.indexOf('px') >= 0 ? (radiusValue * scale).toFixed(2) + 'px' : radius);
+        }
+        if (scalableBox.height > 0) document.body.style.setProperty('--hssm-top-row-height', Math.ceil((scalableBox.height * scale) + 10) + 'px');
         if (probe) probe.remove();
+        syncTopRowHeaderOffset(row);
+    }
+
+    function syncTopRowHeaderOffset(row) {
+        var header = document.querySelector('.skinHeader.hssm-top-row-host');
+        if (!row || !row.isConnected || !header) return;
+        var box = row.getBoundingClientRect();
+        var offset = Math.max(0, Math.min(box.height, box.bottom));
+        header.style.setProperty('--hssm-top-row-header-offset', offset.toFixed(2) + 'px');
     }
 
     function bindTopRowScroller(row) {
@@ -2828,15 +2844,17 @@
         var pageIds = setting(settings, 'TopRowPageIds', ['home']) || ['home'];
         var pageId = activeTopRowPageId();
         var sourceIds = prop(section, 'ItemIds', 'itemIds', prop(section, 'SourceIds', 'sourceIds', []) || []).map(String).filter(Boolean);
+        var logoCollectionIds = new Set((setting(settings, 'TopRowLogoCollectionIds', []) || []).map(String));
         var visible = isHomeRoute() && enabled && section && sourceIds.length && pageIds.map(String).indexOf(pageId) >= 0;
         var header = document.querySelector('.skinHeader');
-        if (!visible || !header) {
+        var topRowHost = document.querySelector('#indexPage');
+        if (!visible || !header || !topRowHost) {
             removeTopRow();
             return;
         }
         var logosOnly = prop(section, 'DisplayLogosOnly', 'displayLogosOnly', false) === true;
-        var signature = JSON.stringify([pageId, sourceIds, prop(section, 'ContentOrder', 'contentOrder', 'manual'), prop(section, 'ArtType', 'artType', 'automatic'), prop(section, 'ArtShape', 'artShape', 'wide'), logosOnly]);
-        var existing = header.querySelector(':scope > .hssm-top-row');
+        var signature = JSON.stringify([pageId, sourceIds, prop(section, 'ContentOrder', 'contentOrder', 'manual'), prop(section, 'ArtType', 'artType', 'automatic'), prop(section, 'ArtShape', 'artShape', 'wide'), logosOnly, Array.from(logoCollectionIds)]);
+        var existing = topRowHost.querySelector(':scope > .hssm-top-row');
         header.classList.add('hssm-top-row-host');
         document.body.classList.add('hssm-top-row-enabled');
         var rowShape = logosOnly ? 'wide' : cardShape(section).name;
@@ -2850,12 +2868,12 @@
         row.className = 'hssm-top-row hssm-size-extra-small hssm-shape-' + rowShape + ' hssm-art-' + String(prop(section, 'ArtType', 'artType', 'automatic')) + (logosOnly ? ' hssm-top-row-logos-only' : '');
         row.setAttribute('aria-label', 'Top Row');
         row.innerHTML = '<div class="hssm-top-row-track" aria-busy="true"></div>';
-        header.insertBefore(row, header.firstChild);
+        topRowHost.insertBefore(row, topRowHost.firstChild);
         queryIds(sourceIds).then(function (items) {
             if (loadSequence !== topRowLoadSequence || !row.isConnected || topRowRenderKey !== signature) return;
             var ordered = orderItems(items, section);
             var track = row.querySelector('.hssm-top-row-track');
-            var cards = ordered.map(function (item) { return topRowCard(item, section); }).filter(Boolean);
+            var cards = ordered.map(function (item) { return topRowCard(item, section, logoCollectionIds); }).filter(Boolean);
             track.innerHTML = cards.join('');
             track.setAttribute('aria-busy', 'false');
             if (!cards.length) {
@@ -2863,10 +2881,18 @@
                 return;
             }
             bindTopRowScroller(row);
+            Array.from(track.querySelectorAll('.hssm-top-row-logo-image')).forEach(function (image) {
+                image.addEventListener('error', function () {
+                    var card = image.closest('.hssm-top-row-card');
+                    if (card) card.remove();
+                }, { once:true });
+            });
             if (window.CustomElements && typeof window.CustomElements.upgradeSubtree === 'function') window.CustomElements.upgradeSubtree(row);
             window.requestAnimationFrame(function () { syncTopRowCardGeometry(row, section); });
             row._hssmGeometryResizeHandler = function () { syncTopRowCardGeometry(row, section); };
+            row._hssmHeaderScrollHandler = function () { syncTopRowHeaderOffset(row); };
             window.addEventListener('resize', row._hssmGeometryResizeHandler, { passive:true });
+            window.addEventListener('scroll', row._hssmHeaderScrollHandler, { passive:true });
         }).catch(function () {
             if (loadSequence === topRowLoadSequence) removeTopRow();
         });

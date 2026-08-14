@@ -39,6 +39,7 @@ public sealed class HomeScreenClientController : ControllerBase
             configuration.EnableTopRow,
             configuration.TopRowPageIds,
             configuration.TopRowSection,
+            TopRowLogoCollectionIds = CollectionManagerLogoBridge.GetSelectedCollectionIds(),
             configuration.HeaderTabsColorMode,
             configuration.HeaderTabsColorOne,
             configuration.HeaderTabsColorTwo,
@@ -59,6 +60,23 @@ public sealed class HomeScreenClientController : ControllerBase
             configuration.MediaBarImageType,
             configuration.EnableMediaBarSlowZoom,
         });
+    }
+
+    /// <summary>Serves the exact source logo selected for a collection in Collection Manager.</summary>
+    [Authorize]
+    [HttpGet("top-row-logo/{collectionId}")]
+    public ActionResult GetTopRowLogo(string collectionId)
+    {
+        var logo = CollectionManagerLogoBridge.Open(collectionId);
+        if (logo is null)
+        {
+            return NotFound();
+        }
+
+        Response.Headers.CacheControl = "no-store, no-cache, must-revalidate, max-age=0";
+        Response.Headers.Pragma = "no-cache";
+        Response.Headers.Expires = "0";
+        return File(logo.Stream, logo.ContentType);
     }
 
     /// <summary>Serves the embedded Home Screen Manager browser client.</summary>

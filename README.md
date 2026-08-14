@@ -32,14 +32,16 @@ logo, media-bar timing, and media-bar image type.
 library navigation row above Jellyfin's header controls. It can be enabled on
 any selected Home screen pages, uses constrained Extra Small non-poster art,
 and opens its selected collections or libraries without adding row arrows,
-heart buttons, or hover Play controls. The Top Row uses the same card geometry
-as ordinary Extra Small sections by measuring the live section-card geometry,
-keeps Jellyfin's fixed header spacing compact, and lets the active Media Bar's
-actual artwork fade upward behind the row without cropping or duplicating it.
-Its optional **Display Logos Only** mode uses only real Jellyfin Logo artwork,
-keeps each complete logo contained inside the Extra Small slot, and ignores the
-shape picker. It is currently intended for Logo-type logo-focused artwork
-applied by [Collection Manager](https://github.com/mp3li/Collection-Manager-Jellyfin-Plugin).
+heart buttons, or hover Play controls. The Top Row measures ordinary Extra Small
+section-card geometry and renders a slightly smaller version with a tiny top
+gap. It sits in normal page flow above the Media Bar, scrolls away with the
+page, and never covers Media Bar artwork; the Media Bar retains matching long,
+soft top and bottom fades. Its optional **Display Logos Only** mode reads the
+exact per-collection source logos saved by
+[Collection Manager](https://github.com/mp3li/Collection-Manager-Jellyfin-Plugin),
+displays each complete logo with no generated background, border, or clipping,
+and ignores the shape picker. The saved assignments are server-wide, so every
+user sees the same collection logos.
 
 **Create and Manage Home Screen Sections** shows Jellyfin’s current home rows
 together with saved plugin sections. Jellyfin’s native Latest Media area is
