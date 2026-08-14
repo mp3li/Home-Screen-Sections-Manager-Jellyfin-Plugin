@@ -220,6 +220,8 @@
                 <div class="selectContainer"><label class="selectLabel" for="hssmTopRowArtSize">Art Size</label><select is="emby-select" id="hssmTopRowArtSize" disabled><option value="extra-small" selected>Extra Small</option></select></div>
                 <div class="selectContainer"><label class="selectLabel" for="hssmTopRowArtType">Art Type</label><select is="emby-select" id="hssmTopRowArtType"><option value="automatic">Automatic</option><option value="primary">Primary</option><option value="art">Art</option><option value="backdrop">Backdrop</option><option value="banner">Banner</option><option value="logo">Logo</option><option value="thumb">Thumb</option><option value="disc">Disc</option><option value="box">Box</option><option value="box-rear">Box Rear</option><option value="screenshot">Screenshot</option><option value="menu">Menu</option><option value="chapter">Chapter</option></select></div>
                 <div class="selectContainer"><label class="selectLabel" for="hssmTopRowArtShape">Art Shape</label><select is="emby-select" id="hssmTopRowArtShape"><option value="wide" selected>Wide Rectangle</option><option value="square">Square</option><option value="circle">Circle</option></select></div>
+                <label class="checkboxContainer"><input is="emby-checkbox" type="checkbox" id="hssmTopRowDisplayLogosOnly" /><span>Display Logos Only</span></label>
+                <p class="fieldDescription">For now, this feature only works when logo-based art has been applied with the <a href="https://github.com/mp3li/Collection-Manager-Jellyfin-Plugin" target="_blank" rel="noopener noreferrer">Collection Manager</a> plugin.</p>
             </section>
             <div class="hssm-actions"><button is="emby-button" type="button" class="raised button-submit" id="hssmSaveTopRowButton">Add Top Row</button></div>
             <p class="fieldDescription" id="hssmTopRowStatus" aria-live="polite"></p>
@@ -837,6 +839,7 @@
             const contentOrder = page.querySelector('#hssmTopRowContentOrder');
             const artType = page.querySelector('#hssmTopRowArtType');
             const artShape = page.querySelector('#hssmTopRowArtShape');
+            const displayLogosOnly = page.querySelector('#hssmTopRowDisplayLogosOnly');
             const saveButton = page.querySelector('#hssmSaveTopRowButton');
             const status = page.querySelector('#hssmTopRowStatus');
             let pages = [];
@@ -897,6 +900,7 @@
                     contentOrder.value = String(valueOf(definition, 'ContentOrder', 'contentOrder', 'manual'));
                     artType.value = String(valueOf(definition, 'ArtType', 'artType', 'automatic'));
                     artShape.value = ['wide','square','circle'].includes(String(valueOf(definition, 'ArtShape', 'artShape', 'wide'))) ? String(valueOf(definition, 'ArtShape', 'artShape', 'wide')) : 'wide';
+                    displayLogosOnly.checked = valueOf(definition, 'DisplayLogosOnly', 'displayLogosOnly', false) === true;
                     const enabled = valueOf(settings, 'EnableTopRow', 'enableTopRow', false) === true;
                     page.querySelector('#hssmEnableTopRow').checked = enabled;
                     page.querySelector('#hssmDisableTopRow').checked = !enabled;
@@ -952,7 +956,7 @@
                 const payload = {
                     EnableTopRow:enabled,
                     TopRowPageIds:selectedPages,
-                    TopRowSection:{ Id:'top-row', Name:'Top Row', PageId:'home', Type:selectedType(), SourceIds:selectedIds, ItemIds:selectedIds, ContentOrder:contentOrder.value, ArtSize:'extra-small', ArtType:artType.value, ArtShape:artShape.value, ShowText:false, ShowSectionName:false, IsVisible:true, IsMediaBar:false, IsApplied:selectedIds.length > 0 }
+                    TopRowSection:{ Id:'top-row', Name:'Top Row', PageId:'home', Type:selectedType(), SourceIds:selectedIds, ItemIds:selectedIds, ContentOrder:contentOrder.value, ArtSize:'extra-small', ArtType:artType.value, ArtShape:artShape.value, DisplayLogosOnly:displayLogosOnly.checked, ShowText:false, ShowSectionName:false, IsVisible:true, IsMediaBar:false, IsApplied:selectedIds.length > 0 }
                 };
                 saveButton.disabled = true;
                 status.textContent = applied ? 'Refreshing Top Row…' : 'Adding Top Row…';
@@ -1730,7 +1734,7 @@
                 return body && (body.Detail || body.detail || body.Message || body.message || body.Title || body.title) || (text && String(text).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()) || (error && (error.message || error.statusText)) || 'Jellyfin returned no error details.';
             }
             function loadHomeScreenClient() {
-                const version = "0.1.0.45";
+                const version = "0.1.0.46";
                 let style = document.querySelector("link[data-hssm-client-style]");
                 if (!style || style.dataset.hssmClientVersion !== version) {
                     if (style) style.remove();

@@ -11,12 +11,15 @@
    identity. Abyss retains its own hidden frame and lifecycle; this frame uses
    the same responsive measurements without competing for ownership. */
 .hssm-owned-media-bar {
+    --hssm-media-bar-base-height: 70vh;
+    --hssm-media-bar-base-max-height: 680px;
+    --hssm-media-bar-base-min-height: 420px;
     border: 0;
     display: block;
-    height: 70vh;
+    height: var(--hssm-media-bar-base-height);
     margin: 0;
-    max-height: 680px;
-    min-height: 420px;
+    max-height: var(--hssm-media-bar-base-max-height);
+    min-height: var(--hssm-media-bar-base-min-height);
     padding: 0;
     width: 100%;
 }
@@ -35,27 +38,27 @@
 }
 
 @media (min-width: 1400px) {
-    .hssm-owned-media-bar { height: 72vh; max-height: 760px; }
+    .hssm-owned-media-bar { --hssm-media-bar-base-height: 72vh; --hssm-media-bar-base-max-height: 760px; }
 }
 
 @media (min-width: 1920px) {
-    .hssm-owned-media-bar { height: 68vh; max-height: 860px; }
+    .hssm-owned-media-bar { --hssm-media-bar-base-height: 68vh; --hssm-media-bar-base-max-height: 860px; }
 }
 
 @media (max-width: 1024px) and (orientation: portrait) {
-    .hssm-owned-media-bar { height: 90vh; max-height: 720px; min-height: 320px; }
+    .hssm-owned-media-bar { --hssm-media-bar-base-height: 90vh; --hssm-media-bar-base-max-height: 720px; --hssm-media-bar-base-min-height: 320px; }
 }
 
 @media (max-width: 1024px) and (orientation: landscape) {
-    .hssm-owned-media-bar { height: 100vh; max-height: 420px; min-height: 280px; }
+    .hssm-owned-media-bar { --hssm-media-bar-base-height: 100vh; --hssm-media-bar-base-max-height: 420px; --hssm-media-bar-base-min-height: 280px; }
 }
 
 @media (max-width: 600px) and (orientation: portrait) {
-    .hssm-owned-media-bar { height: 90vh; max-height: 720px; min-height: 260px; }
+    .hssm-owned-media-bar { --hssm-media-bar-base-height: 90vh; --hssm-media-bar-base-max-height: 720px; --hssm-media-bar-base-min-height: 260px; }
 }
 
 @media (max-width: 900px) and (orientation: landscape) and (max-height: 500px) {
-    .hssm-owned-media-bar { height: 100vh; min-height: 200px; }
+    .hssm-owned-media-bar { --hssm-media-bar-base-height: 100vh; --hssm-media-bar-base-min-height: 200px; }
 }
 
 .homeSectionsContainer > [data-hssm-latest-wrapper="true"] {
@@ -428,9 +431,10 @@
 }
 
 .skinHeader.hssm-top-row-host {
+    background: transparent !important;
     box-sizing: border-box;
     padding-top: var(--hssm-top-row-height, 7em) !important;
-    position: relative;
+    z-index: 1000 !important;
 }
 
 body.hssm-top-row-enabled {
@@ -445,10 +449,15 @@ body.hssm-top-row-enabled #indexPage {
     margin-top: var(--hssm-top-row-height, 7em) !important;
 }
 
+body.hssm-top-row-enabled .pageTabContent.is-active .hssm-owned-media-bar:not(.hssm-media-bar-not-first) {
+    height: calc(var(--hssm-media-bar-base-height) + var(--hssm-top-row-height, 7em) + var(--hssm-media-bar-page-inset, 0px));
+    margin-top: calc(0px - var(--hssm-top-row-height, 7em) - var(--hssm-media-bar-page-inset, 0px)) !important;
+    max-height: calc(var(--hssm-media-bar-base-max-height) + var(--hssm-top-row-height, 7em) + var(--hssm-media-bar-page-inset, 0px));
+    min-height: calc(var(--hssm-media-bar-base-min-height) + var(--hssm-top-row-height, 7em) + var(--hssm-media-bar-page-inset, 0px));
+}
+
 .hssm-top-row {
-    background-color: #090b11;
-    background-repeat: no-repeat;
-    background-size: 100% 100%;
+    background: transparent;
     box-sizing: border-box;
     height: var(--hssm-top-row-height, 7em);
     left: 0;
@@ -460,14 +469,6 @@ body.hssm-top-row-enabled #indexPage {
     z-index: 10;
 }
 
-.hssm-top-row::before {
-    background: linear-gradient(180deg, rgba(7, 10, 16, 0.16) 0%, rgba(7, 10, 16, 0.04) 58%, rgba(7, 10, 16, 0) 100%);
-    content: '';
-    inset: 0;
-    pointer-events: none;
-    position: absolute;
-}
-
 .hssm-top-row-track {
     align-items: center;
     box-sizing: border-box;
@@ -476,7 +477,7 @@ body.hssm-top-row-enabled #indexPage {
     height: 100%;
     overflow-x: auto;
     overflow-y: hidden;
-    padding: 0.24em 3.3% 0.26em;
+    padding: 2px 3.3%;
     position: relative;
     scrollbar-width: none;
     touch-action: pan-x;
@@ -491,17 +492,45 @@ body.hssm-top-row-enabled #indexPage {
 .hssm-top-row-card {
     color: inherit;
     display: block;
-    flex: 0 0 var(--hssm-card-width) !important;
+    flex: 0 0 var(--hssm-top-row-card-width, var(--hssm-card-width)) !important;
     margin: 0;
-    max-width: var(--hssm-card-width) !important;
-    min-width: var(--hssm-card-width) !important;
+    max-width: var(--hssm-top-row-card-width, var(--hssm-card-width)) !important;
+    min-width: var(--hssm-top-row-card-width, var(--hssm-card-width)) !important;
     padding: 0;
     text-decoration: none;
-    width: var(--hssm-card-width) !important;
+    width: var(--hssm-top-row-card-width, var(--hssm-card-width)) !important;
 }
 
 .hssm-top-row-art {
+    border-radius: var(--hssm-top-row-card-radius, inherit) !important;
     overflow: hidden !important;
+}
+
+.hssm-top-row-logo-art {
+    align-items: center;
+    background: transparent !important;
+    border-radius: 0 !important;
+    box-sizing: border-box;
+    display: flex;
+    justify-content: center;
+    overflow: visible !important;
+    padding: 0.2em;
+}
+
+.hssm-top-row-logo-card .cardBox,
+.hssm-top-row-logo-card .cardScalable {
+    overflow: visible !important;
+}
+
+.hssm-top-row-logo-image {
+    display: block;
+    height: 100%;
+    max-height: 100%;
+    max-width: 100%;
+    object-fit: contain;
+    object-position: center;
+    pointer-events: none;
+    width: 100%;
 }
 
 .hssm-top-row-hover {
@@ -720,11 +749,13 @@ body.hssm-top-row-enabled #indexPage {
 }
 
 .hssm-my-list-page {
+    --hssm-media-bar-page-inset: 1.25em;
     min-height: 50vh;
     padding-top: 1.25em;
 }
 
 .hssm-owned-custom-page {
+    --hssm-media-bar-page-inset: clamp(4.75em, 9vh, 7em);
     box-sizing: border-box;
     padding-top: clamp(4.75em, 9vh, 7em);
 }

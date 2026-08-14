@@ -89,7 +89,7 @@ def run() -> None:
                 getPluginConfiguration:()=>Promise.resolve({CustomJavaScripts:[]}),
                 updatePluginConfiguration:()=>Promise.resolve()
               };
-              window.HomeScreenManagerClient = { version:'0.1.0.45', refresh(){} };
+              window.HomeScreenManagerClient = { version:'0.1.0.46', refresh(){} };
               window.CustomElements = { upgradeSubtree(){} };
             }
             """
@@ -129,11 +129,15 @@ def run() -> None:
         assert "Poster / Tall Rectangle" not in page.locator("#hssmTopRowArtShape option").all_text_contents()
         assert page.locator("#hssmTopRowSettingsPanel [data-hssm-show-text]").count() == 0
         assert page.locator("#hssmTopRowSettingsPanel [data-hssm-show-section-name]").count() == 0
+        assert not page.locator("#hssmTopRowDisplayLogosOnly").is_checked()
+        logo_description_link = page.get_by_text("Collection Manager", exact=True)
+        assert logo_description_link.get_attribute("href") == "https://github.com/mp3li/Collection-Manager-Jellyfin-Plugin"
         page.locator("#hssmEnableTopRow").check()
         page.locator("#hssmTopRowPagePicker [data-hssm-top-row-page='manager-page-movies']").check()
         page.locator("#hssmTopRowSourcePicker [data-hssm-top-row-source='foreign']").check()
         page.locator("#hssmTopRowArtType").select_option("thumb")
         page.locator("#hssmTopRowArtShape").select_option("circle")
+        page.locator("#hssmTopRowDisplayLogosOnly").check()
         page.locator("#hssmSaveTopRowButton").click()
         page.wait_for_function("window.__topRowSettings.EnableTopRow === true && window.__topRowSettings.TopRowSection.SourceIds[0] === 'foreign'")
         assert page.evaluate("window.__topRowSettings.TopRowPageIds") == ["home", "manager-page-movies"]
@@ -141,6 +145,7 @@ def run() -> None:
         assert page.evaluate("window.__topRowSettings.TopRowSection.ShowText") is False
         assert page.evaluate("window.__topRowSettings.TopRowSection.ShowSectionName") is False
         assert page.evaluate("window.__topRowSettings.TopRowSection.IsMediaBar") is False
+        assert page.evaluate("window.__topRowSettings.TopRowSection.DisplayLogosOnly") is True
         assert page.locator("#hssmSaveTopRowButton").text_content().strip() == "Refresh Top Row"
 
         assert page.locator("#hssmPageList [data-page-id='home'] [data-hssm-page-show]").count() == 0

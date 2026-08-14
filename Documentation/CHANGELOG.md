@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.0.46-test] - 2026-08-14
+
+- Measures a live normal Extra Small section card and applies its exact rendered width, wide-rectangle aspect ratio, and corner radius to Top Row cards, avoiding Jellyfin header-relative sizing differences.
+- Preserves Jellyfin's fixed header instead of placing it in document flow, sizes Top Row to the measured card height plus four pixels, and removes the doubled gap above the navigation controls and page.
+- Removes the sampled/cropped Top Row background and extends the active first Media Bar's real artwork upward behind the transparent Top Row without covering its cards or header controls.
+- Standardizes every Media Bar on the same long, soft, symmetrical top and bottom artwork fade, including Media Bars below the first section and Media Bars on custom pages.
+- Adds **Display Logos Only** to Top Row art settings with a Collection Manager repository link; it strictly uses real Jellyfin Logo artwork, ignores the shape picker, contains each complete logo without edge clipping, and never substitutes Primary, Backdrop, or other art.
+
 ## [0.1.0.45-test] - 2026-08-14
 
 - Enriches each per-user Watch Again episode with its live Series record before rendering, guaranteeing the Series Primary image and the full **Episode Title S00E00 Series Name** label while retaining completed movies and one newest completed episode per series.

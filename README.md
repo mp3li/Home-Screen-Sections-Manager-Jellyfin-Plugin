@@ -33,10 +33,13 @@ library navigation row above Jellyfin's header controls. It can be enabled on
 any selected Home screen pages, uses constrained Extra Small non-poster art,
 and opens its selected collections or libraries without adding row arrows,
 heart buttons, or hover Play controls. The Top Row uses the same card geometry
-as ordinary Extra Small sections, shifts the header and page content downward
-instead of covering the Media Bar, and extends a long, soft, sampled-color
-gradient from the active Media Bar upward behind the row without cropping or
-reusing the backdrop image there.
+as ordinary Extra Small sections by measuring the live section-card geometry,
+keeps Jellyfin's fixed header spacing compact, and lets the active Media Bar's
+actual artwork fade upward behind the row without cropping or duplicating it.
+Its optional **Display Logos Only** mode uses only real Jellyfin Logo artwork,
+keeps each complete logo contained inside the Extra Small slot, and ignores the
+shape picker. It is currently intended for Logo-type logo-focused artwork
+applied by [Collection Manager](https://github.com/mp3li/Collection-Manager-Jellyfin-Plugin).
 
 **Create and Manage Home Screen Sections** shows Jellyfin’s current home rows
 together with saved plugin sections. Jellyfin’s native Latest Media area is
@@ -86,9 +89,11 @@ Home Screen Manager uses a credited, MIT-licensed adaptation of Abyss's
 spotlight logic together with the installed Abyss spotlight stylesheet. This
 keeps Abyss's media-bar appearance while allowing saved timing and the selected
 Backdrop, Primary, Banner, or Thumbnail image type to drive every configured
-bar. A Media Bar source row remains visible as a normal row, and Media Bars below
-the first page section receive a matching top gradient. The legacy first eligible
-Home row remains the Home Media Bar until explicit plugin Media Bars are selected.
+bar. Every Media Bar uses the same long, soft, symmetrical fade at its top and
+bottom. When Top Row is enabled, the first Media Bar extends that real top fade
+behind the transparent Top Row while its normal page content remains shifted
+below. A Media Bar source row remains visible as a normal row. The legacy first
+eligible Home row remains the Home Media Bar until explicit plugin Media Bars are selected.
 My Media and Latest Media remain normal Home rows. Continue Watching supplies up to 30 available items
 to the media bar instead of limiting the spotlight to only a few. Saved custom
 rows render independently of media-bar artwork and live settings reconciliation.

@@ -106,6 +106,7 @@ public sealed class PluginConfiguration : BasePluginConfiguration
         ArtSize = "extra-small",
         ArtType = "automatic",
         ArtShape = "wide",
+        DisplayLogosOnly = false,
         ShowText = false,
         ShowSectionName = false,
         IsVisible = true,
@@ -180,6 +181,9 @@ public sealed class HomeScreenSectionDefinition
 
     /// <summary>Gets or sets the selected art shape.</summary>
     public string ArtShape { get; set; } = "poster";
+
+    /// <summary>Gets or sets whether Top Row items render only their uncropped Logo artwork.</summary>
+    public bool DisplayLogosOnly { get; set; }
 
     /// <summary>Gets or sets whether item text is displayed under the art.</summary>
     public bool ShowText { get; set; } = true;

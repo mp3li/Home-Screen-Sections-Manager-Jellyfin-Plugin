@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    var CLIENT_VERSION = "0.1.0.45";
+    var CLIENT_VERSION = "0.1.0.46";
     if (window.HomeScreenManagerClient) {
         if (window.HomeScreenManagerClient.version === CLIENT_VERSION) {
             window.HomeScreenManagerClient.refresh();
@@ -74,7 +74,6 @@
     var topRecoveryRequests = {};
     var topRowRenderKey = '';
     var topRowLoadSequence = 0;
-    var topRowGradientSequence = 0;
 
     function createLimiter(maximum) {
         var active = 0;
@@ -1681,7 +1680,6 @@
                 frame.dataset.hssmAppliedImageType = reportedImageType;
                 frame.dataset.hssmAppliedSlowZoom = reportedSlowZoom;
                 delete frame.dataset.hssmMediaBarPending;
-                syncTopRowBackdrop(frame, event.data);
             }
         });
     }
@@ -1704,7 +1702,8 @@
                 items:cached.items,
                 intervalSeconds:expectedInterval,
                 imageType:expectedImageType,
-                slowZoom:expectedSlowZoom
+                slowZoom:expectedSlowZoom,
+                topGradient:true
             };
             sendMediaBarPayload(ensureMediaBarFrame(container, cachedSettings));
             return true;
@@ -1778,7 +1777,7 @@
         try {
             var cached = cacheRead('media-bar', 24 * 60 * 60 * 1000);
             if (cached && cached.key === source.key && cached.intervalSeconds === interval && cached.imageType === requestedImage && cached.slowZoom === requestedSlowZoom && Array.isArray(cached.items) && cached.items.length) {
-                matchingCachedPayload = { type:'home-screen-manager-media-bar', action:'configure', items:cached.items, intervalSeconds:interval, imageType:requestedImage, slowZoom:requestedSlowZoom };
+                matchingCachedPayload = { type:'home-screen-manager-media-bar', action:'configure', items:cached.items, intervalSeconds:interval, imageType:requestedImage, slowZoom:requestedSlowZoom, topGradient:true };
                 mediaBarPayload = matchingCachedPayload;
                 frame._hssmPayload = matchingCachedPayload;
                 mediaBarSourceKey = JSON.stringify([source.key, interval, requestedImage, requestedSlowZoom, cached.items]);
@@ -1800,7 +1799,8 @@
                 items: items,
                 intervalSeconds: interval,
                 imageType: requestedImage,
-                slowZoom: requestedSlowZoom
+                slowZoom: requestedSlowZoom,
+                topGradient:true
             };
             frame._hssmPayload = mediaBarPayload;
             cacheWrite('media-bar', { key:source.key, intervalSeconds:interval, imageType:requestedImage, slowZoom:requestedSlowZoom, items:items });
@@ -1811,7 +1811,7 @@
         }).catch(function (error) {
             if (loadSequence !== mediaBarLoadSequence || container !== activeHomeContainer()) return;
             console.warn('[Home Screen Manager] Could not load the selected media-bar source.', error);
-            mediaBarPayload = { type: 'home-screen-manager-media-bar', action: 'configure', items: [], intervalSeconds: 5, imageType: 'backdrop', slowZoom:requestedSlowZoom };
+            mediaBarPayload = { type: 'home-screen-manager-media-bar', action: 'configure', items: [], intervalSeconds: 5, imageType: 'backdrop', slowZoom:requestedSlowZoom, topGradient:true };
             frame._hssmPayload = mediaBarPayload;
             sendMediaBarPayload(frame);
         });
@@ -1872,7 +1872,7 @@
             var firstOnPage = visibleOrder.length ? visibleOrder[0] === id : configured[0] === section;
             var frame = ensureSectionMediaBarFrame(container, settings, section, sourceNode, firstOnPage);
             if (!frame) return;
-            var payload = { type:'home-screen-manager-media-bar', action:'configure', items:[], intervalSeconds:Math.max(1,Math.min(300,Number(setting(settings,'MediaBarIntervalSeconds',5))||5)), imageType:String(setting(settings,'MediaBarImageType','abyss-original')), slowZoom:setting(settings,'EnableMediaBarSlowZoom',true)!==false, topGradient:!firstOnPage };
+            var payload = { type:'home-screen-manager-media-bar', action:'configure', items:[], intervalSeconds:Math.max(1,Math.min(300,Number(setting(settings,'MediaBarIntervalSeconds',5))||5)), imageType:String(setting(settings,'MediaBarImageType','abyss-original')), slowZoom:setting(settings,'EnableMediaBarSlowZoom',true)!==false, topGradient:true };
             frame._hssmPayload = payload;
             mediaBarSectionItems(section).then(resolveMediaBarLogos).then(function (items) { if(!frame.isConnected)return; payload.items=items; frame._hssmPayload=payload; sendMediaBarPayload(frame,true,payload); }, function () { sendMediaBarPayload(frame,true,payload); });
         });
@@ -2720,12 +2720,14 @@
         topRowLoadSequence += 1;
         topRowRenderKey = '';
         var row = document.querySelector('.hssm-top-row');
+        if (row && row._hssmGeometryResizeHandler) window.removeEventListener('resize', row._hssmGeometryResizeHandler);
         if (row) row.remove();
         Array.from(document.querySelectorAll('.skinHeader.hssm-top-row-host')).forEach(function (header) {
             header.classList.remove('hssm-top-row-host');
         });
         document.body.classList.remove('hssm-top-row-enabled');
         document.body.classList.remove('hssm-top-row-shape-wide', 'hssm-top-row-shape-square', 'hssm-top-row-shape-circle');
+        document.body.style.removeProperty('--hssm-top-row-height');
     }
 
     function activeTopRowPageId() {
@@ -2733,100 +2735,53 @@
         return pageIdForContainer(container) || 'home';
     }
 
-    function activeTopRowMediaBarFrame() {
-        var container = activeManagedSectionContainer();
-        if (!container) return null;
-        var homeFrame = mediaBarFrameForContainer(container);
-        if (homeFrame) return homeFrame;
-        return Array.from(container.querySelectorAll(':scope > .hssm-section-media-bar')).find(function (frame) {
-            return getComputedStyle(frame).display !== 'none';
-        }) || null;
-    }
-
-    function topRowFallbackGradient(row) {
-        row.style.backgroundImage = 'linear-gradient(180deg, rgba(7, 10, 16, 0.68) 0%, rgba(7, 10, 16, 0.18) 62%, rgba(7, 10, 16, 0.04) 100%), linear-gradient(90deg, rgb(12, 15, 22) 0%, rgb(18, 21, 29) 50%, rgb(12, 15, 22) 100%)';
-        row.style.backgroundPosition = '';
-    }
-
-    function sampledTopRowGradient(image) {
-        var canvas = document.createElement('canvas');
-        var context = canvas.getContext('2d', { willReadFrequently:true });
-        if (!context) return '';
-        var sampleWidth = 70;
-        var sampleHeight = 6;
-        canvas.width = sampleWidth;
-        canvas.height = sampleHeight;
-        var sourceWidth = Number(image.naturalWidth || image.width || 0);
-        var sourceHeight = Number(image.naturalHeight || image.height || 0);
-        if (!sourceWidth || !sourceHeight) return '';
-        var sourceY = Math.max(0, Math.round(sourceHeight * 0.075));
-        var sourceSampleHeight = Math.max(1, Math.round(sourceHeight * 0.08));
-        context.drawImage(image, 0, sourceY, sourceWidth, Math.min(sourceSampleHeight, sourceHeight - sourceY), 0, 0, sampleWidth, sampleHeight);
-        var pixels = context.getImageData(0, 0, sampleWidth, sampleHeight).data;
-        var stops = [];
-        var bands = 7;
-        for (var band = 0; band < bands; band++) {
-            var start = Math.floor(band * sampleWidth / bands);
-            var end = Math.max(start + 1, Math.floor((band + 1) * sampleWidth / bands));
-            var red = 0, green = 0, blue = 0, count = 0;
-            for (var x = start; x < end; x++) {
-                for (var y = 0; y < sampleHeight; y++) {
-                    var offset = (y * sampleWidth + x) * 4;
-                    red += pixels[offset]; green += pixels[offset + 1]; blue += pixels[offset + 2]; count += 1;
-                }
-            }
-            var amount = band * 100 / (bands - 1);
-            stops.push('rgb(' + Math.round(red / count) + ', ' + Math.round(green / count) + ', ' + Math.round(blue / count) + ') ' + amount.toFixed(1) + '%');
-        }
-        return 'linear-gradient(180deg, rgba(7, 10, 16, 0.62) 0%, rgba(7, 10, 16, 0.14) 64%, rgba(7, 10, 16, 0.02) 100%), linear-gradient(90deg, ' + stops.join(', ') + ')';
-    }
-
-    function syncTopRowBackdrop(frame, renderedData) {
-        var row = document.querySelector('.hssm-top-row');
-        if (!row) return;
-        frame = frame || activeTopRowMediaBarFrame();
-        if (!frame || frame !== activeTopRowMediaBarFrame()) {
-            topRowFallbackGradient(row);
-            return;
-        }
-        var image = null;
-        try { image = frame.contentDocument && frame.contentDocument.querySelector('#backdrop-img'); } catch (_) {}
-        var url = String(renderedData && renderedData.backdropUrl || image && (image.currentSrc || image.src) || '');
-        if (!url) {
-            topRowFallbackGradient(row);
-            return;
-        }
-        var sequence = ++topRowGradientSequence;
-        var sampler = new Image();
-        try {
-            var imageUrl = new URL(url, document.baseURI);
-            if (imageUrl.origin !== window.location.origin) sampler.crossOrigin = 'anonymous';
-        } catch (_) {}
-        sampler.onload = function () {
-            if (sequence !== topRowGradientSequence || !row.isConnected) return;
-            try {
-                var gradient = sampledTopRowGradient(sampler);
-                if (gradient) {
-                    row.style.backgroundImage = gradient;
-                    row.style.backgroundPosition = '';
-                } else topRowFallbackGradient(row);
-            } catch (_) { topRowFallbackGradient(row); }
-        };
-        sampler.onerror = function () {
-            if (sequence === topRowGradientSequence && row.isConnected) topRowFallbackGradient(row);
-        };
-        sampler.src = url;
-    }
-
     function topRowCard(item, section) {
         var id = String(prop(item, 'Id', 'id', ''));
         var name = String(prop(item, 'Name', 'name', ''));
         var serverId = typeof ApiClient.serverId === 'function' ? ApiClient.serverId() : '';
         var href = '#/details?id=' + encodeURIComponent(id) + (serverId ? '&serverId=' + encodeURIComponent(serverId) : '');
-        var imageUrl = cardImage(item, section);
+        var logosOnly = prop(section, 'DisplayLogosOnly', 'displayLogosOnly', false) === true;
+        var logoCandidate = logosOnly ? imageCandidate(item, 'Logo') : null;
+        if (logosOnly && !logoCandidate) return '';
+        var logoUrl = logoCandidate ? ApiClient.getUrl('Items/' + encodeURIComponent(logoCandidate.id) + '/Images/Logo', { maxWidth:640, maxHeight:240, quality:90 }) : '';
+        var imageUrl = logosOnly ? '' : cardImage(item, section);
         var imageStyle = imageUrl ? ' style="background-image:url(&quot;' + escapeHtml(imageUrl) + '&quot;)"' : '';
-        var shape = cardShape(section);
-        return '<div class="card ' + shape.card + ' card-hoverable hssm-client-card hssm-top-row-card" data-id="' + escapeHtml(id) + '"><div class="cardBox"><div class="cardScalable"><div class="cardPadder ' + shape.padder + '"></div><a is="emby-linkbutton" href="' + escapeHtml(href) + '" data-action="link" class="cardImageContainer coveredImage cardContent itemAction hssm-top-row-art" aria-label="' + escapeHtml(name) + '"' + imageStyle + '><span class="hssm-top-row-hover"></span></a></div></div></div>';
+        var shape = logosOnly ? cardShape({ ArtShape:'wide' }) : cardShape(section);
+        var art = logosOnly
+            ? '<a is="emby-linkbutton" href="' + escapeHtml(href) + '" data-action="link" class="cardImageContainer cardContent itemAction hssm-top-row-art hssm-top-row-logo-art" aria-label="' + escapeHtml(name) + '"><img class="hssm-top-row-logo-image" src="' + escapeHtml(logoUrl) + '" alt="" /><span class="hssm-top-row-hover"></span></a>'
+            : '<a is="emby-linkbutton" href="' + escapeHtml(href) + '" data-action="link" class="cardImageContainer coveredImage cardContent itemAction hssm-top-row-art" aria-label="' + escapeHtml(name) + '"' + imageStyle + '><span class="hssm-top-row-hover"></span></a>';
+        return '<div class="card ' + shape.card + ' card-hoverable hssm-client-card hssm-top-row-card' + (logosOnly ? ' hssm-top-row-logo-card' : '') + '" data-id="' + escapeHtml(id) + '"><div class="cardBox"><div class="cardScalable"><div class="cardPadder ' + shape.padder + '"></div>' + art + '</div></div></div>';
+    }
+
+    function syncTopRowCardGeometry(row, section) {
+        if (!row || !row.isConnected) return;
+        var shapeName = prop(section, 'DisplayLogosOnly', 'displayLogosOnly', false) === true ? 'wide' : cardShape(section).name;
+        var selector = '.hssm-client-section.hssm-size-extra-small.hssm-shape-' + shapeName + ' .hssm-client-card';
+        var source = Array.from(document.querySelectorAll(selector)).find(function (card) {
+            return !card.closest('.hssm-top-row') && card.getBoundingClientRect().width > 0;
+        });
+        var probe = null;
+        if (!source) {
+            var card = row.querySelector('.hssm-top-row-card');
+            if (!card) return;
+            probe = document.createElement('div');
+            probe.className = 'hssm-client-section hssm-size-extra-small hssm-shape-' + shapeName;
+            probe.style.cssText = 'position:absolute;left:-10000px;top:0;visibility:hidden;pointer-events:none;';
+            var clone = card.cloneNode(true);
+            clone.classList.remove('hssm-top-row-card');
+            probe.appendChild(clone);
+            document.body.appendChild(probe);
+            source = clone;
+        }
+        var sourceBox = source.getBoundingClientRect();
+        var sourceScalable = source.querySelector('.cardScalable');
+        var scalableBox = sourceScalable ? sourceScalable.getBoundingClientRect() : sourceBox;
+        var sourceArt = source.querySelector('.cardImageContainer');
+        var radius = sourceArt ? getComputedStyle(sourceArt).borderRadius : '';
+        if (sourceBox.width > 0) row.style.setProperty('--hssm-top-row-card-width', sourceBox.width.toFixed(2) + 'px');
+        if (radius) row.style.setProperty('--hssm-top-row-card-radius', radius);
+        if (scalableBox.height > 0) document.body.style.setProperty('--hssm-top-row-height', Math.ceil(scalableBox.height + 4) + 'px');
+        if (probe) probe.remove();
     }
 
     function bindTopRowScroller(row) {
@@ -2879,11 +2834,12 @@
             removeTopRow();
             return;
         }
-        var signature = JSON.stringify([pageId, sourceIds, prop(section, 'ContentOrder', 'contentOrder', 'manual'), prop(section, 'ArtType', 'artType', 'automatic'), prop(section, 'ArtShape', 'artShape', 'wide')]);
+        var logosOnly = prop(section, 'DisplayLogosOnly', 'displayLogosOnly', false) === true;
+        var signature = JSON.stringify([pageId, sourceIds, prop(section, 'ContentOrder', 'contentOrder', 'manual'), prop(section, 'ArtType', 'artType', 'automatic'), prop(section, 'ArtShape', 'artShape', 'wide'), logosOnly]);
         var existing = header.querySelector(':scope > .hssm-top-row');
         header.classList.add('hssm-top-row-host');
         document.body.classList.add('hssm-top-row-enabled');
-        var rowShape = cardShape(section).name;
+        var rowShape = logosOnly ? 'wide' : cardShape(section).name;
         document.body.classList.remove('hssm-top-row-shape-wide', 'hssm-top-row-shape-square', 'hssm-top-row-shape-circle');
         document.body.classList.add('hssm-top-row-shape-' + rowShape);
         if (existing && topRowRenderKey === signature) return;
@@ -2891,23 +2847,26 @@
         topRowRenderKey = signature;
         var loadSequence = ++topRowLoadSequence;
         var row = document.createElement('nav');
-        row.className = 'hssm-top-row hssm-size-extra-small hssm-shape-' + rowShape + ' hssm-art-' + String(prop(section, 'ArtType', 'artType', 'automatic'));
+        row.className = 'hssm-top-row hssm-size-extra-small hssm-shape-' + rowShape + ' hssm-art-' + String(prop(section, 'ArtType', 'artType', 'automatic')) + (logosOnly ? ' hssm-top-row-logos-only' : '');
         row.setAttribute('aria-label', 'Top Row');
         row.innerHTML = '<div class="hssm-top-row-track" aria-busy="true"></div>';
         header.insertBefore(row, header.firstChild);
-        syncTopRowBackdrop();
         queryIds(sourceIds).then(function (items) {
             if (loadSequence !== topRowLoadSequence || !row.isConnected || topRowRenderKey !== signature) return;
             var ordered = orderItems(items, section);
             var track = row.querySelector('.hssm-top-row-track');
-            track.innerHTML = ordered.map(function (item) { return topRowCard(item, section); }).join('');
+            var cards = ordered.map(function (item) { return topRowCard(item, section); }).filter(Boolean);
+            track.innerHTML = cards.join('');
             track.setAttribute('aria-busy', 'false');
-            if (!ordered.length) {
+            if (!cards.length) {
                 removeTopRow();
                 return;
             }
             bindTopRowScroller(row);
             if (window.CustomElements && typeof window.CustomElements.upgradeSubtree === 'function') window.CustomElements.upgradeSubtree(row);
+            window.requestAnimationFrame(function () { syncTopRowCardGeometry(row, section); });
+            row._hssmGeometryResizeHandler = function () { syncTopRowCardGeometry(row, section); };
+            window.addEventListener('resize', row._hssmGeometryResizeHandler, { passive:true });
         }).catch(function () {
             if (loadSequence === topRowLoadSequence) removeTopRow();
         });
