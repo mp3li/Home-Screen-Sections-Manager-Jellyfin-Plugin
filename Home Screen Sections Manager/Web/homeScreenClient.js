@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    var CLIENT_VERSION = "0.1.0.36";
+    var CLIENT_VERSION = "0.1.0.37";
     if (window.HomeScreenManagerClient) {
         if (window.HomeScreenManagerClient.version === CLIENT_VERSION) {
             window.HomeScreenManagerClient.refresh();
@@ -408,7 +408,7 @@
         var userId = currentUserId();
         if (!userId) return Promise.resolve([]);
         var options = Object.assign({
-            Fields: 'PrimaryImageAspectRatio,DateCreated,PremiereDate,ProductionYear,CommunityRating,SortName,Tags,Overview,RunTimeTicks,ChildCount,RecursiveItemCount,ParentId,SeriesId,SeriesName,UserData',
+            Fields: 'PrimaryImageAspectRatio,DateCreated,PremiereDate,ProductionYear,CommunityRating,SortName,Tags,Overview,RunTimeTicks,ChildCount,RecursiveItemCount,ParentId,SeriesId,SeriesName,SeriesPrimaryImageTag,ParentLogoImageTag,ParentLogoItemId,UserData',
             ImageTypeLimit: 1,
             EnableImageTypes: 'Primary,Art,Backdrop,Banner,Logo,Thumb,Disc,Box,BoxRear,Screenshot,Menu,Chapter'
         }, parameters || {});
@@ -434,6 +434,19 @@
                 items.forEach(function (item) { byId[String(prop(item, 'Id', 'id', ''))] = item; });
             });
             return usable.map(function (id) { return byId[id]; }).filter(Boolean);
+        });
+    }
+
+    function loadWatchAgainItems(start, limit) {
+        return queryItems({
+            Filters:'IsPlayed',
+            IncludeItemTypes:'Movie,Series',
+            Recursive:true,
+            SortBy:'DatePlayed,SortName',
+            SortOrder:'Descending',
+            StartIndex:Math.max(0, Number(start) || 0),
+            Limit:Math.max(1, Math.min(100, Number(limit) || 40)),
+            EnableTotalRecordCount:false
         });
     }
 
@@ -971,16 +984,21 @@
             if (logoLink) logoLink.remove();
             logoLink = document.createElement('a');
             logoLink.className = 'hssm-header-logo-link';
-            logoLink.href = '#/home.html';
+            logoLink.href = '#/home';
             logoLink.setAttribute('aria-label', 'Home');
             logoLink.innerHTML = '<img class="hssm-header-logo" alt="Home" />';
             logoLink.addEventListener('click', function (event) {
-                var nativeHome = document.querySelector('.skinHeader .headerHomeButton, .headerHomeButton');
-                if (nativeHome) {
-                    event.preventDefault();
-                    nativeHome.click();
+                event.preventDefault();
+                event.stopPropagation();
+                event.stopImmediatePropagation();
+                if (isHomeRoute() && visibleIndexPage() && homeTabsElement()) {
+                    showOwnedHomePanel(0);
+                } else {
+                    initialHomeSelectionNormalized = false;
+                    window.location.hash = '#/home';
+                    queueRouteRefresh(true);
                 }
-            });
+            }, true);
             var drawer = header.querySelector('.mainDrawerButton');
             if (drawer && drawer.nextSibling) header.insertBefore(logoLink, drawer.nextSibling);
             else header.prepend(logoLink);
@@ -1069,14 +1087,14 @@
         });
         var userId = currentUserId();
         if (token === 'resume' || token === 'resumeaudio' || token === 'resumebook') {
-            var resumeOptions = { Limit: 30, Recursive: true, Fields: 'Overview,PrimaryImageAspectRatio,DateCreated,PremiereDate,ProductionYear,OfficialRating,CommunityRating,SortName,Tags,RunTimeTicks,UserData,SeriesName,SeriesId,ParentIndexNumber,IndexNumber', ImageTypeLimit:1, EnableImageTypes:'Primary,Backdrop,Banner,Thumb,Logo' };
+            var resumeOptions = { Limit: 30, Recursive: true, Fields: 'Overview,PrimaryImageAspectRatio,DateCreated,PremiereDate,ProductionYear,OfficialRating,CommunityRating,SortName,Tags,RunTimeTicks,UserData,SeriesName,SeriesId,ParentIndexNumber,IndexNumber,ParentLogoImageTag,ParentLogoItemId', ImageTypeLimit:1, EnableImageTypes:'Primary,Backdrop,Banner,Thumb,Logo' };
             if (token === 'resumeaudio') resumeOptions.MediaTypes = 'Audio';
             if (token === 'resumebook') resumeOptions.IncludeItemTypes = 'Book,AudioBook';
             return getJson('Users/' + encodeURIComponent(userId) + '/Items/Resume', resumeOptions).then(responseItems).then(function (items) {
                 return items.map(function (item) { return Object.assign({}, item, { _source: 'resume' }); });
             });
         }
-        if (token === 'nextup') return getJson('Shows/NextUp', { UserId: userId, Limit: 30, Fields: 'Overview,PrimaryImageAspectRatio,DateCreated,Path,MediaSourceCount,PremiereDate,ProductionYear,OfficialRating,CommunityRating,RunTimeTicks,UserData,SeriesName,SeriesId,ParentIndexNumber,IndexNumber', ImageTypeLimit:1, EnableImageTypes:'Primary,Backdrop,Banner,Thumb', EnableTotalRecordCount:false, DisableFirstEpisode:false, EnableResumable:false }).then(responseItems).then(function (items) {
+        if (token === 'nextup') return getJson('Shows/NextUp', { UserId: userId, Limit: 30, Fields: 'Overview,PrimaryImageAspectRatio,DateCreated,Path,MediaSourceCount,PremiereDate,ProductionYear,OfficialRating,CommunityRating,RunTimeTicks,UserData,SeriesName,SeriesId,ParentIndexNumber,IndexNumber,ParentLogoImageTag,ParentLogoItemId', ImageTypeLimit:1, EnableImageTypes:'Primary,Backdrop,Banner,Thumb,Logo', EnableTotalRecordCount:false, DisableFirstEpisode:false, EnableResumable:false }).then(responseItems).then(function (items) {
             return items.map(function (item) { return Object.assign({}, item, { _source: 'nextup' }); });
         });
         if (token === 'latestmedia') return queryItems({ Recursive: true, SortBy: 'DateCreated', SortOrder: 'Descending', Limit: 30 });
@@ -1098,7 +1116,13 @@
     }
 
     function mediaBarSectionItems(section) {
-        if (String(prop(section, 'Type', 'type', '')) === 'my-list-content') {
+        var type = String(prop(section, 'Type', 'type', ''));
+        if (type === 'watch-again') {
+            return loadWatchAgainItems(0, 30).then(function (items) {
+                return orderItems(uniqueItems(items), section).slice(0, 30);
+            });
+        }
+        if (type === 'my-list-content') {
             return loadLikedItems(false).then(function (items) {
                 items = orderItems(uniqueItems(items), section).slice(0, 30);
                 var ids = items.map(function (item) { return String(prop(item, 'Id', 'id', '')); }).filter(Boolean);
@@ -1118,6 +1142,34 @@
             var allowed = {}; ids.forEach(function (id) { allowed[id] = true; });
             return orderItems(uniqueItems(cached.items.filter(function (item) { return allowed[String(prop(item, 'Id', 'id', ''))]; })), section).slice(0, 30);
         });
+    }
+
+    function resolveMediaBarLogos(items) {
+        items = uniqueItems(items || []);
+        var seriesIds = [];
+        items.forEach(function (item) {
+            var tags = prop(item, 'ImageTags', 'imageTags', {}) || {};
+            var parentTag = String(prop(item, 'ParentLogoImageTag', 'parentLogoImageTag', '') || '');
+            var seriesId = String(prop(item, 'SeriesId', 'seriesId', '') || '');
+            if (!tags.Logo && !tags.logo && !parentTag && seriesId && seriesIds.indexOf(seriesId) < 0) seriesIds.push(seriesId);
+        });
+        if (!seriesIds.length) return Promise.resolve(items);
+        return queryIds(seriesIds).then(function (seriesItems) {
+            var logos = {};
+            seriesItems.forEach(function (series) {
+                var id = String(prop(series, 'Id', 'id', '') || '');
+                var tags = prop(series, 'ImageTags', 'imageTags', {}) || {};
+                var tag = String(tags.Logo || tags.logo || '');
+                if (id && tag) logos[id] = tag;
+            });
+            return items.map(function (item) {
+                var tags = prop(item, 'ImageTags', 'imageTags', {}) || {};
+                var parentTag = String(prop(item, 'ParentLogoImageTag', 'parentLogoImageTag', '') || '');
+                var seriesId = String(prop(item, 'SeriesId', 'seriesId', '') || '');
+                if (tags.Logo || tags.logo || parentTag || !logos[seriesId]) return item;
+                return Object.assign({}, item, { ParentLogoImageTag:logos[seriesId], ParentLogoItemId:seriesId });
+            });
+        }, function () { return items; });
     }
 
     function mediaBarSource(settings, preferences, container, sections) {
@@ -1348,7 +1400,7 @@
             mediaBarSourceKey = '';
             frame.dataset.hssmMediaBarPending = 'true';
         }
-        return source.items.then(function (items) {
+        return source.items.then(resolveMediaBarLogos).then(function (items) {
             if (loadSequence !== mediaBarLoadSequence || container !== activeHomeContainer()) return;
             var key = JSON.stringify([source.key, interval, requestedImage, items]);
             mediaBarPayload = {
@@ -1430,7 +1482,7 @@
             if (!frame) return;
             var payload = { type:'home-screen-manager-media-bar', action:'configure', items:[], intervalSeconds:Math.max(1,Math.min(300,Number(setting(settings,'MediaBarIntervalSeconds',5))||5)), imageType:String(setting(settings,'MediaBarImageType','abyss-original')), topGradient:!firstOnPage };
             frame._hssmPayload = payload;
-            mediaBarSectionItems(section).then(function (items) { if(!frame.isConnected)return; payload.items=items; frame._hssmPayload=payload; sendMediaBarPayload(frame,true,payload); }, function () { sendMediaBarPayload(frame,true,payload); });
+            mediaBarSectionItems(section).then(resolveMediaBarLogos).then(function (items) { if(!frame.isConnected)return; payload.items=items; frame._hssmPayload=payload; sendMediaBarPayload(frame,true,payload); }, function () { sendMediaBarPayload(frame,true,payload); });
         });
         applyHybridOrder(container, scoped, preferences || {});
     }
@@ -2123,6 +2175,9 @@
                 state.dynamicTotal = items.length;
                 return items;
             });
+        } else if (type === "watch-again") {
+            state.dynamicLoader = function (start, limit) { return loadWatchAgainItems(start, limit); };
+            request = state.dynamicLoader(0, 40);
         } else if (type === "other-users-activity") {
             var maximum = Math.max(1, Math.min(100, Number(prop(state.section, "ActivityMaxItems", "activityMaxItems", 20)) || 20));
             request = getJson("HomeScreenSectionsManager/other-users-items", {
@@ -2186,13 +2241,13 @@
         sectionRuntime[id] = state;
         paintSectionState(state, !cached);
         var type = String(prop(section, 'Type', 'type', ''));
-        if (type === 'my-list-content') state.complete = false;
+        if (type === 'my-list-content' || type === 'watch-again') state.complete = false;
         else if (!cached || !cached.items.length) loadSectionPage(state);
         else state.complete = sectionPageIds(section, state.cursor, 1).length === 0;
-        if (type === 'my-list-content' || type === 'other-users-activity' || type === 'rotating-sections' || type === 'seasonal-sections') {
+        if (type === 'my-list-content' || type === 'watch-again' || type === 'other-users-activity' || type === 'rotating-sections' || type === 'seasonal-sections') {
             window.setTimeout(function () {
                 if (state.generation === runtimeGeneration && sectionStateIsCurrent(state)) homeRequestLane(function () { return loadDynamicSection(state); });
-            }, type === 'my-list-content' ? 0 : 800);
+            }, type === 'my-list-content' || type === 'watch-again' ? 0 : 800);
         }
         return state;
     }

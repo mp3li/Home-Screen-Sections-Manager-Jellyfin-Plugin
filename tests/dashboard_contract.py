@@ -69,7 +69,7 @@ def run() -> None:
                 getPluginConfiguration:()=>Promise.resolve({CustomJavaScripts:[]}),
                 updatePluginConfiguration:()=>Promise.resolve()
               };
-              window.HomeScreenManagerClient = { version:'0.1.0.36', refresh(){} };
+              window.HomeScreenManagerClient = { version:'0.1.0.37', refresh(){} };
               window.CustomElements = { upgradeSubtree(){} };
             }
             """
@@ -168,6 +168,20 @@ def run() -> None:
         assert page.locator("#hssmNewSectionSettings").is_visible()
         assert page.locator("input[name='hssmMediaBarSection'][value='yes']").count() == 1
         assert page.locator("#hssmSectionList .hssm-badge-media").count() == 1
+
+        page.locator("#hssmAddSectionButton").click()
+        watch_again_id = page.locator("#hssmSectionList [data-hssm-inline-section-name]").locator("xpath=ancestor::*[@data-section-id]").get_attribute("data-section-id")
+        page.locator("#hssmSectionList [data-hssm-inline-section-name]").fill("Watch Again")
+        page.locator("input[name='hssmType'][value='watch-again']").check()
+        assert page.locator("#hssmFinishSectionButton").text_content().strip() == "Continue to Section Settings"
+        page.locator("#hssmFinishSectionButton").click()
+        page.get_by_text("No content selection is required. This section automatically loads completed movies and completed series from the signed-in user’s own Jellyfin watch history.", exact=True).wait_for()
+        assert page.locator("#hssmTypeSpecificSettings [data-hssm-content]").count() == 0
+        page.locator("#hssmTypeSpecificSettings [data-hssm-save-move]").click()
+        page.wait_for_function(
+            "([id]) => window.__sectionSettings.Sections.some(s => s.Id === id && s.Type === 'watch-again' && s.PageId === 'manager-page-movies' && s.ItemIds.length === 0 && s.SourceIds.length === 0)",
+            arg=[watch_again_id],
+        )
         assert not page_errors, page_errors
         browser.close()
 

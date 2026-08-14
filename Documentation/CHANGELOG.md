@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.1.0.37-test] - 2026-08-13
+
+- Requests Jellyfin's original Logo image without resize or quality conversion, preserving transparency that could otherwise be flattened into an opaque miniature backdrop.
+- Resolves missing episode and season logos from their Series item when Jellyfin does not include parent-logo metadata on the Media Bar item itself.
+- Retains the opaque-artwork safety check, so a genuinely rectangular backdrop stored in the Logo slot still falls back to the clean text title.
+- Leaves the working My List Media Bar and matching per-user row lifecycle unchanged.
+- Adds a **Watch Again** section type that dynamically shows both completed movies and completed series from each signed-in user’s own Jellyfin watch history, with no manual content selection.
+- Makes the custom header logo directly activate the Home screen’s Home page even when My List and plugin-created pages share the same Home route.
+- Extends browser coverage for unscaled original Logo URLs, explicit Series-logo fallback, per-user Watch Again rows and Media Bars, and direct logo-to-Home activation.
+
 ## [0.1.0.36-test] - 2026-08-13
 
 - Keeps every explicitly configured Media Bar paired immediately above its regular section row, including **Added to My List**, so Section Art Appearance Settings continue to control the matching row beneath the bar.

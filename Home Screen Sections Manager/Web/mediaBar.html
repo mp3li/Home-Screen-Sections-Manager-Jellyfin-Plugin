@@ -213,13 +213,12 @@
 
             function logoUrl(itemId, tag) {
                 if (!itemId || !tag || !base) return '';
-                const dimensions = imageDimensions('Logo');
                 const path = `Items/${encodeURIComponent(itemId)}/Images/Logo`;
-                const parameters = { quality: 96, maxWidth: dimensions.width, maxHeight: dimensions.height, tag };
+                const parameters = { tag };
                 try {
                     if (window.top.ApiClient && typeof window.top.ApiClient.getUrl === 'function') return window.top.ApiClient.getUrl(path, parameters);
                 } catch (_) { /* Fall back to the same-origin server address below. */ }
-                return `${base}/${path}?quality=96&maxWidth=${dimensions.width}&maxHeight=${dimensions.height}&tag=${encodeURIComponent(tag)}`;
+                return `${base}/${path}?tag=${encodeURIComponent(tag)}`;
             }
 
             function firstCandidate(candidates) {

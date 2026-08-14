@@ -32,6 +32,7 @@ def run() -> None:
             {"Id": "manager-home-test", "Name": "Test Section", "PageId": "home", "Type": "manual-content", "ItemIds": ["resume-two"], "IsApplied": True, "IsVisible": True, "IsMediaBar": False},
             {"Id": "manager-movies-one", "Name": "Movie Picks", "PageId": "manager-page-movies", "Type": "manual-content", "ItemIds": ["resume-one"], "IsApplied": True, "IsVisible": True, "IsMediaBar": True},
             {"Id": "manager-movies-two", "Name": "More Movies", "PageId": "manager-page-movies", "Type": "manual-content", "ItemIds": ["resume-two"], "IsApplied": True, "IsVisible": True, "IsMediaBar": True},
+            {"Id": "manager-watch-again", "Name": "Watch Again", "PageId": "manager-page-movies", "Type": "watch-again", "ItemIds": [], "SourceIds": [], "IsApplied": True, "IsVisible": True, "IsMediaBar": True},
             {"Id": "manager-movies-hidden", "Name": "Saved for Later", "PageId": "manager-page-movies", "Type": "manual-content", "ItemIds": ["liked-one"], "IsApplied": True, "IsVisible": False, "IsMediaBar": False},
             {"Id": "my-list-content", "Name": "Added to My List", "PageId": "my-list", "Type": "my-list-content", "ItemIds": [], "IsApplied": True, "IsVisible": True, "IsMediaBar": True, "ArtShape": "circle"},
         ],
@@ -40,22 +41,28 @@ def run() -> None:
         "PageOrder": ["home", "favorites", "my-list", "manager-page-movies"],
         "PageLayouts": [
             {"PageId": "home", "SectionOrder": ["jellyfin-0-resume", "manager-home-top", "manager-home-test"]},
-            {"PageId": "manager-page-movies", "SectionOrder": ["manager-movies-one", "manager-movies-two", "hidden:manager-movies-hidden"]},
+            {"PageId": "manager-page-movies", "SectionOrder": ["manager-movies-one", "manager-movies-two", "manager-watch-again", "hidden:manager-movies-hidden"]},
             {"PageId": "my-list", "SectionOrder": ["my-list-content"]},
         ],
         "EnableMyList": True,
         "HideFavorites": False,
         "MediaBarIntervalSeconds": 1,
         "MediaBarImageType": "primary",
+        "LogoImageDataUrl": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='32'%3E%3C/svg%3E",
     }
     resume = base_item("resume-one", "Resume One")
-    resume_two = base_item("resume-two", "Resume Two")
-    resume_two["ImageTags"]["Logo"] = "logo-two-tag"
+    resume_two = base_item("resume-two", "Resume Two", "Episode")
+    resume_two["SeriesId"] = "series-two"
+    resume_two["SeriesName"] = "Series Two"
+    series_two = base_item("series-two", "Series Two", "Series")
+    series_two["ImageTags"]["Logo"] = "logo-two-tag"
     liked = base_item("liked-one", "A Good Logo")
     liked["ImageTags"]["Logo"] = "logo-tag"
     liked_opaque = base_item("liked-opaque", "Z Opaque Logo")
     liked_opaque["ImageTags"]["Logo"] = "opaque-logo-tag"
-    items_by_id = {item["Id"]: item for item in [resume, resume_two, liked, liked_opaque]}
+    watched_movie = base_item("watched-movie", "Completed Movie", "Movie")
+    watched_series = base_item("watched-series", "Completed Series", "Series")
+    items_by_id = {item["Id"]: item for item in [resume, resume_two, series_two, liked, liked_opaque, watched_movie, watched_series]}
     requests: list[str] = []
     page_errors: list[str] = []
 
@@ -78,6 +85,8 @@ def run() -> None:
             elif path.endswith("/Users/user/Items"):
                 if query.get("Filters") == ["Likes"] and query.get("ParentId") == ["library-one"]:
                     route.fulfill(status=200, content_type="application/json", body=json.dumps({"Items": [liked, liked_opaque]}))
+                elif query.get("Filters") == ["IsPlayed"] and query.get("IncludeItemTypes") == ["Movie,Series"]:
+                    route.fulfill(status=200, content_type="application/json", body=json.dumps({"Items": [watched_movie, watched_series]}))
                 elif query.get("Ids"):
                     ids = query["Ids"][0].split(",")
                     route.fulfill(status=200, content_type="application/json", body=json.dumps({"Items": [items_by_id[item_id] for item_id in ids if item_id in items_by_id]}))
@@ -213,8 +222,10 @@ def run() -> None:
         page.wait_for_selector(".hssm-owned-my-list-page.is-active .hssm-section-media-bar[data-hssm-media-section-id='my-list-content']")
         my_list_frame = page.frame_locator(".hssm-owned-my-list-page.is-active .hssm-section-media-bar[data-hssm-media-section-id='my-list-content']")
         my_list_frame.locator("#logo").wait_for(state="visible")
-        assert "/Items/liked-one/Images/Logo" in my_list_frame.locator("#logo").get_attribute("src")
-        assert all("/Images/Backdrop" not in url and "/Images/Primary" not in url and "/Images/Thumb" not in url and "/Images/Banner" not in url for url in [my_list_frame.locator("#logo").get_attribute("src")])
+        my_list_logo_url = my_list_frame.locator("#logo").get_attribute("src")
+        assert "/Items/liked-one/Images/Logo" in my_list_logo_url
+        assert all("/Images/Backdrop" not in url and "/Images/Primary" not in url and "/Images/Thumb" not in url and "/Images/Banner" not in url for url in [my_list_logo_url])
+        assert not ({"maxWidth", "maxHeight", "quality"} & set(parse_qs(urlparse(my_list_logo_url).query)))
         page.wait_for_function("""() => {
           const panel = document.querySelector('.hssm-owned-my-list-page.is-active');
           const container = panel && panel.querySelector('.hssm-my-list-container');
@@ -248,7 +259,10 @@ def run() -> None:
         page.locator(".hssm-custom-page-tab[data-hssm-page-id='manager-page-movies']").click()
         page.wait_for_selector(".hssm-owned-custom-page.is-active [data-hssm-section-id='manager-movies-one'] .hssm-client-card")
         page.wait_for_selector(".hssm-owned-custom-page.is-active .hssm-section-media-bar[data-hssm-media-section-id='manager-movies-two']")
-        page.wait_for_function("document.querySelectorAll('.hssm-owned-custom-page.is-active .hssm-section-media-bar').length === 2")
+        page.wait_for_selector(".hssm-owned-custom-page.is-active [data-hssm-section-id='manager-watch-again'] .hssm-client-card[data-id='watched-movie']")
+        page.wait_for_selector(".hssm-owned-custom-page.is-active [data-hssm-section-id='manager-watch-again'] .hssm-client-card[data-id='watched-series']")
+        page.wait_for_selector(".hssm-owned-custom-page.is-active .hssm-section-media-bar[data-hssm-media-section-id='manager-watch-again']")
+        page.wait_for_function("document.querySelectorAll('.hssm-owned-custom-page.is-active .hssm-section-media-bar').length === 3")
         custom_page_state = page.evaluate(
             """() => ({
               titleAbsent: !document.querySelector('.hssm-owned-custom-page.is-active .hssm-page-context-title'),
@@ -259,12 +273,18 @@ def run() -> None:
               topPadding: parseFloat(getComputedStyle(document.querySelector('.hssm-owned-custom-page.is-active')).paddingTop)
             })"""
         )
-        assert {key: value for key, value in custom_page_state.items() if key != "topPadding"} == {"titleAbsent": True, "visibleSections": 2, "hiddenSectionAbsent": True, "mediaBars": 2, "lowerBarMarked": True}, custom_page_state
+        assert {key: value for key, value in custom_page_state.items() if key != "topPadding"} == {"titleAbsent": True, "visibleSections": 3, "hiddenSectionAbsent": True, "mediaBars": 3, "lowerBarMarked": True}, custom_page_state
         assert custom_page_state["topPadding"] >= 60, custom_page_state
         custom_logo = page.frame_locator(".hssm-section-media-bar[data-hssm-media-section-id='manager-movies-two']").locator("#logo")
         custom_logo.wait_for(state="visible")
-        assert "/Items/resume-two/Images/Logo" in custom_logo.get_attribute("src")
+        assert "/Items/series-two/Images/Logo" in custom_logo.get_attribute("src")
         page.frame_locator(".hssm-section-media-bar[data-hssm-media-section-id='manager-movies-two']").locator("body.hssm-media-bar-top-gradient").wait_for(state="attached")
+        assert any("Filters=IsPlayed" in url and "IncludeItemTypes=Movie%2CSeries" in url for url in requests), requests
+
+        page.locator(".hssm-header-logo-link").click()
+        page.wait_for_function("document.querySelector('#homeTab').classList.contains('is-active')")
+        assert page.locator(".emby-tab-button[data-index='0']").evaluate("button => button.classList.contains('emby-tab-button-active')")
+        assert not page.locator(".hssm-owned-custom-page[data-hssm-page-id='manager-page-movies']").evaluate("panel => panel.classList.contains('is-active')")
         settings["HideFavorites"] = True
         settings["PageOrder"] = ["home", "hidden:favorites", "my-list", "manager-page-movies"]
         page.evaluate("window.HomeScreenManagerClient.invalidate(); window.HomeScreenManagerClient.refresh();")

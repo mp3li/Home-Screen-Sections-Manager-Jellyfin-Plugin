@@ -300,6 +300,7 @@
             const mediaBarBlockedTypes = new Set(['smalllibrarytiles', 'librarybuttons', 'latestmedia']);
             const types = [
                 ['my-list-content', 'My List Content Section', 'Create a section that displays the signed-in user’s own My List content. No content selection is required, and every user sees only their own items.'],
+                ['watch-again', 'Watch Again', 'Create a section that automatically displays completed movies and completed series for the signed-in user. No content selection is required, and every user sees only their own watch history.'],
                 ['manual-content', 'Manual Content', 'Create a section that displays manually selected content.'],
                 ['individual-collection-content', 'Individual Collection Content', 'Create a section that displays all content of one selected collection. For example, all content in the Thrillers Collection.'],
                 ['multiple-collection-content', 'Multiple Collection Content', 'Create a section that displays all content of multiple selected collections. For example, all content in the Thrillers Collection and all content in the Horror Collection.'],
@@ -401,7 +402,7 @@
                 if (mediaChoice) mediaChoice.checked = true;
                 status.textContent = '';
                 renderChoices();
-                finishButton.textContent = activeDraft.type === 'my-list-content' ? 'Continue to Section Settings' : 'Select Content';
+                finishButton.textContent = ['my-list-content','watch-again'].includes(activeDraft.type) ? 'Continue to Section Settings' : 'Select Content';
                 finishButton.disabled = !(activeDraft.name.trim() && activeDraft.type);
             }
 
@@ -696,7 +697,7 @@
                 const item = draft();
                 if (!input || !item) return;
                 item.type = input.value;
-                finishButton.textContent = item.type === 'my-list-content' ? 'Continue to Section Settings' : 'Select Content';
+                finishButton.textContent = ['my-list-content','watch-again'].includes(item.type) ? 'Continue to Section Settings' : 'Select Content';
                 finishButton.disabled = !(item.name.trim() && item.type);
             });
             page.querySelectorAll('input[name="hssmMediaBarSection"]').forEach(input => input.addEventListener('change', () => {
@@ -850,6 +851,7 @@
             const isTopType = () => kind() === 'top-10-50';
             const isActivityType = () => kind() === 'other-users-activity';
             const isMyListContentType = () => kind() === 'my-list-content';
+            const isWatchAgainType = () => kind() === 'watch-again';
             let topLoadSequence = 0;
             const usesDraftSourcePicker = () => isDraftType() || isTopType();
             const rowImage = item => item.HasPrimaryImage || item.ImageTags ? '<img class="hssm-preview-image" loading="lazy" src="' + image(item.Id) + '" alt="" onerror="this.remove()" />' : '<span class="hssm-preview-image hssm-empty-image"></span>';
@@ -1263,7 +1265,7 @@
                 });
                 definition = Object.assign({}, definition, { SourceIds:sourceIds, Drafts:migratedDrafts });
                 if (!definition.IsApplied && definition.isApplied !== true) return Promise.resolve({ definition, skipped:true });
-                if (['manual-content','my-list-content','rotating-sections','seasonal-sections','other-users-activity'].includes(type)) return Promise.resolve({ definition, skipped:true });
+                if (['manual-content','my-list-content','watch-again','rotating-sections','seasonal-sections','other-users-activity'].includes(type)) return Promise.resolve({ definition, skipped:true });
                 if (type === 'multiple-collections-in-a-row' || type === 'libraries-in-a-row') return Promise.resolve({ definition:Object.assign({}, definition, { ItemIds:sourceIds }), skipped:false });
                 if (type === 'individual-tag-content' || type === 'multiple-tag-content' || type === 'muilti-match-tag-collection-content') {
                     const selectedTags = sourceIds.map(value => { const parts = value.split('|'); return { SourceLibraryId:parts[0], MetadataType:parts[1], MetadataValue:parts.slice(2).join('|'), AdditionalLibraryIds:[], CollectionTitle:name, Overview:'', ExistingCollectionAction:'', ArtPreference:'JellyfinDefault' }; });
@@ -1377,6 +1379,12 @@
                     contentSection.innerHTML = '<h2>My List Content Section</h2><p class="fieldDescription">No content selection is required. This section automatically loads the signed-in user’s own My List items, so every user sees only their own content.</p>';
                     return;
                 }
+                if (isWatchAgainType()) {
+                    host.innerHTML = contentMarkup();
+                    const contentSection = host.querySelector('[data-hssm-content]').closest('section');
+                    contentSection.innerHTML = '<h2>Watch Again</h2><p class="fieldDescription">No content selection is required. This section automatically loads completed movies and completed series from the signed-in user’s own Jellyfin watch history.</p>';
+                    return;
+                }
                 if (isActivityType()) {
                     host.innerHTML = activityMarkup();
                     renderContent();
@@ -1461,7 +1469,7 @@
                 const needsTwo = kind() === 'multiple-tag-content' || kind() === 'muilti-match-tag-collection-content';
                 if (!state.name.trim()) { saveStatus.textContent = 'Enter a section name before saving.'; return; }
                 state.name = state.name.trim();
-                const required = isActivityType() || isMyListContentType() ? 1 : isTopType() ? state.sources.length && state.contentItemOrder.length : isDraftType() ? state.drafts.length : kind() === 'manual-content' ? Object.keys(state.items).length : state.sources.length;
+                const required = isActivityType() || isMyListContentType() || isWatchAgainType() ? 1 : isTopType() ? state.sources.length && state.contentItemOrder.length : isDraftType() ? state.drafts.length : kind() === 'manual-content' ? Object.keys(state.items).length : state.sources.length;
                 if (isTopType() && (state.topLoadRunning || state.topPending)) { saveStatus.textContent = 'Wait for the current Top source selection to finish loading and ranking.'; return; }
                 if (!required || (needsTwo && state.sources.length < 2)) { saveStatus.textContent = needsTwo ? 'Select at least two metadata tags before saving.' : isTopType() && state.sources.length ? 'No selected media has a recognized IMDb or Jellyfin community rating to rank.' : 'Select content before saving.'; return; }
                 const order = Array.from(page.querySelectorAll('#hssmSectionList .hssm-section-row')).map(row => { const toggle = row.querySelector('[data-hssm-native-section-toggle]'); return toggle && !toggle.checked ? 'hidden:' + row.dataset.sectionId : row.dataset.sectionId; });
@@ -1493,7 +1501,7 @@
                 return body && (body.Detail || body.detail || body.Message || body.message || body.Title || body.title) || (text && String(text).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()) || (error && (error.message || error.statusText)) || 'Jellyfin returned no error details.';
             }
             function loadHomeScreenClient() {
-                const version = "0.1.0.36";
+                const version = "0.1.0.37";
                 let style = document.querySelector("link[data-hssm-client-style]");
                 if (!style || style.dataset.hssmClientVersion !== version) {
                     if (style) style.remove();
