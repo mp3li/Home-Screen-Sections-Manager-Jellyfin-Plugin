@@ -70,6 +70,7 @@ public sealed class SectionSettingsController : ControllerBase
             EnableCollectionsOnDetailPage = configuration.EnableCollectionsOnDetailPage,
             EnableEnhancedSearch = configuration.EnableEnhancedSearch,
             EnableBreadcrumbs = configuration.EnableBreadcrumbs,
+            EnableTitleMarquee = configuration.EnableTitleMarquee,
         });
     }
 
@@ -94,6 +95,7 @@ public sealed class SectionSettingsController : ControllerBase
             EnableCollectionsOnDetailPage = configuration.EnableCollectionsOnDetailPage,
             EnableEnhancedSearch = configuration.EnableEnhancedSearch,
             EnableBreadcrumbs = configuration.EnableBreadcrumbs,
+            EnableTitleMarquee = configuration.EnableTitleMarquee,
         });
     }
 

@@ -82,6 +82,7 @@
     min-width: max-content;
     padding-left: 0;
     padding-right: 0;
+    width: max-content;
 }
 
 .hssm-owned-scroll-shell {
@@ -90,11 +91,14 @@
     gap: 0.25em;
     min-width: 0;
     padding: 0 1.1em;
+    width: 100%;
 }
 
 .hssm-owned-horizontal-scroll {
+    display: block;
     cursor: grab;
     flex: 1 1 auto;
+    max-width: 100%;
     min-width: 0;
     overflow-x: auto;
     overflow-y: hidden;
@@ -700,14 +704,47 @@ body.hssm-infinite-scroll-active .listPaging {
 
 
 /* Oversized ranking numerals use an original Netflix-inspired left-overlap treatment. */
+.hssm-top-ranked {
+    --hssm-rank-space: 6.5em;
+    --hssm-rank-size: 9.2em;
+}
+
+.hssm-top-ranked.hssm-size-extra-small { --hssm-rank-space: 4.25em; }
+.hssm-top-ranked.hssm-size-small { --hssm-rank-space: 5.2em; }
+.hssm-top-ranked.hssm-size-large { --hssm-rank-space: 8.45em; }
+.hssm-top-ranked.hssm-size-extra-large { --hssm-rank-space: 10.4em; }
+
+.hssm-top-ranked.hssm-shape-poster { --hssm-rank-size: 11.2em; }
+.hssm-top-ranked.hssm-shape-poster.hssm-size-extra-small { --hssm-rank-size: 7.28em; }
+.hssm-top-ranked.hssm-shape-poster.hssm-size-small { --hssm-rank-size: 8.96em; }
+.hssm-top-ranked.hssm-shape-poster.hssm-size-large { --hssm-rank-size: 14.56em; }
+.hssm-top-ranked.hssm-shape-poster.hssm-size-extra-large { --hssm-rank-size: 17.92em; }
+.hssm-top-ranked.hssm-shape-wide { --hssm-rank-size: 4.4em; }
+.hssm-top-ranked.hssm-shape-wide.hssm-size-extra-small { --hssm-rank-size: 2.86em; }
+.hssm-top-ranked.hssm-shape-wide.hssm-size-small { --hssm-rank-size: 3.52em; }
+.hssm-top-ranked.hssm-shape-wide.hssm-size-large { --hssm-rank-size: 5.72em; }
+.hssm-top-ranked.hssm-shape-wide.hssm-size-extra-large { --hssm-rank-size: 7.04em; }
+.hssm-top-ranked.hssm-shape-square,
+.hssm-top-ranked.hssm-shape-circle { --hssm-rank-size: 7.5em; }
+.hssm-top-ranked.hssm-shape-square.hssm-size-extra-small,
+.hssm-top-ranked.hssm-shape-circle.hssm-size-extra-small { --hssm-rank-size: 4.88em; }
+.hssm-top-ranked.hssm-shape-square.hssm-size-small,
+.hssm-top-ranked.hssm-shape-circle.hssm-size-small { --hssm-rank-size: 6em; }
+.hssm-top-ranked.hssm-shape-square.hssm-size-large,
+.hssm-top-ranked.hssm-shape-circle.hssm-size-large { --hssm-rank-size: 9.75em; }
+.hssm-top-ranked.hssm-shape-square.hssm-size-extra-large,
+.hssm-top-ranked.hssm-shape-circle.hssm-size-extra-large { --hssm-rank-size: 12em; }
+
 .hssm-top-ranked .hssm-client-items {
     gap: 1.15em;
 }
 
 .hssm-top-ranked .hssm-client-card {
     box-sizing: content-box;
-    flex-basis: calc(var(--hssm-card-width) * 1.65);
-    padding-left: calc(var(--hssm-card-width) * 0.65);
+    contain: layout style !important;
+    flex-basis: calc(var(--hssm-card-width) + var(--hssm-rank-space));
+    overflow: visible !important;
+    padding-left: var(--hssm-rank-space);
     position: relative;
     width: var(--hssm-card-width);
 }
@@ -719,18 +756,19 @@ body.hssm-infinite-scroll-active .listPaging {
 }
 
 .hssm-rank-number {
-    bottom: calc(var(--hssm-card-width) * 0.05);
+    bottom: 0.05em;
     color: var(--hssm-rank-one);
     filter: drop-shadow(0 0.08em 0.06em rgba(0, 0, 0, 0.98)) drop-shadow(0 0 0.025em rgba(255, 255, 255, 0.7));
     font-family: var(--hssm-rank-font, inherit);
-    font-size: calc(var(--hssm-card-width) * 0.92);
+    display: block !important;
+    font-size: var(--hssm-rank-size);
     font-weight: 900;
-    height: 75%;
+    height: 0.8em;
     left: 0;
     line-height: 0.78;
     position: absolute;
     text-align: right;
-    width: calc(var(--hssm-card-width) * 0.92);
+    width: 0.82em;
     pointer-events: none;
     z-index: 3;
 }
@@ -756,15 +794,62 @@ body.hssm-infinite-scroll-active .listPaging {
     background-image: radial-gradient(circle at center, var(--hssm-rank-one) 0%, var(--hssm-rank-two) 100%);
 }
 
-.hssm-shape-poster .hssm-rank-number {
-    font-size: calc(var(--hssm-card-width) * 1.12);
+@media (min-width: 80em) {
+    .hssm-top-ranked { --hssm-rank-space: 7.48em; }
+    .hssm-top-ranked.hssm-size-extra-small { --hssm-rank-space: 4.88em; }
+    .hssm-top-ranked.hssm-size-small { --hssm-rank-space: 6.18em; }
+    .hssm-top-ranked.hssm-size-large { --hssm-rank-space: 9.43em; }
+    .hssm-top-ranked.hssm-size-extra-large { --hssm-rank-space: 11.7em; }
+
+    .hssm-top-ranked.hssm-shape-poster { --hssm-rank-size: 12.88em; }
+    .hssm-top-ranked.hssm-shape-poster.hssm-size-extra-small { --hssm-rank-size: 8.4em; }
+    .hssm-top-ranked.hssm-shape-poster.hssm-size-small { --hssm-rank-size: 10.64em; }
+    .hssm-top-ranked.hssm-shape-poster.hssm-size-large { --hssm-rank-size: 16.24em; }
+    .hssm-top-ranked.hssm-shape-poster.hssm-size-extra-large { --hssm-rank-size: 20.16em; }
+    .hssm-top-ranked.hssm-shape-wide { --hssm-rank-size: 5.06em; }
+    .hssm-top-ranked.hssm-shape-wide.hssm-size-extra-small { --hssm-rank-size: 3.3em; }
+    .hssm-top-ranked.hssm-shape-wide.hssm-size-small { --hssm-rank-size: 4.18em; }
+    .hssm-top-ranked.hssm-shape-wide.hssm-size-large { --hssm-rank-size: 6.38em; }
+    .hssm-top-ranked.hssm-shape-wide.hssm-size-extra-large { --hssm-rank-size: 7.92em; }
+    .hssm-top-ranked.hssm-shape-square,
+    .hssm-top-ranked.hssm-shape-circle { --hssm-rank-size: 8.63em; }
+    .hssm-top-ranked.hssm-shape-square.hssm-size-extra-small,
+    .hssm-top-ranked.hssm-shape-circle.hssm-size-extra-small { --hssm-rank-size: 5.63em; }
+    .hssm-top-ranked.hssm-shape-square.hssm-size-small,
+    .hssm-top-ranked.hssm-shape-circle.hssm-size-small { --hssm-rank-size: 7.13em; }
+    .hssm-top-ranked.hssm-shape-square.hssm-size-large,
+    .hssm-top-ranked.hssm-shape-circle.hssm-size-large { --hssm-rank-size: 10.88em; }
+    .hssm-top-ranked.hssm-shape-square.hssm-size-extra-large,
+    .hssm-top-ranked.hssm-shape-circle.hssm-size-extra-large { --hssm-rank-size: 13.5em; }
 }
 
-.hssm-shape-wide .hssm-rank-number {
-    font-size: calc(var(--hssm-card-width) * 0.44);
+body.hssm-title-marquee-enabled .hssm-marquee-title-host {
+    overflow: hidden !important;
+    white-space: nowrap !important;
 }
 
-.hssm-shape-square .hssm-rank-number,
-.hssm-shape-circle .hssm-rank-number {
-    font-size: calc(var(--hssm-card-width) * 0.75);
+body.hssm-title-marquee-enabled .hssm-marquee-measuring,
+body.hssm-title-marquee-enabled .hssm-marquee-title {
+    display: inline-block !important;
+    max-width: none !important;
+    min-width: 100%;
+    overflow: visible !important;
+    text-overflow: clip !important;
+    white-space: nowrap !important;
+    width: max-content !important;
+}
+
+body.hssm-title-marquee-enabled .hssm-marquee-title,
+body.hssm-title-marquee-enabled .hssm-marquee-title > * {
+    white-space: nowrap !important;
+}
+
+body.hssm-title-marquee-enabled .hssm-marquee-title {
+    transform: translateX(0);
+    transition: transform var(--hssm-marquee-duration, 6s) linear 0.45s;
+}
+
+body.hssm-title-marquee-enabled .card:hover .hssm-marquee-title,
+body.hssm-title-marquee-enabled .card:focus-within .hssm-marquee-title {
+    transform: translateX(var(--hssm-marquee-distance, 0));
 }

@@ -34,6 +34,7 @@ public sealed class HomeScreenClientController : ControllerBase
             configuration.EnableCollectionsOnDetailPage,
             configuration.EnableEnhancedSearch,
             configuration.EnableBreadcrumbs,
+            configuration.EnableTitleMarquee,
             configuration.HeaderTabsColorMode,
             configuration.HeaderTabsColorOne,
             configuration.HeaderTabsColorTwo,

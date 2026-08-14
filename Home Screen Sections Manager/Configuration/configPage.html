@@ -112,6 +112,11 @@
                 <p class="fieldDescription">Show a clickable location trail in the upper-left header on supported media detail pages.</p>
                 <label class="checkboxContainer"><input is="emby-checkbox" id="hssmEnableBreadcrumbs" type="checkbox" /><span>Enable bread crumbing</span></label>
             </section>
+            <section class="hssm-section">
+                <h2>Marquee Effect on Titles Settings</h2>
+                <p class="fieldDescription">Select your preference for turning on and off the marquee feature when you hover on media items. Meaning, the title will slowly scroll instead of being truncated/cut off if its too long.</p>
+                <div class="hssm-yes-no"><label class="checkboxContainer"><input is="emby-checkbox" id="hssmEnableTitleMarquee" type="radio" name="hssmTitleMarquee" value="on" checked /><span>Turn on marquee effect on titles</span></label><label class="checkboxContainer"><input is="emby-checkbox" id="hssmDisableTitleMarquee" type="radio" name="hssmTitleMarquee" value="off" /><span>Turn off marquee effect on titles</span></label></div>
+            </section>
             <div class="hssm-actions"><button is="emby-button" type="button" class="raised button-submit block" id="hssmSaveMainSettingsButton">Save Main Settings</button></div>
             <p class="fieldDescription" id="hssmMainSettingsStatus" aria-live="polite"></p>
         </div>
@@ -1484,6 +1489,7 @@
                 const needsTwo = kind() === 'multiple-tag-content' || kind() === 'muilti-match-tag-collection-content';
                 if (!state.name.trim()) { saveStatus.textContent = 'Enter a section name before saving.'; return; }
                 state.name = state.name.trim();
+                if (isTopType()) state.contentOrder = 'rating-descending';
                 const required = isActivityType() || isMyListContentType() || isWatchAgainType() ? 1 : isTopType() ? state.sources.length && state.contentItemOrder.length : isDraftType() ? state.drafts.length : kind() === 'manual-content' ? Object.keys(state.items).length : state.sources.length;
                 if (isTopType() && (state.topLoadRunning || state.topPending)) { saveStatus.textContent = 'Wait for the current Top source selection to finish loading and ranking.'; return; }
                 if (!required || (needsTwo && state.sources.length < 2)) { saveStatus.textContent = needsTwo ? 'Select at least two metadata tags before saving.' : isTopType() && state.sources.length ? 'No selected media has a recognized IMDb or Jellyfin community rating to rank.' : 'Select content before saving.'; return; }
@@ -1516,7 +1522,7 @@
                 return body && (body.Detail || body.detail || body.Message || body.message || body.Title || body.title) || (text && String(text).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()) || (error && (error.message || error.statusText)) || 'Jellyfin returned no error details.';
             }
             function loadHomeScreenClient() {
-                const version = "0.1.0.39";
+                const version = "0.1.0.40";
                 let style = document.querySelector("link[data-hssm-client-style]");
                 if (!style || style.dataset.hssmClientVersion !== version) {
                     if (style) style.remove();
@@ -1605,6 +1611,19 @@
                 state.artType = artType.value;
                 state.artShape = artShape.value;
                 state.showText = showText.checked;
+                const topName = host.querySelector('[data-hssm-top-draft-name]');
+                if (topName && topName.value.trim()) setSectionName(topName.value.trim());
+                const selectedRankNumbers = host.querySelector('[data-hssm-rank-numbers]:checked');
+                const selectedRankMode = host.querySelector('[data-hssm-rank-color-mode]');
+                const selectedRankOne = host.querySelector('[data-hssm-rank-color-one]');
+                const selectedRankTwo = host.querySelector('[data-hssm-rank-color-two]');
+                if (isTopType()) {
+                    state.contentOrder = 'rating-descending';
+                    if (selectedRankNumbers) state.showRankNumbers = selectedRankNumbers.value === 'yes';
+                    if (selectedRankMode) state.rankNumberColorMode = selectedRankMode.value;
+                    if (selectedRankOne) state.rankNumberColorOne = selectedRankOne.value;
+                    if (selectedRankTwo) state.rankNumberColorTwo = selectedRankTwo.value;
+                }
                 button.disabled = true;
                 if (state.nativeOnly) {
                     applyStatus.textContent = 'Refreshing section…';
@@ -1624,12 +1643,12 @@
                     }).finally(() => { button.disabled = false; });
                     return;
                 }
-                state.contentOrder = select.value;
+                state.contentOrder = isTopType() ? 'rating-descending' : select.value;
                 const destination = destinationPageName();
                 const editing = state.isEditing;
                 applyStatus.textContent = editing ? 'Refreshing section…' : 'Adding section to ' + destination + '…';
                 const appliedItemIds = state.isEditing && !state.contentItemOrder.length ? null : state.contentItemOrder;
-                ensureJavaScriptInjectorLoader().then(() => ApiClient.ajax({ type:'POST', url:ApiClient.getUrl('HomeScreenSectionsManager/sections/' + encodeURIComponent(state.id) + '/apply'), data:JSON.stringify({ ContentOrder:state.contentOrder, ItemIds:appliedItemIds, ArtSize:state.artSize, ArtType:state.artType, ArtShape:state.artShape, ShowText:state.showText, IsVisible:state.isVisible, IsMediaBar:state.isMediaBar, DisplayTopCount:state.displayTop, ShowRankNumbers:state.showRankNumbers, RankNumberColorMode:state.rankNumberColorMode, RankNumberColorOne:state.rankNumberColorOne, RankNumberColorTwo:state.rankNumberColorTwo, RankNumberFontDataUrl:state.rankNumberFontDataUrl, ActivityMaxItems:state.activityMaxItems, ActivityMediaType:state.activityMediaType }), contentType:'application/json', dataType:'json' })).then(response => { window.HSSMNotifyClientSettingsChanged(); return loadHomeScreenClient().then(() => response); }).then(() => {
+                ensureJavaScriptInjectorLoader().then(() => ApiClient.ajax({ type:'POST', url:ApiClient.getUrl('HomeScreenSectionsManager/sections/' + encodeURIComponent(state.id) + '/apply'), data:JSON.stringify({ Name:state.name, ContentOrder:state.contentOrder, ItemIds:appliedItemIds, ArtSize:state.artSize, ArtType:state.artType, ArtShape:state.artShape, ShowText:state.showText, IsVisible:state.isVisible, IsMediaBar:state.isMediaBar, DisplayTopCount:state.displayTop, ShowRankNumbers:state.showRankNumbers, RankNumberColorMode:state.rankNumberColorMode, RankNumberColorOne:state.rankNumberColorOne, RankNumberColorTwo:state.rankNumberColorTwo, RankNumberFontDataUrl:state.rankNumberFontDataUrl, ActivityMaxItems:state.activityMaxItems, ActivityMediaType:state.activityMediaType }), contentType:'application/json', dataType:'json' })).then(response => { window.HSSMNotifyClientSettingsChanged(); return loadHomeScreenClient().then(() => response); }).then(() => {
                     state.isApplied = true;
                     applyStatus.textContent = editing ? 'Section refreshed.' : 'Section added to ' + destination + '.';
                     if (window.Dashboard && typeof Dashboard.alert === 'function') Dashboard.alert(editing ? 'Section refreshed through JavaScript Injector.' : 'Section added to ' + destination + ' through JavaScript Injector.');
@@ -1888,7 +1907,7 @@
                         const itemIds = (definition.ItemIds || definition.itemIds || []).map(String);
                         state.resolvedItemIds = itemIds.slice();
                         state.contentItemOrder = itemIds.slice();
-                        state.contentOrder = String(definition.ContentOrder || definition.contentOrder || 'title-ascending');
+                        state.contentOrder = isTopType() ? 'rating-descending' : String(definition.ContentOrder || definition.contentOrder || 'title-ascending');
                         state.artSize = String(definition.ArtSize || definition.artSize || 'medium');
                         state.artType = String(definition.ArtType || definition.artType || 'automatic');
                         state.artShape = String(definition.ArtShape || definition.artShape || 'poster');
@@ -1970,7 +1989,8 @@
                 EnableSeriesInfo:page.querySelector('#hssmEnableSeriesInfo'),
                 EnableCollectionsOnDetailPage:page.querySelector('#hssmEnableCollectionsOnDetailPage'),
                 EnableEnhancedSearch:page.querySelector('#hssmEnableEnhancedSearch'),
-                EnableBreadcrumbs:page.querySelector('#hssmEnableBreadcrumbs')
+                EnableBreadcrumbs:page.querySelector('#hssmEnableBreadcrumbs'),
+                EnableTitleMarquee:page.querySelector('#hssmEnableTitleMarquee')
             };
             const libraryHost = page.querySelector('#hssmInfiniteScrollLibraries');
             const status = page.querySelector('#hssmMainSettingsStatus');
@@ -1998,7 +2018,8 @@
                 const librariesRequest = typeof ApiClient.getUserViews === 'function' ? ApiClient.getUserViews({}, userId) : ApiClient.getJSON(ApiClient.getUrl('Users/' + encodeURIComponent(userId) + '/Views'));
                 Promise.all([settingsRequest, librariesRequest]).then(values => {
                     const settings = values[0] || {};
-                    Object.keys(controls).forEach(key => { controls[key].checked = !!valueOf(settings, key, key.charAt(0).toLowerCase() + key.slice(1), false); });
+                    Object.keys(controls).forEach(key => { controls[key].checked = !!valueOf(settings, key, key.charAt(0).toLowerCase() + key.slice(1), key === 'EnableTitleMarquee'); });
+                    page.querySelector('#hssmDisableTitleMarquee').checked = !controls.EnableTitleMarquee.checked;
                     selectedLibraries = new Set((valueOf(settings, 'InfiniteScrollLibraryIds', 'infiniteScrollLibraryIds', []) || []).map(window.HSSMResolveLibraryId));
                     libraries = valueOf(values[1], 'Items', 'items', []) || [];
                     renderLibraries();

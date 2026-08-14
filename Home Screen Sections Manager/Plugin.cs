@@ -94,7 +94,9 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
         configuration.Sections = previous.Sections.Select(section => new HomeScreenSectionDefinition
             {
                 Id = section.Id,
-                Name = section.Name,
+                Name = string.Equals(section.Id, normalizedId, StringComparison.Ordinal) && !string.IsNullOrWhiteSpace(request.Name)
+                    ? request.Name.Trim()
+                    : section.Name,
                 PageId = section.PageId,
                 Type = section.Type,
                 SourceIds = [.. section.SourceIds],
@@ -102,7 +104,7 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
                     ? request.ItemIds.Where(id => !string.IsNullOrWhiteSpace(id)).Distinct(StringComparer.Ordinal).ToList()
                     : [.. section.ItemIds],
                 ContentOrder = string.Equals(section.Id, normalizedId, StringComparison.Ordinal)
-                    ? normalizedOrder
+                    ? string.Equals(section.Type, "top-10-50", StringComparison.Ordinal) ? "rating-descending" : normalizedOrder
                     : NormalizeContentOrder(section.ContentOrder),
                 ArtSize = string.Equals(section.Id, normalizedId, StringComparison.Ordinal)
                     ? NormalizeArtSize(request.ArtSize)
@@ -169,6 +171,7 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
         configuration.EnableCollectionsOnDetailPage = request.EnableCollectionsOnDetailPage;
         configuration.EnableEnhancedSearch = request.EnableEnhancedSearch;
         configuration.EnableBreadcrumbs = request.EnableBreadcrumbs;
+        configuration.EnableTitleMarquee = request.EnableTitleMarquee;
         if (request.EnableMyList && !configuration.Pages.Any(page => string.Equals(page.Id, "my-list", StringComparison.Ordinal)))
         {
             configuration.Pages.Insert(0, new HomeScreenPageDefinition { Id = "my-list", Name = "My List" });
@@ -221,6 +224,7 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
             EnableCollectionsOnDetailPage = source.EnableCollectionsOnDetailPage,
             EnableEnhancedSearch = source.EnableEnhancedSearch,
             EnableBreadcrumbs = source.EnableBreadcrumbs,
+            EnableTitleMarquee = source.EnableTitleMarquee,
             Sections = source.Sections.Select(CloneSection).ToList(),
             SectionOrder = [.. source.SectionOrder],
             Pages = source.Pages.Select(page => new HomeScreenPageDefinition { Id = page.Id, Name = page.Name }).ToList(),
@@ -271,7 +275,9 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
         normalized.Type = section.Type.Trim();
         normalized.SourceIds = (section.SourceIds ?? []).Where(id => !string.IsNullOrWhiteSpace(id)).Distinct(StringComparer.Ordinal).ToList();
         normalized.ItemIds = (section.ItemIds ?? []).Where(id => !string.IsNullOrWhiteSpace(id)).Distinct(StringComparer.Ordinal).ToList();
-        normalized.ContentOrder = NormalizeContentOrder(section.ContentOrder);
+        normalized.ContentOrder = string.Equals(normalized.Type, "top-10-50", StringComparison.Ordinal)
+            ? "rating-descending"
+            : NormalizeContentOrder(section.ContentOrder);
         normalized.ArtSize = NormalizeArtSize(section.ArtSize);
         normalized.ArtType = NormalizeArtType(section.ArtType);
         normalized.ArtShape = NormalizeArtShape(section.ArtShape);

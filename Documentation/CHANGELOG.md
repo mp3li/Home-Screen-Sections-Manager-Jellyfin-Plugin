@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.1.0.40-test] - 2026-08-13
+
+- Adds **Marquee Effect on Titles Settings** at the end of Main Settings, with mutually exclusive on/off controls and the hover-to-scroll title effect enabled by default.
+- Applies marquee movement only to media titles that actually overflow their card, and removes it immediately when the administrator turns the setting off.
+- Makes custom-page arrows, mouse-wheel scrolling, and mouse dragging use a plugin-owned measured track with a fallback for Jellyfin clients that refuse native horizontal scroll movement.
+- Derives completed Watch Again Series from every regular aired episode in the signed-in user's watch history, ignoring Specials and future episodes while retaining completion-date ordering with Movies.
+- Forces Top 10-50 ordering back to highest rating, preserves administrator-entered section titles during Refresh Section, saves numbering choices directly, and uses compatible explicit number sizing so enabled ranks remain visible.
+- Retains the confirmed native circle geometry and hover clipping plus custom-card hover darkness and functional Play buttons.
+
 ## [0.1.0.39-test] - 2026-08-13
 
 - Replaces custom-page rows' hidden-tab-dependent Jellyfin scrollers with plugin-owned horizontal scrolling that supports working arrow buttons, mouse-wheel scrolling, mouse dragging, touch panning, and infinite-page loading.

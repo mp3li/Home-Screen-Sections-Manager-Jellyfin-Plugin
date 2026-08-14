@@ -83,6 +83,8 @@ public sealed class PluginConfiguration : BasePluginConfiguration
 
     public bool EnableBreadcrumbs { get; set; }
 
+    public bool EnableTitleMarquee { get; set; } = true;
+
     /// <summary>Gets or sets the saved plugin-created home screen sections.</summary>
     public List<HomeScreenSectionDefinition> Sections { get; set; } = [];
 
@@ -331,11 +333,16 @@ public sealed class MainSettingsRequest
     public bool EnableEnhancedSearch { get; set; }
 
     public bool EnableBreadcrumbs { get; set; }
+
+    public bool EnableTitleMarquee { get; set; } = true;
 }
 
 /// <summary>Request body used when the administrator adds one completed section to the home screen.</summary>
 public sealed class ApplySectionRequest
 {
+    /// <summary>Gets or sets the administrator-defined section title.</summary>
+    public string Name { get; set; } = string.Empty;
+
     /// <summary>Gets or sets the selected content ordering.</summary>
     public string ContentOrder { get; set; } = "title-ascending";
 

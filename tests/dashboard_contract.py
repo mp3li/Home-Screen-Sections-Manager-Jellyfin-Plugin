@@ -79,7 +79,7 @@ def run() -> None:
                 getPluginConfiguration:()=>Promise.resolve({CustomJavaScripts:[]}),
                 updatePluginConfiguration:()=>Promise.resolve()
               };
-              window.HomeScreenManagerClient = { version:'0.1.0.39', refresh(){} };
+              window.HomeScreenManagerClient = { version:'0.1.0.40', refresh(){} };
               window.CustomElements = { upgradeSubtree(){} };
             }
             """
@@ -87,6 +87,15 @@ def run() -> None:
         page.set_content(DASHBOARD.read_text())
         page.wait_for_selector("#hssmPageList [data-page-id='home']", state="attached")
         page.wait_for_selector("#hssmSectionPageSelect option[value='manager-page-movies']", state="attached")
+
+        assert page.get_by_text("Marquee Effect on Titles Settings", exact=True).count() == 1
+        assert page.get_by_text("Select your preference for turning on and off the marquee feature when you hover on media items. Meaning, the title will slowly scroll instead of being truncated/cut off if its too long.", exact=True).count() == 1
+        assert page.locator("#hssmEnableTitleMarquee").is_checked()
+        assert not page.locator("#hssmDisableTitleMarquee").is_checked()
+        page.locator("#hssmDisableTitleMarquee").check()
+        assert not page.locator("#hssmEnableTitleMarquee").is_checked()
+        page.locator("#hssmSaveMainSettingsButton").click()
+        page.wait_for_function("window.__mainSettings.EnableTitleMarquee === false")
 
         assert page.locator("#hssmPageList [data-page-id='home'] [data-hssm-page-show]").count() == 0
         assert page.locator("#hssmPageList [data-page-id='home'] .hssm-drag-handle").text_content() == ""
@@ -120,12 +129,19 @@ def run() -> None:
         page.wait_for_selector("input[name='hssmType'][value='top-10-50']:checked")
         page.locator("#hssmFinishSectionButton").click()
         page.wait_for_function("!document.querySelector('#hssmTypeSpecificSettings [data-hssm-save-move]').disabled")
+        assert page.locator("#hssmTypeSpecificSettings [data-hssm-content-order]").input_value() == "rating-descending"
+        revised_top_name = "Top 20 in Foreign Collection - My Picks"
+        page.locator("#hssmTypeSpecificSettings [data-hssm-top-draft-name]").fill(revised_top_name)
+        page.locator("#hssmTypeSpecificSettings [data-hssm-rank-numbers][value='yes']").check()
         page.evaluate("document.querySelector('#hssmTypeSpecificSettings [data-hssm-art-settings]').hidden = false")
         page.locator("#hssmTypeSpecificSettings [data-hssm-apply-section]").click()
         page.wait_for_function("window.__applyCalls.some(call => call.id === 'manager-top')")
         assert page.evaluate("window.__applyCalls.find(call => call.id === 'manager-top').body.ItemIds === null")
+        assert page.evaluate("window.__applyCalls.find(call => call.id === 'manager-top').body.ContentOrder") == "rating-descending"
+        assert page.evaluate("window.__applyCalls.find(call => call.id === 'manager-top').body.ShowRankNumbers") is True
+        assert page.evaluate("window.__applyCalls.find(call => call.id === 'manager-top').body.Name") == revised_top_name
         assert page.evaluate("window.__sectionSettings.Sections.find(s => s.Id === 'manager-top').ItemIds[0]") == "stale-one"
-        assert page.evaluate("window.__sectionSettings.Sections.find(s => s.Id === 'manager-top').Name") == "Top 20 in Foreign Collection"
+        assert page.evaluate("window.__sectionSettings.Sections.find(s => s.Id === 'manager-top').Name") == revised_top_name
 
         page.locator("#hssmSectionPageSelect").select_option("my-list")
         page.wait_for_selector("#hssmSectionList [data-section-id='my-list-content']")

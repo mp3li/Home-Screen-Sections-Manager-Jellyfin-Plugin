@@ -61,16 +61,27 @@ def run() -> None:
     liked_opaque = base_item("liked-opaque", "Z Opaque Logo")
     liked_opaque["ImageTags"]["Logo"] = "opaque-logo-tag"
     watched_movie = base_item("watched-movie", "Completed Movie", "Movie")
-    watched_series = base_item("watched-series", "Completed Series", "Series")
-    watched_episode = base_item("watched-episode", "Completed Finale", "Episode")
+    watched_series = base_item("watched-series", "A Completed Series With A Deliberately Very Long Title For Marquee Testing", "Series")
+    watched_episode_one = base_item("watched-episode-one", "Completed Premiere", "Episode")
+    watched_episode_two = base_item("watched-episode-two", "Completed Finale", "Episode")
+    watched_special = base_item("watched-special", "Unplayed Special", "Episode")
     watched_movie["UserData"]["LastPlayedDate"] = "2026-07-01T12:00:00Z"
-    watched_series["UserData"].update({"Played": False, "UnplayedItemCount": 0})
-    watched_series["RecursiveItemCount"] = 12
-    watched_episode["SeriesId"] = "watched-series"
-    watched_episode["UserData"]["LastPlayedDate"] = "2026-08-01T12:00:00Z"
+    watched_series["UserData"].update({"Played": False, "UnplayedItemCount": 2})
+    watched_series["RecursiveItemCount"] = 3
+    for index, episode in enumerate([watched_episode_one, watched_episode_two], start=1):
+        episode["SeriesId"] = "watched-series"
+        episode["ParentIndexNumber"] = 1
+        episode["IndexNumber"] = index
+        episode["PremiereDate"] = f"2026-07-{index:02d}T00:00:00Z"
+        episode["UserData"].update({"Played": True, "LastPlayedDate": f"2026-08-0{index}T12:00:00Z"})
+    watched_special["SeriesId"] = "watched-series"
+    watched_special["ParentIndexNumber"] = 0
+    watched_special["IndexNumber"] = 1
+    watched_special["PremiereDate"] = "2026-07-03T00:00:00Z"
+    watched_special["UserData"]["Played"] = False
     resume["CommunityRating"] = 8.8
     resume_two["CommunityRating"] = 7.7
-    items_by_id = {item["Id"]: item for item in [resume, resume_two, series_two, liked, liked_opaque, watched_movie, watched_series, watched_episode]}
+    items_by_id = {item["Id"]: item for item in [resume, resume_two, series_two, liked, liked_opaque, watched_movie, watched_series, watched_episode_one, watched_episode_two, watched_special]}
     requests: list[str] = []
     page_errors: list[str] = []
 
@@ -97,8 +108,8 @@ def run() -> None:
                     route.fulfill(status=200, content_type="application/json", body=json.dumps({"Items": [watched_movie]}))
                 elif query.get("IncludeItemTypes") == ["Series"] and not query.get("Filters"):
                     route.fulfill(status=200, content_type="application/json", body=json.dumps({"Items": [watched_series]}))
-                elif query.get("Filters") == ["IsPlayed"] and query.get("IncludeItemTypes") == ["Episode"]:
-                    route.fulfill(status=200, content_type="application/json", body=json.dumps({"Items": [watched_episode]}))
+                elif query.get("IncludeItemTypes") == ["Episode"] and not query.get("Filters"):
+                    route.fulfill(status=200, content_type="application/json", body=json.dumps({"Items": [watched_episode_one, watched_episode_two, watched_special]}))
                 elif query.get("ParentId") == ["top-source"]:
                     route.fulfill(status=200, content_type="application/json", body=json.dumps({"Items": [resume, resume_two]}))
                 elif query.get("Ids"):
@@ -206,6 +217,8 @@ def run() -> None:
         assert page.locator("#homeTab [data-hssm-section-id='jellyfin-0-resume']").count() == 0
         assert page.locator("#homeTab [data-hssm-section-id='manager-home-top'] .hssm-rank-number").count() == 2
         assert page.locator("#homeTab [data-hssm-section-id='manager-home-top']").evaluate("node => node.classList.contains('hssm-top-ranked')")
+        rank_geometry = page.locator("#homeTab [data-hssm-section-id='manager-home-top'] .hssm-rank-number").first.evaluate("node => { const box=node.getBoundingClientRect(); const style=getComputedStyle(node); return {width:box.width,height:box.height,fontSize:parseFloat(style.fontSize),display:style.display,visibility:style.visibility}; }")
+        assert rank_geometry["width"] > 20 and rank_geometry["height"] > 20 and rank_geometry["fontSize"] > 40 and rank_geometry["display"] != "none" and rank_geometry["visibility"] == "visible", rank_geometry
         title_year_alignment = page.locator("#homeTab [data-hssm-section-id='manager-home-top'] .hssm-client-card").first.evaluate("card => { const title=card.querySelector('.hssm-card-title'), year=card.querySelector('.hssm-card-year'); return {title:title.getBoundingClientRect().left,year:year.getBoundingClientRect().left}; }")
         assert abs(title_year_alignment["title"] - title_year_alignment["year"]) < 1, title_year_alignment
         assert page.locator("#homeTab [data-hssm-section-id^='manager-movies-']").count() == 0
@@ -313,7 +326,7 @@ def run() -> None:
         page.frame_locator(".hssm-section-media-bar[data-hssm-media-section-id='manager-movies-two']").locator("body.hssm-media-bar-top-gradient").wait_for(state="attached")
         assert any("Filters=IsPlayed" in url and "IncludeItemTypes=Movie" in url for url in requests), requests
         assert any("IncludeItemTypes=Series" in url and "Filters=IsPlayed" not in url for url in requests), requests
-        assert any("Filters=IsPlayed" in url and "IncludeItemTypes=Episode" in url for url in requests), requests
+        assert any("IncludeItemTypes=Episode" in url and "Filters=IsPlayed" not in url for url in requests), requests
         assert any("Filters=IsPlayed" in url and "SortOrder=Descending" in url for url in requests), requests
 
         scroll_result = page.locator(".hssm-owned-custom-page.is-active [data-hssm-section-id='manager-watch-again']").evaluate("""section => {
@@ -334,6 +347,9 @@ def run() -> None:
         assert scroll_result["owned"] and scroll_result["afterArrow"] > 0 and scroll_result["afterWheel"] > scroll_result["afterArrow"], scroll_result
 
         custom_card = page.locator(".hssm-owned-custom-page.is-active [data-hssm-section-id='manager-watch-again'] .hssm-client-card[data-id='watched-series']")
+        page.wait_for_function("node => node.querySelector('.hssm-card-title bdi').classList.contains('hssm-marquee-title')", arg=custom_card.element_handle())
+        marquee_state = custom_card.locator(".hssm-card-title bdi").evaluate("node => ({enabled:document.body.classList.contains('hssm-title-marquee-enabled'),distance:node.style.getPropertyValue('--hssm-marquee-distance'),host:node.closest('.cardText').classList.contains('hssm-marquee-title-host')})")
+        assert marquee_state["enabled"] and marquee_state["distance"].startswith("-") and marquee_state["host"], marquee_state
         custom_card.hover()
         custom_card.locator(".cardOverlayContainer").wait_for(state="visible")
         page.wait_for_function("node => Number(getComputedStyle(node).opacity) > .99", arg=custom_card.locator(".cardOverlayContainer").element_handle())
@@ -349,9 +365,11 @@ def run() -> None:
         page.wait_for_function("!document.querySelector('#homeTab [data-hssm-section-id=\"manager-home-top\"]').classList.contains('hssm-top-ranked')")
         assert page.locator("#homeTab [data-hssm-section-id='manager-home-top'] .hssm-rank-number").count() == 0
         settings["HideFavorites"] = True
+        settings["EnableTitleMarquee"] = False
         settings["PageOrder"] = ["home", "hidden:favorites", "my-list", "manager-page-movies"]
         page.evaluate("window.HomeScreenManagerClient.invalidate(); window.HomeScreenManagerClient.refresh();")
         page.wait_for_function("document.querySelector('.emby-tab-button[data-index=\"1\"]').classList.contains('hssm-hidden-page-tab')")
+        page.wait_for_function("!document.body.classList.contains('hssm-title-marquee-enabled') && !document.querySelector('.hssm-marquee-title')")
         assert any("Filters=Likes" in url and "ParentId=library-one" in url for url in requests), requests
         assert not page_errors, page_errors
         browser.close()

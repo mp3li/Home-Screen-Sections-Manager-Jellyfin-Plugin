@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    var CLIENT_VERSION = "0.1.0.39";
+    var CLIENT_VERSION = "0.1.0.40";
     if (window.HomeScreenManagerClient) {
         if (window.HomeScreenManagerClient.version === CLIENT_VERSION) {
             window.HomeScreenManagerClient.refresh();
@@ -412,7 +412,7 @@
         var userId = currentUserId();
         if (!userId) return Promise.resolve([]);
         var options = Object.assign({
-            Fields: 'PrimaryImageAspectRatio,DateCreated,PremiereDate,ProductionYear,CommunityRating,SortName,Tags,Overview,RunTimeTicks,ChildCount,RecursiveItemCount,ParentId,SeriesId,SeriesName,SeriesPrimaryImageTag,ParentLogoImageTag,ParentLogoItemId,UserData',
+            Fields: 'PrimaryImageAspectRatio,DateCreated,PremiereDate,ProductionYear,CommunityRating,SortName,Tags,Overview,RunTimeTicks,ChildCount,RecursiveItemCount,ParentId,ParentIndexNumber,IndexNumber,IsVirtualItem,SeriesId,SeriesName,SeriesPrimaryImageTag,ParentLogoImageTag,ParentLogoItemId,UserData',
             ImageTypeLimit: 1,
             EnableImageTypes: 'Primary,Art,Backdrop,Banner,Logo,Thumb,Disc,Box,BoxRear,Screenshot,Menu,Chapter'
         }, parameters || {});
@@ -459,14 +459,24 @@
             SortOrder:'Ascending', Limit:2000, EnableTotalRecordCount:false
         });
         var episodeRequest = queryItems({
-            Filters:'IsPlayed', IncludeItemTypes:'Episode', Recursive:true,
-            SortBy:'DatePlayed,SortName', SortOrder:'Descending', Limit:5000,
+            IncludeItemTypes:'Episode', Recursive:true, IsVirtualItem:false,
+            SortBy:'SortName', SortOrder:'Ascending', Limit:10000,
             EnableTotalRecordCount:false
         });
         watchAgainRequests[context] = Promise.all([movieRequest, seriesRequest, episodeRequest]).then(function (groups) {
             var latestBySeries = {};
+            var totalBySeries = {};
+            var playedBySeries = {};
+            var now = Date.now();
             groups[2].forEach(function (episode) {
                 var seriesId = String(prop(episode, 'SeriesId', 'seriesId', ''));
+                var seasonNumber = Number(prop(episode, 'ParentIndexNumber', 'parentIndexNumber', NaN));
+                var premiere = Date.parse(prop(episode, 'PremiereDate', 'premiereDate', ''));
+                if (!seriesId || seasonNumber === 0 || (Number.isFinite(premiere) && premiere > now)) return;
+                totalBySeries[seriesId] = (totalBySeries[seriesId] || 0) + 1;
+                var userData = prop(episode, 'UserData', 'userData', {}) || {};
+                if (prop(userData, 'Played', 'played', false) !== true) return;
+                playedBySeries[seriesId] = (playedBySeries[seriesId] || 0) + 1;
                 var playedAt = dateValue(episode, 'completed');
                 if (seriesId && playedAt > (latestBySeries[seriesId] || 0)) latestBySeries[seriesId] = playedAt;
             });
@@ -475,7 +485,9 @@
                 var played = prop(userData, 'Played', 'played', false) === true;
                 var unplayed = Number(prop(userData, 'UnplayedItemCount', 'unplayedItemCount', NaN));
                 var episodeCount = Number(prop(series, 'RecursiveItemCount', 'recursiveItemCount', 0)) || 0;
-                return played || (episodeCount > 0 && Number.isFinite(unplayed) && unplayed === 0);
+                var id = String(prop(series, 'Id', 'id', ''));
+                var countedAllEpisodes = (totalBySeries[id] || 0) > 0 && (playedBySeries[id] || 0) >= totalBySeries[id];
+                return played || (episodeCount > 0 && Number.isFinite(unplayed) && unplayed === 0) || countedAllEpisodes;
             }).map(function (series) {
                 var id = String(prop(series, 'Id', 'id', ''));
                 var userData = Object.assign({}, prop(series, 'UserData', 'userData', {}) || {});
@@ -670,7 +682,8 @@
     }
 
     function orderItems(items, section) {
-        var order = String(prop(section, 'ContentOrder', 'contentOrder', 'title-ascending'));
+        var sectionType = String(prop(section, 'Type', 'type', ''));
+        var order = sectionType === 'top-10-50' ? 'rating-descending' : String(prop(section, 'ContentOrder', 'contentOrder', 'title-ascending'));
         var manualIds = prop(section, 'ItemIds', 'itemIds', []).map(String);
         var sourceIds = prop(section, 'SourceIds', 'sourceIds', []).map(String);
         var ranks = {};
@@ -813,7 +826,7 @@
             '</div>' + footer + '</div></div>';
     }
 
-    function sectionNode(section, items, loading) {
+    function sectionNode(section, items, loading, forceOwnedScroller) {
         var node = document.createElement('div');
         var id = String(prop(section, 'Id', 'id', ''));
         var name = String(prop(section, 'Name', 'name', ''));
@@ -821,7 +834,7 @@
         var artShape = cardShape(section).name;
         var artType = String(prop(section, 'ArtType', 'artType', 'automatic'));
         var pageId = String(prop(section, 'PageId', 'pageId', 'home'));
-        var ownsScroller = pageId !== 'home' && pageId !== 'my-list';
+        var ownsScroller = forceOwnedScroller === true || (pageId !== 'home' && pageId !== 'my-list');
         var ranked = String(prop(section, 'Type', 'type', '')) === 'top-10-50' && prop(section, 'ShowRankNumbers', 'showRankNumbers', true) !== false;
         node.className = 'verticalSection emby-scroller-container hssm-client-section hssm-size-' + artSize + ' hssm-shape-' + artShape + ' hssm-art-' + artType + (ranked ? ' hssm-top-ranked hssm-rank-' + String(prop(section, 'RankNumberColorMode', 'rankNumberColorMode', 'solid')) : '');
         node.style.setProperty('--hssm-rank-one', String(prop(section, 'RankNumberColorOne', 'rankNumberColorOne', '#f5f5f7')));
@@ -877,20 +890,42 @@
         if (ownedScroller && ownedScroller.dataset.hssmOwnedScrollBound !== 'true') {
             ownedScroller.dataset.hssmOwnedScrollBound = 'true';
             var shell = ownedScroller.closest('.hssm-owned-scroll-shell');
+            var ownedItems = ownedScroller.querySelector('.hssm-client-items');
             var buttons = shell ? Array.from(shell.querySelectorAll('[data-hssm-scroll-direction]')) : [];
+            var maximumOffset = function () {
+                var trackWidth = ownedItems ? Math.max(ownedItems.scrollWidth || 0, ownedItems.getBoundingClientRect().width || 0) : ownedScroller.scrollWidth;
+                return Math.max(0, trackWidth - ownedScroller.clientWidth);
+            };
+            var currentOffset = function () {
+                return ownedScroller.dataset.hssmTranslated === 'true' ? Number(ownedScroller.dataset.hssmOwnedOffset || 0) : Number(ownedScroller.scrollLeft || 0);
+            };
+            var setOwnedOffset = function (value) {
+                var target = Math.max(0, Math.min(maximumOffset(), Number(value) || 0));
+                ownedScroller.scrollLeft = target;
+                if (target > 1 && ownedScroller.scrollLeft < 1 && ownedItems) {
+                    ownedScroller.dataset.hssmTranslated = 'true';
+                    ownedScroller.dataset.hssmOwnedOffset = String(target);
+                    ownedItems.style.transform = 'translate3d(-' + target + 'px,0,0)';
+                } else {
+                    delete ownedScroller.dataset.hssmTranslated;
+                    delete ownedScroller.dataset.hssmOwnedOffset;
+                    if (ownedItems) ownedItems.style.transform = '';
+                }
+                ownedScroller.dispatchEvent(new Event('scroll'));
+            };
             var updateButtons = function () {
-                var maximum = Math.max(0, ownedScroller.scrollWidth - ownedScroller.clientWidth);
+                var maximum = maximumOffset();
+                var current = currentOffset();
                 buttons.forEach(function (button) {
-                    button.disabled = button.dataset.hssmScrollDirection === 'left' ? ownedScroller.scrollLeft <= 1 : ownedScroller.scrollLeft >= maximum - 1;
+                    button.disabled = button.dataset.hssmScrollDirection === 'left' ? current <= 1 : maximum <= 1 || current >= maximum - 1;
                 });
             };
             buttons.forEach(function (button) {
                 button.addEventListener('click', function () {
                     var direction = button.dataset.hssmScrollDirection === 'left' ? -1 : 1;
                     var distance = Math.max(240, Math.round((ownedScroller.clientWidth || node.clientWidth || 800) * 0.82));
-                    if (typeof ownedScroller.scrollBy === 'function') ownedScroller.scrollBy({ left:direction * distance, behavior:'smooth' });
-                    else ownedScroller.scrollLeft += direction * distance;
-                    window.setTimeout(updateButtons, 350);
+                    setOwnedOffset(currentOffset() + direction * distance);
+                    updateButtons();
                 });
             });
             ownedScroller.addEventListener('scroll', updateButtons, { passive:true });
@@ -898,14 +933,15 @@
                 if (ownedScroller.scrollWidth <= ownedScroller.clientWidth) return;
                 var amount = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
                 if (!amount) return;
-                ownedScroller.scrollLeft += amount;
+                setOwnedOffset(currentOffset() + amount);
+                updateButtons();
                 event.preventDefault();
             }, { passive:false });
             var drag = null;
             var suppressClick = false;
             ownedScroller.addEventListener('pointerdown', function (event) {
                 if (event.pointerType !== 'mouse' || event.button !== 0) return;
-                drag = { id:event.pointerId, x:event.clientX, start:ownedScroller.scrollLeft, moved:false };
+                drag = { id:event.pointerId, x:event.clientX, start:currentOffset(), moved:false };
             });
             ownedScroller.addEventListener('pointermove', function (event) {
                 if (!drag || drag.id !== event.pointerId) return;
@@ -914,7 +950,7 @@
                 drag.moved = true;
                 suppressClick = true;
                 if (typeof ownedScroller.setPointerCapture === 'function') ownedScroller.setPointerCapture(event.pointerId);
-                ownedScroller.scrollLeft = drag.start - distance;
+                setOwnedOffset(drag.start - distance);
                 event.preventDefault();
             });
             function endDrag(event) {
@@ -925,6 +961,7 @@
             }
             ownedScroller.addEventListener('pointerup', endDrag);
             ownedScroller.addEventListener('pointercancel', endDrag);
+            ownedScroller.addEventListener('dragstart', function (event) { if (drag) event.preventDefault(); });
             ownedScroller.addEventListener('click', function (event) {
                 if (!suppressClick) return;
                 suppressClick = false;
@@ -1261,6 +1298,48 @@
         }
         var image = logoLink.querySelector('img');
         if (image && image.src !== dataUrl) image.src = dataUrl;
+    }
+
+    function applyTitleMarquee(settings, scope) {
+        var enabled = setting(settings, 'EnableTitleMarquee', true) !== false;
+        document.body.classList.toggle('hssm-title-marquee-enabled', enabled);
+        if (!enabled) {
+            Array.from(document.querySelectorAll('.hssm-marquee-title')).forEach(function (target) {
+                target.classList.remove('hssm-marquee-title');
+                target.style.removeProperty('--hssm-marquee-distance');
+                target.style.removeProperty('--hssm-marquee-duration');
+                var host = target.closest('.cardText');
+                if (host) host.classList.remove('hssm-marquee-title-host');
+            });
+            return;
+        }
+        scope = scope || activePage() || document;
+        function measure() {
+            if (!enabled || !scope || !scope.isConnected && scope !== document) return;
+            var candidates = Array.from(scope.querySelectorAll('.cardText-first bdi, .hssm-card-title bdi'));
+            candidates.forEach(function (target) {
+                var host = target.closest('.cardText');
+                if (!host) return;
+                target.classList.add('hssm-marquee-measuring');
+                var available = host.clientWidth || host.getBoundingClientRect().width || 0;
+                var full = target.scrollWidth || target.getBoundingClientRect().width || 0;
+                target.classList.remove('hssm-marquee-measuring');
+                var overflow = Math.ceil(full - available);
+                if (available > 0 && overflow > 2) {
+                    host.classList.add('hssm-marquee-title-host');
+                    target.classList.add('hssm-marquee-title');
+                    target.style.setProperty('--hssm-marquee-distance', '-' + (overflow + 8) + 'px');
+                    target.style.setProperty('--hssm-marquee-duration', Math.max(4, (overflow + available) / 24).toFixed(2) + 's');
+                } else {
+                    host.classList.remove('hssm-marquee-title-host');
+                    target.classList.remove('hssm-marquee-title');
+                    target.style.removeProperty('--hssm-marquee-distance');
+                    target.style.removeProperty('--hssm-marquee-duration');
+                }
+            });
+        }
+        window.requestAnimationFrame(measure);
+        window.setTimeout(measure, 450);
     }
 
     function responseItems(response) {
@@ -2387,11 +2466,12 @@
         var oldScroller = oldNode && oldNode.querySelector('.hssm-client-scroller');
         var oldScrollLeft = oldScroller ? oldScroller.scrollLeft : 0;
         var ordered = orderItems(uniqueItems(state.items), state.section);
-        var nextNode = sectionNode(state.section, ordered, loading);
+        var nextNode = sectionNode(state.section, ordered, loading, !!state.container.closest('.hssm-owned-custom-page'));
         if (oldNode && oldNode.isConnected) oldNode.replaceWith(nextNode);
         else state.container.appendChild(nextNode);
         state.node = nextNode;
         upgradeSectionControls(nextNode);
+        applyTitleMarquee(state.settings, nextNode);
         var nextScroller = nextNode.querySelector('.hssm-client-scroller');
         if (nextScroller && oldScrollLeft) nextScroller.scrollLeft = oldScrollLeft;
         attachSectionPaging(state);
@@ -2579,6 +2659,7 @@
     function applyRouteFeatures(settings, scope, home, preferences) {
         document.body.classList.add('hssm-client-enabled');
         applyLogo(settings);
+        applyTitleMarquee(settings, scope);
         applyMyListHeartColor(settings);
         applyMyList(settings, scope);
         if (home) {
