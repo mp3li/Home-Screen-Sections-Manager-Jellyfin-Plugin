@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.0.34-test] - 2026-08-13
+
+- Adds **My List Content Section**, which skips content selection and loads each signed-in user’s own Jellyfin Likes at display time without saving one user’s items into shared plugin settings.
+- Adds **Added to My List** as the default first managed section on the My List page. It can be reordered, shown or hidden, edited, and converted into a Media Bar while retaining per-user content.
+- Keeps circular-art heart buttons fully visible above the circle instead of clipping them at the artwork boundary.
+- Prevents invalid or stale custom-page section assignments from falling back onto Home, and prevents creating a section while an older page-switch request is still repopulating the editor.
+- Extends browser and dashboard contracts for the My List media bar, editable default row, circular-heart stacking, zero saved My List item IDs, and strict custom-page isolation.
+
 ## [0.1.0.33-test] - 2026-08-13
 
 - Restores saved Top 10 and other plugin sections on Home and removes the custom-page render-generation race that could leave rows stuck on Loading section content.

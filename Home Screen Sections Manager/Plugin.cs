@@ -36,6 +36,7 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
         var validPageIds = configuration.Pages.Select(page => page.Id).Append("home").Append("favorites").ToHashSet(StringComparer.Ordinal);
         configuration.Sections = (request.Sections ?? [])
             .Where(section => !string.IsNullOrWhiteSpace(section.Id) && !string.IsNullOrWhiteSpace(section.Name) && !string.IsNullOrWhiteSpace(section.Type))
+            .Where(section => validPageIds.Contains(string.IsNullOrWhiteSpace(section.PageId) ? "home" : section.PageId))
             .GroupBy(section => section.Id.Trim(), StringComparer.Ordinal)
             .Select(group => NormalizeSection(group.First(), validPageIds))
             .ToList();

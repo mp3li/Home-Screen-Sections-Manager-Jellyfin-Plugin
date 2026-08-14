@@ -9,6 +9,7 @@ from playwright.sync_api import sync_playwright
 
 ROOT = Path(__file__).resolve().parents[1]
 CLIENT = ROOT / "Home Screen Sections Manager" / "Web" / "homeScreenClient.js"
+CLIENT_CSS = ROOT / "Home Screen Sections Manager" / "Web" / "homeScreenClient.css"
 MEDIA_BAR = ROOT / "Home Screen Sections Manager" / "Web" / "mediaBar.html"
 
 
@@ -32,6 +33,7 @@ def run() -> None:
             {"Id": "manager-movies-one", "Name": "Movie Picks", "PageId": "manager-page-movies", "Type": "manual-content", "ItemIds": ["resume-one"], "IsApplied": True, "IsVisible": True, "IsMediaBar": True},
             {"Id": "manager-movies-two", "Name": "More Movies", "PageId": "manager-page-movies", "Type": "manual-content", "ItemIds": ["resume-two"], "IsApplied": True, "IsVisible": True, "IsMediaBar": True},
             {"Id": "manager-movies-hidden", "Name": "Saved for Later", "PageId": "manager-page-movies", "Type": "manual-content", "ItemIds": ["liked-one"], "IsApplied": True, "IsVisible": False, "IsMediaBar": False},
+            {"Id": "my-list-content", "Name": "Added to My List", "PageId": "my-list", "Type": "my-list-content", "ItemIds": [], "IsApplied": True, "IsVisible": True, "IsMediaBar": True, "ArtShape": "circle"},
         ],
         "SectionOrder": ["jellyfin-0-resume", "manager-home-top", "manager-home-test"],
         "Pages": [{"Id": "my-list", "Name": "My List"}, {"Id": "manager-page-movies", "Name": "Movies"}],
@@ -39,6 +41,7 @@ def run() -> None:
         "PageLayouts": [
             {"PageId": "home", "SectionOrder": ["jellyfin-0-resume", "manager-home-top", "manager-home-test"]},
             {"PageId": "manager-page-movies", "SectionOrder": ["manager-movies-one", "manager-movies-two", "hidden:manager-movies-hidden"]},
+            {"PageId": "my-list", "SectionOrder": ["my-list-content"]},
         ],
         "EnableMyList": True,
         "HideFavorites": False,
@@ -143,6 +146,7 @@ def run() -> None:
             });
             """
         )
+        page.add_style_tag(content=CLIENT_CSS.read_text())
         page.add_script_tag(content=CLIENT.read_text())
         page.wait_for_timeout(500)
         if page.locator(".hssm-owned-media-bar").count() == 0:
@@ -151,6 +155,7 @@ def run() -> None:
         page.wait_for_function("document.querySelector('#homeTab').classList.contains('is-active')")
         page.wait_for_selector("#homeTab [data-hssm-section-id='manager-home-top'] .hssm-client-card")
         page.wait_for_selector("#homeTab [data-hssm-section-id='manager-home-test'] .hssm-client-card")
+        assert page.locator("#homeTab [data-hssm-section-id^='manager-movies-']").count() == 0
         page.wait_for_selector(".hssm-my-list-tab")
         page.wait_for_selector(".hssm-custom-page-tab[data-hssm-page-id='manager-page-movies']")
         page.wait_for_function("document.querySelector('.hssm-owned-media-bar').dataset.hssmAppliedImageType === 'primary'")
@@ -192,19 +197,24 @@ def run() -> None:
 
         page.locator(".hssm-my-list-tab").click()
         page.wait_for_selector(".hssm-owned-my-list-page.is-active .hssm-client-card[data-id='liked-one']")
+        page.wait_for_selector(".hssm-owned-my-list-page.is-active .hssm-section-media-bar[data-hssm-media-section-id='my-list-content']")
         my_list_state = page.evaluate(
             """() => ({
               homeActive: document.querySelector('#homeTab').classList.contains('is-active'),
               panelActive: document.querySelector('.hssm-owned-my-list-page').classList.contains('is-active'),
               sectionTitle: document.querySelector('.hssm-owned-my-list-page .sectionTitle').textContent.trim(),
-              mediaBarHidden: getComputedStyle(document.querySelector('.hssm-owned-media-bar')).display === 'none'
+              homeMediaBarHidden: getComputedStyle(document.querySelector('#homeTab > .hssm-owned-media-bar')).display === 'none',
+              myListMediaBarVisible: getComputedStyle(document.querySelector('.hssm-owned-my-list-page .hssm-section-media-bar')).display !== 'none',
+              oneManagedSection: document.querySelectorAll('.hssm-owned-my-list-page [data-hssm-section-id="my-list-content"]').length === 1,
+              circularHeartUnclipped: getComputedStyle(document.querySelector('.hssm-owned-my-list-page .hssm-shape-circle .cardScalable')).overflow === 'visible',
+              circularHeartOnTop: Number(getComputedStyle(document.querySelector('.hssm-owned-my-list-page .hssm-shape-circle .hssm-my-list-button')).zIndex) >= 20
             })"""
         )
-        assert my_list_state == {"homeActive": False, "panelActive": True, "sectionTitle": "Added to My List", "mediaBarHidden": True}, my_list_state
+        assert my_list_state == {"homeActive": False, "panelActive": True, "sectionTitle": "Added to My List", "homeMediaBarHidden": True, "myListMediaBarVisible": True, "oneManagedSection": True, "circularHeartUnclipped": True, "circularHeartOnTop": True}, my_list_state
 
         # Jellyfin's documented emby-tabs event owns the return to Home.
-        page.locator('.emby-tab-button[data-index="0"]').click()
-        page.wait_for_function("getComputedStyle(document.querySelector('.hssm-owned-media-bar')).display === 'block'")
+        page.evaluate("document.querySelector('.emby-tab-button[data-index=\"0\"]').click()")
+        page.wait_for_function("getComputedStyle(document.querySelector('#homeTab > .hssm-owned-media-bar')).display === 'block'")
         assert page.locator("#homeTab .homeSectionsContainer").count() == 1
         assert page.locator("#homeTab .section0").count() == 1
         page.locator(".hssm-custom-page-tab[data-hssm-page-id='manager-page-movies']").click()

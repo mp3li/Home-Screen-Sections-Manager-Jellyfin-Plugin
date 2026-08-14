@@ -9,13 +9,13 @@
     "imageUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Assets/Branding/home-screen-sections-manager-plugin-photo.png",
     "versions": [
       {
-        "version": "0.1.0.33",
-        "changelog": "Fixes Home and custom-page section rendering and stale-tab startup hangs; adds Copy + Paste Section, aligned Show controls, page-aware button text and refresh, authoritative per-page Media Bar choices, clean page deletion and undo, and removes custom-page headings and the Home drag dot.",
+        "version": "0.1.0.34",
+        "changelog": "Adds a per-user My List Content Section and editable Added to My List default row with Media Bar support; fixes circular heart clipping, rejects stale custom-page assignments instead of leaking them onto Home, and guards section creation during page switching.",
         "targetAbi": "10.11.11.0",
         "framework": "net9.0",
-        "sourceUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Test%20Releases/0.1.0.33-test/Jellyfin.Plugin.HomeScreenSectionsManager_0.1.0.33-test.zip",
-        "checksum": "c893550d3eead692bdc50814cbc4da20",
-        "timestamp": "2026-08-14T00:47:26Z"
+        "sourceUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Test%20Releases/0.1.0.34-test/Jellyfin.Plugin.HomeScreenSectionsManager_0.1.0.34-test.zip",
+        "checksum": "ad327a27a4c5dd95a4f3908e2a3a9a16",
+        "timestamp": "2026-08-14T02:11:34Z"
       }
     ]
   }

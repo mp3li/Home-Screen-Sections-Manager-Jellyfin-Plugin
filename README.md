@@ -44,7 +44,7 @@ Plugin pages can be created, renamed, deleted, and restored. Page definitions
 and their section layouts are server-wide, while My List content remains
 per-user.
 
-The current section types are Manual Content, individual or multiple collection
+The current section types are My List Content Section, Manual Content, individual or multiple collection
 content, multiple collections in a row, individual or combined tags,
 multi-match tags, individual or multiple library content, libraries in a row,
 Rotating Sections, Seasonal Sections, Top 10–50, and What Other Users Are
@@ -103,6 +103,9 @@ Home Screen Manager itself; stale duplicate My List markup from the older Custom
 Tabs integration is removed. It uses Jellyfin's existing per-user Likes
 field—the same working storage path used by the behavioral reference—rather
 than creating a second watchlist database.
+Its default **Added to My List** row is managed like other plugin sections, so it
+can be reordered, hidden, restyled, or used as a Media Bar without changing the
+fact that its content is resolved separately for each signed-in user.
 Its overlay changes one Material heart icon between outline and filled states. Liked episodes remain episode entries while using their series art and series name as the primary card identity, followed by the episode title.
 Plugin-created rows use Jellyfin's native scroller elements for desktop arrows,
 mouse-wheel scrolling, mouse dragging, touch, and focus navigation. Breadcrumbs

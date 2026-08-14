@@ -299,6 +299,7 @@
             const defaults = ['smalllibrarytiles', 'resume', 'resumeaudio', 'resumebook', 'livetv', 'nextup', 'latestmedia'];
             const mediaBarBlockedTypes = new Set(['smalllibrarytiles', 'librarybuttons', 'latestmedia']);
             const types = [
+                ['my-list-content', 'My List Content Section', 'Create a section that displays the signed-in user’s own My List content. No content selection is required, and every user sees only their own items.'],
                 ['manual-content', 'Manual Content', 'Create a section that displays manually selected content.'],
                 ['individual-collection-content', 'Individual Collection Content', 'Create a section that displays all content of one selected collection. For example, all content in the Thrillers Collection.'],
                 ['multiple-collection-content', 'Multiple Collection Content', 'Create a section that displays all content of multiple selected collections. For example, all content in the Thrillers Collection and all content in the Horror Collection.'],
@@ -314,7 +315,7 @@
                 ['top-10-50', 'Top 10-50', 'Based on IMDB ratings that must already be tagged in your media to use this feature. Select as much media as you’d like and the displayed media and media order will be picked based on your selections.'],
                 ['other-users-activity', 'What Other Users Are Watching/Reading/Listening To', 'Displays a random combination of what all users have recently watched/are currently watching.']
             ];
-            let sections = [], selectedId = null, draftId = null, draggedId = null, lastDeleted = null, activePageId = 'home', savedSnapshot = null;
+            let sections = [], selectedId = null, draftId = null, draggedId = null, lastDeleted = null, activePageId = 'home', savedSnapshot = null, sectionLoadSequence = 0;
             const list = page.querySelector('#hssmSectionList');
             const pageSelect = page.querySelector('#hssmSectionPageSelect');
             const addButton = page.querySelector('#hssmAddSectionButton');
@@ -350,7 +351,12 @@
             function pageLayout(saved, pageId) {
                 const layouts = valueOf(saved, 'PageLayouts', 'pageLayouts', []) || [];
                 const match = layouts.find(layout => String(valueOf(layout, 'PageId', 'pageId', 'home')) === pageId);
-                return match ? (valueOf(match, 'SectionOrder', 'sectionOrder', []) || []) : pageId === 'home' ? (valueOf(saved, 'SectionOrder', 'sectionOrder', []) || []) : [];
+                const order = match ? [...(valueOf(match, 'SectionOrder', 'sectionOrder', []) || [])] : pageId === 'home' ? [...(valueOf(saved, 'SectionOrder', 'sectionOrder', []) || [])] : [];
+                if (pageId === 'my-list' && !order.some(value => String(value).replace(/^hidden:/, '') === 'my-list-content')) order.unshift('my-list-content');
+                return order;
+            }
+            function defaultMyListDefinition() {
+                return { Id:'my-list-content', Name:'Added to My List', PageId:'my-list', Type:'my-list-content', SourceIds:[], ItemIds:[], ContentOrder:'title-ascending', ArtSize:'medium', ArtType:'automatic', ArtShape:'poster', ShowText:true, IsVisible:true, IsMediaBar:false, IsApplied:true };
             }
             function refreshPageChoices(saved) {
                 const pages = savedPages(saved);
@@ -395,6 +401,7 @@
                 if (mediaChoice) mediaChoice.checked = true;
                 status.textContent = '';
                 renderChoices();
+                finishButton.textContent = activeDraft.type === 'my-list-content' ? 'Continue to Section Settings' : 'Select Content';
                 finishButton.disabled = !(activeDraft.name.trim() && activeDraft.type);
             }
 
@@ -416,6 +423,8 @@
             }
 
             function loadSections() {
+                const loadSequence = ++sectionLoadSequence;
+                addButton.disabled = true;
                 const fallbackSaved = { Sections:[], SectionOrder:[], Pages:[], PageOrder:['home','favorites'], PageLayouts:[], JellyfinSectionLabelColor:'#00a4dc', ManagerSectionLabelColor:'#aa5cc3', MediaBarSectionLabelColor:'#c78000' };
                 const savedRequest = window.ApiClient ? ApiClient.getJSON(ApiClient.getUrl('HomeScreenSectionsManager/section-settings')).catch(() => fallbackSaved) : Promise.resolve(fallbackSaved);
                 const userId = window.ApiClient && typeof ApiClient.getCurrentUserId === 'function' ? ApiClient.getCurrentUserId() : '';
@@ -423,10 +432,14 @@
                 const viewsRequest = userId ? ApiClient.getJSON(ApiClient.getUrl('Users/' + encodeURIComponent(userId) + '/Views')).then(result => result.Items || result.items || []).catch(() => []) : Promise.resolve([]);
                 const userRequest = userId && typeof ApiClient.getCurrentUser === 'function' ? ApiClient.getCurrentUser().catch(() => null) : Promise.resolve(null);
                 Promise.all([nativeRequest, savedRequest, viewsRequest, userRequest]).then(([preferences, saved, views, user]) => {
+                    if (loadSequence !== sectionLoadSequence) return;
                     savedSnapshot = saved;
                     refreshPageChoices(saved);
                     const nativeRows = activePageId === 'home' ? nativeSections(preferences, views, user) : [];
-                    const managerRows = (saved.Sections || saved.sections || []).filter(definition => String(valueOf(definition, 'PageId', 'pageId', 'home') || 'home') === activePageId).map(definition => ({ id:String(definition.Id || definition.id), name:String(definition.Name || definition.name), type:String(definition.Type || definition.type), origin:'manager', locked:false, enabled:valueOf(definition, 'IsVisible', 'isVisible', true) !== false, isMediaBar:!!valueOf(definition, 'IsMediaBar', 'isMediaBar', false), definition:definition }));
+                    const savedDefinitions = saved.Sections || saved.sections || [];
+                    const pageDefinitions = savedDefinitions.filter(definition => String(valueOf(definition, 'PageId', 'pageId', 'home') || 'home') === activePageId);
+                    if (activePageId === 'my-list' && !pageDefinitions.some(definition => String(valueOf(definition, 'Id', 'id', '')) === 'my-list-content')) pageDefinitions.unshift(defaultMyListDefinition());
+                    const managerRows = pageDefinitions.map(definition => ({ id:String(definition.Id || definition.id), name:String(definition.Name || definition.name), type:String(definition.Type || definition.type), origin:'manager', locked:false, enabled:valueOf(definition, 'IsVisible', 'isVisible', true) !== false, isMediaBar:!!valueOf(definition, 'IsMediaBar', 'isMediaBar', false), definition:definition }));
                     const rows = nativeRows.concat(managerRows), byId = {};
                     rows.forEach(row => { byId[row.id] = row; });
                     const ordered = [];
@@ -440,6 +453,8 @@
                     });
                     rows.forEach(row => { if (byId[row.id]) { ordered.push(row); delete byId[row.id]; } });
                     sections = ordered;
+                    window.HSSMDashboardSectionModels = sections;
+                    window.HSSMActiveSectionPageId = activePageId;
                     const jellyfinColor = saved.JellyfinSectionLabelColor || saved.jellyfinSectionLabelColor || '#00a4dc';
                     const managerColor = saved.ManagerSectionLabelColor || saved.managerSectionLabelColor || '#aa5cc3';
                     const mediaBarColor = saved.MediaBarSectionLabelColor || saved.mediaBarSectionLabelColor || '#c78000';
@@ -450,6 +465,7 @@
                     page.style.setProperty('--hssm-manager', managerColor);
                     page.style.setProperty('--hssm-media-bar', mediaBarColor);
                     render();
+                    addButton.disabled = false;
                 });
             }
 
@@ -493,6 +509,9 @@
                         const id = String(definition.Id || definition.id), model = models[id];
                         if (!model) return definition;
                         return Object.assign({}, definition, { PageId:activePageId, IsVisible:model.enabled !== false, IsMediaBar:!!model.isMediaBar });
+                    });
+                    sections.filter(item => item.origin === 'manager' && item.definition).forEach(model => {
+                        if (!definitions.some(item => String(item.Id || item.id) === model.id)) definitions.push(Object.assign({}, model.definition, { PageId:activePageId, IsVisible:model.enabled !== false, IsMediaBar:!!model.isMediaBar }));
                     });
                     if (restoreDefinition && !definitions.some(item => String(item.Id || item.id) === String(restoreDefinition.Id || restoreDefinition.id))) definitions.push(restoreDefinition);
                     const knownManagerIds = definitions.map(item => String(item.Id || item.id));
@@ -581,6 +600,7 @@
             });
 
             addButton.addEventListener('click', () => {
+                sectionLoadSequence += 1;
                 const id = 'manager-' + Date.now();
                 const item = { id, name:'New Section', origin:'manager', type:'', enabled:true, isMediaBar:false, pageId:activePageId };
                 const index = sections.findIndex(section => section.id === selectedId);
@@ -675,6 +695,7 @@
                 const item = draft();
                 if (!input || !item) return;
                 item.type = input.value;
+                finishButton.textContent = item.type === 'my-list-content' ? 'Continue to Section Settings' : 'Select Content';
                 finishButton.disabled = !(item.name.trim() && item.type);
             });
             page.querySelectorAll('input[name="hssmMediaBarSection"]').forEach(input => input.addEventListener('change', () => {
@@ -827,6 +848,7 @@
             const isSeasonalType = () => kind() === 'seasonal-sections';
             const isTopType = () => kind() === 'top-10-50';
             const isActivityType = () => kind() === 'other-users-activity';
+            const isMyListContentType = () => kind() === 'my-list-content';
             let topLoadSequence = 0;
             const usesDraftSourcePicker = () => isDraftType() || isTopType();
             const rowImage = item => item.HasPrimaryImage || item.ImageTags ? '<img class="hssm-preview-image" loading="lazy" src="' + image(item.Id) + '" alt="" onerror="this.remove()" />' : '<span class="hssm-preview-image hssm-empty-image"></span>';
@@ -1240,7 +1262,7 @@
                 });
                 definition = Object.assign({}, definition, { SourceIds:sourceIds, Drafts:migratedDrafts });
                 if (!definition.IsApplied && definition.isApplied !== true) return Promise.resolve({ definition, skipped:true });
-                if (['manual-content','rotating-sections','seasonal-sections','other-users-activity'].includes(type)) return Promise.resolve({ definition, skipped:true });
+                if (['manual-content','my-list-content','rotating-sections','seasonal-sections','other-users-activity'].includes(type)) return Promise.resolve({ definition, skipped:true });
                 if (type === 'multiple-collections-in-a-row' || type === 'libraries-in-a-row') return Promise.resolve({ definition:Object.assign({}, definition, { ItemIds:sourceIds }), skipped:false });
                 if (type === 'individual-tag-content' || type === 'multiple-tag-content' || type === 'muilti-match-tag-collection-content') {
                     const selectedTags = sourceIds.map(value => { const parts = value.split('|'); return { SourceLibraryId:parts[0], MetadataType:parts[1], MetadataValue:parts.slice(2).join('|'), AdditionalLibraryIds:[], CollectionTitle:name, Overview:'', ExistingCollectionAction:'', ArtPreference:'JellyfinDefault' }; });
@@ -1348,6 +1370,12 @@
                 }, () => { if (loadId === state.tagCatalogLoadId) target.innerHTML = '<p class="fieldDescription">Run Collection Manager’s metadata tag scan before selecting tags.</p>'; });
             }            function renderEditor() {
                 host.innerHTML = '<p class="fieldDescription">Loading section settings…</p>';
+                if (isMyListContentType()) {
+                    host.innerHTML = contentMarkup();
+                    const contentSection = host.querySelector('[data-hssm-content]').closest('section');
+                    contentSection.innerHTML = '<h2>My List Content Section</h2><p class="fieldDescription">No content selection is required. This section automatically loads the signed-in user’s own My List items, so every user sees only their own content.</p>';
+                    return;
+                }
                 if (isActivityType()) {
                     host.innerHTML = activityMarkup();
                     renderContent();
@@ -1432,7 +1460,7 @@
                 const needsTwo = kind() === 'multiple-tag-content' || kind() === 'muilti-match-tag-collection-content';
                 if (!state.name.trim()) { saveStatus.textContent = 'Enter a section name before saving.'; return; }
                 state.name = state.name.trim();
-                const required = isActivityType() ? 1 : isTopType() ? state.sources.length && state.contentItemOrder.length : isDraftType() ? state.drafts.length : kind() === 'manual-content' ? Object.keys(state.items).length : state.sources.length;
+                const required = isActivityType() || isMyListContentType() ? 1 : isTopType() ? state.sources.length && state.contentItemOrder.length : isDraftType() ? state.drafts.length : kind() === 'manual-content' ? Object.keys(state.items).length : state.sources.length;
                 if (isTopType() && (state.topLoadRunning || state.topPending)) { saveStatus.textContent = 'Wait for the current Top source selection to finish loading and ranking.'; return; }
                 if (!required || (needsTwo && state.sources.length < 2)) { saveStatus.textContent = needsTwo ? 'Select at least two metadata tags before saving.' : isTopType() && state.sources.length ? 'No selected media has a recognized IMDb or Jellyfin community rating to rank.' : 'Select content before saving.'; return; }
                 const order = Array.from(page.querySelectorAll('#hssmSectionList .hssm-section-row')).map(row => { const toggle = row.querySelector('[data-hssm-native-section-toggle]'); return toggle && !toggle.checked ? 'hidden:' + row.dataset.sectionId : row.dataset.sectionId; });
@@ -1464,7 +1492,7 @@
                 return body && (body.Detail || body.detail || body.Message || body.message || body.Title || body.title) || (text && String(text).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()) || (error && (error.message || error.statusText)) || 'Jellyfin returned no error details.';
             }
             function loadHomeScreenClient() {
-                const version = "0.1.0.33";
+                const version = "0.1.0.34";
                 let style = document.querySelector("link[data-hssm-client-style]");
                 if (!style || style.dataset.hssmClientVersion !== version) {
                     if (style) style.remove();
@@ -1776,8 +1804,9 @@
                     state.tagSources = {};
                     state.tagTypeLoadIds = {};
                     ApiClient.getJSON(ApiClient.getUrl('HomeScreenSectionsManager/section-settings')).then(saved => {
-                        const definition = (saved.Sections || saved.sections || []).find(item => String(item.Id || item.id) === state.id) || {};
-                        state.pageId = String(definition.PageId || definition.pageId || 'home');
+                        const model = (window.HSSMDashboardSectionModels || []).find(item => String(item.id) === state.id);
+                        const definition = (saved.Sections || saved.sections || []).find(item => String(item.Id || item.id) === state.id) || (model && model.definition) || {};
+                        state.pageId = String(definition.PageId || definition.pageId || window.HSSMActiveSectionPageId || 'home');
                         state.isVisible = definition.IsVisible !== undefined ? !!definition.IsVisible : (definition.isVisible !== undefined ? !!definition.isVisible : true);
                         state.isMediaBar = !!(definition.IsMediaBar !== undefined ? definition.IsMediaBar : definition.isMediaBar);
                         state.isApplied = !!(definition.IsApplied !== undefined ? definition.IsApplied : definition.isApplied);

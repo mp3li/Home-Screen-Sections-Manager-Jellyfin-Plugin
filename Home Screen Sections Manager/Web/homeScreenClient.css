@@ -138,11 +138,20 @@
     position: static !important;
 }
 
-.hssm-shape-circle .cardScalable,
 .hssm-shape-circle .cardPadder,
 .hssm-shape-circle .cardImageContainer {
     border-radius: 50% !important;
     overflow: hidden;
+}
+
+.hssm-shape-circle .cardScalable {
+    border-radius: 50% !important;
+    overflow: visible !important;
+    position: relative;
+}
+
+.hssm-shape-circle .hssm-my-list-button {
+    z-index: 20;
 }
 
 .hssm-shape-circle .cardText,

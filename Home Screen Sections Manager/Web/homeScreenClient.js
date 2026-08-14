@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    var CLIENT_VERSION = "0.1.0.33";
+    var CLIENT_VERSION = "0.1.0.34";
     if (window.HomeScreenManagerClient) {
         if (window.HomeScreenManagerClient.version === CLIENT_VERSION) {
             window.HomeScreenManagerClient.refresh();
@@ -352,7 +352,7 @@
         var custom = activeCustomPageContainer();
         if (custom) return custom;
         var myList = myListPageMarker();
-        if (myList && (myList.classList.contains('is-active') || activeMyListContainer())) return pageSectionsContainer(myList, 'my-list');
+        if (myList && (myList.classList.contains('is-active') || activeMyListContainer())) return activeMyListContainer();
         var favorites = activeFavoritesPanel();
         if (favorites) return pageSectionsContainer(favorites, 'favorites');
         return activeHomeContainer();
@@ -370,7 +370,9 @@
     function pageLayoutOrder(settings, pageId) {
         var layouts = prop(settings, 'PageLayouts', 'pageLayouts', []);
         var layout = layouts.find(function (candidate) { return String(prop(candidate, 'PageId', 'pageId', 'home')) === pageId; });
-        return layout ? prop(layout, 'SectionOrder', 'sectionOrder', []) : pageId === 'home' ? prop(settings, 'SectionOrder', 'sectionOrder', []) : [];
+        var order = layout ? prop(layout, 'SectionOrder', 'sectionOrder', []).slice() : pageId === 'home' ? prop(settings, 'SectionOrder', 'sectionOrder', []).slice() : [];
+        if (pageId === 'my-list' && !order.some(function (value) { return sectionOrderEntry(value).id === 'my-list-content'; })) order.unshift('my-list-content');
+        return order;
     }
 
     function settingsForPage(settings, pageId) {
@@ -380,10 +382,21 @@
         return scoped;
     }
 
+    function defaultMyListSection() {
+        return {
+            Id:'my-list-content', Name:'Added to My List', PageId:'my-list', Type:'my-list-content',
+            SourceIds:[], ItemIds:[], ContentOrder:'title-ascending', ArtSize:'medium', ArtType:'automatic',
+            ArtShape:'poster', ShowText:true, IsVisible:true, IsMediaBar:false, IsApplied:true
+        };
+    }
+
     function sectionsForPage(settings, pageId) {
-        return prop(settings, 'Sections', 'sections', []).filter(function (section) {
+        var allSections = prop(settings, 'Sections', 'sections', []);
+        var sections = allSections.filter(function (section) {
             return String(prop(section, 'PageId', 'pageId', 'home') || 'home') === pageId && prop(section, 'IsVisible', 'isVisible', true) !== false;
         });
+        if (pageId === 'my-list' && setting(settings, 'EnableMyList', false) && !allSections.some(function (section) { return String(prop(section, 'Id', 'id', '')) === 'my-list-content'; })) sections.unshift(defaultMyListSection());
+        return sections;
     }
 
     function getJson(path, parameters) {
@@ -664,7 +677,7 @@
         var id = String(prop(item, 'Id', 'id', ''));
         var name = String(prop(item, 'Name', 'name', ''));
         var type = String(prop(item, 'Type', 'type', ''));
-        var isMyList = String(prop(section, 'Id', 'id', '')) === 'my-list';
+        var isMyList = String(prop(section, 'Id', 'id', '')) === 'my-list' || String(prop(section, 'Type', 'type', '')) === 'my-list-content';
         var seriesId = String(prop(item, 'SeriesId', 'seriesId', ''));
         var seriesName = String(prop(item, 'SeriesName', 'seriesName', ''));
         var year = prop(item, 'ProductionYear', 'productionYear', '');
@@ -707,6 +720,8 @@
             if (loading) {
                 node.innerHTML = '<div class="sectionTitleContainer sectionTitleContainer-cards padded-left"><h2 class="sectionTitle sectionTitle-cards">' + escapeHtml(name) + '</h2></div><p class="hssm-section-loading padded-left">Loading section content…</p>';
                 node.dataset.hssmLoading = 'true';
+            } else if (String(prop(section, 'Type', 'type', '')) === 'my-list-content') {
+                node.innerHTML = '<div class="sectionTitleContainer sectionTitleContainer-cards padded-left"><h2 class="sectionTitle sectionTitle-cards">' + escapeHtml(name) + '</h2></div><p class="hssm-empty-list padded-left">My List is empty.</p>';
             } else {
                 node.hidden = true;
             }
@@ -1080,6 +1095,9 @@
     }
 
     function mediaBarSectionItems(section) {
+        if (String(prop(section, 'Type', 'type', '')) === 'my-list-content') {
+            return loadLikedItems(false).then(function (items) { return orderItems(uniqueItems(items), section).slice(0, 30); });
+        }
         var ids = prop(section, 'ItemIds', 'itemIds', []).map(String).slice(0, 30);
         var cached = sectionCache(section);
         if (cached && cached.items.length) {
@@ -2081,7 +2099,12 @@
         var request = null;
         state.dynamicLoader = null;
         state.dynamicTotal = null;
-        if (type === "other-users-activity") {
+        if (type === "my-list-content") {
+            request = loadLikedItems(true).then(function (items) {
+                state.dynamicTotal = items.length;
+                return items;
+            });
+        } else if (type === "other-users-activity") {
             var maximum = Math.max(1, Math.min(100, Number(prop(state.section, "ActivityMaxItems", "activityMaxItems", 20)) || 20));
             request = getJson("HomeScreenSectionsManager/other-users-items", {
                 mediaType:prop(state.section, "ActivityMediaType", "activityMediaType", "movies"),
@@ -2143,13 +2166,14 @@
         };
         sectionRuntime[id] = state;
         paintSectionState(state, !cached);
-        if (!cached || !cached.items.length) loadSectionPage(state);
-        else state.complete = sectionPageIds(section, state.cursor, 1).length === 0;
         var type = String(prop(section, 'Type', 'type', ''));
-        if (type === 'other-users-activity' || type === 'rotating-sections' || type === 'seasonal-sections') {
+        if (type === 'my-list-content') state.complete = false;
+        else if (!cached || !cached.items.length) loadSectionPage(state);
+        else state.complete = sectionPageIds(section, state.cursor, 1).length === 0;
+        if (type === 'my-list-content' || type === 'other-users-activity' || type === 'rotating-sections' || type === 'seasonal-sections') {
             window.setTimeout(function () {
                 if (state.generation === runtimeGeneration && sectionStateIsCurrent(state)) homeRequestLane(function () { return loadDynamicSection(state); });
-            }, 800);
+            }, type === 'my-list-content' ? 0 : 800);
         }
         return state;
     }
@@ -2229,7 +2253,7 @@
             return;
         }
         if (activeMyListContainer()) {
-            syncMyListView(settings);
+            clearPageContextTitle();
             return;
         }
         applyPageContextTitle(scope, "");

@@ -81,6 +81,25 @@ def run() -> None:
         native_show_x = page.locator("#hssmSectionList [data-section-id^='jellyfin-'] .hssm-native-section-toggle").first.bounding_box()["x"]
         manager_show_x = page.locator("#hssmSectionList [data-section-id='manager-one'] .hssm-native-section-toggle").bounding_box()["x"]
         assert abs(native_show_x - manager_show_x) < 1
+
+        page.locator("#hssmSectionPageSelect").select_option("my-list")
+        page.wait_for_selector("#hssmSectionList [data-section-id='my-list-content']")
+        assert page.locator("#hssmSectionList .hssm-section-row").first.get_attribute("data-section-id") == "my-list-content"
+        assert page.locator("#hssmSectionList [data-section-id='my-list-content']").get_attribute("draggable") == "true"
+        page.locator("#hssmSectionList [data-section-id='my-list-content']").click()
+        assert page.locator("#hssmEditSectionButton").is_enabled()
+        page.locator("#hssmEditSectionButton").click()
+        page.wait_for_selector("input[name='hssmType'][value='my-list-content']:checked")
+        page.locator("input[name='hssmMediaBarSection'][value='yes']").check()
+        assert page.locator("#hssmSectionList [data-section-id='my-list-content'] .hssm-badge-media").count() == 1
+        page.locator("#hssmFinishSectionButton").click()
+        page.wait_for_selector("#hssmTypeSpecificSettings >> text=No content selection is required.")
+        assert page.locator("#hssmTypeSpecificSettings [data-hssm-content]").count() == 0
+        page.locator("#hssmTypeSpecificSettings [data-hssm-save-move]").click()
+        page.wait_for_function("window.__sectionSettings.Sections.some(s => s.Id === 'my-list-content' && s.PageId === 'my-list' && s.IsMediaBar === true && s.ItemIds.length === 0)")
+
+        page.locator("#hssmSectionPageSelect").select_option("home")
+        page.wait_for_selector("#hssmSectionList [data-section-id='manager-one']")
         page.locator("#hssmSectionList [data-section-id='manager-one']").click()
         assert page.locator("#hssmMoveSectionButton").is_enabled()
         assert page.locator("#hssmCopySectionButton").is_enabled()
@@ -119,7 +138,17 @@ def run() -> None:
 
         page.locator("[data-tab='create-sections']").click()
         page.locator("#hssmSectionPageSelect").select_option("manager-page-movies")
+        page.wait_for_selector("#hssmSectionList [data-section-id='manager-two']")
         page.locator("#hssmAddSectionButton").click()
+        created_id = page.locator("#hssmSectionList [data-hssm-inline-section-name]").locator("xpath=ancestor::*[@data-section-id]").get_attribute("data-section-id")
+        page.locator("#hssmSectionList [data-hssm-inline-section-name]").fill("My List Spotlight")
+        page.locator("input[name='hssmType'][value='my-list-content']").check()
+        page.locator("#hssmFinishSectionButton").click()
+        page.wait_for_selector("#hssmTypeSpecificSettings >> text=No content selection is required.")
+        assert page.locator("#hssmTypeSpecificSettings [data-hssm-content]").count() == 0
+        page.locator("#hssmTypeSpecificSettings [data-hssm-save-move]").click()
+        page.wait_for_function("([id]) => window.__sectionSettings.Sections.some(s => s.Id === id && s.PageId === 'manager-page-movies' && s.ItemIds.length === 0)", arg=[created_id])
+        assert not page.evaluate("([id]) => window.__sectionSettings.Sections.some(s => s.Id === id && s.PageId === 'home')", [created_id])
         assert page.locator("#hssmNewSectionSettings").is_visible()
         assert page.locator("input[name='hssmMediaBarSection'][value='yes']").count() == 1
         assert page.locator("#hssmSectionList .hssm-badge-media").count() == 1
