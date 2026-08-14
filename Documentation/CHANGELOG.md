@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.0.45-test] - 2026-08-14
+
+- Enriches each per-user Watch Again episode with its live Series record before rendering, guaranteeing the Series Primary image and the full **Episode Title S00E00 Series Name** label while retaining completed movies and one newest completed episode per series.
+- Removes remaining Jellyfin flex and line-clamp constraints from long custom section headings so renamed Top 10-50 and other sections can use the available row width or wrap without truncation.
+- Uses the exact ordinary-section card DOM, size, aspect ratio, spacing, and rounding for Top Row items.
+- Replaces Top Row's cropped Media Bar backdrop with a long, soft, multi-stop gradient sampled from the active Media Bar's upper colors; the page and full Media Bar remain shifted below the row and unobstructed.
+
 ## [0.1.0.44-test] - 2026-08-14
 
 - Shows the newest completed Watch Again episode with its Series Primary image and the title format **Episode Title S00E00 Series Name**, while retaining completed movies and one episode per series.

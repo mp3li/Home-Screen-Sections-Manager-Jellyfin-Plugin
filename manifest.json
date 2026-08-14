@@ -9,13 +9,13 @@
     "imageUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Assets/Branding/home-screen-sections-manager-plugin-photo.png",
     "versions": [
       {
-        "version": "0.1.0.44",
-        "changelog": "Uses Series Primary art and Episode Title S00E00 Series Name for Watch Again episodes; makes Top Row match normal Extra Small cards and shift the page instead of covering Media Bars; restores proportional hover growth; and corrects Top Row editor spacing.",
+        "version": "0.1.0.45",
+        "changelog": "Guarantees Series Primary art and the full Episode Title S00E00 Series Name label for Watch Again episodes; removes long section-heading truncation; makes Top Row cards identical to normal Extra Small cards; and replaces cropped backdrop art with a soft sampled Media Bar gradient.",
         "targetAbi": "10.11.11.0",
         "framework": "net9.0",
-        "sourceUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Test%20Releases/0.1.0.44-test/Jellyfin.Plugin.HomeScreenSectionsManager_0.1.0.44-test.zip",
-        "checksum": "2ab6b346d0538111db1c0772d3a526b0",
-        "timestamp": "2026-08-14T08:24:35Z"
+        "sourceUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Test%20Releases/0.1.0.45-test/Jellyfin.Plugin.HomeScreenSectionsManager_0.1.0.45-test.zip",
+        "checksum": "77b4efd1ff03e664cdc1115810315a75",
+        "timestamp": "2026-08-14T08:45:04Z"
       }
     ]
   }

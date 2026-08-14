@@ -34,8 +34,9 @@ any selected Home screen pages, uses constrained Extra Small non-poster art,
 and opens its selected collections or libraries without adding row arrows,
 heart buttons, or hover Play controls. The Top Row uses the same card geometry
 as ordinary Extra Small sections, shifts the header and page content downward
-instead of covering the Media Bar, and blends its background with the active
-Media Bar artwork.
+instead of covering the Media Bar, and extends a long, soft, sampled-color
+gradient from the active Media Bar upward behind the row without cropping or
+reusing the backdrop image there.
 
 **Create and Manage Home Screen Sections** shows Jellyfin’s current home rows
 together with saved plugin sections. Jellyfin’s native Latest Media area is

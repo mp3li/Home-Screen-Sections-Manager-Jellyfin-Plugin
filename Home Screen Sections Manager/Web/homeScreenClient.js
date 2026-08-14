@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    var CLIENT_VERSION = "0.1.0.44";
+    var CLIENT_VERSION = "0.1.0.45";
     if (window.HomeScreenManagerClient) {
         if (window.HomeScreenManagerClient.version === CLIENT_VERSION) {
             window.HomeScreenManagerClient.refresh();
@@ -74,6 +74,7 @@
     var topRecoveryRequests = {};
     var topRowRenderKey = '';
     var topRowLoadSequence = 0;
+    var topRowGradientSequence = 0;
 
     function createLimiter(maximum) {
         var active = 0;
@@ -469,11 +470,32 @@
                     latestEpisodeBySeries[seriesId] = episode;
                 }
             });
-            var combined = uniqueItems(groups[0].concat(Object.keys(latestEpisodeBySeries).map(function (seriesId) {
-                return latestEpisodeBySeries[seriesId];
-            })));
-            watchAgainCaches[context] = { savedAt:Date.now(), items:combined };
-            return combined;
+            var seriesIds = Object.keys(latestEpisodeBySeries);
+            return queryIds(seriesIds).catch(function () { return []; }).then(function (seriesItems) {
+                var seriesById = {};
+                seriesItems.forEach(function (series) {
+                    seriesById[String(prop(series, 'Id', 'id', ''))] = series;
+                });
+                var episodes = seriesIds.map(function (seriesId) {
+                    var episode = latestEpisodeBySeries[seriesId];
+                    var series = seriesById[seriesId] || {};
+                    var tags = prop(series, 'ImageTags', 'imageTags', {}) || {};
+                    var seriesName = String(prop(series, 'Name', 'name', prop(episode, 'SeriesName', 'seriesName', '')) || '');
+                    var seasonNumber = Math.max(0, Number(prop(episode, 'ParentIndexNumber', 'parentIndexNumber', 0)) || 0);
+                    var episodeNumber = Math.max(0, Number(prop(episode, 'IndexNumber', 'indexNumber', 0)) || 0);
+                    var episodeCode = 'S' + String(seasonNumber).padStart(2, '0') + 'E' + String(episodeNumber).padStart(2, '0');
+                    return Object.assign({}, episode, {
+                        SeriesName:seriesName,
+                        SeriesPrimaryImageTag:String(tags.Primary || tags.primary || prop(episode, 'SeriesPrimaryImageTag', 'seriesPrimaryImageTag', '') || ''),
+                        _hssmWatchAgainEpisode:true,
+                        _hssmWatchAgainSeriesId:seriesId,
+                        _hssmWatchAgainTitle:[String(prop(episode, 'Name', 'name', '')), episodeCode, seriesName].filter(Boolean).join(' ')
+                    });
+                });
+                var combined = uniqueItems(groups[0].concat(episodes));
+                watchAgainCaches[context] = { savedAt:Date.now(), items:combined };
+                return combined;
+            });
         }).finally(function () { delete watchAgainRequests[context]; });
         return watchAgainRequests[context];
     }
@@ -772,8 +794,9 @@
         var name = String(prop(item, 'Name', 'name', ''));
         var type = String(prop(item, 'Type', 'type', ''));
         var isMyList = String(prop(section, 'Id', 'id', '')) === 'my-list' || String(prop(section, 'Type', 'type', '')) === 'my-list-content';
-        var isWatchAgain = String(prop(section, 'Type', 'type', '')) === 'watch-again';
-        var seriesId = String(prop(item, 'SeriesId', 'seriesId', ''));
+        var isWatchAgainEpisode = prop(item, '_hssmWatchAgainEpisode', '_hssmWatchAgainEpisode', false) === true;
+        var isWatchAgain = String(prop(section, 'Type', 'type', '')) === 'watch-again' || isWatchAgainEpisode;
+        var seriesId = String(prop(item, '_hssmWatchAgainSeriesId', '_hssmWatchAgainSeriesId', prop(item, 'SeriesId', 'seriesId', '')));
         var seriesName = String(prop(item, 'SeriesName', 'seriesName', ''));
         var year = prop(item, 'ProductionYear', 'productionYear', '');
         var serverId = typeof ApiClient.serverId === 'function' ? ApiClient.serverId() : '';
@@ -795,7 +818,7 @@
             var seasonNumber = Math.max(0, Number(prop(item, 'ParentIndexNumber', 'parentIndexNumber', 0)) || 0);
             var episodeNumber = Math.max(0, Number(prop(item, 'IndexNumber', 'indexNumber', 0)) || 0);
             var episodeCode = 'S' + String(seasonNumber).padStart(2, '0') + 'E' + String(episodeNumber).padStart(2, '0');
-            var watchAgainTitle = [name, episodeCode, seriesName].filter(Boolean).join(' ');
+            var watchAgainTitle = String(prop(item, '_hssmWatchAgainTitle', '_hssmWatchAgainTitle', '')) || [name, episodeCode, seriesName].filter(Boolean).join(' ');
             footer = '<div class="' + textClass + ' cardText-first hssm-card-title"><bdi><a is="emby-linkbutton" href="' + escapeHtml(href) + '" class="itemAction textActionButton">' + escapeHtml(watchAgainTitle) + '</a></bdi></div>';
         } else if (showText) {
             footer = '<div class="' + textClass + ' cardText-first hssm-card-title"><bdi><a is="emby-linkbutton" href="' + escapeHtml(href) + '" class="itemAction textActionButton">' + escapeHtml(name) + '</a></bdi></div>' + (year ? '<div class="' + textClass + ' cardText-secondary hssm-card-year"><bdi>' + escapeHtml(year) + '</bdi></div>' : '');
@@ -2720,18 +2743,79 @@
         }) || null;
     }
 
+    function topRowFallbackGradient(row) {
+        row.style.backgroundImage = 'linear-gradient(180deg, rgba(7, 10, 16, 0.68) 0%, rgba(7, 10, 16, 0.18) 62%, rgba(7, 10, 16, 0.04) 100%), linear-gradient(90deg, rgb(12, 15, 22) 0%, rgb(18, 21, 29) 50%, rgb(12, 15, 22) 100%)';
+        row.style.backgroundPosition = '';
+    }
+
+    function sampledTopRowGradient(image) {
+        var canvas = document.createElement('canvas');
+        var context = canvas.getContext('2d', { willReadFrequently:true });
+        if (!context) return '';
+        var sampleWidth = 70;
+        var sampleHeight = 6;
+        canvas.width = sampleWidth;
+        canvas.height = sampleHeight;
+        var sourceWidth = Number(image.naturalWidth || image.width || 0);
+        var sourceHeight = Number(image.naturalHeight || image.height || 0);
+        if (!sourceWidth || !sourceHeight) return '';
+        var sourceY = Math.max(0, Math.round(sourceHeight * 0.075));
+        var sourceSampleHeight = Math.max(1, Math.round(sourceHeight * 0.08));
+        context.drawImage(image, 0, sourceY, sourceWidth, Math.min(sourceSampleHeight, sourceHeight - sourceY), 0, 0, sampleWidth, sampleHeight);
+        var pixels = context.getImageData(0, 0, sampleWidth, sampleHeight).data;
+        var stops = [];
+        var bands = 7;
+        for (var band = 0; band < bands; band++) {
+            var start = Math.floor(band * sampleWidth / bands);
+            var end = Math.max(start + 1, Math.floor((band + 1) * sampleWidth / bands));
+            var red = 0, green = 0, blue = 0, count = 0;
+            for (var x = start; x < end; x++) {
+                for (var y = 0; y < sampleHeight; y++) {
+                    var offset = (y * sampleWidth + x) * 4;
+                    red += pixels[offset]; green += pixels[offset + 1]; blue += pixels[offset + 2]; count += 1;
+                }
+            }
+            var amount = band * 100 / (bands - 1);
+            stops.push('rgb(' + Math.round(red / count) + ', ' + Math.round(green / count) + ', ' + Math.round(blue / count) + ') ' + amount.toFixed(1) + '%');
+        }
+        return 'linear-gradient(180deg, rgba(7, 10, 16, 0.62) 0%, rgba(7, 10, 16, 0.14) 64%, rgba(7, 10, 16, 0.02) 100%), linear-gradient(90deg, ' + stops.join(', ') + ')';
+    }
+
     function syncTopRowBackdrop(frame, renderedData) {
         var row = document.querySelector('.hssm-top-row');
         if (!row) return;
         frame = frame || activeTopRowMediaBarFrame();
-        if (!frame || frame !== activeTopRowMediaBarFrame()) return;
+        if (!frame || frame !== activeTopRowMediaBarFrame()) {
+            topRowFallbackGradient(row);
+            return;
+        }
         var image = null;
         try { image = frame.contentDocument && frame.contentDocument.querySelector('#backdrop-img'); } catch (_) {}
         var url = String(renderedData && renderedData.backdropUrl || image && (image.currentSrc || image.src) || '');
-        if (!url) return;
-        var position = String(renderedData && renderedData.backdropPosition || image && image.style.objectPosition || 'center 20%');
-        row.style.backgroundImage = 'url(' + JSON.stringify(url) + ')';
-        row.style.backgroundPosition = position;
+        if (!url) {
+            topRowFallbackGradient(row);
+            return;
+        }
+        var sequence = ++topRowGradientSequence;
+        var sampler = new Image();
+        try {
+            var imageUrl = new URL(url, document.baseURI);
+            if (imageUrl.origin !== window.location.origin) sampler.crossOrigin = 'anonymous';
+        } catch (_) {}
+        sampler.onload = function () {
+            if (sequence !== topRowGradientSequence || !row.isConnected) return;
+            try {
+                var gradient = sampledTopRowGradient(sampler);
+                if (gradient) {
+                    row.style.backgroundImage = gradient;
+                    row.style.backgroundPosition = '';
+                } else topRowFallbackGradient(row);
+            } catch (_) { topRowFallbackGradient(row); }
+        };
+        sampler.onerror = function () {
+            if (sequence === topRowGradientSequence && row.isConnected) topRowFallbackGradient(row);
+        };
+        sampler.src = url;
     }
 
     function topRowCard(item, section) {
@@ -2742,7 +2826,7 @@
         var imageUrl = cardImage(item, section);
         var imageStyle = imageUrl ? ' style="background-image:url(&quot;' + escapeHtml(imageUrl) + '&quot;)"' : '';
         var shape = cardShape(section);
-        return '<a is="emby-linkbutton" class="card ' + shape.card + ' card-hoverable hssm-client-card hssm-top-row-card itemAction" data-action="link" data-id="' + escapeHtml(id) + '" href="' + escapeHtml(href) + '" aria-label="' + escapeHtml(name) + '"><div class="cardBox"><div class="cardScalable"><div class="cardPadder ' + shape.padder + '"></div><span class="cardImageContainer coveredImage cardContent hssm-top-row-art"' + imageStyle + '><span class="hssm-top-row-hover"></span></span></div></div></a>';
+        return '<div class="card ' + shape.card + ' card-hoverable hssm-client-card hssm-top-row-card" data-id="' + escapeHtml(id) + '"><div class="cardBox"><div class="cardScalable"><div class="cardPadder ' + shape.padder + '"></div><a is="emby-linkbutton" href="' + escapeHtml(href) + '" data-action="link" class="cardImageContainer coveredImage cardContent itemAction hssm-top-row-art" aria-label="' + escapeHtml(name) + '"' + imageStyle + '><span class="hssm-top-row-hover"></span></a></div></div></div>';
     }
 
     function bindTopRowScroller(row) {

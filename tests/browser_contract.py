@@ -29,7 +29,7 @@ def run() -> None:
     settings = {
         "Sections": [
             {"Id": "jellyfin-0-resume", "Name": "Continue Watching", "PageId": "home", "Type": "resume", "ItemIds": [], "SourceIds": [], "IsApplied": True, "IsVisible": True, "IsMediaBar": False, "ArtSize": "large", "ArtType": "thumb", "ArtShape": "circle", "ShowText": False, "ShowSectionName": False},
-            {"Id": "manager-home-top", "Name": "Top 20 in Foreign Collection", "PageId": "home", "Type": "top-10-50", "SourceIds": ["collection|top-source"], "ItemIds": [], "DisplayTopCount": 20, "ShowRankNumbers": True, "RankNumberColorMode": "horizontal-gradient", "RankNumberColorOne": "#ff0000", "RankNumberColorTwo": "#0000ff", "RankNumberShadowColor": "#123456", "IsApplied": True, "IsVisible": True, "IsMediaBar": False},
+            {"Id": "manager-home-top", "Name": "Top 20 in Foreign Collection With A Deliberately Long Custom Section Name", "PageId": "home", "Type": "top-10-50", "SourceIds": ["collection|top-source"], "ItemIds": [], "DisplayTopCount": 20, "ShowRankNumbers": True, "RankNumberColorMode": "horizontal-gradient", "RankNumberColorOne": "#ff0000", "RankNumberColorTwo": "#0000ff", "RankNumberShadowColor": "#123456", "IsApplied": True, "IsVisible": True, "IsMediaBar": False},
             {"Id": "manager-home-test", "Name": "Test Section", "PageId": "home", "Type": "manual-content", "ItemIds": ["resume-two"], "ArtSize": "extra-small", "ArtShape": "wide", "ShowSectionName": False, "IsApplied": True, "IsVisible": True, "IsMediaBar": False},
             {"Id": "manager-movies-one", "Name": "Movie Picks", "PageId": "manager-page-movies", "Type": "manual-content", "ItemIds": ["resume-one"], "IsApplied": True, "IsVisible": True, "IsMediaBar": True},
             {"Id": "manager-movies-two", "Name": "More Movies", "PageId": "manager-page-movies", "Type": "manual-content", "ItemIds": ["resume-two"], "IsApplied": True, "IsVisible": True, "IsMediaBar": True},
@@ -138,7 +138,7 @@ def run() -> None:
                 elif path.endswith("/Images/Logo"):
                     route.fulfill(status=200, content_type="image/svg+xml", body='<svg xmlns="http://www.w3.org/2000/svg" width="320" height="120"><text x="12" y="82" fill="white" font-size="72">LOGO</text></svg>')
                 else:
-                    route.fulfill(status=200, content_type="image/svg+xml", body='<svg xmlns="http://www.w3.org/2000/svg" width="32" height="18"><rect width="32" height="18" fill="blue"/></svg>')
+                    route.fulfill(status=200, content_type="image/svg+xml", body='<svg xmlns="http://www.w3.org/2000/svg" width="70" height="40"><rect width="24" height="40" fill="#173b78"/><rect x="24" width="23" height="40" fill="#6d295f"/><rect x="47" width="23" height="40" fill="#1d5a4f"/></svg>')
             elif path.endswith("/ui/spotlight.css"):
                 route.fulfill(status=200, content_type="text/css", body="body{margin:0;background:#000;color:#fff}")
             else:
@@ -217,6 +217,10 @@ def run() -> None:
         page.wait_for_function("document.querySelector('#homeTab').classList.contains('is-active')")
         page.wait_for_selector("#homeTab [data-hssm-section-id='manager-home-top'] .hssm-client-card")
         page.wait_for_selector("#homeTab [data-hssm-section-id='manager-home-test'] .hssm-client-card")
+        long_section_heading = page.locator("#homeTab [data-hssm-section-id='manager-home-top'] > .sectionTitleContainer > .sectionTitle")
+        assert long_section_heading.inner_text().strip() == "Top 20 in Foreign Collection With A Deliberately Long Custom Section Name"
+        heading_style = long_section_heading.evaluate("node => ({overflow:getComputedStyle(node).overflow,textOverflow:getComputedStyle(node).textOverflow,whiteSpace:getComputedStyle(node).whiteSpace,lineClamp:getComputedStyle(node).webkitLineClamp,width:node.getBoundingClientRect().width,parentWidth:node.parentElement.getBoundingClientRect().width})")
+        assert heading_style["overflow"] == "visible" and heading_style["textOverflow"] == "clip" and heading_style["whiteSpace"] == "normal" and heading_style["lineClamp"] == "none" and heading_style["width"] > heading_style["parentWidth"] * 0.9, heading_style
         page.wait_for_selector(".skinHeader > .hssm-top-row .hssm-top-row-card[data-id='top-row-1']")
         top_row_state = page.evaluate("""() => {
           const header=document.querySelector('.skinHeader'), row=header.querySelector(':scope > .hssm-top-row'), track=row.querySelector('.hssm-top-row-track'), card=row.querySelector('.hssm-top-row-card');
@@ -227,12 +231,13 @@ def run() -> None:
             noPlay:row.querySelectorAll('[data-action="resume"],.cardOverlayFab-primary').length===0,
             noHeart:row.querySelectorAll('.hssm-my-list-button').length===0,
             hasDarkHover:!!row.querySelector('.hssm-top-row-hover'),
-            href:card.getAttribute('href'),
+            href:card.querySelector('.cardImageContainer').getAttribute('href'),
             backdropFilter:getComputedStyle(row,'::before').backdropFilter || getComputedStyle(row,'::before').webkitBackdropFilter,
             standardCard:card.classList.contains('card') && !!card.querySelector('.cardBox .cardScalable .cardPadder.cardPadder-backdrop + .cardImageContainer'),
             gap:parseFloat(getComputedStyle(track).gap),
             normalGap:parseFloat(getComputedStyle(document.querySelector('#homeTab [data-hssm-section-id="manager-home-test"] .hssm-client-items')).gap),
             width:card.getBoundingClientRect().width,
+            scalableRatio:(() => { const box=card.querySelector('.cardScalable').getBoundingClientRect(); return box.height / box.width; })(),
             scrollable:track.scrollWidth>track.clientWidth
           };
         }""")
@@ -253,6 +258,8 @@ def run() -> None:
         assert hidden_name_spacing >= 0.8, hidden_name_spacing
         extra_small_wide_width = page.locator("#homeTab [data-hssm-section-id='manager-home-test'] .hssm-client-card").evaluate("node => node.getBoundingClientRect().width")
         assert abs(extra_small_wide_width - top_row_state["width"]) < 1, {"section": extra_small_wide_width, "topRow": top_row_state["width"]}
+        normal_scalable_ratio = page.locator("#homeTab [data-hssm-section-id='manager-home-test'] .hssm-client-card .cardScalable").evaluate("node => node.getBoundingClientRect().height / node.getBoundingClientRect().width")
+        assert abs(normal_scalable_ratio - top_row_state["scalableRatio"]) < 0.01, {"section": normal_scalable_ratio, "topRow": top_row_state["scalableRatio"]}
         top_row_radius = page.evaluate("""() => ({top:getComputedStyle(document.querySelector('.hssm-top-row-card .cardImageContainer')).borderRadius,section:getComputedStyle(document.querySelector('#homeTab [data-hssm-section-id="manager-home-test"] .cardImageContainer')).borderRadius})""")
         assert top_row_radius["top"] == top_row_radius["section"], top_row_radius
         page.wait_for_selector("#homeTab [data-hssm-section-id='manager-home-top'] .hssm-my-list-button")
@@ -293,7 +300,9 @@ def run() -> None:
         page.wait_for_selector(".hssm-my-list-tab")
         page.wait_for_selector(".hssm-custom-page-tab[data-hssm-page-id='manager-page-movies']")
         page.wait_for_function("document.querySelector('.hssm-owned-media-bar').dataset.hssmAppliedImageType === 'primary'")
-        page.wait_for_function("document.querySelector('.hssm-top-row').style.backgroundImage.includes('/Items/')")
+        page.wait_for_function("document.querySelector('.hssm-top-row').style.backgroundImage.includes('linear-gradient')")
+        top_row_background = page.locator(".hssm-top-row").evaluate("row => row.style.backgroundImage")
+        assert "url(" not in top_row_background and "/Items/" not in top_row_background and top_row_background.count("rgb(") >= 5, top_row_background
         shifted_top_geometry = page.evaluate("""() => { const row=document.querySelector('.hssm-top-row').getBoundingClientRect(), controls=document.querySelector('.headerLeft').getBoundingClientRect(), index=document.querySelector('#indexPage'); return {rowBottom:row.bottom,controlsTop:controls.top,rowHeight:row.height,pageShift:parseFloat(getComputedStyle(index).marginTop)}; }""")
         assert shifted_top_geometry["controlsTop"] >= shifted_top_geometry["rowBottom"] - 1, shifted_top_geometry
         assert shifted_top_geometry["pageShift"] >= shifted_top_geometry["rowHeight"] - 1, shifted_top_geometry
