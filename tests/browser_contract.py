@@ -51,6 +51,7 @@ def run() -> None:
     resume = base_item("resume-one", "Resume One")
     resume_two = base_item("resume-two", "Resume Two")
     liked = base_item("liked-one", "Liked One")
+    liked["ImageTags"]["Logo"] = "logo-tag"
     requests: list[str] = []
     page_errors: list[str] = []
 
@@ -198,6 +199,10 @@ def run() -> None:
         page.locator(".hssm-my-list-tab").click()
         page.wait_for_selector(".hssm-owned-my-list-page.is-active .hssm-client-card[data-id='liked-one']")
         page.wait_for_selector(".hssm-owned-my-list-page.is-active .hssm-section-media-bar[data-hssm-media-section-id='my-list-content']")
+        my_list_frame = page.frame_locator(".hssm-owned-my-list-page.is-active .hssm-section-media-bar[data-hssm-media-section-id='my-list-content']")
+        my_list_frame.locator("#logo").wait_for(state="visible")
+        assert "/Items/liked-one/Images/Logo" in my_list_frame.locator("#logo").get_attribute("src")
+        assert all("/Images/Backdrop" not in url and "/Images/Primary" not in url and "/Images/Thumb" not in url and "/Images/Banner" not in url for url in [my_list_frame.locator("#logo").get_attribute("src")])
         my_list_state = page.evaluate(
             """() => ({
               homeActive: document.querySelector('#homeTab').classList.contains('is-active'),
@@ -227,10 +232,12 @@ def run() -> None:
               visibleSections: document.querySelectorAll('.hssm-owned-custom-page.is-active [data-hssm-section-id]').length,
               hiddenSectionAbsent: !document.querySelector('[data-hssm-section-id="manager-movies-hidden"]'),
               mediaBars: document.querySelectorAll('.hssm-owned-custom-page.is-active .hssm-section-media-bar').length,
-              lowerBarMarked: document.querySelector('.hssm-section-media-bar[data-hssm-media-section-id="manager-movies-two"]').classList.contains('hssm-media-bar-not-first')
+              lowerBarMarked: document.querySelector('.hssm-section-media-bar[data-hssm-media-section-id="manager-movies-two"]').classList.contains('hssm-media-bar-not-first'),
+              topPadding: parseFloat(getComputedStyle(document.querySelector('.hssm-owned-custom-page.is-active')).paddingTop)
             })"""
         )
-        assert custom_page_state == {"titleAbsent": True, "visibleSections": 2, "hiddenSectionAbsent": True, "mediaBars": 2, "lowerBarMarked": True}, custom_page_state
+        assert {key: value for key, value in custom_page_state.items() if key != "topPadding"} == {"titleAbsent": True, "visibleSections": 2, "hiddenSectionAbsent": True, "mediaBars": 2, "lowerBarMarked": True}, custom_page_state
+        assert custom_page_state["topPadding"] >= 60, custom_page_state
         page.frame_locator(".hssm-section-media-bar[data-hssm-media-section-id='manager-movies-two']").locator("body.hssm-media-bar-top-gradient").wait_for(state="attached")
         settings["HideFavorites"] = True
         settings["PageOrder"] = ["home", "hidden:favorites", "my-list", "manager-page-movies"]

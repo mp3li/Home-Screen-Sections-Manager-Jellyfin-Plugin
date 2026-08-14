@@ -602,7 +602,7 @@
             addButton.addEventListener('click', () => {
                 sectionLoadSequence += 1;
                 const id = 'manager-' + Date.now();
-                const item = { id, name:'New Section', origin:'manager', type:'', enabled:true, isMediaBar:false, pageId:activePageId };
+                const item = { id, name:'New Section', origin:'manager', type:'', enabled:true, isMediaBar:false, pageId:activePageId, isEditing:false };
                 const index = sections.findIndex(section => section.id === selectedId);
                 sections.splice(index < 0 ? sections.length : index + 1, 0, item);
                 selectedId = id;
@@ -616,6 +616,7 @@
             editButton.addEventListener('click', () => {
                 const item = selected();
                 if (!item || item.origin !== 'manager') return;
+                item.isEditing = true;
                 draftId = item.id;
                 render();
                 showDraft();
@@ -708,7 +709,7 @@
                 const item = draft();
                 if (!item || !item.name.trim() || !item.type) return;
                 item.name = item.name.trim();
-                const created = { id:item.id, name:item.name, type:item.type, pageId:activePageId, isMediaBar:!!item.isMediaBar };
+                const created = { id:item.id, name:item.name, type:item.type, pageId:activePageId, isMediaBar:!!item.isMediaBar, isEditing:!!item.isEditing };
                 render();
                 newSettings.hidden = false;
                 page.dispatchEvent(new CustomEvent('hssm-section-type-created', { detail:created }));
@@ -828,7 +829,7 @@
             const page = document.getElementById('homeScreenSectionsManagerPage');
             const host = page && page.querySelector('#hssmTypeSpecificSettings');
             if (!page || !host) return;
-            const state = { id:'', name:'', type:'', pageId:'home', isVisible:true, isMediaBar:false, isApplied:false, sources:[], items:{}, resolvedItemIds:[], contentItems:[], contentItemOrder:[], draggedContentId:null, contentPage:1, contentOrder:'title-ascending', artSize:'medium', artType:'automatic', artShape:'poster', showText:true, libraries:[], collections:[], manual:{}, manualStates:{}, tagSearch:'', tagSources:{}, tagTypeLoadIds:{}, tagCatalogLoadId:0, drafts:[], draftLibraryIds:[], draggedDraftId:null, rotationValue:1, rotationUnit:'days', draftPreviewLoadId:0, topLoadRunning:false, topPending:null, displayTop:10, showRankNumbers:true, rankNumberColorMode:'solid', rankNumberColorOne:'#f5f5f7', rankNumberColorTwo:'#f5f5f7', rankNumberFontDataUrl:'', activityMaxItems:20, activityMediaType:'movies', activityPreviewLoadId:0 };
+            const state = { id:'', name:'', type:'', pageId:'home', isVisible:true, isMediaBar:false, isApplied:false, isEditing:false, sources:[], items:{}, resolvedItemIds:[], contentItems:[], contentItemOrder:[], draggedContentId:null, contentPage:1, contentOrder:'title-ascending', artSize:'medium', artType:'automatic', artShape:'poster', showText:true, libraries:[], collections:[], manual:{}, manualStates:{}, tagSearch:'', tagSources:{}, tagTypeLoadIds:{}, tagCatalogLoadId:0, drafts:[], draftLibraryIds:[], draggedDraftId:null, rotationValue:1, rotationUnit:'days', draftPreviewLoadId:0, topLoadRunning:false, topPending:null, displayTop:10, showRankNumbers:true, rankNumberColorMode:'solid', rankNumberColorOne:'#f5f5f7', rankNumberColorTwo:'#f5f5f7', rankNumberFontDataUrl:'', activityMaxItems:20, activityMediaType:'movies', activityPreviewLoadId:0 };
             const esc = value => { const el = document.createElement('span'); el.textContent = value == null ? '' : String(value); return el.innerHTML; };
             const cm = path => ApiClient.getJSON(ApiClient.getUrl('CollectionManager/' + path));
             const cmPost = (path, body) => ApiClient.ajax({ type:'POST', url:ApiClient.getUrl('CollectionManager/' + path), data:JSON.stringify(body), contentType:'application/json', dataType:'json' });
@@ -926,7 +927,7 @@
                 return match ? String(match.name) : (state.pageId === 'home' ? 'Home' : 'Selected Page');
             }
             function contentMarkup(rowMode) {
-                return '<section class="hssm-conditional-section"><h2>Content In Section</h2><p class="fieldDescription">This selected content will be displayed in your section.</p><div data-hssm-content class="' + (rowMode ? 'hssm-row-preview' : '') + '"><p class="fieldDescription">No content is currently selected.</p></div></section><div class="hssm-actions"><button is="emby-button" type="button" class="raised button-submit" data-hssm-save-move>Save and Move On</button></div><p class="fieldDescription" data-hssm-save-status aria-live="polite"></p><section class="hssm-conditional-section hssm-order-settings" data-hssm-order-settings hidden><h2>Section Content Order Settings</h2><p class="fieldDescription">Select which order you want your home screen section content to appear in. Ordering by rating requires ratings to be in your media tags.</p><div class="selectContainer"><label class="selectLabel" for="hssmSectionContentOrder">Content Order</label><select is="emby-select" id="hssmSectionContentOrder" data-hssm-content-order>' + orderOptions() + '</select></div><div class="hssm-manual-order-editor" data-hssm-manual-order hidden><p class="fieldDescription">Drag the content below into the exact order you want it to appear in this home screen section.</p><div class="hssm-manual-order-list" data-hssm-manual-order-list></div></div></section><section class="hssm-conditional-section hssm-art-settings" data-hssm-art-settings hidden><h2>Section Art Appearance Settings</h2><p class="fieldDescription">Choose the size, Jellyfin image type, shape, and title-text visibility for the regular section row. When this section is a Media Bar, these settings affect the matching section directly below the Media Bar, not the Media Bar itself.</p><div class="selectContainer"><label class="selectLabel" for="hssmSectionArtSize">Art Size</label><select is="emby-select" id="hssmSectionArtSize" data-hssm-art-size>' + artSizeOptions() + '</select></div><div class="selectContainer"><label class="selectLabel" for="hssmSectionArtType">Art Type</label><select is="emby-select" id="hssmSectionArtType" data-hssm-art-type>' + artTypeOptions() + '</select></div><div class="selectContainer"><label class="selectLabel" for="hssmSectionArtShape">Art Shape</label><select is="emby-select" id="hssmSectionArtShape" data-hssm-art-shape>' + artShapeOptions() + '</select></div><label class="checkboxContainer"><input is="emby-checkbox" type="checkbox" data-hssm-show-text' + (state.showText ? ' checked' : '') + ' /><span>Show text under the art</span></label><p class="fieldDescription">Show the media name and year beneath each image.</p>' + numberingMarkup() + '<div class="hssm-actions"><button is="emby-button" type="button" class="raised button-submit" data-hssm-apply-section>Add Section to ' + esc(destinationPageName()) + ' Page</button></div><p class="fieldDescription" data-hssm-apply-status aria-live="polite"></p></section>';
+                return '<section class="hssm-conditional-section"><h2>Content In Section</h2><p class="fieldDescription">This selected content will be displayed in your section.</p><div data-hssm-content class="' + (rowMode ? 'hssm-row-preview' : '') + '"><p class="fieldDescription">No content is currently selected.</p></div></section><div class="hssm-actions"><button is="emby-button" type="button" class="raised button-submit" data-hssm-save-move>Save and Move On</button></div><p class="fieldDescription" data-hssm-save-status aria-live="polite"></p><section class="hssm-conditional-section hssm-order-settings" data-hssm-order-settings hidden><h2>Section Content Order Settings</h2><p class="fieldDescription">Select which order you want your home screen section content to appear in. Ordering by rating requires ratings to be in your media tags.</p><div class="selectContainer"><label class="selectLabel" for="hssmSectionContentOrder">Content Order</label><select is="emby-select" id="hssmSectionContentOrder" data-hssm-content-order>' + orderOptions() + '</select></div><div class="hssm-manual-order-editor" data-hssm-manual-order hidden><p class="fieldDescription">Drag the content below into the exact order you want it to appear in this home screen section.</p><div class="hssm-manual-order-list" data-hssm-manual-order-list></div></div></section><section class="hssm-conditional-section hssm-art-settings" data-hssm-art-settings hidden><h2>Section Art Appearance Settings</h2><p class="fieldDescription">Choose the size, Jellyfin image type, shape, and title-text visibility for the regular section row. When this section is a Media Bar, these settings affect the matching section directly below the Media Bar, not the Media Bar itself.</p><div class="selectContainer"><label class="selectLabel" for="hssmSectionArtSize">Art Size</label><select is="emby-select" id="hssmSectionArtSize" data-hssm-art-size>' + artSizeOptions() + '</select></div><div class="selectContainer"><label class="selectLabel" for="hssmSectionArtType">Art Type</label><select is="emby-select" id="hssmSectionArtType" data-hssm-art-type>' + artTypeOptions() + '</select></div><div class="selectContainer"><label class="selectLabel" for="hssmSectionArtShape">Art Shape</label><select is="emby-select" id="hssmSectionArtShape" data-hssm-art-shape>' + artShapeOptions() + '</select></div><label class="checkboxContainer"><input is="emby-checkbox" type="checkbox" data-hssm-show-text' + (state.showText ? ' checked' : '') + ' /><span>Show text under the art</span></label><p class="fieldDescription">Show the media name and year beneath each image.</p>' + numberingMarkup() + '<div class="hssm-actions"><button is="emby-button" type="button" class="raised button-submit" data-hssm-apply-section>' + (state.isEditing ? 'Refresh Section' : 'Add Section to ' + esc(destinationPageName()) + ' Page') + '</button></div><p class="fieldDescription" data-hssm-apply-status aria-live="polite"></p></section>';
             }
             function orderOptions() {
                 return [
@@ -1492,7 +1493,7 @@
                 return body && (body.Detail || body.detail || body.Message || body.message || body.Title || body.title) || (text && String(text).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()) || (error && (error.message || error.statusText)) || 'Jellyfin returned no error details.';
             }
             function loadHomeScreenClient() {
-                const version = "0.1.0.34";
+                const version = "0.1.0.35";
                 let style = document.querySelector("link[data-hssm-client-style]");
                 if (!style || style.dataset.hssmClientVersion !== version) {
                     if (style) style.remove();
@@ -1584,13 +1585,14 @@
                 state.showText = showText.checked;
                 button.disabled = true;
                 const destination = destinationPageName();
-                applyStatus.textContent = 'Adding section to ' + destination + '…';
+                const editing = state.isEditing;
+                applyStatus.textContent = editing ? 'Refreshing section…' : 'Adding section to ' + destination + '…';
                 ensureJavaScriptInjectorLoader().then(() => ApiClient.ajax({ type:'POST', url:ApiClient.getUrl('HomeScreenSectionsManager/sections/' + encodeURIComponent(state.id) + '/apply'), data:JSON.stringify({ ContentOrder:state.contentOrder, ItemIds:state.contentItemOrder, ArtSize:state.artSize, ArtType:state.artType, ArtShape:state.artShape, ShowText:state.showText, IsVisible:state.isVisible, IsMediaBar:state.isMediaBar, DisplayTopCount:state.displayTop, ShowRankNumbers:state.showRankNumbers, RankNumberColorMode:state.rankNumberColorMode, RankNumberColorOne:state.rankNumberColorOne, RankNumberColorTwo:state.rankNumberColorTwo, RankNumberFontDataUrl:state.rankNumberFontDataUrl, ActivityMaxItems:state.activityMaxItems, ActivityMediaType:state.activityMediaType }), contentType:'application/json', dataType:'json' })).then(response => { window.HSSMNotifyClientSettingsChanged(); return loadHomeScreenClient().then(() => response); }).then(() => {
                     state.isApplied = true;
-                    applyStatus.textContent = 'Section added to ' + destination + '.';
-                    if (window.Dashboard && typeof Dashboard.alert === 'function') Dashboard.alert('Section added to ' + destination + ' through JavaScript Injector.');
+                    applyStatus.textContent = editing ? 'Section refreshed.' : 'Section added to ' + destination + '.';
+                    if (window.Dashboard && typeof Dashboard.alert === 'function') Dashboard.alert(editing ? 'Section refreshed through JavaScript Injector.' : 'Section added to ' + destination + ' through JavaScript Injector.');
                 }, error => {
-                    const message = 'Section could not be added to ' + destination + ': ' + errorMessage(error);
+                    const message = editing ? 'Section could not be refreshed: ' + errorMessage(error) : 'Section could not be added to ' + destination + ': ' + errorMessage(error);
                     applyStatus.textContent = message;
                     if (window.Dashboard && typeof Dashboard.alert === 'function') Dashboard.alert(message);
                 }).finally(() => { button.disabled = false; });
@@ -1749,12 +1751,16 @@
             page.addEventListener('hssm-section-type-created', event => {
                 const detail = event.detail || {};
                 if (!detail.id || !detail.name || !detail.type) return;
+                const preserveExisting = !!detail.isEditing && state.id === String(detail.id) && state.type === String(detail.type);
                 state.id = String(detail.id);
                 state.name = String(detail.name);
                 state.type = String(detail.type);
                 state.pageId = String(detail.pageId || 'home');
-                state.isVisible = true;
                 state.isMediaBar = !!detail.isMediaBar;
+                state.isEditing = !!detail.isEditing;
+                page.querySelector('#hssmNewSectionSettings').hidden = false;
+                if (preserveExisting) { renderEditor(); return; }
+                state.isVisible = true;
                 state.isApplied = false;
                 state.sources = [];
                 state.items = {};
@@ -1789,7 +1795,6 @@
                 state.activityPreviewLoadId = 0;
                 if (isTopType()) { setSectionName('Top 10'); ensureTopDraft().Name = 'Top 10'; }
                 if (isActivityType()) setSectionName(activitySectionName(state.activityMediaType));
-                page.querySelector('#hssmNewSectionSettings').hidden = false;
                 renderEditor();
             });
             page.addEventListener('click', event => {
@@ -1800,6 +1805,7 @@
                     state.id = row.dataset.sectionId;
                     state.name = name.value.trim();
                     state.type = type.value;
+                    state.isEditing = true;
                     state.tagSearch = '';
                     state.tagSources = {};
                     state.tagTypeLoadIds = {};

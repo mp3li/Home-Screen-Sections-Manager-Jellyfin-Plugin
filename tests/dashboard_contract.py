@@ -17,7 +17,7 @@ def run() -> None:
         page.on("pageerror", lambda error: page_errors.append(str(error)))
         page.goto("about:blank")
         page.evaluate(
-            """
+            r"""
             () => {
               window.__sectionSettings = {
                 JellyfinSectionLabelColor:'#00a4dc', ManagerSectionLabelColor:'#aa5cc3', MediaBarSectionLabelColor:'#c78000',
@@ -35,6 +35,7 @@ def run() -> None:
                 ]
               };
               window.__mainSettings = {EnableMyList:true,HideFavorites:false,EnableRemoveContinueNextUp:false,EnableSeriesInfo:false,InfiniteScrollLibraryIds:[],EnableCollectionsOnDetailPage:false,EnableEnhancedSearch:false,EnableBreadcrumbs:false};
+              window.__applyCalls = [];
               window.Dashboard = { alert(){}, showLoadingMsg(){}, hideLoadingMsg(){} };
               window.ApiClient = {
                 getCurrentUserId:()=> 'user', serverId:()=> 'server',
@@ -45,12 +46,19 @@ def run() -> None:
                   if(String(url).includes('customization-settings')) return Promise.resolve({});
                   if(String(url).includes('DisplayPreferences')) return Promise.resolve({CustomPrefs:{homesection0:'resume'}});
                   if(String(url).includes('Users/user/Views')) return Promise.resolve({Items:[{Id:'library',Name:'Movies',CollectionType:'movies'}]});
-                  if(String(url).includes('Plugins')) return Promise.resolve([]);
+                  if(String(url).includes('Plugins')) return Promise.resolve([{Name:'JavaScript Injector',Id:'injector'}]);
                   if(String(url).includes('Branding/Configuration')) return Promise.resolve({CustomCss:''});
                   return Promise.resolve({Items:[]});
                 },
                 ajax:(options)=> {
                   const body = options.data ? JSON.parse(options.data) : {};
+                  const applyMatch = String(options.url).match(/sections\/([^/]+)\/apply/);
+                  if(applyMatch) {
+                    const id = decodeURIComponent(applyMatch[1]);
+                    const section = window.__sectionSettings.Sections.find(item => item.Id === id);
+                    if(section) Object.assign(section, body, {IsApplied:true});
+                    window.__applyCalls.push({id, body});
+                  }
                   if(String(options.url).includes('section-settings')) window.__sectionSettings = Object.assign({}, window.__sectionSettings, body);
                   if(String(options.url).includes('main-settings')) window.__mainSettings = Object.assign({}, window.__mainSettings, body);
                   return Promise.resolve(body);
@@ -61,6 +69,7 @@ def run() -> None:
                 getPluginConfiguration:()=>Promise.resolve({CustomJavaScripts:[]}),
                 updatePluginConfiguration:()=>Promise.resolve()
               };
+              window.HomeScreenManagerClient = { version:'0.1.0.35', refresh(){} };
               window.CustomElements = { upgradeSubtree(){} };
             }
             """
@@ -97,6 +106,13 @@ def run() -> None:
         assert page.locator("#hssmTypeSpecificSettings [data-hssm-content]").count() == 0
         page.locator("#hssmTypeSpecificSettings [data-hssm-save-move]").click()
         page.wait_for_function("window.__sectionSettings.Sections.some(s => s.Id === 'my-list-content' && s.PageId === 'my-list' && s.IsMediaBar === true && s.ItemIds.length === 0)")
+        assert page.locator("#hssmTypeSpecificSettings [data-hssm-apply-section]").text_content().strip() == "Refresh Section"
+        my_list_count = page.evaluate("window.__sectionSettings.Sections.filter(s => s.Id === 'my-list-content').length")
+        page.locator("#hssmTypeSpecificSettings [data-hssm-apply-section]").click()
+        page.wait_for_function("window.__applyCalls.some(call => call.id === 'my-list-content' && call.body.IsMediaBar === true)")
+        page.wait_for_function("document.querySelector('[data-hssm-apply-status]').textContent === 'Section refreshed.'")
+        assert page.evaluate("window.__sectionSettings.Sections.filter(s => s.Id === 'my-list-content').length") == my_list_count
+        assert page.evaluate("window.__sectionSettings.Sections.find(s => s.Id === 'my-list-content').IsApplied === true")
 
         page.locator("#hssmSectionPageSelect").select_option("home")
         page.wait_for_selector("#hssmSectionList [data-section-id='manager-one']")

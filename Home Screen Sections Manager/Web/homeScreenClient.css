@@ -381,6 +381,11 @@
     padding-top: 1.25em;
 }
 
+.hssm-owned-custom-page {
+    box-sizing: border-box;
+    padding-top: clamp(4.75em, 9vh, 7em);
+}
+
 .hssm-owned-my-list-page:not(.is-active) {
     display: none !important;
 }

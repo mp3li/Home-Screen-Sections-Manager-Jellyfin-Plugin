@@ -201,6 +201,17 @@
                 return `${base}/${path}?quality=96&maxWidth=${dimensions.width}&maxHeight=${dimensions.height}${tag ? `&tag=${encodeURIComponent(tag)}` : ''}`;
             }
 
+            function logoUrl(itemId, tag) {
+                if (!itemId || !tag || !base) return '';
+                const dimensions = imageDimensions('Logo');
+                const path = `Items/${encodeURIComponent(itemId)}/Images/Logo`;
+                const parameters = { quality: 96, maxWidth: dimensions.width, maxHeight: dimensions.height, tag };
+                try {
+                    if (window.top.ApiClient && typeof window.top.ApiClient.getUrl === 'function') return window.top.ApiClient.getUrl(path, parameters);
+                } catch (_) { /* Fall back to the same-origin server address below. */ }
+                return `${base}/${path}?quality=96&maxWidth=${dimensions.width}&maxHeight=${dimensions.height}&tag=${encodeURIComponent(tag)}`;
+            }
+
             function firstCandidate(candidates) {
                 return candidates.length ? { image: candidates[0].url, centered: candidates[0].centered } : { image: null, centered: false };
             }
@@ -250,8 +261,8 @@
 
             function logoCandidate(item) {
                 const tags = item.ImageTags || {};
-                if (tags.Logo) return imageUrl(item.Id, 'Logo', null, tags.Logo);
-                if (item.ParentLogoImageTag && item.ParentLogoItemId) return imageUrl(item.ParentLogoItemId, 'Logo', null, item.ParentLogoImageTag);
+                if (tags.Logo) return logoUrl(item.Id, tags.Logo);
+                if (item.ParentLogoImageTag && item.ParentLogoItemId) return logoUrl(item.ParentLogoItemId, item.ParentLogoImageTag);
                 return '';
             }
 

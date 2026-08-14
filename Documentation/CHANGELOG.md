@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.0.35-test] - 2026-08-13
+
+- Keeps an edited section's saved ID, content, placement, and applied state when continuing through Section Type Settings, so converting **Added to My List** into a Media Bar refreshes the existing section instead of resetting it as a new draft.
+- Labels the final action **Refresh Section** during editing and reports refresh-specific progress without creating a duplicate section.
+- Restricts the Media Bar logo slot to Jellyfin's actual Logo endpoint; items without a real Logo keep the text title and never substitute backdrop, primary, thumb, or banner artwork in that slot.
+- Adds safe top spacing to plugin-created pages so their first section or Media Bar clears Jellyfin's top navigation controls.
+- Extends dashboard and browser contracts for edit-in-place Media Bar refresh, duplicate prevention, strict Logo URLs, and custom-page top spacing.
+
 ## [0.1.0.34-test] - 2026-08-13
 
 - Adds **My List Content Section**, which skips content selection and loads each signed-in user’s own Jellyfin Likes at display time without saving one user’s items into shared plugin settings.
