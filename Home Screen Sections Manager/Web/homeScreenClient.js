@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    var CLIENT_VERSION = "0.1.0.50";
+    var CLIENT_VERSION = "0.1.0.51";
     if (window.HomeScreenManagerClient) {
         if (window.HomeScreenManagerClient.version === CLIENT_VERSION) {
             window.HomeScreenManagerClient.refresh();
@@ -843,7 +843,7 @@
         var showSectionName = prop(section, 'ShowSectionName', 'showSectionName', true) !== false;
         var titleDestination = sectionTitleDestination(section);
         var titleAttributes = titleDestination ? ' href="' + escapeHtml(titleDestination) + '"' : ' href="#" data-hssm-open-section="' + escapeHtml(id) + '"';
-        var sectionTitleMarkup = showSectionName ? '<div class="sectionTitleContainer sectionTitleContainer-cards padded-left"><h2 class="sectionTitle sectionTitle-cards"><a is="emby-linkbutton" class="hssm-section-title-link"' + titleAttributes + '>' + escapeHtml(name) + '</a></h2></div>' : '';
+        var sectionTitleMarkup = showSectionName ? '<div class="sectionTitleContainer sectionTitleContainer-cards"><a is="emby-linkbutton" class="more button-flat sectionTitleTextButton padded-left hssm-section-title-link"' + titleAttributes + '><h2 class="sectionTitle sectionTitle-cards">' + escapeHtml(name) + '</h2><span class="material-icons chevron_right hssm-section-title-arrow" aria-hidden="true"></span></a></div>' : '';
         var ownsScroller = forceOwnedScroller === true || (pageId !== 'home' && pageId !== 'my-list');
         var ranked = String(prop(section, 'Type', 'type', '')) === 'top-10-50' && prop(section, 'ShowRankNumbers', 'showRankNumbers', true) !== false;
         node.className = 'verticalSection emby-scroller-container hssm-client-section hssm-size-' + artSize + ' hssm-shape-' + artShape + ' hssm-art-' + artType + (showSectionName ? '' : ' hssm-hide-section-name') + (ranked ? ' hssm-top-ranked hssm-rank-' + String(prop(section, 'RankNumberColorMode', 'rankNumberColorMode', 'solid')) : '');
@@ -915,8 +915,8 @@
     function openSectionListingPage(section, state) {
         closeSectionListingPage();
         var page = document.createElement('section');
-        page.className = 'hssm-section-listing-page hssm-size-' + String(prop(section, 'ArtSize', 'artSize', 'medium')) + ' hssm-shape-' + cardShape(section).name;
-        page.innerHTML = '<div class="hssm-section-listing-header"><button type="button" is="emby-button" class="raised hssm-section-listing-back"><span class="material-icons arrow_back" aria-hidden="true"></span> Back</button><h1>' + escapeHtml(prop(section, 'Name', 'name', 'Section')) + '</h1></div><div class="hssm-section-listing-controls"><div class="inputContainer"><label class="inputLabel inputLabelUnfocused">Filter</label><input is="emby-input" type="search" data-hssm-section-filter placeholder="Filter this section" /></div><div class="selectContainer"><label class="selectLabel">Media Type</label><select is="emby-select" data-hssm-section-type-filter><option value="">All Media Types</option><option value="Movie">Movies</option><option value="Series">Series</option><option value="Episode">Episodes</option><option value="Audio">Audio</option><option value="Book">Books</option></select></div><div class="selectContainer"><label class="selectLabel">Sort By</label><select is="emby-select" data-hssm-section-sort><option value="title">Title (A–Z)</option><option value="title-desc">Title (Z–A)</option><option value="year-desc">Year (Newest First)</option><option value="year-asc">Year (Oldest First)</option><option value="rating">Rating (Highest First)</option><option value="added">Recently Added</option></select></div></div><p class="hssm-section-listing-status">Loading section content…</p><div class="hssm-section-listing-grid"></div>';
+        page.className = 'hssm-section-listing-page hssm-size-medium hssm-shape-poster';
+        page.innerHTML = '<div class="hssm-section-listing-header"><button type="button" is="emby-button" class="raised hssm-section-listing-back"><span class="material-icons arrow_back" aria-hidden="true"></span> Back</button><h1>' + escapeHtml(prop(section, 'Name', 'name', 'Section')) + '</h1></div><div class="hssm-section-listing-controls"><div class="inputContainer"><label class="inputLabel inputLabelUnfocused">Filter</label><input is="emby-input" type="search" data-hssm-section-filter placeholder="Filter this section" /></div><div class="selectContainer"><label class="selectLabel">Media Type</label><select is="emby-select" data-hssm-section-type-filter><option value="">All Media Types</option><option value="Movie">Movies</option><option value="Series">Series</option><option value="Episode">Episodes</option><option value="Audio">Audio</option><option value="Book">Books</option></select></div><div class="selectContainer"><label class="selectLabel">Image Type</label><select is="emby-select" data-hssm-section-image-type><option value="automatic">Automatic</option><option value="primary">Primary</option><option value="art">Art</option><option value="backdrop">Backdrop</option><option value="banner">Banner</option><option value="logo">Logo</option><option value="thumb">Thumb</option><option value="disc">Disc</option><option value="box">Box</option><option value="box-rear">Box Rear</option><option value="screenshot">Screenshot</option><option value="menu">Menu</option><option value="chapter">Chapter</option></select></div><div class="selectContainer"><label class="selectLabel">Sort By</label><select is="emby-select" data-hssm-section-sort><option value="title">Title (A–Z)</option><option value="title-desc">Title (Z–A)</option><option value="year-desc">Year (Newest First)</option><option value="year-asc">Year (Oldest First)</option><option value="rating">Rating (Highest First)</option><option value="added">Recently Added</option></select></div></div><p class="hssm-section-listing-status">Loading section content…</p><div class="hssm-section-listing-grid"></div>';
         document.body.appendChild(page);
         document.body.classList.add('hssm-section-listing-open');
         page.querySelector('.hssm-section-listing-back').addEventListener('click', closeSectionListingPage);
@@ -924,6 +924,7 @@
             var items = uniqueItems(loaded || []);
             var filter = page.querySelector('[data-hssm-section-filter]');
             var typeFilter = page.querySelector('[data-hssm-section-type-filter]');
+            var imageType = page.querySelector('[data-hssm-section-image-type]');
             var sort = page.querySelector('[data-hssm-section-sort]');
             function paint() {
                 var query = String(filter.value || '').trim().toLowerCase();
@@ -941,12 +942,18 @@
                     return leftName.localeCompare(rightName);
                 });
                 page.querySelector('.hssm-section-listing-status').textContent = visible.length + (visible.length === 1 ? ' item' : ' items');
-                page.querySelector('.hssm-section-listing-grid').innerHTML = visible.map(function (item) { return card(item, section, 0); }).join('');
+                var selectedImageType = String(imageType.value || 'automatic');
+                var wideImage = ['art','backdrop','banner','thumb','screenshot'].indexOf(selectedImageType) >= 0;
+                page.classList.toggle('hssm-shape-poster', !wideImage);
+                page.classList.toggle('hssm-shape-wide', wideImage);
+                var listingSection = Object.assign({}, section, { ArtSize:'medium', artSize:'medium', ArtType:selectedImageType, artType:selectedImageType, ArtShape:wideImage ? 'wide' : 'poster', artShape:wideImage ? 'wide' : 'poster', ShowText:true, showText:true });
+                page.querySelector('.hssm-section-listing-grid').innerHTML = visible.map(function (item) { return card(item, listingSection, 0); }).join('');
                 if (window.CustomElements && typeof window.CustomElements.upgradeSubtree === 'function') window.CustomElements.upgradeSubtree(page);
                 if (setting(state && state.settings, 'EnableMyList', false)) Array.from(page.querySelectorAll('.card[data-id]')).forEach(addMyListButton);
             }
             filter.addEventListener('input', paint);
             typeFilter.addEventListener('change', paint);
+            imageType.addEventListener('change', paint);
             sort.addEventListener('change', paint);
             page.addEventListener('click', function (event) { if (event.target.closest('.card a[href]')) window.setTimeout(closeSectionListingPage, 0); });
             paint();
@@ -2801,6 +2808,7 @@
         if (row && row._hssmGeometryResizeHandler) window.removeEventListener('resize', row._hssmGeometryResizeHandler);
         if (row && row._hssmHeaderScrollHandler) window.removeEventListener('scroll', row._hssmHeaderScrollHandler);
         if (row) row.remove();
+        clearTopChromeSpacer('row');
         document.body.classList.remove('hssm-top-row-enabled');
         document.body.classList.remove('hssm-top-row-shape-wide', 'hssm-top-row-shape-square', 'hssm-top-row-shape-circle');
         document.body.style.removeProperty('--hssm-top-row-height');
@@ -2811,9 +2819,42 @@
         var message = document.querySelector('.hssm-top-row-message');
         if (message && message._hssmResizeHandler) window.removeEventListener('resize', message._hssmResizeHandler);
         if (message) message.remove();
+        clearTopChromeSpacer('message');
         var fontStyle = document.getElementById('hssm-top-row-message-font');
         if (fontStyle) fontStyle.remove();
         syncTopChromeHeaderOffset();
+    }
+
+    function clearTopChromeSpacer(kind) {
+        Array.from(document.querySelectorAll('.hssm-top-row-' + kind + '-spacer')).forEach(function (spacer) { spacer.remove(); });
+    }
+
+    function placeTopChromeElement(element, flowHost, persistent, kind) {
+        if (!element || !flowHost) return;
+        element._hssmFlowHost = flowHost;
+        clearTopChromeSpacer(kind);
+        if (persistent) {
+            var spacer = document.createElement('div');
+            spacer.className = 'hssm-top-row-' + kind + '-spacer';
+            spacer.setAttribute('aria-hidden', 'true');
+            spacer.style.height = Math.max(0, element.getBoundingClientRect().height) + 'px';
+            if (kind === 'message') flowHost.insertBefore(spacer, flowHost.firstChild);
+            else {
+                var messageSpacer = flowHost.querySelector(':scope > .hssm-top-row-message-spacer');
+                var flowMessage = flowHost.querySelector(':scope > .hssm-top-row-message');
+                var anchor = messageSpacer || flowMessage;
+                flowHost.insertBefore(spacer, anchor ? anchor.nextSibling : flowHost.firstChild);
+            }
+            if (element.parentNode !== document.body) document.body.appendChild(element);
+            return;
+        }
+        if (kind === 'message') flowHost.insertBefore(element, flowHost.firstChild);
+        else {
+            var message = flowHost.querySelector(':scope > .hssm-top-row-message');
+            var messageGap = flowHost.querySelector(':scope > .hssm-top-row-message-spacer');
+            var after = message || messageGap;
+            flowHost.insertBefore(element, after ? after.nextSibling : flowHost.firstChild);
+        }
     }
 
     function syncTopChromeHeaderOffset() {
@@ -2825,19 +2866,22 @@
         var flowOffset = 0;
         if (message && message.isConnected) {
             var messageBox = message.getBoundingClientRect();
-            flowOffset = Math.max(flowOffset, Math.max(0, messageBox.bottom));
             if (message.classList.contains('hssm-top-row-message-persistent')) {
-                message.style.setProperty('--hssm-top-row-sticky-offset', '0px');
+                message.style.top = '0px';
                 persistentOffset += messageBox.height;
-            }
+            } else flowOffset = Math.max(flowOffset, Math.max(0, messageBox.bottom));
+            var messageSpacer = document.querySelector('.hssm-top-row-message-spacer');
+            if (messageSpacer) messageSpacer.style.height = messageBox.height.toFixed(2) + 'px';
         }
         if (row && row.isConnected) {
             var rowBox = row.getBoundingClientRect();
-            flowOffset = Math.max(flowOffset, Math.max(0, rowBox.bottom));
             if (row.classList.contains('hssm-top-row-persistent')) {
-                row.style.setProperty('--hssm-top-row-sticky-offset', persistentOffset.toFixed(2) + 'px');
-                persistentOffset += rowBox.height;
-            }
+                var fixedTop = persistentOffset || flowOffset;
+                row.style.top = fixedTop.toFixed(2) + 'px';
+                persistentOffset = fixedTop + rowBox.height;
+            } else flowOffset = Math.max(flowOffset, Math.max(0, rowBox.bottom));
+            var rowSpacer = document.querySelector('.hssm-top-row-row-spacer');
+            if (rowSpacer) rowSpacer.style.height = rowBox.height.toFixed(2) + 'px';
         }
         var offset = Math.max(persistentOffset, flowOffset);
         if (message || row) {
@@ -2892,7 +2936,6 @@
         var host = topChromeHost(alwaysShow);
         if (!visible || !host) { removeTopRowMessage(); return; }
         var existing = document.querySelector('.hssm-top-row-message');
-        if (existing && existing.parentNode !== host) { existing.remove(); existing = null; }
         var message = existing || document.createElement('aside');
         var persistent = setting(settings, 'TopRowMessagePersistent', false) === true;
         message.className = 'hssm-top-row-message' + (persistent ? ' hssm-top-row-message-persistent' : '');
@@ -2913,13 +2956,12 @@
             message.style.fontFamily = '';
         }
         message.innerHTML = '<div class="hssm-top-row-message-viewport"><span class="hssm-top-row-message-text">' + escapeHtml(text) + '</span></div>';
-        if (!existing) host.insertBefore(message, host.firstChild);
-        else if (host.firstChild !== message) host.insertBefore(message, host.firstChild);
+        placeTopChromeElement(message, host, persistent, 'message');
         var updateMarquee = function () {
             if (!message.isConnected) return;
             var viewport = message.querySelector('.hssm-top-row-message-viewport');
             var content = message.querySelector('.hssm-top-row-message-text');
-            message.classList.toggle('hssm-top-row-message-marquee', !!viewport && !!content && content.scrollWidth > viewport.clientWidth + 4);
+            message.classList.toggle('hssm-top-row-message-marquee', !!viewport && !!content);
             syncTopChromeHeaderOffset();
         };
         window.requestAnimationFrame(updateMarquee);
@@ -3053,15 +3095,18 @@
         var logosOnly = prop(section, 'DisplayLogosOnly', 'displayLogosOnly', false) === true;
         var persistent = setting(settings, 'TopRowPersistent', false) === true;
         var logoShadow = String(setting(settings, 'TopRowLogoShadowColor', '#ffffff') || '');
-        var signature = JSON.stringify([pageId, alwaysShow, persistent, sourceIds, prop(section, 'ContentOrder', 'contentOrder', 'manual'), prop(section, 'ArtType', 'artType', 'automatic'), prop(section, 'ArtShape', 'artShape', 'wide'), logosOnly, logoShadow, Array.from(logoCollectionIds)]);
+        var signature = JSON.stringify([alwaysShow ? 'always' : pageId, persistent, sourceIds, prop(section, 'ContentOrder', 'contentOrder', 'manual'), prop(section, 'ArtType', 'artType', 'automatic'), prop(section, 'ArtShape', 'artShape', 'wide'), logosOnly, logoShadow, Array.from(logoCollectionIds)]);
         var existing = document.querySelector('.hssm-top-row');
-        if (existing && existing.parentNode !== topRowHost) { existing.remove(); existing = null; }
         header.classList.add('hssm-top-row-host');
         document.body.classList.add('hssm-top-row-enabled');
         var rowShape = logosOnly ? 'wide' : cardShape(section).name;
         document.body.classList.remove('hssm-top-row-shape-wide', 'hssm-top-row-shape-square', 'hssm-top-row-shape-circle');
         document.body.classList.add('hssm-top-row-shape-' + rowShape);
-        if (existing && topRowRenderKey === signature) return;
+        if (existing && topRowRenderKey === signature) {
+            placeTopChromeElement(existing, topRowHost, persistent, 'row');
+            syncTopChromeHeaderOffset();
+            return;
+        }
         if (existing) existing.remove();
         topRowRenderKey = signature;
         var loadSequence = ++topRowLoadSequence;
@@ -3070,9 +3115,8 @@
         row.style.setProperty('--hssm-top-row-logo-shadow', hexShadowFilter(logoShadow));
         row.setAttribute('aria-label', 'Top Row');
         row.innerHTML = '<div class="hssm-top-row-track" aria-busy="true"></div>';
-        var message = topRowHost.querySelector(':scope > .hssm-top-row-message');
-        topRowHost.insertBefore(row, message ? message.nextSibling : topRowHost.firstChild);
-        queryIds(sourceIds).then(function (items) {
+        placeTopChromeElement(row, topRowHost, persistent, 'row');
+        function paintTopRow(items) {
             if (loadSequence !== topRowLoadSequence || !row.isConnected || topRowRenderKey !== signature) return;
             var ordered = orderItems(items, section);
             var track = row.querySelector('.hssm-top-row-track');
@@ -3096,6 +3140,13 @@
             row._hssmHeaderScrollHandler = function () { syncTopRowHeaderOffset(row); };
             window.addEventListener('resize', row._hssmGeometryResizeHandler, { passive:true });
             window.addEventListener('scroll', row._hssmHeaderScrollHandler, { passive:true });
+        }
+        var cachedTopRow = cacheRead('top-row-items', 60 * 60 * 1000);
+        var cacheMatches = cachedTopRow && JSON.stringify(cachedTopRow.ids || []) === JSON.stringify(sourceIds);
+        if (cacheMatches) paintTopRow(cachedTopRow.items || []);
+        else queryIds(sourceIds).then(function (items) {
+            cacheWrite('top-row-items', { ids:sourceIds, items:items });
+            paintTopRow(items);
         }).catch(function () {
             if (loadSequence === topRowLoadSequence) removeTopRow();
         });
@@ -3299,6 +3350,8 @@
             if (generation !== routeGeneration || isDashboardScreen() || isPlaybackScreen()) return;
             applyLogo(settings);
             ensureOwnedPages(settings);
+            renderTopRowMessage(settings);
+            renderTopRow(settings);
             if (normalizeInitialHomeSelection()) return;
             bindHomeTabs();
             var attempts = 0;

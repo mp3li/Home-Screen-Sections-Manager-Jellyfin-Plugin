@@ -14,6 +14,11 @@
         #homeScreenSectionsManagerPage .hssm-actions { margin-top:1em; }
         #homeScreenSectionsManagerPage .hssm-colors .inputContainer { margin:0; min-width:14em; }
         #homeScreenSectionsManagerPage .hssm-color { width:3.5em !important; min-width:3.5em; max-width:3.5em; height:3.5em; padding:.1em; }
+        #homeScreenSectionsManagerPage .hssm-message-appearance-grid { display:grid; gap:1.25em; margin-top:1em; }
+        #homeScreenSectionsManagerPage .hssm-message-appearance-group { display:grid; gap:.65em; }
+        #homeScreenSectionsManagerPage .hssm-message-appearance-group > * { margin-top:0; margin-bottom:0; }
+        #homeScreenSectionsManagerPage .hssm-message-appearance-group .hssm-colors { margin:0; }
+        #homeScreenSectionsManagerPage .hssm-message-appearance-group h3 { font-size:1.08em; line-height:1.3; margin:0; }
         #homeScreenSectionsManagerPage .hssm-section-list { margin-top:1em; border:1px solid var(--hssm-outline); border-radius:.45em; overflow:hidden; }
         #homeScreenSectionsManagerPage .hssm-section-row { box-sizing:border-box; display:grid; grid-template-columns:1.5em minmax(12em,1fr) 6em 8em 12em; align-items:center; gap:.75em; width:100%; min-height:3.3em; padding:.7em .8em; border:0; border-bottom:1px solid var(--hssm-outline); background:transparent; color:inherit; cursor:grab; user-select:none; text-align:left; }
         #homeScreenSectionsManagerPage .hssm-section-row:last-child { border-bottom:0; }
@@ -213,13 +218,11 @@
             <section class="hssm-section">
                 <h2>Top Row Message Appearance Settings</h2>
                 <p class="fieldDescription">Choose the message font, text and shadow colors, and the solid or gradient colors used by the message bar.</p>
-                <div class="inputContainer"><label class="inputLabel inputLabelUnfocused" for="hssmTopRowMessageFont">Import Message Font</label><input is="emby-input" id="hssmTopRowMessageFont" type="file" accept=".ttf,.otf,font/ttf,font/otf,application/x-font-ttf,application/x-font-opentype" /></div>
-                <p class="fieldDescription" id="hssmTopRowMessageFontStatus">Using the default Abyss theme font.</p>
-                <button is="emby-button" type="button" class="raised" id="hssmRemoveTopRowMessageFont" hidden>Remove Imported Font</button>
-                <div class="hssm-colors"><div class="inputContainer"><label class="inputLabel inputLabelUnfocused" for="hssmTopRowMessageFontColor">Font Color</label><input is="emby-input" class="hssm-color" id="hssmTopRowMessageFontColor" type="color" value="#ffffff" /></div><div class="inputContainer"><label class="inputLabel inputLabelUnfocused" for="hssmTopRowMessageFontShadowColor">Font Shadow Color</label><input is="emby-input" class="hssm-color" id="hssmTopRowMessageFontShadowColor" type="color" value="#000000" /></div></div>
-                <button is="emby-button" type="button" class="raised" id="hssmRemoveTopRowMessageFontShadow">Remove Shadow</button>
-                <div class="selectContainer"><label class="selectLabel" for="hssmTopRowMessageBarColorMode">Message Bar Color Style</label><select is="emby-select" id="hssmTopRowMessageBarColorMode"><option value="solid">Solid (Default)</option><option value="vertical-gradient">Vertical Gradient</option><option value="horizontal-gradient">Horizontal Gradient</option><option value="center-gradient">Center Gradient</option></select></div>
-                <div class="hssm-colors"><div class="inputContainer"><label class="inputLabel inputLabelUnfocused" for="hssmTopRowMessageBarColorOne">First Bar Color</label><input is="emby-input" class="hssm-color" id="hssmTopRowMessageBarColorOne" type="color" value="#000000" /></div><div class="inputContainer"><label class="inputLabel inputLabelUnfocused" for="hssmTopRowMessageBarColorTwo">Second Bar Color</label><input is="emby-input" class="hssm-color" id="hssmTopRowMessageBarColorTwo" type="color" value="#333333" /></div></div>
+                <div class="hssm-message-appearance-grid">
+                    <div class="hssm-message-appearance-group"><h3>Message Font</h3><div class="inputContainer"><label class="inputLabel inputLabelUnfocused" for="hssmTopRowMessageFont">Import Message Font</label><input is="emby-input" id="hssmTopRowMessageFont" type="file" accept=".ttf,.otf,font/ttf,font/otf,application/x-font-ttf,application/x-font-opentype" /></div><p class="fieldDescription" id="hssmTopRowMessageFontStatus">Using the default Abyss theme font.</p><button is="emby-button" type="button" class="raised" id="hssmRemoveTopRowMessageFont" hidden>Remove Imported Font</button></div>
+                    <div class="hssm-message-appearance-group"><h3>Message Text Colors</h3><div class="hssm-colors"><div class="inputContainer"><label class="inputLabel inputLabelUnfocused" for="hssmTopRowMessageFontColor">Font Color</label><input is="emby-input" class="hssm-color" id="hssmTopRowMessageFontColor" type="color" value="#ffffff" /></div><div class="inputContainer"><label class="inputLabel inputLabelUnfocused" for="hssmTopRowMessageFontShadowColor">Font Shadow Color</label><input is="emby-input" class="hssm-color" id="hssmTopRowMessageFontShadowColor" type="color" value="#000000" /></div></div><button is="emby-button" type="button" class="raised" id="hssmRemoveTopRowMessageFontShadow">Remove Shadow</button></div>
+                    <div class="hssm-message-appearance-group"><h3>Message Bar Colors</h3><div class="selectContainer"><label class="selectLabel" for="hssmTopRowMessageBarColorMode">Message Bar Color Style</label><select is="emby-select" id="hssmTopRowMessageBarColorMode"><option value="solid">Solid (Default)</option><option value="vertical-gradient">Vertical Gradient</option><option value="horizontal-gradient">Horizontal Gradient</option><option value="center-gradient">Center Gradient</option></select></div><div class="hssm-colors"><div class="inputContainer"><label class="inputLabel inputLabelUnfocused" for="hssmTopRowMessageBarColorOne">First Bar Color</label><input is="emby-input" class="hssm-color" id="hssmTopRowMessageBarColorOne" type="color" value="#000000" /></div><div class="inputContainer"><label class="inputLabel inputLabelUnfocused" for="hssmTopRowMessageBarColorTwo">Second Bar Color</label><input is="emby-input" class="hssm-color" id="hssmTopRowMessageBarColorTwo" type="color" value="#333333" /></div></div></div>
+                </div>
             </section>
             <section class="hssm-section">
                 <h2>Top Row Message Marquee Speed Settings</h2>
@@ -245,7 +248,7 @@
             <section class="hssm-section">
                 <h2>Logo Only Mode Shadow Settings</h2>
                 <p class="fieldDescription">Choose the color of the very slight, partially transparent shadow placed behind Top Row logos when Display Logos Only is enabled. This can keep very dark logos visible without adding a background or outline.</p>
-                <div class="inputContainer"><label class="inputLabel inputLabelUnfocused" for="hssmTopRowLogoShadowColor">Logo Shadow Color</label><input is="emby-input" id="hssmTopRowLogoShadowColor" type="color" value="#ffffff" /></div>
+                <div class="inputContainer"><label class="inputLabel inputLabelUnfocused" for="hssmTopRowLogoShadowColor">Logo Shadow Color</label><input is="emby-input" class="hssm-color" id="hssmTopRowLogoShadowColor" type="color" value="#ffffff" /></div>
                 <button is="emby-button" type="button" class="raised" id="hssmRemoveTopRowLogoShadow">Remove Shadow</button>
             </section>
             <section class="hssm-section">

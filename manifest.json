@@ -9,13 +9,13 @@
     "imageUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Assets/Branding/home-screen-sections-manager-plugin-photo.png",
     "versions": [
       {
-        "version": "0.1.0.50",
-        "changelog": "Adds a server-wide styled Top Row message, page visibility and Always Show modes, optional scroll persistence, subtle removable logo-only shadows, removable ranking shadows, clickable section-title destinations with sortable/filterable mixed-section pages, non-blocking Top-count warnings, and a one-click selected-section refresh button.",
+        "version": "0.1.0.51",
+        "changelog": "Refines Top Row and section navigation: uses a square logo-shadow picker, makes persistence truly viewport-fixed while preserving page flow, reuses and caches Top Row content across page switches, begins Top Row rendering before Jellyfin finishes home sections, matches native clickable section-title alignment and arrows, adds normal-sized listing art with an image-type picker, improves message appearance spacing, and makes every message marquee regardless of length.",
         "targetAbi": "10.11.11.0",
         "framework": "net9.0",
-        "sourceUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Test%20Releases/0.1.0.50-test/Jellyfin.Plugin.HomeScreenSectionsManager_0.1.0.50-test.zip",
-        "checksum": "f3c0880e04c484310c635fd8cee3280b",
-        "timestamp": "2026-08-15T02:05:26Z"
+        "sourceUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Test%20Releases/0.1.0.51-test/Jellyfin.Plugin.HomeScreenSectionsManager_0.1.0.51-test.zip",
+        "checksum": "2caf6023c8fcb7fa94c462dccebe735f",
+        "timestamp": "2026-08-15T09:38:42Z"
       }
     ]
   }
