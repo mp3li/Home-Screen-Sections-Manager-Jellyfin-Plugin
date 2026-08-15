@@ -110,6 +110,21 @@ public sealed class SectionSettingsController : ControllerBase
         {
             EnableTopRow = configuration.EnableTopRow,
             TopRowPageIds = [.. configuration.TopRowPageIds],
+            TopRowAlwaysShow = configuration.TopRowAlwaysShow,
+            TopRowPersistent = configuration.TopRowPersistent,
+            TopRowLogoShadowColor = configuration.TopRowLogoShadowColor,
+            EnableTopRowMessage = configuration.EnableTopRowMessage,
+            TopRowMessagePageIds = [.. configuration.TopRowMessagePageIds],
+            TopRowMessageAlwaysShow = configuration.TopRowMessageAlwaysShow,
+            TopRowMessagePersistent = configuration.TopRowMessagePersistent,
+            TopRowMessageText = configuration.TopRowMessageText,
+            TopRowMessageFontDataUrl = configuration.TopRowMessageFontDataUrl,
+            TopRowMessageFontColor = configuration.TopRowMessageFontColor,
+            TopRowMessageFontShadowColor = configuration.TopRowMessageFontShadowColor,
+            TopRowMessageBarColorMode = configuration.TopRowMessageBarColorMode,
+            TopRowMessageBarColorOne = configuration.TopRowMessageBarColorOne,
+            TopRowMessageBarColorTwo = configuration.TopRowMessageBarColorTwo,
+            TopRowMessageMarqueeSpeed = configuration.TopRowMessageMarqueeSpeed,
             TopRowSection = configuration.TopRowSection,
         });
     }
@@ -128,6 +143,21 @@ public sealed class SectionSettingsController : ControllerBase
         {
             EnableTopRow = configuration.EnableTopRow,
             TopRowPageIds = [.. configuration.TopRowPageIds],
+            TopRowAlwaysShow = configuration.TopRowAlwaysShow,
+            TopRowPersistent = configuration.TopRowPersistent,
+            TopRowLogoShadowColor = configuration.TopRowLogoShadowColor,
+            EnableTopRowMessage = configuration.EnableTopRowMessage,
+            TopRowMessagePageIds = [.. configuration.TopRowMessagePageIds],
+            TopRowMessageAlwaysShow = configuration.TopRowMessageAlwaysShow,
+            TopRowMessagePersistent = configuration.TopRowMessagePersistent,
+            TopRowMessageText = configuration.TopRowMessageText,
+            TopRowMessageFontDataUrl = configuration.TopRowMessageFontDataUrl,
+            TopRowMessageFontColor = configuration.TopRowMessageFontColor,
+            TopRowMessageFontShadowColor = configuration.TopRowMessageFontShadowColor,
+            TopRowMessageBarColorMode = configuration.TopRowMessageBarColorMode,
+            TopRowMessageBarColorOne = configuration.TopRowMessageBarColorOne,
+            TopRowMessageBarColorTwo = configuration.TopRowMessageBarColorTwo,
+            TopRowMessageMarqueeSpeed = configuration.TopRowMessageMarqueeSpeed,
             TopRowSection = configuration.TopRowSection,
         });
     }

@@ -190,14 +190,63 @@
         </div>
         <div class="hssm-panel" data-panel="top-row-settings" role="tabpanel">
             <section class="hssm-section">
+                <h2>Top Row Message Settings</h2>
+                <p class="fieldDescription">Choose whether to enable or disable a custom Top Row message. The message appears at the very top of the selected page or pages for every user.</p>
+                <div class="hssm-yes-no"><label class="checkboxContainer"><input is="emby-checkbox" type="radio" name="hssmTopRowMessageEnabled" id="hssmEnableTopRowMessage" value="enable" /><span>Enable Top Row Message</span></label><label class="checkboxContainer"><input is="emby-checkbox" type="radio" name="hssmTopRowMessageEnabled" id="hssmDisableTopRowMessage" value="disable" checked /><span>Disable Top Row Message</span></label></div>
+            </section>
+            <section class="hssm-section">
+                <h2>Top Row Message Page Visibility Settings</h2>
+                <p class="fieldDescription">Select which existing home screen pages should display the Top Row message. Home is selected by default, or choose Always Show to display it on every page except active playback.</p>
+                <label class="checkboxContainer"><input is="emby-checkbox" type="checkbox" id="hssmTopRowMessageAlwaysShow" /><span>Always Show</span></label>
+                <div id="hssmTopRowMessagePagePicker"><p class="fieldDescription">Loading home screen pages…</p></div>
+            </section>
+            <section class="hssm-section">
+                <h2>Top Row Message Persistence Settings</h2>
+                <p class="fieldDescription">Choose whether the Top Row message scrolls away with the page or remains visible with Jellyfin's top navigation while you scroll.</p>
+                <div class="hssm-yes-no"><label class="checkboxContainer"><input is="emby-checkbox" type="radio" name="hssmTopRowMessagePersistence" id="hssmTopRowMessageScrolls" value="scroll" checked /><span>Scroll With Page</span></label><label class="checkboxContainer"><input is="emby-checkbox" type="radio" name="hssmTopRowMessagePersistence" id="hssmTopRowMessagePersists" value="persist" /><span>Keep Message Visible</span></label></div>
+            </section>
+            <section class="hssm-section">
+                <h2>Top Row Message Content</h2>
+                <p class="fieldDescription">Enter the server-wide message that should appear at the top of the selected page or pages.</p>
+                <div class="inputContainer"><label class="inputLabel inputLabelUnfocused" for="hssmTopRowMessageText">Message</label><input is="emby-input" id="hssmTopRowMessageText" type="text" autocomplete="off" /></div>
+            </section>
+            <section class="hssm-section">
+                <h2>Top Row Message Appearance Settings</h2>
+                <p class="fieldDescription">Choose the message font, text and shadow colors, and the solid or gradient colors used by the message bar.</p>
+                <div class="inputContainer"><label class="inputLabel inputLabelUnfocused" for="hssmTopRowMessageFont">Import Message Font</label><input is="emby-input" id="hssmTopRowMessageFont" type="file" accept=".ttf,.otf,font/ttf,font/otf,application/x-font-ttf,application/x-font-opentype" /></div>
+                <p class="fieldDescription" id="hssmTopRowMessageFontStatus">Using the default Abyss theme font.</p>
+                <button is="emby-button" type="button" class="raised" id="hssmRemoveTopRowMessageFont" hidden>Remove Imported Font</button>
+                <div class="hssm-colors"><div class="inputContainer"><label class="inputLabel inputLabelUnfocused" for="hssmTopRowMessageFontColor">Font Color</label><input is="emby-input" class="hssm-color" id="hssmTopRowMessageFontColor" type="color" value="#ffffff" /></div><div class="inputContainer"><label class="inputLabel inputLabelUnfocused" for="hssmTopRowMessageFontShadowColor">Font Shadow Color</label><input is="emby-input" class="hssm-color" id="hssmTopRowMessageFontShadowColor" type="color" value="#000000" /></div></div>
+                <button is="emby-button" type="button" class="raised" id="hssmRemoveTopRowMessageFontShadow">Remove Shadow</button>
+                <div class="selectContainer"><label class="selectLabel" for="hssmTopRowMessageBarColorMode">Message Bar Color Style</label><select is="emby-select" id="hssmTopRowMessageBarColorMode"><option value="solid">Solid (Default)</option><option value="vertical-gradient">Vertical Gradient</option><option value="horizontal-gradient">Horizontal Gradient</option><option value="center-gradient">Center Gradient</option></select></div>
+                <div class="hssm-colors"><div class="inputContainer"><label class="inputLabel inputLabelUnfocused" for="hssmTopRowMessageBarColorOne">First Bar Color</label><input is="emby-input" class="hssm-color" id="hssmTopRowMessageBarColorOne" type="color" value="#000000" /></div><div class="inputContainer"><label class="inputLabel inputLabelUnfocused" for="hssmTopRowMessageBarColorTwo">Second Bar Color</label><input is="emby-input" class="hssm-color" id="hssmTopRowMessageBarColorTwo" type="color" value="#333333" /></div></div>
+            </section>
+            <section class="hssm-section">
+                <h2>Top Row Message Marquee Speed Settings</h2>
+                <p class="fieldDescription">Choose how quickly a message that is wider than the screen scrolls across the Top Row message bar.</p>
+                <div class="selectContainer"><label class="selectLabel" for="hssmTopRowMessageMarqueeSpeed">Marquee Speed</label><select is="emby-select" id="hssmTopRowMessageMarqueeSpeed"><option value="extra-slow">Extra Slow</option><option value="slow">Slow</option><option value="normal" selected>Normal Speed</option><option value="fast">Fast</option><option value="faster">Faster</option></select></div>
+            </section>
+            <section class="hssm-section">
                 <h2>Enable or Disable Top Row Settings</h2>
                 <p class="fieldDescription">Select if you want to enable or disable the Top Row section.</p>
                 <div class="hssm-yes-no"><label class="checkboxContainer"><input is="emby-checkbox" type="radio" name="hssmTopRowEnabled" id="hssmEnableTopRow" value="enable" /><span>Enable Top Row</span></label><label class="checkboxContainer"><input is="emby-checkbox" type="radio" name="hssmTopRowEnabled" id="hssmDisableTopRow" value="disable" checked /><span>Disable Top Row</span></label></div>
             </section>
             <section class="hssm-section">
                 <h2>Top Row Page Visibility Settings</h2>
-                <p class="fieldDescription">Select which existing home screen pages should display the Top Row. Home is selected by default.</p>
+                <p class="fieldDescription">Select which existing home screen pages should display the Top Row. Home is selected by default, or choose Always Show to display it on every page except active playback.</p>
+                <label class="checkboxContainer"><input is="emby-checkbox" type="checkbox" id="hssmTopRowAlwaysShow" /><span>Always Show</span></label>
                 <div id="hssmTopRowPagePicker"><p class="fieldDescription">Loading home screen pages…</p></div>
+            </section>
+            <section class="hssm-section">
+                <h2>Top Row Persistence Settings</h2>
+                <p class="fieldDescription">Choose whether the Top Row scrolls away with the page as it does now, or remains visible with Jellyfin's top navigation while you scroll.</p>
+                <div class="hssm-yes-no"><label class="checkboxContainer"><input is="emby-checkbox" type="radio" name="hssmTopRowPersistence" id="hssmTopRowScrolls" value="scroll" checked /><span>Scroll With Page</span></label><label class="checkboxContainer"><input is="emby-checkbox" type="radio" name="hssmTopRowPersistence" id="hssmTopRowPersists" value="persist" /><span>Keep Top Row Visible</span></label></div>
+            </section>
+            <section class="hssm-section">
+                <h2>Logo Only Mode Shadow Settings</h2>
+                <p class="fieldDescription">Choose the color of the very slight, partially transparent shadow placed behind Top Row logos when Display Logos Only is enabled. This can keep very dark logos visible without adding a background or outline.</p>
+                <div class="inputContainer"><label class="inputLabel inputLabelUnfocused" for="hssmTopRowLogoShadowColor">Logo Shadow Color</label><input is="emby-input" id="hssmTopRowLogoShadowColor" type="color" value="#ffffff" /></div>
+                <button is="emby-button" type="button" class="raised" id="hssmRemoveTopRowLogoShadow">Remove Shadow</button>
             </section>
             <section class="hssm-section">
                 <h2>Top Row Section Content</h2>
@@ -244,6 +293,7 @@
                     <button is="emby-button" type="button" class="raised" id="hssmUndoDeleteSectionButton" disabled>Undo Delete Section</button>
                     <button is="emby-button" type="button" class="raised" id="hssmMoveSectionButton" disabled>Move Section</button>
                     <button is="emby-button" type="button" class="raised" id="hssmCopySectionButton" disabled>Copy + Paste Section</button>
+                    <button is="emby-button" type="button" class="raised" id="hssmRefreshSectionButton" disabled>Refresh Section</button>
                 </div>
 
                 <div id="hssmNewSectionSettings" class="hssm-new-settings" hidden>
@@ -277,6 +327,13 @@
                     <div class="hssm-actions"><button is="emby-button" type="button" class="raised button-submit" id="hssmConfirmCopySectionButton">Copy + Paste Section</button><button is="emby-button" type="button" class="raised" id="hssmCloseCopySectionButton">Close</button></div>
                 </div>
             </div>
+            <div id="hssmTopCountWarningDialog" class="hssm-dialog-backdrop" hidden>
+                <div class="hssm-dialog" role="dialog" aria-modal="true" aria-labelledby="hssmTopCountWarningTitle">
+                    <h2 id="hssmTopCountWarningTitle">Top Section Content Warning</h2>
+                    <p class="fieldDescription" id="hssmTopCountWarningMessage"></p>
+                    <div class="hssm-actions"><button is="emby-button" type="button" class="raised button-submit" id="hssmConfirmTopCountWarningButton">Add Section Anyways</button><button is="emby-button" type="button" class="raised" id="hssmCloseTopCountWarningButton">Close</button></div>
+                </div>
+            </div>
         </div>
         <div class="hssm-panel" data-panel="create-pages" role="tabpanel">
             <section class="hssm-section">
@@ -301,6 +358,22 @@
     </div>
 
     <script>
+        window.HSSMConfirmTopCountWarning = function (chosen, available, actionLabel) {
+            const page = document.getElementById('homeScreenSectionsManagerPage');
+            const dialog = page && page.querySelector('#hssmTopCountWarningDialog');
+            if (!dialog) return Promise.resolve(true);
+            page.querySelector('#hssmTopCountWarningMessage').textContent = 'You have chosen Top ' + chosen + ' but have only provided ' + available + ' media as content. You may want to manually rename the section to appropriately match your content.';
+            const confirm = page.querySelector('#hssmConfirmTopCountWarningButton');
+            const close = page.querySelector('#hssmCloseTopCountWarningButton');
+            confirm.textContent = actionLabel;
+            dialog.hidden = false;
+            return new Promise(resolve => {
+                const finish = result => { dialog.hidden = true; confirm.removeEventListener('click', accept); close.removeEventListener('click', reject); resolve(result); };
+                const accept = () => finish(true), reject = () => finish(false);
+                confirm.addEventListener('click', accept);
+                close.addEventListener('click', reject);
+            });
+        };
         window.HSSMNotifyClientSettingsChanged = function () {
             if (window.HomeScreenManagerClient && typeof window.HomeScreenManagerClient.invalidate === 'function') window.HomeScreenManagerClient.invalidate();
             try {
@@ -376,6 +449,7 @@
             const undoDeleteButton = page.querySelector('#hssmUndoDeleteSectionButton');
             const moveButton = page.querySelector('#hssmMoveSectionButton');
             const copyButton = page.querySelector('#hssmCopySectionButton');
+            const refreshButton = page.querySelector('#hssmRefreshSectionButton');
             const moveDialog = page.querySelector('#hssmMoveSectionDialog');
             const movePageSelect = page.querySelector('#hssmMoveSectionPage');
             const copyDialog = page.querySelector('#hssmCopySectionDialog');
@@ -433,6 +507,7 @@
                 editButton.disabled = !selected();
                 moveButton.disabled = deleteButton.disabled;
                 copyButton.disabled = deleteButton.disabled;
+                refreshButton.disabled = deleteButton.disabled;
                 undoDeleteButton.disabled = !(lastDeleted && lastDeleted.ready);
             }
 
@@ -630,6 +705,55 @@
                 const destination = Array.from(copyPageSelect.options).find(option => option.value !== activePageId);
                 copyPageSelect.value = destination ? destination.value : activePageId;
                 copyDialog.hidden = false;
+            });
+            refreshButton.addEventListener('click', () => {
+                const item = selected();
+                if (!item || item.origin !== 'manager' || typeof window.HSSMRefreshSectionDefinition !== 'function') return;
+                refreshButton.disabled = true;
+                status.textContent = 'Refreshing ' + item.name + '…';
+                ApiClient.getJSON(ApiClient.getUrl('HomeScreenSectionsManager/section-settings')).then(saved => {
+                    const definition = (saved.Sections || saved.sections || []).find(value => String(value.Id || value.id) === item.id);
+                    if (!definition) throw new Error('The selected section no longer exists.');
+                    return window.HSSMRefreshSectionDefinition(definition, message => { status.textContent = message; });
+                }).then(result => {
+                    const definition = result.definition;
+                    const type = String(definition.Type || definition.type || '');
+                    const itemIds = definition.ItemIds || definition.itemIds || [];
+                    const topCount = Number(definition.DisplayTopCount || definition.displayTopCount || 10);
+                    if (type !== 'top-10-50' || itemIds.length >= topCount) return { definition };
+                    return window.HSSMConfirmTopCountWarning(topCount, itemIds.length, 'Refresh Section Anyways').then(confirmed => confirmed ? { definition } : null);
+                }).then(payload => {
+                    if (!payload) { status.textContent = 'Section refresh canceled.'; return null; }
+                    const definition = payload.definition;
+                    const request = {
+                        Name:definition.Name || definition.name || item.name,
+                        ContentOrder:definition.ContentOrder || definition.contentOrder || 'title-ascending',
+                        ItemIds:definition.ItemIds || definition.itemIds || [],
+                        ArtSize:definition.ArtSize || definition.artSize || 'medium',
+                        ArtType:definition.ArtType || definition.artType || 'automatic',
+                        ArtShape:definition.ArtShape || definition.artShape || 'poster',
+                        ShowText:valueOf(definition, 'ShowText', 'showText', true),
+                        ShowSectionName:valueOf(definition, 'ShowSectionName', 'showSectionName', true),
+                        IsVisible:valueOf(definition, 'IsVisible', 'isVisible', true),
+                        IsMediaBar:valueOf(definition, 'IsMediaBar', 'isMediaBar', false),
+                        DisplayTopCount:Number(definition.DisplayTopCount || definition.displayTopCount || 10),
+                        ShowRankNumbers:valueOf(definition, 'ShowRankNumbers', 'showRankNumbers', true),
+                        RankNumberColorMode:definition.RankNumberColorMode || definition.rankNumberColorMode || 'solid',
+                        RankNumberColorOne:definition.RankNumberColorOne || definition.rankNumberColorOne || '#f5f5f7',
+                        RankNumberColorTwo:definition.RankNumberColorTwo || definition.rankNumberColorTwo || '#f5f5f7',
+                        RankNumberShadowColor:definition.RankNumberShadowColor || definition.rankNumberShadowColor || '',
+                        RankNumberFontDataUrl:definition.RankNumberFontDataUrl || definition.rankNumberFontDataUrl || '',
+                        ActivityMaxItems:Number(definition.ActivityMaxItems || definition.activityMaxItems || 20),
+                        ActivityMediaType:definition.ActivityMediaType || definition.activityMediaType || 'movies'
+                    };
+                    const loader = window.HSSMEnsureJavaScriptInjectorLoader ? window.HSSMEnsureJavaScriptInjectorLoader() : Promise.resolve();
+                    return loader.then(() => ApiClient.ajax({ type:'POST', url:ApiClient.getUrl('HomeScreenSectionsManager/sections/' + encodeURIComponent(item.id) + '/apply'), data:JSON.stringify(request), contentType:'application/json', dataType:'json' }));
+                }).then(result => {
+                    if (!result) return;
+                    window.HSSMNotifyClientSettingsChanged();
+                    status.textContent = item.name + ' refreshed.';
+                    loadSections();
+                }, error => { status.textContent = 'The section could not be refreshed. ' + (error && error.message || ''); }).finally(() => { refreshButton.disabled = !(selected() && selected().origin === 'manager'); });
             });
             page.querySelector('#hssmCloseCopySectionButton').addEventListener('click', () => { copyDialog.hidden = true; });
             page.querySelector('#hssmConfirmCopySectionButton').addEventListener('click', () => {
@@ -834,6 +958,7 @@
             const page = document.getElementById('homeScreenSectionsManagerPage');
             if (!page || !window.ApiClient) return;
             const pagePicker = page.querySelector('#hssmTopRowPagePicker');
+            const messagePagePicker = page.querySelector('#hssmTopRowMessagePagePicker');
             const sourcePicker = page.querySelector('#hssmTopRowSourcePicker');
             const selectedOrder = page.querySelector('#hssmTopRowSelectedOrder');
             const contentOrder = page.querySelector('#hssmTopRowContentOrder');
@@ -842,12 +967,18 @@
             const displayLogosOnly = page.querySelector('#hssmTopRowDisplayLogosOnly');
             const saveButton = page.querySelector('#hssmSaveTopRowButton');
             const status = page.querySelector('#hssmTopRowStatus');
+            const logoShadowColor = page.querySelector('#hssmTopRowLogoShadowColor');
+            const messageFont = page.querySelector('#hssmTopRowMessageFont');
+            const messageFontStatus = page.querySelector('#hssmTopRowMessageFontStatus');
             let pages = [];
             let collections = [];
             let libraries = [];
             let selectedIds = [];
             let applied = false;
             let draggedId = '';
+            let savedLogoShadowColor = '#ffffff';
+            let messageFontDataUrl = '';
+            let messageFontShadowColor = '';
             const esc = value => { const node = document.createElement('span'); node.textContent = value == null ? '' : String(value); return node.innerHTML; };
             const valueOf = (value, pascal, camel, fallback) => value && value[pascal] !== undefined ? value[pascal] : value && value[camel] !== undefined ? value[camel] : fallback;
             const selectedType = () => (page.querySelector('input[name="hssmTopRowType"]:checked') || {}).value || 'multiple-collections-in-a-row';
@@ -862,6 +993,10 @@
             function renderPages(selected) {
                 const chosen = new Set((selected && selected.length ? selected : ['home']).map(String));
                 pagePicker.innerHTML = pages.map(item => '<label class="checkboxContainer"><input is="emby-checkbox" type="checkbox" data-hssm-top-row-page="' + esc(item.id) + '"' + (chosen.has(item.id) ? ' checked' : '') + ' /><span>' + esc(item.name) + '</span></label>').join('');
+            }
+            function renderMessagePages(selected) {
+                const chosen = new Set((selected && selected.length ? selected : ['home']).map(String));
+                messagePagePicker.innerHTML = pages.map(item => '<label class="checkboxContainer"><input is="emby-checkbox" type="checkbox" data-hssm-top-row-message-page="' + esc(item.id) + '"' + (chosen.has(item.id) ? ' checked' : '') + ' /><span>' + esc(item.name) + '</span></label>').join('');
             }
             function renderSelectedOrder() {
                 const items = selectedItems();
@@ -904,9 +1039,34 @@
                     const enabled = valueOf(settings, 'EnableTopRow', 'enableTopRow', false) === true;
                     page.querySelector('#hssmEnableTopRow').checked = enabled;
                     page.querySelector('#hssmDisableTopRow').checked = !enabled;
+                    page.querySelector('#hssmTopRowAlwaysShow').checked = valueOf(settings, 'TopRowAlwaysShow', 'topRowAlwaysShow', false) === true;
+                    const persistent = valueOf(settings, 'TopRowPersistent', 'topRowPersistent', false) === true;
+                    page.querySelector('#hssmTopRowPersists').checked = persistent;
+                    page.querySelector('#hssmTopRowScrolls').checked = !persistent;
+                    savedLogoShadowColor = String(valueOf(settings, 'TopRowLogoShadowColor', 'topRowLogoShadowColor', '#ffffff') || '');
+                    logoShadowColor.value = savedLogoShadowColor || '#ffffff';
+                    const messageEnabled = valueOf(settings, 'EnableTopRowMessage', 'enableTopRowMessage', false) === true;
+                    page.querySelector('#hssmEnableTopRowMessage').checked = messageEnabled;
+                    page.querySelector('#hssmDisableTopRowMessage').checked = !messageEnabled;
+                    page.querySelector('#hssmTopRowMessageAlwaysShow').checked = valueOf(settings, 'TopRowMessageAlwaysShow', 'topRowMessageAlwaysShow', false) === true;
+                    const messagePersistent = valueOf(settings, 'TopRowMessagePersistent', 'topRowMessagePersistent', false) === true;
+                    page.querySelector('#hssmTopRowMessagePersists').checked = messagePersistent;
+                    page.querySelector('#hssmTopRowMessageScrolls').checked = !messagePersistent;
+                    page.querySelector('#hssmTopRowMessageText').value = String(valueOf(settings, 'TopRowMessageText', 'topRowMessageText', '') || '');
+                    messageFontDataUrl = String(valueOf(settings, 'TopRowMessageFontDataUrl', 'topRowMessageFontDataUrl', '') || '');
+                    messageFontStatus.textContent = messageFontDataUrl ? 'A custom message font is imported.' : 'Using the default Abyss theme font.';
+                    page.querySelector('#hssmRemoveTopRowMessageFont').hidden = !messageFontDataUrl;
+                    page.querySelector('#hssmTopRowMessageFontColor').value = String(valueOf(settings, 'TopRowMessageFontColor', 'topRowMessageFontColor', '#ffffff') || '#ffffff');
+                    messageFontShadowColor = String(valueOf(settings, 'TopRowMessageFontShadowColor', 'topRowMessageFontShadowColor', '') || '');
+                    page.querySelector('#hssmTopRowMessageFontShadowColor').value = messageFontShadowColor || '#000000';
+                    page.querySelector('#hssmTopRowMessageBarColorMode').value = String(valueOf(settings, 'TopRowMessageBarColorMode', 'topRowMessageBarColorMode', 'solid') || 'solid');
+                    page.querySelector('#hssmTopRowMessageBarColorOne').value = String(valueOf(settings, 'TopRowMessageBarColorOne', 'topRowMessageBarColorOne', '#000000') || '#000000');
+                    page.querySelector('#hssmTopRowMessageBarColorTwo').value = String(valueOf(settings, 'TopRowMessageBarColorTwo', 'topRowMessageBarColorTwo', '#333333') || '#333333');
+                    page.querySelector('#hssmTopRowMessageMarqueeSpeed').value = String(valueOf(settings, 'TopRowMessageMarqueeSpeed', 'topRowMessageMarqueeSpeed', 'normal') || 'normal');
                     applied = valueOf(definition, 'IsApplied', 'isApplied', false) === true || selectedIds.length > 0;
                     saveButton.textContent = applied ? 'Refresh Top Row' : 'Add Top Row';
                     renderPages(valueOf(settings, 'TopRowPageIds', 'topRowPageIds', ['home']) || ['home']);
+                    renderMessagePages(valueOf(settings, 'TopRowMessagePageIds', 'topRowMessagePageIds', ['home']) || ['home']);
                     renderSources();
                 }, error => {
                     status.textContent = 'Top Row settings could not be loaded. ' + (error && (error.message || error.statusText) || '');
@@ -951,11 +1111,30 @@
             saveButton.addEventListener('click', () => {
                 const enabled = page.querySelector('#hssmEnableTopRow').checked;
                 const selectedPages = Array.from(pagePicker.querySelectorAll('[data-hssm-top-row-page]:checked')).map(input => input.dataset.hssmTopRowPage);
+                const messageEnabled = page.querySelector('#hssmEnableTopRowMessage').checked;
+                const selectedMessagePages = Array.from(messagePagePicker.querySelectorAll('[data-hssm-top-row-message-page]:checked')).map(input => input.dataset.hssmTopRowMessagePage);
                 if (enabled && !selectedIds.length) { status.textContent = 'Select at least one collection or library before enabling the Top Row.'; return; }
-                if (!selectedPages.length) { status.textContent = 'Select at least one home screen page for the Top Row.'; return; }
+                if (!page.querySelector('#hssmTopRowAlwaysShow').checked && !selectedPages.length) { status.textContent = 'Select at least one home screen page for the Top Row or choose Always Show.'; return; }
+                if (messageEnabled && !page.querySelector('#hssmTopRowMessageText').value.trim()) { status.textContent = 'Enter message content before enabling the Top Row message.'; return; }
+                if (!page.querySelector('#hssmTopRowMessageAlwaysShow').checked && !selectedMessagePages.length) { status.textContent = 'Select at least one home screen page for the Top Row message or choose Always Show.'; return; }
                 const payload = {
                     EnableTopRow:enabled,
                     TopRowPageIds:selectedPages,
+                    TopRowAlwaysShow:page.querySelector('#hssmTopRowAlwaysShow').checked,
+                    TopRowPersistent:page.querySelector('#hssmTopRowPersists').checked,
+                    TopRowLogoShadowColor:savedLogoShadowColor,
+                    EnableTopRowMessage:messageEnabled,
+                    TopRowMessagePageIds:selectedMessagePages,
+                    TopRowMessageAlwaysShow:page.querySelector('#hssmTopRowMessageAlwaysShow').checked,
+                    TopRowMessagePersistent:page.querySelector('#hssmTopRowMessagePersists').checked,
+                    TopRowMessageText:page.querySelector('#hssmTopRowMessageText').value.trim(),
+                    TopRowMessageFontDataUrl:messageFontDataUrl,
+                    TopRowMessageFontColor:page.querySelector('#hssmTopRowMessageFontColor').value,
+                    TopRowMessageFontShadowColor:messageFontShadowColor,
+                    TopRowMessageBarColorMode:page.querySelector('#hssmTopRowMessageBarColorMode').value,
+                    TopRowMessageBarColorOne:page.querySelector('#hssmTopRowMessageBarColorOne').value,
+                    TopRowMessageBarColorTwo:page.querySelector('#hssmTopRowMessageBarColorTwo').value,
+                    TopRowMessageMarqueeSpeed:page.querySelector('#hssmTopRowMessageMarqueeSpeed').value,
                     TopRowSection:{ Id:'top-row', Name:'Top Row', PageId:'home', Type:selectedType(), SourceIds:selectedIds, ItemIds:selectedIds, ContentOrder:contentOrder.value, ArtSize:'extra-small', ArtType:artType.value, ArtShape:artShape.value, DisplayLogosOnly:displayLogosOnly.checked, ShowText:false, ShowSectionName:false, IsVisible:true, IsMediaBar:false, IsApplied:selectedIds.length > 0 }
                 };
                 saveButton.disabled = true;
@@ -967,6 +1146,20 @@
                     window.HSSMNotifyClientSettingsChanged();
                 }, error => { status.textContent = 'Top Row settings could not be saved. ' + (error && (error.message || error.statusText) || ''); }).finally(() => { saveButton.disabled = false; });
             });
+            logoShadowColor.addEventListener('input', () => { savedLogoShadowColor = logoShadowColor.value; });
+            page.querySelector('#hssmRemoveTopRowLogoShadow').addEventListener('click', () => { savedLogoShadowColor = ''; status.textContent = 'Logo-only shadow removed. Save or refresh the Top Row to apply the change.'; });
+            page.querySelector('#hssmTopRowMessageFontShadowColor').addEventListener('input', event => { messageFontShadowColor = event.target.value; });
+            page.querySelector('#hssmRemoveTopRowMessageFontShadow').addEventListener('click', () => { messageFontShadowColor = ''; status.textContent = 'Message font shadow removed. Save or refresh the Top Row to apply the change.'; });
+            messageFont.addEventListener('change', () => {
+                const file = messageFont.files && messageFont.files[0];
+                if (!file) return;
+                if (!/\.(?:ttf|otf)$/i.test(file.name) || file.size > 2000000) { messageFont.value = ''; messageFontStatus.textContent = 'Choose a .ttf or .otf font file no larger than 2 MB.'; return; }
+                const reader = new FileReader();
+                reader.onload = () => { messageFontDataUrl = String(reader.result || ''); messageFontStatus.textContent = 'Custom message font imported.'; page.querySelector('#hssmRemoveTopRowMessageFont').hidden = false; };
+                reader.onerror = () => { messageFontDataUrl = ''; messageFontStatus.textContent = 'The font file could not be read.'; };
+                reader.readAsDataURL(file);
+            });
+            page.querySelector('#hssmRemoveTopRowMessageFont').addEventListener('click', event => { messageFontDataUrl = ''; messageFont.value = ''; messageFontStatus.textContent = 'Using the default Abyss theme font.'; event.currentTarget.hidden = true; });
             page.addEventListener('click', event => {
                 if (event.target.closest('[data-tab="top-row-settings"]')) window.setTimeout(load, 0);
             });
@@ -1140,7 +1333,7 @@
             }
             function numberingMarkup() {
                 if (!isTopType()) return '';
-                return '<div class="hssm-numbering-settings"><h3>Numbering Settings</h3><p class="fieldDescription">Select your preferences for if you want visible numbers on your Top 10-50 section, and their color(s).</p><div class="hssm-yes-no"><label class="checkboxContainer"><input is="emby-checkbox" type="radio" name="hssmRankNumbers" value="yes" data-hssm-rank-numbers' + (state.showRankNumbers ? ' checked' : '') + ' /><span>Yes</span></label><label class="checkboxContainer"><input is="emby-checkbox" type="radio" name="hssmRankNumbers" value="no" data-hssm-rank-numbers' + (!state.showRankNumbers ? ' checked' : '') + ' /><span>No</span></label></div><h4>Numbering Color(s):</h4><div class="hssm-numbering-colors"><div class="selectContainer"><label class="selectLabel">Color Style</label><select is="emby-select" data-hssm-rank-color-mode>' + selectOptions([['solid','Solid (Default)'],['vertical-gradient','Vertical Gradient'],['horizontal-gradient','Horizontal Gradient'],['center-gradient','Center Gradient']], state.rankNumberColorMode) + '</select></div><div class="inputContainer"><label class="inputLabel inputLabelUnfocused">First Color</label><input is="emby-input" type="color" data-hssm-rank-color-one value="' + esc(state.rankNumberColorOne) + '" /></div><div class="inputContainer"><label class="inputLabel inputLabelUnfocused">Second Color</label><input is="emby-input" type="color" data-hssm-rank-color-two value="' + esc(state.rankNumberColorTwo) + '" /></div><div class="inputContainer"><label class="inputLabel inputLabelUnfocused">Shadow Color</label><input is="emby-input" type="color" data-hssm-rank-shadow-color value="' + esc(state.rankNumberShadowColor) + '" /></div></div><div class="inputContainer"><label class="inputLabel inputLabelUnfocused">Import Numbering Font</label><input is="emby-input" type="file" accept=".ttf,.otf,font/ttf,font/otf,application/x-font-ttf,application/x-font-opentype" data-hssm-rank-font /></div><p class="fieldDescription">The default Abyss theme font will be used unless you import a .ttf or .otf font file.</p><p class="fieldDescription" data-hssm-rank-font-status>' + (state.rankNumberFontDataUrl ? 'A custom numbering font is imported.' : 'Using the default Abyss theme font.') + '</p>' + (state.rankNumberFontDataUrl ? '<button is="emby-button" type="button" class="raised" data-hssm-remove-rank-font>Remove Imported Font</button>' : '') + '</div>';
+                return '<div class="hssm-numbering-settings"><h3>Numbering Settings</h3><p class="fieldDescription">Select your preferences for if you want visible numbers on your Top 10-50 section, and their color(s).</p><div class="hssm-yes-no"><label class="checkboxContainer"><input is="emby-checkbox" type="radio" name="hssmRankNumbers" value="yes" data-hssm-rank-numbers' + (state.showRankNumbers ? ' checked' : '') + ' /><span>Yes</span></label><label class="checkboxContainer"><input is="emby-checkbox" type="radio" name="hssmRankNumbers" value="no" data-hssm-rank-numbers' + (!state.showRankNumbers ? ' checked' : '') + ' /><span>No</span></label></div><h4>Numbering Color(s):</h4><div class="hssm-numbering-colors"><div class="selectContainer"><label class="selectLabel">Color Style</label><select is="emby-select" data-hssm-rank-color-mode>' + selectOptions([['solid','Solid (Default)'],['vertical-gradient','Vertical Gradient'],['horizontal-gradient','Horizontal Gradient'],['center-gradient','Center Gradient']], state.rankNumberColorMode) + '</select></div><div class="inputContainer"><label class="inputLabel inputLabelUnfocused">First Color</label><input is="emby-input" type="color" data-hssm-rank-color-one value="' + esc(state.rankNumberColorOne) + '" /></div><div class="inputContainer"><label class="inputLabel inputLabelUnfocused">Second Color</label><input is="emby-input" type="color" data-hssm-rank-color-two value="' + esc(state.rankNumberColorTwo) + '" /></div><div class="inputContainer"><label class="inputLabel inputLabelUnfocused">Shadow Color</label><input is="emby-input" type="color" data-hssm-rank-shadow-color value="' + esc(state.rankNumberShadowColor || '#000000') + '"' + (!state.rankNumberShadowColor ? ' data-shadow-removed="true"' : '') + ' /></div></div><button is="emby-button" type="button" class="raised" data-hssm-remove-rank-shadow>Remove Shadow</button><div class="inputContainer"><label class="inputLabel inputLabelUnfocused">Import Numbering Font</label><input is="emby-input" type="file" accept=".ttf,.otf,font/ttf,font/otf,application/x-font-ttf,application/x-font-opentype" data-hssm-rank-font /></div><p class="fieldDescription">The default Abyss theme font will be used unless you import a .ttf or .otf font file.</p><p class="fieldDescription" data-hssm-rank-font-status>' + (state.rankNumberFontDataUrl ? 'A custom numbering font is imported.' : 'Using the default Abyss theme font.') + '</p>' + (state.rankNumberFontDataUrl ? '<button is="emby-button" type="button" class="raised" data-hssm-remove-rank-font>Remove Imported Font</button>' : '') + '</div>';
             }
             function dynamicMarkup() {
                 const title = isSeasonalType() ? 'Seasonal Section Drafts' : 'Rotating Section Drafts';
@@ -1523,6 +1716,7 @@
                     return loadAllParentItems(sourceId).then(items => { groups.push(items); });
                 }), Promise.resolve()).then(() => ({ definition:Object.assign({}, definition, { ItemIds:refreshedOrder(definition, groups.flat().map(item => String(item.Id || item.id))) }), skipped:false }));
             }
+            window.HSSMRefreshSectionDefinition = refreshDefinition;
             window.HSSMRefreshSavedSections = function (report) {
                 const update = typeof report === 'function' ? report : function () {};
                 update('Loading saved Home Screen sections…');
@@ -1810,7 +2004,7 @@
                     console.warn("[Home Screen Manager] The versioned browser loader could not be synchronized yet.", error);
                 });
             }, 0);
-            function applySection() {
+            function applySection(skipTopWarning) {
                 const button = host.querySelector('[data-hssm-apply-section]');
                 const applyStatus = host.querySelector('[data-hssm-apply-status]');
                 const select = host.querySelector('[data-hssm-content-order]');
@@ -1838,8 +2032,13 @@
                     if (selectedRankMode) state.rankNumberColorMode = selectedRankMode.value;
                     if (selectedRankOne) state.rankNumberColorOne = selectedRankOne.value;
                     if (selectedRankTwo) state.rankNumberColorTwo = selectedRankTwo.value;
-                    if (selectedRankShadow) state.rankNumberShadowColor = selectedRankShadow.value;
+                    if (selectedRankShadow) state.rankNumberShadowColor = selectedRankShadow.dataset.shadowRemoved === 'true' ? '' : selectedRankShadow.value;
                     ensureTopDraft().Name = state.name;
+                }
+                if (isTopType() && !skipTopWarning && state.contentItems.length < state.displayTop) {
+                    const action = state.isEditing ? 'Refresh Section Anyways' : 'Add Section to ' + destinationPageName() + ' Page Anyways';
+                    window.HSSMConfirmTopCountWarning(state.displayTop, state.contentItems.length, action).then(confirmed => { if (confirmed) applySection(true); });
+                    return;
                 }
                 button.disabled = true;
                 if (state.nativeOnly) {
@@ -1894,6 +2093,8 @@
                 }
                 const removeRankFont = event.target.closest('[data-hssm-remove-rank-font]');
                 if (removeRankFont) { state.rankNumberFontDataUrl = ''; const status = host.querySelector('[data-hssm-rank-font-status]'); if (status) status.textContent = 'Using the default Abyss theme font.'; removeRankFont.remove(); return; }
+                const removeRankShadow = event.target.closest('[data-hssm-remove-rank-shadow]');
+                if (removeRankShadow) { state.rankNumberShadowColor = ''; const picker = host.querySelector('[data-hssm-rank-shadow-color]'); if (picker) picker.dataset.shadowRemoved = 'true'; return; }
                 const removeManual = event.target.closest('[data-hssm-manual-remove]');
                 if (removeManual) { delete state.items[removeManual.dataset.hssmManualRemove]; renderContent(); return; }
                 if (event.target.closest('[data-hssm-library-all]')) { state.sources = state.libraries.map(library => String(library.ItemId || library.Id)); renderLibraries(); renderContent(); return; }
@@ -1951,7 +2152,7 @@
                 if (rankMode) { state.rankNumberColorMode = rankMode.value; return; }
                 if (rankOne) { state.rankNumberColorOne = rankOne.value; return; }
                 if (rankTwo) { state.rankNumberColorTwo = rankTwo.value; return; }
-                if (rankShadow) { state.rankNumberShadowColor = rankShadow.value; return; }
+                if (rankShadow) { rankShadow.dataset.shadowRemoved = 'false'; state.rankNumberShadowColor = rankShadow.value; return; }
                 if (rankFont) {
                     const file = rankFont.files && rankFont.files[0], status = host.querySelector('[data-hssm-rank-font-status]');
                     if (!file) return;
@@ -2148,7 +2349,7 @@
                         state.rankNumberColorMode = String(definition.RankNumberColorMode || definition.rankNumberColorMode || 'solid');
                         state.rankNumberColorOne = String(definition.RankNumberColorOne || definition.rankNumberColorOne || '#f5f5f7');
                         state.rankNumberColorTwo = String(definition.RankNumberColorTwo || definition.rankNumberColorTwo || '#f5f5f7');
-                        state.rankNumberShadowColor = String(definition.RankNumberShadowColor || definition.rankNumberShadowColor || '#000000');
+                        state.rankNumberShadowColor = String(definition.RankNumberShadowColor !== undefined ? definition.RankNumberShadowColor : (definition.rankNumberShadowColor !== undefined ? definition.rankNumberShadowColor : '#000000'));
                         state.rankNumberFontDataUrl = String(definition.RankNumberFontDataUrl || definition.rankNumberFontDataUrl || '');
                         state.activityMaxItems = Number(definition.ActivityMaxItems || definition.activityMaxItems || 20);
                         state.activityMediaType = String(definition.ActivityMediaType || definition.activityMediaType || 'movies');

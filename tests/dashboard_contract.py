@@ -130,6 +130,12 @@ def run() -> None:
         assert page.locator("#hssmTopRowSettingsPanel [data-hssm-show-text]").count() == 0
         assert page.locator("#hssmTopRowSettingsPanel [data-hssm-show-section-name]").count() == 0
         assert not page.locator("#hssmTopRowDisplayLogosOnly").is_checked()
+        assert page.get_by_text("Top Row Message Settings", exact=True).count() == 1
+        assert page.locator("#hssmDisableTopRowMessage").is_checked()
+        assert page.locator("#hssmTopRowMessagePagePicker [data-hssm-top-row-message-page='home']").is_checked()
+        assert not page.locator("#hssmTopRowAlwaysShow").is_checked()
+        assert page.locator("#hssmTopRowScrolls").is_checked()
+        assert page.locator("#hssmTopRowLogoShadowColor").input_value() == "#ffffff"
         logo_description_link = page.get_by_text("Collection Manager", exact=True)
         assert logo_description_link.get_attribute("href") == "https://github.com/mp3li/Collection-Manager-Jellyfin-Plugin"
         page.locator("#hssmEnableTopRow").check()
@@ -199,6 +205,10 @@ def run() -> None:
         page.locator("#hssmTypeSpecificSettings [data-hssm-rank-color-two]").fill("#445566")
         page.locator("#hssmTypeSpecificSettings [data-hssm-rank-shadow-color]").fill("#778899")
         page.locator("#hssmTypeSpecificSettings [data-hssm-apply-section]").click()
+        page.locator("#hssmTopCountWarningDialog:not([hidden])").wait_for()
+        assert "You have chosen Top 30" in page.locator("#hssmTopCountWarningMessage").text_content()
+        assert page.locator("#hssmConfirmTopCountWarningButton").text_content().strip() == "Refresh Section Anyways"
+        page.locator("#hssmConfirmTopCountWarningButton").click()
         page.wait_for_function("window.__applyCalls.some(call => call.id === 'manager-top')")
         assert page.evaluate("window.__applyCalls.find(call => call.id === 'manager-top').body.ItemIds === null")
         assert page.evaluate("window.__applyCalls.find(call => call.id === 'manager-top').body.ContentOrder") == "rating-descending"
@@ -238,6 +248,7 @@ def run() -> None:
         page.locator("#hssmSectionList [data-section-id='manager-one']").click()
         assert page.locator("#hssmMoveSectionButton").is_enabled()
         assert page.locator("#hssmCopySectionButton").is_enabled()
+        assert page.locator("#hssmRefreshSectionButton").is_enabled()
         page.locator("#hssmCopySectionButton").click()
         page.locator("#hssmCopySectionPage").select_option("manager-page-movies")
         page.locator("#hssmConfirmCopySectionButton").click()

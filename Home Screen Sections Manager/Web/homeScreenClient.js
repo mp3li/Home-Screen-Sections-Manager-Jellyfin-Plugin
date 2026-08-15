@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    var CLIENT_VERSION = "0.1.0.49";
+    var CLIENT_VERSION = "0.1.0.50";
     if (window.HomeScreenManagerClient) {
         if (window.HomeScreenManagerClient.version === CLIENT_VERSION) {
             window.HomeScreenManagerClient.refresh();
@@ -74,6 +74,7 @@
     var topRecoveryRequests = {};
     var topRowRenderKey = '';
     var topRowLoadSequence = 0;
+    var topChromeSyncBound = false;
 
     function createLimiter(maximum) {
         var active = 0;
@@ -840,7 +841,9 @@
         var artType = String(prop(section, 'ArtType', 'artType', 'automatic'));
         var pageId = String(prop(section, 'PageId', 'pageId', 'home'));
         var showSectionName = prop(section, 'ShowSectionName', 'showSectionName', true) !== false;
-        var sectionTitleMarkup = showSectionName ? '<div class="sectionTitleContainer sectionTitleContainer-cards padded-left"><h2 class="sectionTitle sectionTitle-cards">' + escapeHtml(name) + '</h2></div>' : '';
+        var titleDestination = sectionTitleDestination(section);
+        var titleAttributes = titleDestination ? ' href="' + escapeHtml(titleDestination) + '"' : ' href="#" data-hssm-open-section="' + escapeHtml(id) + '"';
+        var sectionTitleMarkup = showSectionName ? '<div class="sectionTitleContainer sectionTitleContainer-cards padded-left"><h2 class="sectionTitle sectionTitle-cards"><a is="emby-linkbutton" class="hssm-section-title-link"' + titleAttributes + '>' + escapeHtml(name) + '</a></h2></div>' : '';
         var ownsScroller = forceOwnedScroller === true || (pageId !== 'home' && pageId !== 'my-list');
         var ranked = String(prop(section, 'Type', 'type', '')) === 'top-10-50' && prop(section, 'ShowRankNumbers', 'showRankNumbers', true) !== false;
         node.className = 'verticalSection emby-scroller-container hssm-client-section hssm-size-' + artSize + ' hssm-shape-' + artShape + ' hssm-art-' + artType + (showSectionName ? '' : ' hssm-hide-section-name') + (ranked ? ' hssm-top-ranked hssm-rank-' + String(prop(section, 'RankNumberColorMode', 'rankNumberColorMode', 'solid')) : '');
@@ -873,6 +876,81 @@
             : '<div is="emby-scroller" class="hssm-client-scroller padded-top-focusscale padded-bottom-focusscale" data-horizontal="true" data-centerfocus="true"><div is="emby-itemscontainer" class="focuscontainer-x itemsContainer scrollSlider animatedScrollX hssm-client-items">' + cards + '</div></div>';
         node.innerHTML = sectionTitleMarkup + scroller;
         return node;
+    }
+
+    function sectionTitleDestination(section) {
+        var type = String(prop(section, 'Type', 'type', ''));
+        var sources = (prop(section, 'SourceIds', 'sourceIds', []) || []).map(String).filter(Boolean);
+        if (sources.length !== 1) return '';
+        var source = sources[0];
+        var split = source.indexOf('|');
+        var prefix = split > 0 ? source.slice(0, split) : '';
+        var id = split > 0 ? source.slice(split + 1) : source;
+        var collection = prefix === 'collection' || ['individual-collection-content', 'multiple-collection-content', 'multiple-collections-in-a-row'].indexOf(type) >= 0;
+        var library = prefix === 'library' || ['library-content', 'multiple-library-content', 'libraries-in-a-row'].indexOf(type) >= 0;
+        if (collection && id) return breadcrumbDetailHref(id);
+        if (!library || !id) return '';
+        var view = (liveViewsCache || []).find(function (item) { return String(prop(item, 'Id', 'id', '')) === id; });
+        var collectionType = String(prop(view, 'CollectionType', 'collectionType', '') || '').toLowerCase();
+        var route = collectionType === 'tvshows' ? 'tv' : collectionType === 'music' ? 'music' : collectionType === 'books' ? 'books' : collectionType === 'movies' ? 'movies' : 'list';
+        return breadcrumbLibraryHref(route, id);
+    }
+
+    function closeSectionListingPage() {
+        var page = document.querySelector('.hssm-section-listing-page');
+        if (page) page.remove();
+        document.body.classList.remove('hssm-section-listing-open');
+    }
+
+    function sectionListingItems(section, state) {
+        var type = String(prop(section, 'Type', 'type', ''));
+        var ids = prop(section, 'ItemIds', 'itemIds', []).map(String).filter(Boolean);
+        if (ids.length) return queryIds(ids);
+        if (type === 'my-list-content') return loadLikedItems(true);
+        if (type === 'watch-again') return watchAgainItems();
+        if (type === 'top-10-50') return loadTopItemsFromSources(section);
+        return Promise.resolve(state && state.items ? state.items : []);
+    }
+
+    function openSectionListingPage(section, state) {
+        closeSectionListingPage();
+        var page = document.createElement('section');
+        page.className = 'hssm-section-listing-page hssm-size-' + String(prop(section, 'ArtSize', 'artSize', 'medium')) + ' hssm-shape-' + cardShape(section).name;
+        page.innerHTML = '<div class="hssm-section-listing-header"><button type="button" is="emby-button" class="raised hssm-section-listing-back"><span class="material-icons arrow_back" aria-hidden="true"></span> Back</button><h1>' + escapeHtml(prop(section, 'Name', 'name', 'Section')) + '</h1></div><div class="hssm-section-listing-controls"><div class="inputContainer"><label class="inputLabel inputLabelUnfocused">Filter</label><input is="emby-input" type="search" data-hssm-section-filter placeholder="Filter this section" /></div><div class="selectContainer"><label class="selectLabel">Media Type</label><select is="emby-select" data-hssm-section-type-filter><option value="">All Media Types</option><option value="Movie">Movies</option><option value="Series">Series</option><option value="Episode">Episodes</option><option value="Audio">Audio</option><option value="Book">Books</option></select></div><div class="selectContainer"><label class="selectLabel">Sort By</label><select is="emby-select" data-hssm-section-sort><option value="title">Title (A–Z)</option><option value="title-desc">Title (Z–A)</option><option value="year-desc">Year (Newest First)</option><option value="year-asc">Year (Oldest First)</option><option value="rating">Rating (Highest First)</option><option value="added">Recently Added</option></select></div></div><p class="hssm-section-listing-status">Loading section content…</p><div class="hssm-section-listing-grid"></div>';
+        document.body.appendChild(page);
+        document.body.classList.add('hssm-section-listing-open');
+        page.querySelector('.hssm-section-listing-back').addEventListener('click', closeSectionListingPage);
+        sectionListingItems(section, state).then(function (loaded) {
+            var items = uniqueItems(loaded || []);
+            var filter = page.querySelector('[data-hssm-section-filter]');
+            var typeFilter = page.querySelector('[data-hssm-section-type-filter]');
+            var sort = page.querySelector('[data-hssm-section-sort]');
+            function paint() {
+                var query = String(filter.value || '').trim().toLowerCase();
+                var mediaType = typeFilter.value;
+                var visible = items.filter(function (item) {
+                    return (!query || String(prop(item, 'Name', 'name', '')).toLowerCase().indexOf(query) >= 0) && (!mediaType || String(prop(item, 'Type', 'type', '')) === mediaType);
+                }).slice();
+                visible.sort(function (left, right) {
+                    var leftName = String(prop(left, 'SortName', 'sortName', prop(left, 'Name', 'name', ''))), rightName = String(prop(right, 'SortName', 'sortName', prop(right, 'Name', 'name', '')));
+                    if (sort.value === 'title-desc') return rightName.localeCompare(leftName);
+                    if (sort.value === 'year-desc') return Number(prop(right, 'ProductionYear', 'productionYear', 0)) - Number(prop(left, 'ProductionYear', 'productionYear', 0));
+                    if (sort.value === 'year-asc') return Number(prop(left, 'ProductionYear', 'productionYear', 0)) - Number(prop(right, 'ProductionYear', 'productionYear', 0));
+                    if (sort.value === 'rating') return Number(prop(right, 'CommunityRating', 'communityRating', 0)) - Number(prop(left, 'CommunityRating', 'communityRating', 0));
+                    if (sort.value === 'added') return String(prop(right, 'DateCreated', 'dateCreated', '')).localeCompare(String(prop(left, 'DateCreated', 'dateCreated', '')));
+                    return leftName.localeCompare(rightName);
+                });
+                page.querySelector('.hssm-section-listing-status').textContent = visible.length + (visible.length === 1 ? ' item' : ' items');
+                page.querySelector('.hssm-section-listing-grid').innerHTML = visible.map(function (item) { return card(item, section, 0); }).join('');
+                if (window.CustomElements && typeof window.CustomElements.upgradeSubtree === 'function') window.CustomElements.upgradeSubtree(page);
+                if (setting(state && state.settings, 'EnableMyList', false)) Array.from(page.querySelectorAll('.card[data-id]')).forEach(addMyListButton);
+            }
+            filter.addEventListener('input', paint);
+            typeFilter.addEventListener('change', paint);
+            sort.addEventListener('change', paint);
+            page.addEventListener('click', function (event) { if (event.target.closest('.card a[href]')) window.setTimeout(closeSectionListingPage, 0); });
+            paint();
+        }).catch(function () { page.querySelector('.hssm-section-listing-status').textContent = 'This section could not be loaded right now.'; });
     }
 
     function upgradeSectionControls(node) {
@@ -2723,13 +2801,132 @@
         if (row && row._hssmGeometryResizeHandler) window.removeEventListener('resize', row._hssmGeometryResizeHandler);
         if (row && row._hssmHeaderScrollHandler) window.removeEventListener('scroll', row._hssmHeaderScrollHandler);
         if (row) row.remove();
-        Array.from(document.querySelectorAll('.skinHeader.hssm-top-row-host')).forEach(function (header) {
-            header.classList.remove('hssm-top-row-host');
-            header.style.removeProperty('--hssm-top-row-header-offset');
-        });
         document.body.classList.remove('hssm-top-row-enabled');
         document.body.classList.remove('hssm-top-row-shape-wide', 'hssm-top-row-shape-square', 'hssm-top-row-shape-circle');
         document.body.style.removeProperty('--hssm-top-row-height');
+        syncTopChromeHeaderOffset();
+    }
+
+    function removeTopRowMessage() {
+        var message = document.querySelector('.hssm-top-row-message');
+        if (message && message._hssmResizeHandler) window.removeEventListener('resize', message._hssmResizeHandler);
+        if (message) message.remove();
+        var fontStyle = document.getElementById('hssm-top-row-message-font');
+        if (fontStyle) fontStyle.remove();
+        syncTopChromeHeaderOffset();
+    }
+
+    function syncTopChromeHeaderOffset() {
+        var header = document.querySelector('.skinHeader');
+        if (!header) return;
+        var message = document.querySelector('.hssm-top-row-message');
+        var row = document.querySelector('.hssm-top-row');
+        var persistentOffset = 0;
+        var flowOffset = 0;
+        if (message && message.isConnected) {
+            var messageBox = message.getBoundingClientRect();
+            flowOffset = Math.max(flowOffset, Math.max(0, messageBox.bottom));
+            if (message.classList.contains('hssm-top-row-message-persistent')) {
+                message.style.setProperty('--hssm-top-row-sticky-offset', '0px');
+                persistentOffset += messageBox.height;
+            }
+        }
+        if (row && row.isConnected) {
+            var rowBox = row.getBoundingClientRect();
+            flowOffset = Math.max(flowOffset, Math.max(0, rowBox.bottom));
+            if (row.classList.contains('hssm-top-row-persistent')) {
+                row.style.setProperty('--hssm-top-row-sticky-offset', persistentOffset.toFixed(2) + 'px');
+                persistentOffset += rowBox.height;
+            }
+        }
+        var offset = Math.max(persistentOffset, flowOffset);
+        if (message || row) {
+            header.classList.add('hssm-top-row-host');
+            header.style.setProperty('--hssm-top-row-header-offset', offset.toFixed(2) + 'px');
+        } else {
+            header.classList.remove('hssm-top-row-host');
+            header.style.removeProperty('--hssm-top-row-header-offset');
+        }
+    }
+
+    function ensureTopChromeSync() {
+        if (topChromeSyncBound) return;
+        topChromeSyncBound = true;
+        window.addEventListener('scroll', syncTopChromeHeaderOffset, { passive:true });
+        window.addEventListener('resize', syncTopChromeHeaderOffset, { passive:true });
+    }
+
+    function topChromeHost(alwaysShow) {
+        if (isHomeRoute()) return document.querySelector('#indexPage');
+        return alwaysShow && !isPlaybackScreen() ? activePage() : null;
+    }
+
+    function topChromeVisible(enabled, alwaysShow, pageIds) {
+        if (!enabled || isPlaybackScreen() || isDashboardScreen()) return false;
+        if (alwaysShow) return true;
+        return isHomeRoute() && (pageIds || ['home']).map(String).indexOf(activeTopRowPageId()) >= 0;
+    }
+
+    function hexShadowFilter(color) {
+        var match = /^#([0-9a-f]{6})$/i.exec(String(color || ''));
+        if (!match) return 'none';
+        var value = parseInt(match[1], 16);
+        var rgb = ((value >> 16) & 255) + ',' + ((value >> 8) & 255) + ',' + (value & 255);
+        return 'drop-shadow(0 1px 1.5px rgba(' + rgb + ',.38)) drop-shadow(0 0 2.5px rgba(' + rgb + ',.20))';
+    }
+
+    function colorPaint(mode, first, second) {
+        if (mode === 'vertical-gradient') return 'linear-gradient(to bottom,' + first + ',' + second + ')';
+        if (mode === 'horizontal-gradient') return 'linear-gradient(to right,' + first + ',' + second + ')';
+        if (mode === 'center-gradient') return 'radial-gradient(circle at center,' + first + ' 0%,' + second + ' 100%)';
+        return first;
+    }
+
+    function renderTopRowMessage(settings) {
+        ensureTopChromeSync();
+        var enabled = setting(settings, 'EnableTopRowMessage', false) === true;
+        var alwaysShow = setting(settings, 'TopRowMessageAlwaysShow', false) === true;
+        var pageIds = setting(settings, 'TopRowMessagePageIds', ['home']) || ['home'];
+        var text = String(setting(settings, 'TopRowMessageText', '') || '').trim();
+        var visible = topChromeVisible(enabled && !!text, alwaysShow, pageIds);
+        var host = topChromeHost(alwaysShow);
+        if (!visible || !host) { removeTopRowMessage(); return; }
+        var existing = document.querySelector('.hssm-top-row-message');
+        if (existing && existing.parentNode !== host) { existing.remove(); existing = null; }
+        var message = existing || document.createElement('aside');
+        var persistent = setting(settings, 'TopRowMessagePersistent', false) === true;
+        message.className = 'hssm-top-row-message' + (persistent ? ' hssm-top-row-message-persistent' : '');
+        message.style.background = colorPaint(String(setting(settings, 'TopRowMessageBarColorMode', 'solid')), String(setting(settings, 'TopRowMessageBarColorOne', '#000000')), String(setting(settings, 'TopRowMessageBarColorTwo', '#333333')));
+        message.style.color = String(setting(settings, 'TopRowMessageFontColor', '#ffffff'));
+        var shadow = String(setting(settings, 'TopRowMessageFontShadowColor', '') || '');
+        message.style.textShadow = /^#[0-9a-f]{6}$/i.test(shadow) ? '0 1px 3px ' + shadow : 'none';
+        var speed = String(setting(settings, 'TopRowMessageMarqueeSpeed', 'normal'));
+        message.style.setProperty('--hssm-message-marquee-duration', ({ 'extra-slow':'34s', slow:'26s', normal:'18s', fast:'12s', faster:'8s' })[speed] || '18s');
+        var fontData = String(setting(settings, 'TopRowMessageFontDataUrl', '') || '');
+        var fontStyle = document.getElementById('hssm-top-row-message-font');
+        if (fontData) {
+            if (!fontStyle) { fontStyle = document.createElement('style'); fontStyle.id = 'hssm-top-row-message-font'; document.head.appendChild(fontStyle); }
+            fontStyle.textContent = '@font-face{font-family:"HSSMTopRowMessage";src:url("' + fontData.replace(/"/g, '') + '")}';
+            message.style.fontFamily = 'HSSMTopRowMessage, inherit';
+        } else {
+            if (fontStyle) fontStyle.remove();
+            message.style.fontFamily = '';
+        }
+        message.innerHTML = '<div class="hssm-top-row-message-viewport"><span class="hssm-top-row-message-text">' + escapeHtml(text) + '</span></div>';
+        if (!existing) host.insertBefore(message, host.firstChild);
+        else if (host.firstChild !== message) host.insertBefore(message, host.firstChild);
+        var updateMarquee = function () {
+            if (!message.isConnected) return;
+            var viewport = message.querySelector('.hssm-top-row-message-viewport');
+            var content = message.querySelector('.hssm-top-row-message-text');
+            message.classList.toggle('hssm-top-row-message-marquee', !!viewport && !!content && content.scrollWidth > viewport.clientWidth + 4);
+            syncTopChromeHeaderOffset();
+        };
+        window.requestAnimationFrame(updateMarquee);
+        if (!message._hssmResizeHandler) {
+            message._hssmResizeHandler = updateMarquee;
+            window.addEventListener('resize', message._hssmResizeHandler, { passive:true });
+        }
     }
 
     function activeTopRowPageId() {
@@ -2795,11 +2992,8 @@
     }
 
     function syncTopRowHeaderOffset(row) {
-        var header = document.querySelector('.skinHeader.hssm-top-row-host');
-        if (!row || !row.isConnected || !header) return;
-        var box = row.getBoundingClientRect();
-        var offset = Math.max(0, Math.min(box.height, box.bottom));
-        header.style.setProperty('--hssm-top-row-header-offset', offset.toFixed(2) + 'px');
+        if (!row || !row.isConnected) return;
+        syncTopChromeHeaderOffset();
     }
 
     function bindTopRowScroller(row) {
@@ -2841,22 +3035,27 @@
     }
 
     function renderTopRow(settings) {
+        ensureTopChromeSync();
         var enabled = setting(settings, 'EnableTopRow', false) === true;
+        var alwaysShow = setting(settings, 'TopRowAlwaysShow', false) === true;
         var section = setting(settings, 'TopRowSection', null);
         var pageIds = setting(settings, 'TopRowPageIds', ['home']) || ['home'];
         var pageId = activeTopRowPageId();
         var sourceIds = prop(section, 'ItemIds', 'itemIds', prop(section, 'SourceIds', 'sourceIds', []) || []).map(String).filter(Boolean);
         var logoCollectionIds = new Set((setting(settings, 'TopRowLogoCollectionIds', []) || []).map(normalizedTopRowItemId));
-        var visible = isHomeRoute() && enabled && section && sourceIds.length && pageIds.map(String).indexOf(pageId) >= 0;
+        var visible = topChromeVisible(enabled, alwaysShow, pageIds) && section && sourceIds.length;
         var header = document.querySelector('.skinHeader');
-        var topRowHost = document.querySelector('#indexPage');
+        var topRowHost = topChromeHost(alwaysShow);
         if (!visible || !header || !topRowHost) {
             removeTopRow();
             return;
         }
         var logosOnly = prop(section, 'DisplayLogosOnly', 'displayLogosOnly', false) === true;
-        var signature = JSON.stringify([pageId, sourceIds, prop(section, 'ContentOrder', 'contentOrder', 'manual'), prop(section, 'ArtType', 'artType', 'automatic'), prop(section, 'ArtShape', 'artShape', 'wide'), logosOnly, Array.from(logoCollectionIds)]);
-        var existing = topRowHost.querySelector(':scope > .hssm-top-row');
+        var persistent = setting(settings, 'TopRowPersistent', false) === true;
+        var logoShadow = String(setting(settings, 'TopRowLogoShadowColor', '#ffffff') || '');
+        var signature = JSON.stringify([pageId, alwaysShow, persistent, sourceIds, prop(section, 'ContentOrder', 'contentOrder', 'manual'), prop(section, 'ArtType', 'artType', 'automatic'), prop(section, 'ArtShape', 'artShape', 'wide'), logosOnly, logoShadow, Array.from(logoCollectionIds)]);
+        var existing = document.querySelector('.hssm-top-row');
+        if (existing && existing.parentNode !== topRowHost) { existing.remove(); existing = null; }
         header.classList.add('hssm-top-row-host');
         document.body.classList.add('hssm-top-row-enabled');
         var rowShape = logosOnly ? 'wide' : cardShape(section).name;
@@ -2867,10 +3066,12 @@
         topRowRenderKey = signature;
         var loadSequence = ++topRowLoadSequence;
         var row = document.createElement('nav');
-        row.className = 'hssm-top-row hssm-size-extra-small hssm-shape-' + rowShape + ' hssm-art-' + String(prop(section, 'ArtType', 'artType', 'automatic')) + (logosOnly ? ' hssm-top-row-logos-only' : '');
+        row.className = 'hssm-top-row hssm-size-extra-small hssm-shape-' + rowShape + ' hssm-art-' + String(prop(section, 'ArtType', 'artType', 'automatic')) + (logosOnly ? ' hssm-top-row-logos-only' : '') + (persistent ? ' hssm-top-row-persistent' : '');
+        row.style.setProperty('--hssm-top-row-logo-shadow', hexShadowFilter(logoShadow));
         row.setAttribute('aria-label', 'Top Row');
         row.innerHTML = '<div class="hssm-top-row-track" aria-busy="true"></div>';
-        topRowHost.insertBefore(row, topRowHost.firstChild);
+        var message = topRowHost.querySelector(':scope > .hssm-top-row-message');
+        topRowHost.insertBefore(row, message ? message.nextSibling : topRowHost.firstChild);
         queryIds(sourceIds).then(function (items) {
             if (loadSequence !== topRowLoadSequence || !row.isConnected || topRowRenderKey !== signature) return;
             var ordered = orderItems(items, section);
@@ -2903,6 +3104,7 @@
     function applyRouteFeatures(settings, scope, home, preferences) {
         document.body.classList.add('hssm-client-enabled');
         applyLogo(settings);
+        renderTopRowMessage(settings);
         renderTopRow(settings);
         applyTitleMarquee(settings, scope);
         applyMyListHeartColor(settings);
@@ -3080,7 +3282,7 @@
                 clientReadyTimer = window.setTimeout(function () { routeRefresh(false); }, 100);
             }
             applyLogo(isPlaybackScreen() ? {} : (settingsCache || cacheRead('client-settings', 24 * 60 * 60 * 1000) || {}));
-            if (!isHomeRoute()) removeTopRow();
+            if (!isHomeRoute()) { removeTopRow(); removeTopRowMessage(); }
             return;
         }
         clientReadyAttempts = 0;
@@ -3089,6 +3291,7 @@
         if (isDashboardScreen() || isPlaybackScreen()) {
             applyLogo(isPlaybackScreen() ? {} : (settingsCache || cacheRead('client-settings', 24 * 60 * 60 * 1000) || {}));
             removeTopRow();
+            removeTopRowMessage();
             return;
         }
         liveUserViews(false);
@@ -3168,6 +3371,13 @@
     }
 
     window.addEventListener('hashchange', function () { queueRouteRefresh(false); });
+    document.addEventListener('click', function (event) {
+        var title = event.target.closest('.hssm-section-title-link[data-hssm-open-section]');
+        if (!title) return;
+        event.preventDefault();
+        var state = sectionRuntime[String(title.dataset.hssmOpenSection || '')];
+        if (state) openSectionListingPage(state.section, state);
+    });
     document.addEventListener('viewshow', function () { queueRouteRefresh(false); }, true);
     document.addEventListener('visibilitychange', function () { syncOwnedMediaBarVisibility(); });
     window.addEventListener('home-screen-manager-refresh', function () { routeRefresh(true); });

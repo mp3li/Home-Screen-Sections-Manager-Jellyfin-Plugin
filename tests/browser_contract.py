@@ -54,6 +54,20 @@ def run() -> None:
         "TitleMarqueeSpeed": "normal",
         "EnableTopRow": True,
         "TopRowPageIds": ["home", "manager-page-movies"],
+        "TopRowAlwaysShow": False,
+        "TopRowPersistent": False,
+        "TopRowLogoShadowColor": "#ffffff",
+        "EnableTopRowMessage": True,
+        "TopRowMessagePageIds": ["home"],
+        "TopRowMessageAlwaysShow": False,
+        "TopRowMessagePersistent": False,
+        "TopRowMessageText": "Welcome to the server - this is a deliberately wide message for marquee testing across every user account",
+        "TopRowMessageFontColor": "#fefefe",
+        "TopRowMessageFontShadowColor": "#112233",
+        "TopRowMessageBarColorMode": "horizontal-gradient",
+        "TopRowMessageBarColorOne": "#111111",
+        "TopRowMessageBarColorTwo": "#332244",
+        "TopRowMessageMarqueeSpeed": "fast",
         "TopRowSection": {"Id": "top-row", "Name": "Top Row", "PageId": "home", "Type": "multiple-collections-in-a-row", "SourceIds": [], "ItemIds": [], "ContentOrder": "manual", "ArtSize": "extra-small", "ArtType": "primary", "ArtShape": "circle", "DisplayLogosOnly": True, "ShowText": False, "ShowSectionName": False, "IsApplied": True},
         "TopRowLogoCollectionIds": [],
         "LogoImageDataUrl": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='32'%3E%3C/svg%3E",
@@ -228,16 +242,24 @@ def run() -> None:
         page.wait_for_selector("#homeTab [data-hssm-section-id='manager-home-test'] .hssm-client-card")
         long_section_heading = page.locator("#homeTab [data-hssm-section-id='manager-home-top'] > .sectionTitleContainer > .sectionTitle")
         assert long_section_heading.inner_text().strip() == "Top 20 in Foreign Collection With A Deliberately Long Custom Section Name"
+        assert "id=top-source" in long_section_heading.locator(".hssm-section-title-link").get_attribute("href")
         heading_style = long_section_heading.evaluate("node => ({overflow:getComputedStyle(node).overflow,textOverflow:getComputedStyle(node).textOverflow,whiteSpace:getComputedStyle(node).whiteSpace,lineClamp:getComputedStyle(node).webkitLineClamp,width:node.getBoundingClientRect().width,parentWidth:node.parentElement.getBoundingClientRect().width})")
         assert heading_style["overflow"] == "visible" and heading_style["textOverflow"] == "clip" and heading_style["whiteSpace"] == "normal" and heading_style["lineClamp"] == "none" and heading_style["width"] > heading_style["parentWidth"] * 0.9, heading_style
         page.wait_for_selector(f"#indexPage > .hssm-top-row .hssm-top-row-card[data-id='{first_top_row_id}']")
+        page.wait_for_selector("#indexPage > .hssm-top-row-message")
         top_row_state = page.evaluate("""() => {
-          const header=document.querySelector('.skinHeader'), host=document.querySelector('#indexPage'), row=host.querySelector(':scope > .hssm-top-row'), track=row.querySelector('.hssm-top-row-track'), card=row.querySelector('.hssm-top-row-card');
-          const action=card.matches('.cardImageContainer,.itemAction')?card:card.querySelector('.cardImageContainer,.itemAction'), logoStyle=getComputedStyle(card);
+          const header=document.querySelector('.skinHeader'), host=document.querySelector('#indexPage'), message=host.querySelector(':scope > .hssm-top-row-message'), row=host.querySelector(':scope > .hssm-top-row'), track=row.querySelector('.hssm-top-row-track'), card=row.querySelector('.hssm-top-row-card');
+          const action=card.matches('.cardImageContainer,.itemAction')?card:card.querySelector('.cardImageContainer,.itemAction'), logoStyle=getComputedStyle(card), logoImage=card.querySelector('.hssm-top-row-logo-image');
           return {
-            firstChild:host.firstElementChild===row,
+            firstChild:host.firstElementChild===message,
+            rowAfterMessage:message.nextElementSibling===row,
             host:header.classList.contains('hssm-top-row-host'),
             position:getComputedStyle(row).position,
+            messagePosition:getComputedStyle(message).position,
+            messageText:message.textContent.trim(),
+            messageBackground:getComputedStyle(message).backgroundImage,
+            messageColor:getComputedStyle(message).color,
+            messageShadow:getComputedStyle(message).textShadow,
             topGap:parseFloat(getComputedStyle(track).paddingTop),
             noArrows:row.querySelectorAll('button,.hssm-scroll-button').length===0,
             noPlay:row.querySelectorAll('[data-action="resume"],.cardOverlayFab-primary').length===0,
@@ -260,13 +282,16 @@ def run() -> None:
             logoShadow:logoStyle.boxShadow,
             logoClip:logoStyle.clipPath,
             logoPadding:parseFloat(logoStyle.paddingTop),
+            logoFilter:getComputedStyle(logoImage).filter,
             wideDespiteSavedCircle:row.classList.contains('hssm-shape-wide') && !row.classList.contains('hssm-shape-circle')
           };
         }""")
-        assert top_row_state["firstChild"] and top_row_state["host"] and top_row_state["position"] == "relative" and top_row_state["topGap"] >= 4 and top_row_state["noArrows"] and top_row_state["noPlay"] and top_row_state["noHeart"] and top_row_state["plainLogo"] and top_row_state["logosOnly"] and top_row_state["wideDespiteSavedCircle"], top_row_state
+        assert top_row_state["firstChild"] and top_row_state["rowAfterMessage"] and top_row_state["host"] and top_row_state["position"] == "relative" and top_row_state["messagePosition"] == "relative" and top_row_state["topGap"] >= 4 and top_row_state["noArrows"] and top_row_state["noPlay"] and top_row_state["noHeart"] and top_row_state["plainLogo"] and top_row_state["logosOnly"] and top_row_state["wideDespiteSavedCircle"], top_row_state
+        assert top_row_state["messageText"].startswith("Welcome to the server") and "linear-gradient" in top_row_state["messageBackground"] and top_row_state["messageColor"] == "rgb(254, 254, 254)" and "rgb(17, 34, 51)" in top_row_state["messageShadow"], top_row_state
         assert f"id={first_top_row_id}" in top_row_state["href"] and "blur" not in top_row_state["backdropFilter"] and top_row_state["scrollable"] and abs(top_row_state["gap"] - top_row_state["normalGap"]) < 1, top_row_state
         assert f"/HomeScreenSectionsManager/top-row-logo/{first_top_row_id}" in top_row_state["logoSrc"] and top_row_state["logoFit"] == "contain" and top_row_state["logoOverflow"] == "visible" and top_row_state["logoRadius"] == "0px", top_row_state
         assert top_row_state["logoBorder"] == "none" and top_row_state["logoOutline"] == "none" and top_row_state["logoShadow"] == "none" and top_row_state["logoClip"] == "none" and top_row_state["logoPadding"] > 0, top_row_state
+        assert "drop-shadow" in top_row_state["logoFilter"] and "rgba(255, 255, 255" in top_row_state["logoFilter"], top_row_state
         assert parse_qs(urlparse(top_row_state["logoSrc"]).query).get("ApiKey") == ["test-token"], top_row_state
         assert page.locator(f".hssm-top-row-card[data-id='{missing_top_row_id}']").count() == 0
         top_row_scroll = page.locator(".hssm-top-row-track").evaluate("""track => { const before=track.scrollLeft; track.dispatchEvent(new WheelEvent('wheel',{deltaY:260,bubbles:true,cancelable:true})); return {before,after:track.scrollLeft}; }""")
@@ -333,13 +358,14 @@ def run() -> None:
         active_mask = media_bar_fade["mask"] if media_bar_fade["mask"] != "none" else media_bar_fade["webkitMask"]
         assert media_bar_fade["topClass"] and "rgba(0, 0, 0, 0) 0%" in active_mask and "rgba(0, 0, 0, 0) 100%" in active_mask and "36%" in active_mask and "64%" in active_mask, media_bar_fade
         page.evaluate("window.scrollTo(0, 0)")
-        page.wait_for_function("Math.abs(document.querySelector('.hssm-top-row').getBoundingClientRect().top) < 1 && document.querySelector('.skinHeader').getBoundingClientRect().top >= document.querySelector('.hssm-top-row').getBoundingClientRect().bottom - 1")
-        shifted_top_geometry = page.evaluate("""() => { const row=document.querySelector('.hssm-top-row').getBoundingClientRect(), header=document.querySelector('.skinHeader').getBoundingClientRect(), index=document.querySelector('#indexPage'), media=document.querySelector('#homeTab > .hssm-owned-media-bar').getBoundingClientRect(); return {rowTop:row.top,rowBottom:row.bottom,headerTop:header.top,rowHeight:row.height,pageShift:parseFloat(getComputedStyle(index).marginTop),mediaTop:media.top}; }""")
+        page.wait_for_timeout(300)
+        shifted_top_geometry = page.evaluate("""() => { const message=document.querySelector('.hssm-top-row-message').getBoundingClientRect(), row=document.querySelector('.hssm-top-row').getBoundingClientRect(), header=document.querySelector('.skinHeader').getBoundingClientRect(), index=document.querySelector('#indexPage'), media=document.querySelector('#homeTab > .hssm-owned-media-bar').getBoundingClientRect(); return {messageTop:message.top,messageBottom:message.bottom,rowTop:row.top,rowBottom:row.bottom,headerTop:header.top,rowHeight:row.height,messageHeight:message.height,pageShift:parseFloat(getComputedStyle(index).marginTop),mediaTop:media.top}; }""")
+        assert abs(shifted_top_geometry["messageTop"]) < 1 and shifted_top_geometry["rowTop"] >= shifted_top_geometry["messageBottom"] - 1, shifted_top_geometry
         assert shifted_top_geometry["headerTop"] >= shifted_top_geometry["rowBottom"] - 1 and shifted_top_geometry["headerTop"] - shifted_top_geometry["rowBottom"] <= 4, shifted_top_geometry
         assert shifted_top_geometry["pageShift"] == 0, shifted_top_geometry
         assert shifted_top_geometry["mediaTop"] >= shifted_top_geometry["rowBottom"] - 1, shifted_top_geometry
-        page.evaluate("window.scrollTo(0, document.querySelector('.hssm-top-row').getBoundingClientRect().height + 30)")
-        page.wait_for_function("document.querySelector('.hssm-top-row').getBoundingClientRect().bottom <= 0 && Math.abs(document.querySelector('.skinHeader').getBoundingClientRect().top) < 1")
+        page.evaluate("window.scrollTo(0, document.querySelector('.hssm-top-row').getBoundingClientRect().height + document.querySelector('.hssm-top-row-message').getBoundingClientRect().height + 30)")
+        page.wait_for_function("document.querySelector('.hssm-top-row').getBoundingClientRect().bottom <= 0 && document.querySelector('.hssm-top-row-message').getBoundingClientRect().bottom <= 0 && Math.abs(document.querySelector('.skinHeader').getBoundingClientRect().top) < 1")
         scrolled_top_row = page.evaluate("""() => ({rowBottom:document.querySelector('.hssm-top-row').getBoundingClientRect().bottom,headerTop:document.querySelector('.skinHeader').getBoundingClientRect().top})""")
         assert scrolled_top_row["rowBottom"] <= 0 and abs(scrolled_top_row["headerTop"]) < 1, scrolled_top_row
         page.evaluate("window.scrollTo(0, 0)")
@@ -385,7 +411,7 @@ def run() -> None:
         assert page.locator(".hssm-owned-media-bar").count() == 1
 
         page.locator(".hssm-my-list-tab").click()
-        page.wait_for_function("!document.querySelector('.hssm-top-row') && !document.querySelector('.skinHeader').classList.contains('hssm-top-row-host')")
+        page.wait_for_function("!document.querySelector('.hssm-top-row') && !document.querySelector('.hssm-top-row-message') && !document.querySelector('.skinHeader').classList.contains('hssm-top-row-host')")
         page.wait_for_selector(".hssm-owned-my-list-page.is-active .hssm-client-card[data-id='liked-one']")
         page.wait_for_selector(".hssm-owned-my-list-page.is-active .hssm-section-media-bar[data-hssm-media-section-id='my-list-content']")
         my_list_frame = page.frame_locator(".hssm-owned-my-list-page.is-active .hssm-section-media-bar[data-hssm-media-section-id='my-list-content']")
@@ -435,6 +461,16 @@ def run() -> None:
         page.wait_for_selector(".hssm-owned-custom-page.is-active [data-hssm-section-id='manager-watch-again'] .hssm-client-card[data-id='watched-episode-two']")
         page.wait_for_selector(".hssm-owned-custom-page.is-active .hssm-section-media-bar[data-hssm-media-section-id='manager-watch-again']")
         page.wait_for_function("document.querySelectorAll('.hssm-owned-custom-page.is-active .hssm-section-media-bar').length === 3")
+        mixed_title = page.locator(".hssm-owned-custom-page.is-active [data-hssm-section-id='manager-movies-two'] .hssm-section-title-link")
+        assert mixed_title.get_attribute("data-hssm-open-section") == "manager-movies-two"
+        mixed_title.click()
+        page.wait_for_selector(".hssm-section-listing-page .hssm-section-listing-grid .hssm-client-card[data-id='resume-two']")
+        assert page.locator(".hssm-section-listing-page h1").inner_text().strip() == "More Movies"
+        assert page.locator(".hssm-section-listing-page [data-hssm-section-filter]").count() == 1
+        assert page.locator(".hssm-section-listing-page [data-hssm-section-type-filter]").count() == 1
+        assert page.locator(".hssm-section-listing-page [data-hssm-section-sort]").count() == 1
+        page.locator(".hssm-section-listing-back").click()
+        page.wait_for_function("!document.querySelector('.hssm-section-listing-page')")
         custom_media_bars = page.evaluate("""() => { const row=document.querySelector('.hssm-top-row').getBoundingClientRect(); const bars=Array.from(document.querySelectorAll('.hssm-owned-custom-page.is-active .hssm-section-media-bar')); return {firstTop:bars[0].getBoundingClientRect().top,rowBottom:row.bottom,allSymmetric:bars.every(frame=>frame.contentDocument.body.classList.contains('hssm-media-bar-top-gradient') && getComputedStyle(frame.contentDocument.querySelector('#backdrop')).maskImage.includes('36%') && getComputedStyle(frame.contentDocument.querySelector('#backdrop')).maskImage.includes('64%'))}; }""")
         assert custom_media_bars["firstTop"] >= custom_media_bars["rowBottom"] - 1 and custom_media_bars["allSymmetric"], custom_media_bars
         assert page.locator(".hssm-owned-custom-page.is-active [data-hssm-section-id='manager-watch-again'] .hssm-client-card").first.get_attribute("data-id") == "watched-episode-two"
@@ -517,6 +553,20 @@ def run() -> None:
         page.wait_for_function("document.querySelector('#homeTab > .hssm-owned-media-bar').contentDocument.querySelector('#backdrop-img').getAnimations().length === 0")
         page.wait_for_function("!document.querySelector('#homeTab [data-hssm-section-id=\"manager-home-top\"]').classList.contains('hssm-top-ranked')")
         assert page.locator("#homeTab [data-hssm-section-id='manager-home-top'] .hssm-rank-number").count() == 0
+        settings["TopRowAlwaysShow"] = True
+        settings["TopRowPersistent"] = True
+        settings["TopRowMessageAlwaysShow"] = True
+        settings["TopRowMessagePersistent"] = True
+        page.evaluate("window.HomeScreenManagerClient.invalidate(); window.HomeScreenManagerClient.refresh();")
+        page.wait_for_function("document.querySelector('.hssm-top-row').classList.contains('hssm-top-row-persistent') && document.querySelector('.hssm-top-row-message').classList.contains('hssm-top-row-message-persistent')")
+        persistent_positions = page.evaluate("""() => ({row:getComputedStyle(document.querySelector('.hssm-top-row')).position,message:getComputedStyle(document.querySelector('.hssm-top-row-message')).position})""")
+        assert persistent_positions == {"row": "sticky", "message": "sticky"}, persistent_positions
+        page.evaluate("location.hash='#/details?id=resume-one'")
+        page.wait_for_function("document.querySelector('.hssm-top-row') && document.querySelector('.hssm-top-row-message')")
+        page.evaluate("location.hash='#/video'")
+        page.wait_for_function("!document.querySelector('.hssm-top-row') && !document.querySelector('.hssm-top-row-message')")
+        page.evaluate("location.hash='#/home'")
+        page.wait_for_function("document.querySelector('.hssm-top-row') && document.querySelector('.hssm-top-row-message')")
         settings["HideFavorites"] = True
         settings["EnableTitleMarquee"] = False
         settings["PageOrder"] = ["home", "hidden:favorites", "my-list", "manager-page-movies"]

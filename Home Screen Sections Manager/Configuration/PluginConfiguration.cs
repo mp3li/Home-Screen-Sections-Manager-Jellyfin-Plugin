@@ -95,6 +95,43 @@ public sealed class PluginConfiguration : BasePluginConfiguration
     /// <summary>Gets or sets the home-screen pages on which the Top Row is displayed.</summary>
     public List<string> TopRowPageIds { get; set; } = ["home"];
 
+    /// <summary>Gets or sets whether the Top Row is displayed on every non-playback page.</summary>
+    public bool TopRowAlwaysShow { get; set; }
+
+    /// <summary>Gets or sets whether the Top Row remains visible while the page scrolls.</summary>
+    public bool TopRowPersistent { get; set; }
+
+    /// <summary>Gets or sets the optional subtle shadow color used behind logo-only Top Row art.</summary>
+    public string TopRowLogoShadowColor { get; set; } = "#ffffff";
+
+    /// <summary>Gets or sets whether the server-wide Top Row message is enabled.</summary>
+    public bool EnableTopRowMessage { get; set; }
+
+    /// <summary>Gets or sets the home-screen pages on which the Top Row message is displayed.</summary>
+    public List<string> TopRowMessagePageIds { get; set; } = ["home"];
+
+    /// <summary>Gets or sets whether the Top Row message is displayed on every non-playback page.</summary>
+    public bool TopRowMessageAlwaysShow { get; set; }
+
+    /// <summary>Gets or sets whether the Top Row message remains visible while the page scrolls.</summary>
+    public bool TopRowMessagePersistent { get; set; }
+
+    public string TopRowMessageText { get; set; } = string.Empty;
+
+    public string TopRowMessageFontDataUrl { get; set; } = string.Empty;
+
+    public string TopRowMessageFontColor { get; set; } = "#ffffff";
+
+    public string TopRowMessageFontShadowColor { get; set; } = string.Empty;
+
+    public string TopRowMessageBarColorMode { get; set; } = "solid";
+
+    public string TopRowMessageBarColorOne { get; set; } = "#000000";
+
+    public string TopRowMessageBarColorTwo { get; set; } = "#333333";
+
+    public string TopRowMessageMarqueeSpeed { get; set; } = "normal";
+
     /// <summary>Gets or sets the navigation content and constrained art settings for the Top Row.</summary>
     public HomeScreenSectionDefinition TopRowSection { get; set; } = new()
     {
@@ -384,6 +421,36 @@ public sealed class TopRowSettingsRequest
     public bool EnableTopRow { get; set; }
 
     public List<string> TopRowPageIds { get; set; } = ["home"];
+
+    public bool TopRowAlwaysShow { get; set; }
+
+    public bool TopRowPersistent { get; set; }
+
+    public string TopRowLogoShadowColor { get; set; } = "#ffffff";
+
+    public bool EnableTopRowMessage { get; set; }
+
+    public List<string> TopRowMessagePageIds { get; set; } = ["home"];
+
+    public bool TopRowMessageAlwaysShow { get; set; }
+
+    public bool TopRowMessagePersistent { get; set; }
+
+    public string TopRowMessageText { get; set; } = string.Empty;
+
+    public string TopRowMessageFontDataUrl { get; set; } = string.Empty;
+
+    public string TopRowMessageFontColor { get; set; } = "#ffffff";
+
+    public string TopRowMessageFontShadowColor { get; set; } = string.Empty;
+
+    public string TopRowMessageBarColorMode { get; set; } = "solid";
+
+    public string TopRowMessageBarColorOne { get; set; } = "#000000";
+
+    public string TopRowMessageBarColorTwo { get; set; } = "#333333";
+
+    public string TopRowMessageMarqueeSpeed { get; set; } = "normal";
 
     public HomeScreenSectionDefinition TopRowSection { get; set; } = new();
 }

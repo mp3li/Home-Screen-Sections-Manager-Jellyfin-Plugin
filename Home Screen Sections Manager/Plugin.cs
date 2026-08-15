@@ -144,8 +144,8 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
                     ? NormalizeColor(request.RankNumberColorTwo, "#f5f5f7")
                     : NormalizeColor(section.RankNumberColorTwo, "#f5f5f7"),
                 RankNumberShadowColor = string.Equals(section.Id, normalizedId, StringComparison.Ordinal)
-                    ? NormalizeColor(request.RankNumberShadowColor, "#000000")
-                    : NormalizeColor(section.RankNumberShadowColor, "#000000"),
+                    ? NormalizeOptionalColor(request.RankNumberShadowColor)
+                    : NormalizeOptionalColor(section.RankNumberShadowColor),
                 RankNumberFontDataUrl = string.Equals(section.Id, normalizedId, StringComparison.Ordinal)
                     ? NormalizeFontDataUrl(request.RankNumberFontDataUrl)
                     : NormalizeFontDataUrl(section.RankNumberFontDataUrl),
@@ -212,6 +212,16 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
             configuration.TopRowPageIds.Add("home");
         }
 
+        var requestedMessagePages = request.TopRowMessagePageIds ?? ["home"];
+        configuration.TopRowMessagePageIds = requestedMessagePages
+            .Where(validPageIds.Contains)
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+        if (configuration.TopRowMessagePageIds.Count == 0)
+        {
+            configuration.TopRowMessagePageIds.Add("home");
+        }
+
         var requested = request.TopRowSection ?? new HomeScreenSectionDefinition();
         var type = requested.Type is "libraries-in-a-row" ? "libraries-in-a-row" : "multiple-collections-in-a-row";
         var sources = (requested.SourceIds ?? []).Where(id => !string.IsNullOrWhiteSpace(id)).Distinct(StringComparer.Ordinal).ToList();
@@ -239,6 +249,20 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
             IsApplied = sources.Count > 0,
         };
         configuration.EnableTopRow = request.EnableTopRow;
+        configuration.TopRowAlwaysShow = request.TopRowAlwaysShow;
+        configuration.TopRowPersistent = request.TopRowPersistent;
+        configuration.TopRowLogoShadowColor = NormalizeOptionalColor(request.TopRowLogoShadowColor);
+        configuration.EnableTopRowMessage = request.EnableTopRowMessage;
+        configuration.TopRowMessageAlwaysShow = request.TopRowMessageAlwaysShow;
+        configuration.TopRowMessagePersistent = request.TopRowMessagePersistent;
+        configuration.TopRowMessageText = (request.TopRowMessageText ?? string.Empty).Trim();
+        configuration.TopRowMessageFontDataUrl = NormalizeFontDataUrl(request.TopRowMessageFontDataUrl);
+        configuration.TopRowMessageFontColor = NormalizeColor(request.TopRowMessageFontColor, "#ffffff");
+        configuration.TopRowMessageFontShadowColor = NormalizeOptionalColor(request.TopRowMessageFontShadowColor);
+        configuration.TopRowMessageBarColorMode = NormalizeColorMode(request.TopRowMessageBarColorMode);
+        configuration.TopRowMessageBarColorOne = NormalizeColor(request.TopRowMessageBarColorOne, "#000000");
+        configuration.TopRowMessageBarColorTwo = NormalizeColor(request.TopRowMessageBarColorTwo, "#333333");
+        configuration.TopRowMessageMarqueeSpeed = NormalizeTitleMarqueeSpeed(request.TopRowMessageMarqueeSpeed);
         UpdateConfiguration(configuration);
         return configuration;
     }
@@ -289,6 +313,21 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
             TitleMarqueeSpeed = NormalizeTitleMarqueeSpeed(source.TitleMarqueeSpeed),
             EnableTopRow = source.EnableTopRow,
             TopRowPageIds = [.. (source.TopRowPageIds ?? ["home"])],
+            TopRowAlwaysShow = source.TopRowAlwaysShow,
+            TopRowPersistent = source.TopRowPersistent,
+            TopRowLogoShadowColor = NormalizeOptionalColor(source.TopRowLogoShadowColor),
+            EnableTopRowMessage = source.EnableTopRowMessage,
+            TopRowMessagePageIds = [.. (source.TopRowMessagePageIds ?? ["home"])],
+            TopRowMessageAlwaysShow = source.TopRowMessageAlwaysShow,
+            TopRowMessagePersistent = source.TopRowMessagePersistent,
+            TopRowMessageText = source.TopRowMessageText,
+            TopRowMessageFontDataUrl = NormalizeFontDataUrl(source.TopRowMessageFontDataUrl),
+            TopRowMessageFontColor = NormalizeColor(source.TopRowMessageFontColor, "#ffffff"),
+            TopRowMessageFontShadowColor = NormalizeOptionalColor(source.TopRowMessageFontShadowColor),
+            TopRowMessageBarColorMode = NormalizeColorMode(source.TopRowMessageBarColorMode),
+            TopRowMessageBarColorOne = NormalizeColor(source.TopRowMessageBarColorOne, "#000000"),
+            TopRowMessageBarColorTwo = NormalizeColor(source.TopRowMessageBarColorTwo, "#333333"),
+            TopRowMessageMarqueeSpeed = NormalizeTitleMarqueeSpeed(source.TopRowMessageMarqueeSpeed),
             TopRowSection = CloneSection(source.TopRowSection ?? new HomeScreenSectionDefinition()),
             Sections = source.Sections.Select(CloneSection).ToList(),
             SectionOrder = [.. source.SectionOrder],
@@ -353,7 +392,7 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
         normalized.RankNumberColorMode = NormalizeColorMode(section.RankNumberColorMode);
         normalized.RankNumberColorOne = NormalizeColor(section.RankNumberColorOne, "#f5f5f7");
         normalized.RankNumberColorTwo = NormalizeColor(section.RankNumberColorTwo, "#f5f5f7");
-        normalized.RankNumberShadowColor = NormalizeColor(section.RankNumberShadowColor, "#000000");
+        normalized.RankNumberShadowColor = NormalizeOptionalColor(section.RankNumberShadowColor);
         normalized.RankNumberFontDataUrl = NormalizeFontDataUrl(section.RankNumberFontDataUrl);
         normalized.ActivityMaxItems = Math.Clamp(section.ActivityMaxItems, 1, 100);
         normalized.ActivityMediaType = NormalizeActivityMediaType(section.ActivityMediaType);
@@ -449,6 +488,8 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
     }
 
     private static string NormalizeColor(string? value, string fallback) => System.Text.RegularExpressions.Regex.IsMatch(value ?? string.Empty, "^#[0-9a-fA-F]{6}$") ? value! : fallback;
+
+    private static string NormalizeOptionalColor(string? value) => System.Text.RegularExpressions.Regex.IsMatch(value ?? string.Empty, "^#[0-9a-fA-F]{6}$") ? value! : string.Empty;
 
     private static string NormalizeMediaBarImageType(string? value) => value switch { "backdrop" => "backdrop", "primary" => "primary", "banner" => "banner", "thumb" => "thumb", _ => "abyss-original" };
 
