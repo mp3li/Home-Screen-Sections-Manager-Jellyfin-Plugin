@@ -61,6 +61,24 @@
             inset:0;
             position:absolute;
         }
+        #music-art {
+            border-radius: .7em;
+            box-shadow: 0 .4em 1.2em rgba(0,0,0,.58);
+            display: none;
+            height: clamp(9em, 20vw, 17em);
+            object-fit: contain;
+            position: absolute;
+            right: 7%;
+            top: 50%;
+            transform: translateY(-50%);
+            width: clamp(9em, 20vw, 17em);
+            z-index: 4;
+        }
+        body.hssm-music-slide #content { max-width: min(52%, 48em); }
+        @media (max-width: 700px) {
+            #music-art { height: clamp(6.5em, 25vw, 10em); right: 4%; width: clamp(6.5em, 25vw, 10em); }
+            body.hssm-music-slide #content { max-width: 62%; }
+        }
     </style>
 </head>
 <body>
@@ -82,6 +100,7 @@
         <div id="plot"></div>
         <div id="buttons"></div>
     </div>
+    <img id="music-art" alt="" />
     <div id="carousel-dots"></div>
     <button id="clickzone" type="button" aria-label="View item details"></button>
     <div id="empty" style="display:none">Nothing to show</div>
@@ -111,7 +130,10 @@
                     item && item.BackdropImageTags || [],
                     String(item && item.SeriesId || ''),
                     String(item && item.ParentLogoImageTag || ''),
-                    String(item && item.ParentLogoItemId || '')
+                    String(item && item.ParentLogoItemId || ''),
+                    String(item && item._hssmArtistBackdropImageTag || ''),
+                    String(item && item._hssmArtistLogoImageTag || ''),
+                    String(item && item._hssmMusicPrimaryImageTag || '')
                 ];
             }
             let items = [];
@@ -246,6 +268,9 @@
                 const backdrop = item.Type === 'Episode'
                     ? [seriesBackdrop, parentBackdrop, itemBackdrop]
                     : [itemBackdrop, parentBackdrop, seriesBackdrop];
+                const artistBackdrop = item.Type === 'Audio'
+                    ? [candidate(item._hssmArtistBackdropItemId, 'Backdrop', 0, item._hssmArtistBackdropImageTag, false)]
+                    : [];
                 const thumb = [
                     candidate(itemId, 'Thumb', null, tags.Thumb, true),
                     candidate(seriesId, 'Thumb', null, item.SeriesThumbImageTag, true),
@@ -259,12 +284,13 @@
                     ? [candidate(itemId, 'Primary', null, tags.Primary, true), candidate(seriesId || itemId, 'Backdrop', 0, parentBackdropTags[0], false)]
                     : [candidate(itemId, 'Backdrop', 0, backdropTags[0], false)];
                 const preferred = imageType === 'abyss-original' ? abyssOriginal : imageType === 'primary' ? primary : imageType === 'banner' ? banner : imageType === 'thumb' ? thumb : backdrop;
-                return uniqueCandidates(preferred.concat(backdrop, primary, thumb, banner));
+                return uniqueCandidates(artistBackdrop.concat(preferred, backdrop, primary, thumb, banner));
             }
 
             function logoCandidates(item) {
                 const tags = item.ImageTags || {};
                 const candidates = [];
+                if (item.Type === 'Audio' && item._hssmArtistLogoItemId) candidates.push(logoUrl(item._hssmArtistLogoItemId, item._hssmArtistLogoImageTag));
                 if (tags.Logo) candidates.push(logoUrl(item.Id, tags.Logo));
                 if (item.ParentLogoItemId) candidates.push(logoUrl(item.ParentLogoItemId, item.ParentLogoImageTag));
                 if (item.SeriesId) candidates.push(logoUrl(item.SeriesId, item.ParentLogoImageTag));
@@ -411,11 +437,25 @@
 
             function updateContent(item, artwork, sequence) {
                 const isEpisode = item.Type === 'Episode';
+                const isMusic = item.Type === 'Audio';
                 const detailId = isEpisode ? item.SeriesId || item.Id : item.Id;
                 const detailRoute = `/details?id=${detailId}`;
                 const title = isEpisode ? item.SeriesName || item.Name : item.Name;
                 const backdropImage = $('backdrop-img');
                 const reflectionImage = $('reflection-img');
+                const musicArt = $('music-art');
+                document.body.classList.toggle('hssm-music-slide', isMusic);
+                musicArt.onerror = null;
+                musicArt.removeAttribute('src');
+                musicArt.style.display = 'none';
+                if (isMusic) {
+                    const primaryItemId = item._hssmMusicPrimaryItemId || item.PrimaryImageItemId || item.AlbumId || item.Id;
+                    const primaryTag = item._hssmMusicPrimaryImageTag || item.PrimaryImageTag || item.ImageTags && item.ImageTags.Primary || '';
+                    musicArt.onerror = () => { musicArt.style.display = 'none'; musicArt.removeAttribute('src'); };
+                    musicArt.onload = () => { if (sequence === renderSequence) musicArt.style.display = 'block'; };
+                    musicArt.src = imageUrl(primaryItemId, 'Primary', null, primaryTag);
+                    musicArt.alt = `${item.Name || 'Song'} artwork`;
+                }
 
                 if (artwork.backdrop) {
                     const candidates = artwork.candidates || [{ url: artwork.backdrop, centered: artwork.centered }];
@@ -486,7 +526,11 @@
                 }
 
                 let episodePrefix = '';
-                if (isEpisode) {
+                if (isMusic) {
+                    const artists = item._hssmMusicArtists || (item.Artists || []).join(', ') || (item.AlbumArtists || []).join(', ');
+                    $('episode-label').textContent = `${item.Name || 'Song'}${artists ? ` by ${artists}` : ''}`;
+                    $('episode-label').style.display = 'block';
+                } else if (isEpisode) {
                     const parts = [];
                     if (item.ParentIndexNumber != null && item.IndexNumber != null) {
                         episodePrefix = `S${item.ParentIndexNumber} E${item.IndexNumber}`;

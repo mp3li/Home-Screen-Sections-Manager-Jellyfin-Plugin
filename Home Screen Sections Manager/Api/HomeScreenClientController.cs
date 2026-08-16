@@ -19,6 +19,7 @@ public sealed class HomeScreenClientController : ControllerBase
         Response.Headers.Pragma = "no-cache";
         Response.Headers.Expires = "0";
         var configuration = Plugin.Instance?.Configuration ?? new PluginConfiguration();
+        var topRows = Plugin.GetEffectiveTopRows(configuration);
         return Ok(new
         {
             Sections = configuration.Sections.Where(section => section.IsApplied).ToArray(),
@@ -53,6 +54,7 @@ public sealed class HomeScreenClientController : ControllerBase
             configuration.TopRowMessageBarColorOne,
             configuration.TopRowMessageBarColorTwo,
             configuration.TopRowMessageMarqueeSpeed,
+            TopRows = topRows,
             configuration.TopRowSection,
             TopRowLogoCollectionIds = CollectionManagerLogoBridge.GetSelectedCollectionIds(),
             configuration.HeaderTabsColorMode,

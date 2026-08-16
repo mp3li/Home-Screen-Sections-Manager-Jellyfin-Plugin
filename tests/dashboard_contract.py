@@ -43,6 +43,7 @@ def run() -> None:
                 TopRowSection:{Id:'top-row',Name:'Top Row',PageId:'home',Type:'multiple-collections-in-a-row',SourceIds:[],ItemIds:[],ContentOrder:'manual',ArtSize:'extra-small',ArtType:'automatic',ArtShape:'wide',ShowText:false,ShowSectionName:false,IsVisible:true,IsMediaBar:false,IsApplied:false}
               };
               window.__customizationSettings = {};
+              window.__displayPrefs = {CustomPrefs:{homesection0:'resume'}};
               window.__applyCalls = [];
               window.__brandingWrites = [];
               window.Dashboard = { alert(){}, showLoadingMsg(){}, hideLoadingMsg(){} };
@@ -56,6 +57,7 @@ def run() -> None:
                   if(String(url).includes('customization-settings')) return Promise.resolve(structuredClone(window.__customizationSettings));
                   if(String(url).includes('DisplayPreferences')) return Promise.resolve({CustomPrefs:{homesection0:'resume'}});
                   if(String(url).includes('Users/user/Views')) return Promise.resolve({Items:[{Id:'library',Name:'Movies',CollectionType:'movies'}]});
+                  if(String(url).includes('Genres')) return Promise.resolve({Items:[{Id:'genre-drama',Name:'Drama',Type:'Genre'},{Id:'genre-comedy',Name:'Comedy',Type:'Genre'}]});
                   if(String(url).includes('CollectionManager/settings/main')) return Promise.resolve({Configuration:{},Libraries:[{ItemId:'library',Name:'Movies'}]});
                   if(String(url).includes('CollectionManager/art/collections')) return Promise.resolve([{Id:'foreign',Name:'Foreign Collection',MediaItems:20}]);
                   if(String(url).includes('Plugins')) return Promise.resolve([{Name:'JavaScript Injector',Id:'injector'}]);
@@ -83,13 +85,13 @@ def run() -> None:
                   if(String(options.url).includes('System/Configuration/Branding')) window.__brandingWrites.push(body);
                   return Promise.resolve(body);
                 },
-                getDisplayPreferences:()=>Promise.resolve({CustomPrefs:{homesection0:'resume'}}),
+                getDisplayPreferences:()=>Promise.resolve(structuredClone(window.__displayPrefs)),
                 getCurrentUser:()=>Promise.resolve({Configuration:{LatestItemsExcludes:[]}}),
                 getUserViews:()=>Promise.resolve({Items:[{Id:'library',Name:'Movies',CollectionType:'movies'}]}),
                 getPluginConfiguration:()=>Promise.resolve({CustomJavaScripts:[]}),
                 updatePluginConfiguration:()=>Promise.resolve()
               };
-              window.HomeScreenManagerClient = { version:'0.1.0.49', refresh(){} };
+              window.HomeScreenManagerClient = { version:'0.1.0.54', refresh(){} };
               window.CustomElements = { upgradeSubtree(){} };
             }
             """
@@ -97,6 +99,13 @@ def run() -> None:
         page.set_content(DASHBOARD.read_text())
         page.wait_for_selector("#hssmPageList [data-page-id='home']", state="attached")
         page.wait_for_selector("#hssmSectionPageSelect option[value='manager-page-movies']", state="attached")
+        page.evaluate("window.__displayPrefs={CustomPrefs:{homesection0:'resumeaudio',homesection1:'resume'}}; window.HSSMReloadSectionEditor()")
+        page.wait_for_selector("#hssmSectionList [data-section-id='jellyfin-0-resumeaudio']", state="attached")
+        page.wait_for_function("window.__sectionSettings.PageLayouts.find(p => p.PageId === 'home').SectionOrder[0] === 'jellyfin-0-resumeaudio'")
+        native_order = page.locator("#hssmSectionList [data-section-id^='jellyfin-']").evaluate_all("nodes => nodes.map(node => node.dataset.sectionId)")
+        assert native_order[:2] == ["jellyfin-0-resumeaudio", "jellyfin-1-resume"], native_order
+        page.evaluate("window.__displayPrefs={CustomPrefs:{homesection0:'resume'}}; window.HSSMReloadSectionEditor()")
+        page.wait_for_selector("#hssmSectionList [data-section-id='jellyfin-0-resume']", state="attached")
 
         assert page.get_by_text("Marquee Effect on Titles Settings", exact=True).count() == 1
         assert page.get_by_text("Select your preference for turning on and off the marquee feature when you hover on media items. Meaning, the title will slowly scroll instead of being truncated/cut off if its too long.", exact=True).count() == 1
@@ -112,14 +121,26 @@ def run() -> None:
         assert page.evaluate("window.__mainSettings.TitleMarqueeSpeed") == "fast"
 
         page.locator("[data-tab='top-row-settings']").click()
+        assert page.locator("[data-tab='top-row-settings']").inner_text().strip() == "Create and Manage Top Rows"
+        page.wait_for_selector("#hssmTopRowList [data-hssm-top-row-id='main-top-row']")
+        main_top_row = page.locator("#hssmTopRowList [data-hssm-top-row-id='main-top-row']")
+        assert main_top_row.get_attribute("draggable") is None
+        assert "Main Top Row · Everywhere" in main_top_row.inner_text()
+        assert "Fallback" in main_top_row.inner_text()
+        main_top_row.click()
+        assert page.locator("#hssmEditTopRowButton").is_enabled()
+        assert not page.locator("#hssmDeleteTopRowButton").is_enabled()
+        assert page.locator("#hssmCopyTopRowButton").is_enabled()
+        page.locator("#hssmEditTopRowButton").click()
+        assert page.locator("#hssmTopRowName").input_value() == "Main Top Row"
+        assert page.locator("#hssmTopRowName").is_disabled()
+        assert page.locator("#hssmMainTopRowApplication").is_visible()
+        assert page.locator("#hssmTargetedTopRowApplication").is_hidden()
         assert page.get_by_text("Enable or Disable Top Row Settings", exact=True).count() == 1
         assert page.get_by_text("Select if you want to enable or disable the Top Row section.", exact=True).count() == 1
         assert page.locator("#hssmDisableTopRow").is_checked()
         assert not page.locator("#hssmEnableTopRow").is_checked()
-        assert page.locator("#hssmTopRowPagePicker [data-hssm-top-row-page]").count() == 4
-        assert page.locator("#hssmTopRowPagePicker [data-hssm-top-row-page='home']").is_checked()
-        assert not page.locator("#hssmTopRowPagePicker [data-hssm-top-row-page='favorites']").is_checked()
-        assert page.locator("#hssmTopRowTypePicker .hssm-type-option .checkboxContainer span").all_text_contents() == ["Collections in a Row", "Libraries in a Row"]
+        assert page.locator("#hssmTopRowTypePicker .hssm-type-option .checkboxContainer span").all_text_contents() == ["Collections in a Row", "Libraries in a Row", "Genres in a Row"]
         type_spacing = page.locator("#hssmTopRowTypePicker .hssm-type-option").first.evaluate("node => { const label=node.querySelector('.checkboxContainer').getBoundingClientRect(), description=node.querySelector('.fieldDescription').getBoundingClientRect(); return {display:getComputedStyle(node.querySelector('.fieldDescription')).display,gap:description.top-label.bottom}; }")
         assert type_spacing["display"] == "block" and type_spacing["gap"] >= 0, type_spacing
         picker_spacing = page.locator("#hssmTopRowSourcePicker").evaluate("node => { const group=node.closest('.hssm-top-row-picker-group').getBoundingClientRect(), previous=node.closest('.hssm-top-row-picker-group').previousElementSibling.getBoundingClientRect(), order=node.closest('.hssm-top-row-picker-group').nextElementSibling.getBoundingClientRect(); return {afterTypes:group.top-previous.bottom,beforeOrder:order.top-group.bottom}; }")
@@ -133,7 +154,6 @@ def run() -> None:
         assert page.get_by_text("Top Row Message Settings", exact=True).count() == 1
         assert page.locator("#hssmDisableTopRowMessage").is_checked()
         assert page.locator("#hssmTopRowMessagePagePicker [data-hssm-top-row-message-page='home']").is_checked()
-        assert not page.locator("#hssmTopRowAlwaysShow").is_checked()
         assert page.locator("#hssmTopRowScrolls").is_checked()
         assert page.locator("#hssmTopRowLogoShadowColor").input_value() == "#ffffff"
         logo_shadow_size = page.locator("#hssmTopRowLogoShadowColor").evaluate("node => { const box=node.getBoundingClientRect(); return {width:box.width,height:box.height}; }")
@@ -144,20 +164,47 @@ def run() -> None:
         logo_description_link = page.get_by_text("Collection Manager", exact=True)
         assert logo_description_link.get_attribute("href") == "https://github.com/mp3li/Collection-Manager-Jellyfin-Plugin"
         page.locator("#hssmEnableTopRow").check()
-        page.locator("#hssmTopRowPagePicker [data-hssm-top-row-page='manager-page-movies']").check()
         page.locator("#hssmTopRowSourcePicker [data-hssm-top-row-source='foreign']").check()
         page.locator("#hssmTopRowArtType").select_option("thumb")
         page.locator("#hssmTopRowArtShape").select_option("circle")
         page.locator("#hssmTopRowDisplayLogosOnly").check()
         page.locator("#hssmSaveTopRowButton").click()
-        page.wait_for_function("window.__topRowSettings.EnableTopRow === true && window.__topRowSettings.TopRowSection.SourceIds[0] === 'foreign'")
-        assert page.evaluate("window.__topRowSettings.TopRowPageIds") == ["home", "manager-page-movies"]
-        assert page.evaluate("window.__topRowSettings.TopRowSection.ArtSize") == "extra-small"
-        assert page.evaluate("window.__topRowSettings.TopRowSection.ShowText") is False
-        assert page.evaluate("window.__topRowSettings.TopRowSection.ShowSectionName") is False
-        assert page.evaluate("window.__topRowSettings.TopRowSection.IsMediaBar") is False
-        assert page.evaluate("window.__topRowSettings.TopRowSection.DisplayLogosOnly") is True
-        assert page.locator("#hssmSaveTopRowButton").text_content().strip() == "Refresh Top Row"
+        page.wait_for_function("window.__topRowSettings.TopRows && window.__topRowSettings.TopRows[0].EnableTopRow === true && window.__topRowSettings.TopRows[0].Section.SourceIds[0] === 'foreign'")
+        assert page.evaluate("window.__topRowSettings.TopRows[0].IsMain") is True
+        assert page.evaluate("window.__topRowSettings.TopRows[0].Section.ArtSize") == "extra-small"
+        assert page.evaluate("window.__topRowSettings.TopRows[0].Section.ShowText") is False
+        assert page.evaluate("window.__topRowSettings.TopRows[0].Section.ShowSectionName") is False
+        assert page.evaluate("window.__topRowSettings.TopRows[0].Section.IsMediaBar") is False
+        assert page.evaluate("window.__topRowSettings.TopRows[0].Section.DisplayLogosOnly") is True
+
+        page.locator("#hssmCreateTopRowButton").click()
+        assert page.locator("#hssmTopRowName").input_value() == "New Top Row"
+        page.locator("#hssmTopRowName").fill("Movies Library Top Row")
+        page.locator("#hssmTopRowTargetType").select_option("library")
+        assert page.locator("#hssmTopRowTargetId option").all_text_contents() == ["Select an area", "Movies"]
+        page.locator("#hssmTopRowTargetId").select_option("library")
+        page.locator("#hssmTopRowOverrideOn").check()
+        page.locator("#hssmTopRowSourcePicker [data-hssm-top-row-source='foreign']").check()
+        page.locator("#hssmSaveTopRowButton").click()
+        page.wait_for_function("window.__topRowSettings.TopRows && window.__topRowSettings.TopRows.length === 2")
+        assert page.evaluate("window.__topRowSettings.TopRows[1].TargetType") == "library"
+        assert page.evaluate("window.__topRowSettings.TopRows[1].TargetId") == "library"
+        assert page.evaluate("window.__topRowSettings.TopRows[1].OverrideMainTopRow") is True
+        targeted_row = page.locator("#hssmTopRowList [data-hssm-top-row-id]:not([data-hssm-top-row-id='main-top-row'])")
+        assert "Movies Library" in targeted_row.inner_text()
+        assert "Override On" in targeted_row.inner_text()
+        targeted_row.click()
+        page.locator("#hssmEditTopRowButton").click()
+        page.locator("input[name='hssmTopRowType'][value='genres-in-a-row']").check()
+        page.wait_for_selector("#hssmTopRowSourcePicker [data-hssm-top-row-source='genre-drama']")
+        page.locator("#hssmTopRowSourcePicker [data-hssm-top-row-source='genre-drama']").check()
+        page.locator("#hssmSaveTopRowButton").click()
+        page.wait_for_function("window.__topRowSettings.TopRows[1].Section.Type === 'genres-in-a-row' && window.__topRowSettings.TopRows[1].Section.ItemIds[0] === 'genre-drama'")
+        targeted_row = page.locator("#hssmTopRowList [data-hssm-top-row-id]:not([data-hssm-top-row-id='main-top-row'])")
+        targeted_row.click()
+        page.locator("#hssmCopyTopRowButton").click()
+        assert page.locator("#hssmTopRowTargetId").input_value() == ""
+        assert page.locator("#hssmTopRowOverrideOff").is_checked()
 
         assert page.locator("#hssmPageList [data-page-id='home'] [data-hssm-page-show]").count() == 0
         assert page.locator("#hssmPageList [data-page-id='home'] .hssm-drag-handle").text_content() == ""
@@ -295,6 +342,8 @@ def run() -> None:
         page.locator("#hssmSectionPageSelect").select_option("manager-page-movies")
         page.wait_for_selector("#hssmSectionList [data-section-id='manager-two']")
         page.locator("#hssmAddSectionButton").click()
+        for section_type in ["continue-watching", "continue-listening", "continue-reading", "continue-watching-listening", "continue-reading-listening", "recently-added-library", "recently-listened-songs", "recently-listened-artists", "recently-listened-albums"]:
+            assert page.locator(f"input[name='hssmType'][value='{section_type}']").count() == 1
         created_id = page.locator("#hssmSectionList [data-hssm-inline-section-name]").locator("xpath=ancestor::*[@data-section-id]").get_attribute("data-section-id")
         page.locator("#hssmSectionList [data-hssm-inline-section-name]").fill("My List Spotlight")
         page.locator("input[name='hssmType'][value='my-list-content']").check()
@@ -328,6 +377,7 @@ def run() -> None:
         page.locator("#hssmTypeSpecificSettings [data-hssm-content-order]").select_option("completed-ascending")
         page.locator("#hssmTypeSpecificSettings [data-hssm-apply-section]").click()
         page.wait_for_function("([id]) => window.__sectionSettings.Sections.some(s => s.Id === id && s.ContentOrder === 'completed-ascending')", arg=[watch_again_id])
+        assert "Book / Audiobook" in page.locator("#hssmTypeSpecificSettings [data-hssm-art-shape] option").all_text_contents()
 
         page.locator("#hssmAddSectionButton").click()
         page.locator("#hssmSectionList [data-hssm-inline-section-name]").fill("Top 20 in Foreign Collection")
@@ -338,12 +388,38 @@ def run() -> None:
         page.locator("#hssmTypeSpecificSettings [data-hssm-display-top]").select_option("20")
         assert page.locator("#hssmTypeSpecificSettings [data-hssm-top-draft-name]").input_value() == "Top 20 in Foreign Collection"
 
+        library_item_ids = page.evaluate(
+            """
+            async () => {
+              const originalGetJSON = ApiClient.getJSON;
+              ApiClient.getJSON = url => String(url).includes('Users/user/Items')
+                ? Promise.resolve({Items:[
+                    {Id:'year-folder',Name:'2010 - 2015',Type:'Folder'},
+                    {Id:'actual-movie',Name:'Actual Movie',Type:'Movie'}
+                  ],TotalRecordCount:2})
+                : originalGetJSON(url);
+              try {
+                const result = await window.HSSMRefreshSectionDefinition({
+                  Id:'manager-library-test',Name:'Library Test',PageId:'home',Type:'library-content',
+                  SourceIds:['library'],ItemIds:[],ContentOrder:'title-ascending',IsApplied:true
+                });
+                return result.definition.ItemIds;
+              } finally {
+                ApiClient.getJSON = originalGetJSON;
+              }
+            }
+            """
+        )
+        assert library_item_ids == ["actual-movie"], library_item_ids
+
         page.locator("[data-tab='customization-settings']").click()
         assert page.get_by_text("Media Bar Slow Zoom Settings", exact=True).count() == 1
         assert page.locator("#hssmEnableMediaBarSlowZoom").is_checked()
+        assert page.locator("#hssmHeaderTabsColorTwo").evaluate("node => node.closest('.inputContainer').hidden")
         page.locator("#hssmDisableMediaBarSlowZoom").check()
         page.locator("#hssmAbyssAccentColor").fill("#12ab34")
         page.locator("#hssmSidebarIconColorMode").select_option("horizontal-gradient")
+        assert not page.locator("#hssmSidebarIconColorTwo").evaluate("node => node.closest('.inputContainer').hidden")
         page.locator("#hssmSidebarIconColorOne").fill("#112233")
         page.locator("#hssmSidebarIconColorTwo").fill("#445566")
         page.locator("#hssmSaveCustomizationButton").click()

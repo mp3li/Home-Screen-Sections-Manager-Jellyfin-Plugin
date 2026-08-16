@@ -301,6 +301,19 @@ body.hssm-section-listing-open {
     padding-top: 0 !important;
 }
 
+.hssm-native-art-override.hssm-shape-book .cardPadder,
+.hssm-shape-book .cardPadder {
+    padding-bottom: 150% !important;
+    padding-top: 0 !important;
+}
+
+.hssm-native-art-override.hssm-shape-book .cardImageContainer,
+.hssm-shape-book .cardImageContainer {
+    background-position: center !important;
+    background-repeat: no-repeat !important;
+    background-size: contain !important;
+}
+
 .hssm-native-art-override.hssm-shape-wide .cardPadder {
     padding-bottom: 56.25% !important;
     padding-top: 0 !important;
@@ -591,6 +604,15 @@ body.hssm-top-row-enabled #indexPage {
     margin: 0;
     padding: 0;
     width: 100%;
+}
+
+/* Jellyfin's detail wrapper is positioned independently of its page padding.
+   Move that foreground content below persistent plugin chrome without moving
+   or cropping the page backdrop. */
+.itemDetailPage.hssm-top-chrome-content-offset > .detailPageWrapperContainer,
+.itemDetailPage.hssm-top-chrome-content-offset .detailPageWrapperContainer {
+    margin-bottom: var(--hssm-persistent-top-chrome-height, 0px) !important;
+    transform: translateY(var(--hssm-persistent-top-chrome-height, 0px)) !important;
 }
 
 .hssm-top-row-message-viewport {

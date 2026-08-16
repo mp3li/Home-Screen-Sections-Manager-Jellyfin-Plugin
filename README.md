@@ -10,7 +10,7 @@
 
 - Main Settings
 - Customization Settings
-- Top Row Settings
+- Create and Manage Top Rows
 - Create and Manage Home Screen Sections
 - Create and Manage Home Screen Pages
 
@@ -28,11 +28,16 @@ sidebar icons, and My List hearts into explicit controls, with a separate color
 for the selected top-navigation tab's non-hovered text. It also supplies the Home
 logo, media-bar timing, and media-bar image type.
 
-**Top Row Settings** optionally adds a compact, mouse-scrollable collection or
-library navigation row above Jellyfin's header controls. It can be enabled on
-any selected Home screen pages, uses constrained Extra Small non-poster art,
-and opens its selected collections or libraries without adding row arrows,
-heart buttons, or hover Play controls. The Top Row measures ordinary Extra Small
+**Create and Manage Top Rows** provides one server-wide **Main Top Row** plus as
+many uniquely targeted override rows as needed. Main is the fallback across
+Home, custom pages, Jellyfin libraries, and their descendant browse/detail
+pages. Each Home screen page or Jellyfin library can own at most one override;
+when its override is off, Main remains visible, and when it is on, that one row
+replaces Main without stacking a second row. Top Rows can contain collections,
+libraries, or library-scoped genres, use constrained Extra Small non-poster art,
+and open their navigation targets without row arrows, heart buttons, or hover
+Play controls. The manager supports edit, delete/undo, copy-and-paste, target and
+override labels, and customizable label colors. Each Top Row measures ordinary Extra Small
 section-card geometry and renders a slightly smaller version with a tiny top
 gap. It sits in normal page flow above the Media Bar, scrolls away with the
 page, and never covers Media Bar artwork; the Media Bar retains matching long,
@@ -60,7 +65,10 @@ Plugin pages can be created, renamed, deleted, and restored. Page definitions
 and their section layouts are server-wide, while My List content remains
 per-user.
 
-The current section types are My List Content Section, Watch Again, Manual Content, individual or multiple collection
+The current section types include My List Content Section, Watch Again, Continue Watching,
+Continue Listening, Continue Reading, Continue Watching & Listening, Continue Reading & Listening,
+Songs Recently Listened To, Artists Recently Listened To, Albums Recently Listened To,
+Recently Added in a Library, Manual Content, individual or multiple collection
 content, collections in a row, individual or combined tags,
 multi-match tags, individual or multiple library content, libraries in a row,
 Rotating Sections, Seasonal Sections, Top 10–50, and What Other Users Are

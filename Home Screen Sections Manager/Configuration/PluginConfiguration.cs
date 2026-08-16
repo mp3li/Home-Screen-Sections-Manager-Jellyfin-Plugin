@@ -132,6 +132,21 @@ public sealed class PluginConfiguration : BasePluginConfiguration
 
     public string TopRowMessageMarqueeSpeed { get; set; } = "normal";
 
+    /// <summary>Gets or sets the customizable label color for the required Main Top Row.</summary>
+    public string MainTopRowLabelColor { get; set; } = "#aa5cc3";
+
+    /// <summary>Gets or sets the label color used for page and library targets.</summary>
+    public string TopRowTargetLabelColor { get; set; } = "#00a4dc";
+
+    /// <summary>Gets or sets the label color used when an override is active.</summary>
+    public string TopRowOverrideOnLabelColor { get; set; } = "#35a853";
+
+    /// <summary>Gets or sets the label color used when an override is saved but inactive.</summary>
+    public string TopRowOverrideOffLabelColor { get; set; } = "#777777";
+
+    /// <summary>Gets or sets the Main Top Row and all uniquely targeted override rows.</summary>
+    public List<TopRowDefinition> TopRows { get; set; } = [];
+
     /// <summary>Gets or sets the navigation content and constrained art settings for the Top Row.</summary>
     public HomeScreenSectionDefinition TopRowSection { get; set; } = new()
     {
@@ -452,7 +467,41 @@ public sealed class TopRowSettingsRequest
 
     public string TopRowMessageMarqueeSpeed { get; set; } = "normal";
 
+    public string MainTopRowLabelColor { get; set; } = "#aa5cc3";
+
+    public string TopRowTargetLabelColor { get; set; } = "#00a4dc";
+
+    public string TopRowOverrideOnLabelColor { get; set; } = "#35a853";
+
+    public string TopRowOverrideOffLabelColor { get; set; } = "#777777";
+
+    public List<TopRowDefinition> TopRows { get; set; } = [];
+
     public HomeScreenSectionDefinition TopRowSection { get; set; } = new();
+}
+
+/// <summary>A Main Top Row or one uniquely targeted page/library override.</summary>
+public sealed class TopRowDefinition
+{
+    public string Id { get; set; } = string.Empty;
+
+    public string Name { get; set; } = string.Empty;
+
+    public bool IsMain { get; set; }
+
+    public bool EnableTopRow { get; set; }
+
+    public bool OverrideMainTopRow { get; set; }
+
+    public string TargetType { get; set; } = "page";
+
+    public string TargetId { get; set; } = string.Empty;
+
+    public bool Persistent { get; set; }
+
+    public string LogoShadowColor { get; set; } = "#ffffff";
+
+    public HomeScreenSectionDefinition Section { get; set; } = new();
 }
 
 /// <summary>Request body used when the administrator adds one completed section to the home screen.</summary>

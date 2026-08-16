@@ -106,6 +106,7 @@ public sealed class SectionSettingsController : ControllerBase
     public ActionResult<TopRowSettingsRequest> GetTopRowSettings()
     {
         var configuration = Plugin.Instance?.Configuration ?? new PluginConfiguration();
+        var topRows = Plugin.GetEffectiveTopRows(configuration);
         return Ok(new TopRowSettingsRequest
         {
             EnableTopRow = configuration.EnableTopRow,
@@ -125,6 +126,11 @@ public sealed class SectionSettingsController : ControllerBase
             TopRowMessageBarColorOne = configuration.TopRowMessageBarColorOne,
             TopRowMessageBarColorTwo = configuration.TopRowMessageBarColorTwo,
             TopRowMessageMarqueeSpeed = configuration.TopRowMessageMarqueeSpeed,
+            MainTopRowLabelColor = configuration.MainTopRowLabelColor,
+            TopRowTargetLabelColor = configuration.TopRowTargetLabelColor,
+            TopRowOverrideOnLabelColor = configuration.TopRowOverrideOnLabelColor,
+            TopRowOverrideOffLabelColor = configuration.TopRowOverrideOffLabelColor,
+            TopRows = topRows,
             TopRowSection = configuration.TopRowSection,
         });
     }
@@ -139,6 +145,7 @@ public sealed class SectionSettingsController : ControllerBase
         }
 
         var configuration = Plugin.Instance.UpdateTopRowSettings(request);
+        var topRows = Plugin.GetEffectiveTopRows(configuration);
         return Ok(new TopRowSettingsRequest
         {
             EnableTopRow = configuration.EnableTopRow,
@@ -158,6 +165,11 @@ public sealed class SectionSettingsController : ControllerBase
             TopRowMessageBarColorOne = configuration.TopRowMessageBarColorOne,
             TopRowMessageBarColorTwo = configuration.TopRowMessageBarColorTwo,
             TopRowMessageMarqueeSpeed = configuration.TopRowMessageMarqueeSpeed,
+            MainTopRowLabelColor = configuration.MainTopRowLabelColor,
+            TopRowTargetLabelColor = configuration.TopRowTargetLabelColor,
+            TopRowOverrideOnLabelColor = configuration.TopRowOverrideOnLabelColor,
+            TopRowOverrideOffLabelColor = configuration.TopRowOverrideOffLabelColor,
+            TopRows = topRows,
             TopRowSection = configuration.TopRowSection,
         });
     }

@@ -202,16 +202,6 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
     {
         var configuration = CloneConfiguration(Configuration);
         var validPageIds = configuration.Pages.Select(page => page.Id).Append("home").Append("favorites").ToHashSet(StringComparer.Ordinal);
-        var requestedPages = request.TopRowPageIds ?? ["home"];
-        configuration.TopRowPageIds = requestedPages
-            .Where(validPageIds.Contains)
-            .Distinct(StringComparer.Ordinal)
-            .ToList();
-        if (configuration.TopRowPageIds.Count == 0)
-        {
-            configuration.TopRowPageIds.Add("home");
-        }
-
         var requestedMessagePages = request.TopRowMessagePageIds ?? ["home"];
         configuration.TopRowMessagePageIds = requestedMessagePages
             .Where(validPageIds.Contains)
@@ -222,36 +212,28 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
             configuration.TopRowMessagePageIds.Add("home");
         }
 
-        var requested = request.TopRowSection ?? new HomeScreenSectionDefinition();
-        var type = requested.Type is "libraries-in-a-row" ? "libraries-in-a-row" : "multiple-collections-in-a-row";
-        var sources = (requested.SourceIds ?? []).Where(id => !string.IsNullOrWhiteSpace(id)).Distinct(StringComparer.Ordinal).ToList();
-        var requestedOrder = (requested.ItemIds ?? []).Where(sources.Contains).Distinct(StringComparer.Ordinal).ToList();
-        sources.ForEach(id => { if (!requestedOrder.Contains(id, StringComparer.Ordinal)) requestedOrder.Add(id); });
-        var contentOrder = requested.ContentOrder is "title-ascending" or "title-descending" ? requested.ContentOrder : "manual";
-        var artShape = requested.ArtShape is "square" or "circle" ? requested.ArtShape : "wide";
-        configuration.TopRowSection = new HomeScreenSectionDefinition
+        var legacyMain = new TopRowDefinition
         {
-            Id = "top-row",
-            Name = "Top Row",
-            PageId = "home",
-            Type = type,
-            SourceIds = sources,
-            ItemIds = requestedOrder,
-            ContentOrder = contentOrder,
-            ArtSize = "extra-small",
-            ArtType = NormalizeArtType(requested.ArtType),
-            ArtShape = artShape,
-            DisplayLogosOnly = requested.DisplayLogosOnly,
-            ShowText = false,
-            ShowSectionName = false,
-            IsVisible = true,
-            IsMediaBar = false,
-            IsApplied = sources.Count > 0,
+            Id = "main-top-row",
+            Name = "Main Top Row",
+            IsMain = true,
+            EnableTopRow = request.EnableTopRow,
+            Persistent = request.TopRowPersistent,
+            LogoShadowColor = request.TopRowLogoShadowColor,
+            Section = request.TopRowSection ?? new HomeScreenSectionDefinition(),
         };
-        configuration.EnableTopRow = request.EnableTopRow;
-        configuration.TopRowAlwaysShow = request.TopRowAlwaysShow;
-        configuration.TopRowPersistent = request.TopRowPersistent;
-        configuration.TopRowLogoShadowColor = NormalizeOptionalColor(request.TopRowLogoShadowColor);
+        configuration.TopRows = NormalizeTopRows(request.TopRows, legacyMain, validPageIds);
+        var main = configuration.TopRows[0];
+        configuration.EnableTopRow = main.EnableTopRow;
+        configuration.TopRowPageIds = ["home"];
+        configuration.TopRowAlwaysShow = true;
+        configuration.TopRowPersistent = main.Persistent;
+        configuration.TopRowLogoShadowColor = main.LogoShadowColor;
+        configuration.TopRowSection = CloneSection(main.Section);
+        configuration.MainTopRowLabelColor = NormalizeColor(request.MainTopRowLabelColor, "#aa5cc3");
+        configuration.TopRowTargetLabelColor = NormalizeColor(request.TopRowTargetLabelColor, "#00a4dc");
+        configuration.TopRowOverrideOnLabelColor = NormalizeColor(request.TopRowOverrideOnLabelColor, "#35a853");
+        configuration.TopRowOverrideOffLabelColor = NormalizeColor(request.TopRowOverrideOffLabelColor, "#777777");
         configuration.EnableTopRowMessage = request.EnableTopRowMessage;
         configuration.TopRowMessageAlwaysShow = request.TopRowMessageAlwaysShow;
         configuration.TopRowMessagePersistent = request.TopRowMessagePersistent;
@@ -328,6 +310,11 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
             TopRowMessageBarColorOne = NormalizeColor(source.TopRowMessageBarColorOne, "#000000"),
             TopRowMessageBarColorTwo = NormalizeColor(source.TopRowMessageBarColorTwo, "#333333"),
             TopRowMessageMarqueeSpeed = NormalizeTitleMarqueeSpeed(source.TopRowMessageMarqueeSpeed),
+            MainTopRowLabelColor = NormalizeColor(source.MainTopRowLabelColor, "#aa5cc3"),
+            TopRowTargetLabelColor = NormalizeColor(source.TopRowTargetLabelColor, "#00a4dc"),
+            TopRowOverrideOnLabelColor = NormalizeColor(source.TopRowOverrideOnLabelColor, "#35a853"),
+            TopRowOverrideOffLabelColor = NormalizeColor(source.TopRowOverrideOffLabelColor, "#777777"),
+            TopRows = (source.TopRows ?? []).Select(CloneTopRow).ToList(),
             TopRowSection = CloneSection(source.TopRowSection ?? new HomeScreenSectionDefinition()),
             Sections = source.Sections.Select(CloneSection).ToList(),
             SectionOrder = [.. source.SectionOrder],
@@ -370,6 +357,116 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
             RotationStartUnixMilliseconds = section.RotationStartUnixMilliseconds,
             IsApplied = section.IsApplied,
         };
+    }
+
+    /// <summary>Returns normalized Top Rows, migrating the former single-row settings when needed.</summary>
+    public static List<TopRowDefinition> GetEffectiveTopRows(PluginConfiguration source)
+    {
+        var validPageIds = source.Pages.Select(page => page.Id).Append("home").Append("favorites").ToHashSet(StringComparer.Ordinal);
+        var legacyMain = new TopRowDefinition
+        {
+            Id = "main-top-row",
+            Name = "Main Top Row",
+            IsMain = true,
+            EnableTopRow = source.EnableTopRow,
+            Persistent = source.TopRowPersistent,
+            LogoShadowColor = source.TopRowLogoShadowColor,
+            Section = source.TopRowSection ?? new HomeScreenSectionDefinition(),
+        };
+        return NormalizeTopRows(source.TopRows, legacyMain, validPageIds);
+    }
+
+    private static TopRowDefinition CloneTopRow(TopRowDefinition row)
+    {
+        return new TopRowDefinition
+        {
+            Id = row.Id,
+            Name = row.Name,
+            IsMain = row.IsMain,
+            EnableTopRow = row.EnableTopRow,
+            OverrideMainTopRow = row.OverrideMainTopRow,
+            TargetType = row.TargetType,
+            TargetId = row.TargetId,
+            Persistent = row.Persistent,
+            LogoShadowColor = row.LogoShadowColor,
+            Section = CloneSection(row.Section ?? new HomeScreenSectionDefinition()),
+        };
+    }
+
+    private static HomeScreenSectionDefinition NormalizeTopRowSection(HomeScreenSectionDefinition requested, string rowId, bool allowGenres)
+    {
+        var type = requested.Type is "libraries-in-a-row" || (allowGenres && requested.Type is "genres-in-a-row") ? requested.Type : "multiple-collections-in-a-row";
+        var sources = (requested.SourceIds ?? []).Where(id => !string.IsNullOrWhiteSpace(id)).Distinct(StringComparer.Ordinal).ToList();
+        var requestedOrder = (requested.ItemIds ?? []).Where(sources.Contains).Distinct(StringComparer.Ordinal).ToList();
+        sources.ForEach(id => { if (!requestedOrder.Contains(id, StringComparer.Ordinal)) requestedOrder.Add(id); });
+        return new HomeScreenSectionDefinition
+        {
+            Id = "top-row-section-" + rowId,
+            Name = "Top Row",
+            PageId = "home",
+            Type = type,
+            SourceIds = sources,
+            ItemIds = requestedOrder,
+            ContentOrder = requested.ContentOrder is "title-ascending" or "title-descending" ? requested.ContentOrder : "manual",
+            ArtSize = "extra-small",
+            ArtType = NormalizeArtType(requested.ArtType),
+            ArtShape = requested.ArtShape is "square" or "circle" ? requested.ArtShape : "wide",
+            DisplayLogosOnly = requested.DisplayLogosOnly,
+            ShowText = false,
+            ShowSectionName = false,
+            IsVisible = true,
+            IsMediaBar = false,
+            IsApplied = sources.Count > 0,
+        };
+    }
+
+    private static List<TopRowDefinition> NormalizeTopRows(IEnumerable<TopRowDefinition>? requestedRows, TopRowDefinition legacyMain, ISet<string> validPageIds)
+    {
+        var requested = (requestedRows ?? []).Where(row => row is not null).ToList();
+        var requestedMain = requested.FirstOrDefault(row => row.IsMain || string.Equals(row.Id, "main-top-row", StringComparison.Ordinal)) ?? legacyMain;
+        var main = new TopRowDefinition
+        {
+            Id = "main-top-row",
+            Name = "Main Top Row",
+            IsMain = true,
+            EnableTopRow = requestedMain.EnableTopRow,
+            OverrideMainTopRow = false,
+            TargetType = "main",
+            TargetId = string.Empty,
+            Persistent = requestedMain.Persistent,
+            LogoShadowColor = NormalizeOptionalColor(requestedMain.LogoShadowColor),
+            Section = NormalizeTopRowSection(requestedMain.Section ?? new HomeScreenSectionDefinition(), "main-top-row", false),
+        };
+        var result = new List<TopRowDefinition> { main };
+        var usedIds = new HashSet<string>(StringComparer.Ordinal) { main.Id };
+        var usedTargets = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var row in requested.Where(row => !ReferenceEquals(row, requestedMain) && !row.IsMain && !string.Equals(row.Id, "main-top-row", StringComparison.Ordinal)))
+        {
+            var targetType = string.Equals(row.TargetType, "library", StringComparison.Ordinal) ? "library" : "page";
+            var targetId = (row.TargetId ?? string.Empty).Trim();
+            if (targetId.Length == 0 || (targetType == "page" && !validPageIds.Contains(targetId))) continue;
+            var targetKey = targetType + ":" + targetId;
+            if (!usedTargets.Add(targetKey)) continue;
+            var id = (row.Id ?? string.Empty).Trim();
+            if (id.Length == 0 || !usedIds.Add(id))
+            {
+                do id = "top-row-" + Guid.NewGuid().ToString("N"); while (!usedIds.Add(id));
+            }
+            result.Add(new TopRowDefinition
+            {
+                Id = id,
+                Name = string.IsNullOrWhiteSpace(row.Name) ? "Top Row" : row.Name.Trim(),
+                IsMain = false,
+                EnableTopRow = row.EnableTopRow,
+                OverrideMainTopRow = row.OverrideMainTopRow,
+                TargetType = targetType,
+                TargetId = targetId,
+                Persistent = row.Persistent,
+                LogoShadowColor = NormalizeOptionalColor(row.LogoShadowColor),
+                Section = NormalizeTopRowSection(row.Section ?? new HomeScreenSectionDefinition(), id, targetType == "library"),
+            });
+        }
+        return result;
     }
 
     private static HomeScreenSectionDefinition NormalizeSection(HomeScreenSectionDefinition section, ISet<string> validPageIds)
@@ -570,6 +667,7 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
     {
         return artShape switch
         {
+            "book" => "book",
             "wide" => "wide",
             "square" => "square",
             "circle" => "circle",

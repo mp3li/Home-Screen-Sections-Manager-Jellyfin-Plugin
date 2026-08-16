@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.1.0.54-test] - 2026-08-16
+
+- Adds native-style **Continue Watching**, **Continue Listening**, **Continue Reading**, **Continue Watching & Listening**, **Continue Reading & Listening**, and per-library **Recently Added** section types.
+- Adds per-user **Songs Recently Listened To**, **Artists Recently Listened To**, and **Albums Recently Listened To** sections, recording ordinary songs only after ten seconds of active playback.
+- Adds a dedicated uncropped **Book / Audiobook** art shape, title-and-author card text, and book detail-page Author role wording without changing movie, series, or music art geometry.
+- Reconciles native row order from Jellyfin's live Home settings while preserving plugin section order, clears persistent Top Row and message chrome from detail-page foreground content, and repairs the bottom Refresh Section loader.
+- Hides every second color picker while Solid is selected and restores it for gradients.
+- Gives music items in any Media Bar an artist backdrop and logo, **Song Name by Artist(s)** metadata, and separate square song/album art with a subtle dark shadow.
+- Filters navigation-only Folder entries out of library-sourced sections so nested year/folder levels cannot replace the library's actual Jellyfin media items.
+- Replaces the single Top Row configuration with a protected Main Top Row plus uniquely targeted page or library overrides, including edit, delete/undo, copy-and-paste, target/override labels and colors, library-descendant routing, and library-scoped Genres in a Row.
+
 ## [0.1.0.49-test] - 2026-08-14
 
 - Renders **Display Logos Only** items as plain transparent logo links instead of Jellyfin card/shape elements, eliminating the saved art shape's outline and clipping boundary entirely.

@@ -35,6 +35,9 @@ def run() -> None:
             {"Id": "manager-movies-one", "Name": "Movie Picks", "PageId": "manager-page-movies", "Type": "manual-content", "ItemIds": ["resume-one"], "IsApplied": True, "IsVisible": True, "IsMediaBar": True},
             {"Id": "manager-movies-two", "Name": "More Movies", "PageId": "manager-page-movies", "Type": "manual-content", "ItemIds": ["resume-two"], "IsApplied": True, "IsVisible": True, "IsMediaBar": True},
             {"Id": "manager-watch-again", "Name": "Watch Again", "PageId": "manager-page-movies", "Type": "watch-again", "ItemIds": [], "SourceIds": [], "ContentOrder": "completed-descending", "IsApplied": True, "IsVisible": True, "IsMediaBar": True},
+            {"Id": "manager-books", "Name": "Audiobooks", "PageId": "manager-page-movies", "Type": "manual-content", "ItemIds": ["audio-book-one"], "SourceIds": [], "ArtType": "primary", "ArtShape": "book", "ShowText": True, "IsApplied": True, "IsVisible": True, "IsMediaBar": False},
+            {"Id": "manager-recent-songs", "Name": "Songs Recently Listened To", "PageId": "manager-page-movies", "Type": "recently-listened-songs", "ItemIds": [], "SourceIds": [], "ContentOrder": "completed-descending", "ArtType": "primary", "ArtShape": "square", "ShowText": True, "IsApplied": True, "IsVisible": True, "IsMediaBar": False},
+            {"Id": "manager-library", "Name": "Library Items", "PageId": "manager-page-movies", "Type": "library-content", "ItemIds": ["year-folder", "actual-movie"], "SourceIds": ["library-one"], "IsApplied": True, "IsVisible": True, "IsMediaBar": False},
             {"Id": "manager-movies-hidden", "Name": "Saved for Later", "PageId": "manager-page-movies", "Type": "manual-content", "ItemIds": ["liked-one"], "IsApplied": True, "IsVisible": False, "IsMediaBar": False},
             {"Id": "my-list-content", "Name": "Added to My List", "PageId": "my-list", "Type": "my-list-content", "ItemIds": [], "IsApplied": True, "IsVisible": True, "IsMediaBar": True, "ArtShape": "circle"},
         ],
@@ -43,7 +46,7 @@ def run() -> None:
         "PageOrder": ["home", "favorites", "my-list", "manager-page-movies"],
         "PageLayouts": [
             {"PageId": "home", "SectionOrder": ["jellyfin-0-resume", "manager-home-top", "manager-home-test"]},
-            {"PageId": "manager-page-movies", "SectionOrder": ["manager-movies-one", "manager-movies-two", "manager-watch-again", "hidden:manager-movies-hidden"]},
+            {"PageId": "manager-page-movies", "SectionOrder": ["manager-movies-one", "manager-movies-two", "manager-watch-again", "manager-books", "manager-recent-songs", "manager-library", "hidden:manager-movies-hidden"]},
             {"PageId": "my-list", "SectionOrder": ["my-list-content"]},
         ],
         "EnableMyList": True,
@@ -101,6 +104,13 @@ def run() -> None:
     watched_special["IndexNumber"] = 1
     watched_special["PremiereDate"] = "2026-07-03T00:00:00Z"
     watched_special["UserData"]["Played"] = False
+    audio_book = base_item("audio-book-one", "The Long Book", "AudioBook")
+    audio_book["People"] = [{"Name": "Excellent Author", "Type": "Author"}]
+    recent_song = base_item("recent-song-one", "Recently Heard Song", "Audio")
+    recent_song.update({"Artists": ["The Artist"], "ArtistItems": [{"Id": "artist-one", "Name": "The Artist"}], "AlbumId": "album-one"})
+    genre_drama = base_item("genre-drama", "Drama", "Genre")
+    year_folder = base_item("year-folder", "2010 - 2015", "Folder")
+    actual_movie = base_item("actual-movie", "Actual Movie", "Movie")
     resume["CommunityRating"] = 8.8
     resume_two["CommunityRating"] = 7.7
     top_row_items = [base_item(f"{index:032x}", f"Collection {index}", "BoxSet") for index in range(1, 17)]
@@ -108,9 +118,14 @@ def run() -> None:
     settings["TopRowSection"]["SourceIds"] = [item["Id"] for item in top_row_items]
     settings["TopRowSection"]["ItemIds"] = [item["Id"] for item in top_row_items]
     settings["TopRowLogoCollectionIds"] = [str(UUID(hex=item["Id"])) for item in top_row_items[:-1]]
+    settings["TopRows"] = [
+        {"Id": "main-top-row", "Name": "Main Top Row", "IsMain": True, "EnableTopRow": True, "OverrideMainTopRow": False, "TargetType": "main", "TargetId": "", "Persistent": False, "LogoShadowColor": "#ffffff", "Section": json.loads(json.dumps(settings["TopRowSection"]))},
+        {"Id": "movies-page-top-row", "Name": "Movies Page Top Row", "IsMain": False, "EnableTopRow": True, "OverrideMainTopRow": True, "TargetType": "page", "TargetId": "manager-page-movies", "Persistent": False, "LogoShadowColor": "#ffffff", "Section": json.loads(json.dumps(settings["TopRowSection"]))},
+        {"Id": "movies-library-top-row", "Name": "Movies Library Top Row", "IsMain": False, "EnableTopRow": True, "OverrideMainTopRow": True, "TargetType": "library", "TargetId": "library-one", "Persistent": True, "LogoShadowColor": "#ffffff", "Section": {"Id":"top-row-section-movies-library", "Name":"Top Row", "Type":"genres-in-a-row", "SourceIds":["genre-drama"], "ItemIds":["genre-drama"], "ContentOrder":"manual", "ArtSize":"extra-small", "ArtType":"primary", "ArtShape":"wide", "DisplayLogosOnly":False, "IsApplied":True}},
+    ]
     first_top_row_id = top_row_items[0]["Id"]
     missing_top_row_id = top_row_items[-1]["Id"]
-    items_by_id = {item["Id"]: item for item in [resume, resume_two, series_two, liked, liked_opaque, watched_movie, watched_series, watched_episode_one, watched_episode_two, watched_special, *top_row_items]}
+    items_by_id = {item["Id"]: item for item in [resume, resume_two, series_two, liked, liked_opaque, watched_movie, watched_series, watched_episode_one, watched_episode_two, watched_special, audio_book, recent_song, genre_drama, year_folder, actual_movie, *top_row_items]}
     requests: list[str] = []
     page_errors: list[str] = []
 
@@ -126,6 +141,8 @@ def run() -> None:
             query = parse_qs(url.query)
             if path.endswith("/client-settings"):
                 route.fulfill(status=200, content_type="application/json", body=json.dumps(settings))
+            elif path.endswith("/HomeScreenSectionsManager/recent-listening"):
+                route.fulfill(status=200, content_type="application/json", body=json.dumps({"ItemIds": ["recent-song-one"]}))
             elif path.endswith("/Users/user/Views"):
                 route.fulfill(status=200, content_type="application/json", body=json.dumps({"Items": [{"Id": "library-one", "Name": "Movies", "CollectionType": "movies"}]}))
             elif path.endswith("/Users/user/Items/Resume"):
@@ -206,6 +223,7 @@ def run() -> None:
               getUserViews: () => Promise.resolve({ Items:[{ Id:'library-one', Name:'Movies', CollectionType:'movies' }] }),
               getItems: (userId, options) => fetch(ApiClient.getUrl('Users/' + userId + '/Items', options)).then(r => r.json()),
               getItem: (userId, id) => Promise.resolve({ Id:id, Name:'Liked One', Type:'Movie', ImageTags:{Primary:'x'}, UserData:{Likes:true} }),
+              getAncestorItems: () => Promise.resolve([{ Id:'library-one', Name:'Movies', Type:'CollectionFolder' }]),
               updateUserItemRating: () => Promise.resolve({ Likes:true })
             };
             window.CustomElements = { upgradeSubtree(){} };
@@ -251,6 +269,7 @@ def run() -> None:
         heading_style = long_section_heading.evaluate("node => ({overflow:getComputedStyle(node).overflow,textOverflow:getComputedStyle(node).textOverflow,whiteSpace:getComputedStyle(node).whiteSpace,lineClamp:getComputedStyle(node).webkitLineClamp,width:node.getBoundingClientRect().width,parentWidth:node.parentElement.getBoundingClientRect().width})")
         assert heading_style["overflow"] == "visible" and heading_style["textOverflow"] == "clip" and heading_style["whiteSpace"] == "normal" and heading_style["lineClamp"] == "none" and heading_style["width"] > heading_style["parentWidth"] * 0.9, heading_style
         page.wait_for_selector(f"#indexPage > .hssm-top-row .hssm-top-row-card[data-id='{first_top_row_id}']")
+        assert page.locator("#indexPage > .hssm-top-row").get_attribute("data-hssm-top-row-id") == "main-top-row"
         page.wait_for_selector("#indexPage > .hssm-top-row-message")
         top_row_state = page.evaluate("""() => {
           const header=document.querySelector('.skinHeader'), host=document.querySelector('#indexPage'), message=host.querySelector(':scope > .hssm-top-row-message'), row=host.querySelector(':scope > .hssm-top-row'), track=row.querySelector('.hssm-top-row-track'), card=row.querySelector('.hssm-top-row-card');
@@ -410,13 +429,24 @@ def run() -> None:
         assert first_title != second_title, {"first": first_title, "second": second_title}
         assert any("/Items/resume-one/Images/Primary" in url for url in requests), requests
 
+        page.evaluate(
+            """() => document.querySelector('.hssm-owned-media-bar').contentWindow.postMessage({type:'home-screen-manager-media-bar',action:'configure',intervalSeconds:30,imageType:'primary',slowZoom:false,topGradient:true,items:[{Id:'song-one',Name:'A Song',Type:'Audio',Artists:['The Artist'],ImageTags:{Primary:'song-primary'},_hssmMusicArtists:'The Artist',_hssmArtistBackdropItemId:'artist-one',_hssmArtistBackdropImageTag:'artist-backdrop',_hssmArtistLogoItemId:'artist-one',_hssmArtistLogoImageTag:'artist-logo',_hssmMusicPrimaryItemId:'album-one',_hssmMusicPrimaryImageTag:'album-primary'}]}, location.origin)"""
+        )
+        media_frame.locator("body.hssm-music-slide").wait_for(state="attached")
+        assert media_frame.locator("#episode-label").inner_text().strip() == "A Song by The Artist"
+        media_frame.locator("#music-art").wait_for(state="visible")
+        assert "/Items/album-one/Images/Primary" in media_frame.locator("#music-art").get_attribute("src")
+        assert "/Items/artist-one/Images/Backdrop/0" in media_frame.locator("#backdrop-img").get_attribute("src")
+        assert "/Items/artist-one/Images/Logo" in media_frame.locator("#logo").get_attribute("src")
+        assert "rgba(0, 0, 0" in media_frame.locator("#music-art").evaluate("node => getComputedStyle(node).boxShadow")
+
         # Simulate Abyss creating/replacing its iframe after the plugin starts.
         page.evaluate("""() => { const f=document.createElement('iframe'); f.className='featurediframe'; f.src='about:blank'; document.querySelector('#homeTab').prepend(f); }""")
         page.wait_for_function("getComputedStyle(document.querySelector('#homeTab > .featurediframe')).display === 'none'")
         assert page.locator(".hssm-owned-media-bar").count() == 1
 
         page.locator(".hssm-my-list-tab").click()
-        page.wait_for_function("!document.querySelector('.hssm-top-row') && !document.querySelector('.hssm-top-row-message') && !document.querySelector('.skinHeader').classList.contains('hssm-top-row-host')")
+        page.wait_for_function("document.querySelector('.hssm-top-row[data-hssm-top-row-id=\"main-top-row\"]') && !document.querySelector('.hssm-top-row-message')")
         page.wait_for_selector(".hssm-owned-my-list-page.is-active .hssm-client-card[data-id='liked-one']")
         page.wait_for_selector(".hssm-owned-my-list-page.is-active .hssm-section-media-bar[data-hssm-media-section-id='my-list-content']")
         my_list_frame = page.frame_locator(".hssm-owned-my-list-page.is-active .hssm-section-media-bar[data-hssm-media-section-id='my-list-content']")
@@ -464,11 +494,17 @@ def run() -> None:
         assert page.locator(".hssm-my-list-tab").evaluate("button => button.classList.contains('emby-tab-button-active')")
         page.evaluate("document.querySelector('.emby-tab-button[data-index=\"0\"]').click()")
         page.wait_for_function("document.querySelector('#homeTab').classList.contains('is-active')")
-        page.wait_for_selector("#indexPage > .hssm-top-row")
+        page.wait_for_selector("#indexPage > .hssm-top-row[data-hssm-top-row-id='main-top-row']")
         assert page.locator("#homeTab > .homeSectionsContainer").count() == 1
         assert page.locator("#homeTab .section0").count() == 1
         page.locator(".hssm-custom-page-tab[data-hssm-page-id='manager-page-movies']").click()
-        page.wait_for_selector("#indexPage > .hssm-top-row")
+        page.wait_for_selector("#indexPage > .hssm-top-row[data-hssm-top-row-id='movies-page-top-row']")
+        settings["TopRows"][1]["OverrideMainTopRow"] = False
+        page.evaluate("window.HomeScreenManagerClient.invalidate(); window.HomeScreenManagerClient.refresh();")
+        page.wait_for_selector("#indexPage > .hssm-top-row[data-hssm-top-row-id='main-top-row']")
+        settings["TopRows"][1]["OverrideMainTopRow"] = True
+        page.evaluate("window.HomeScreenManagerClient.invalidate(); window.HomeScreenManagerClient.refresh();")
+        page.wait_for_selector("#indexPage > .hssm-top-row[data-hssm-top-row-id='movies-page-top-row']")
         page.wait_for_selector(".hssm-owned-custom-page.is-active [data-hssm-section-id='manager-movies-one'] .hssm-client-card")
         page.wait_for_selector(".hssm-owned-custom-page.is-active .hssm-section-media-bar[data-hssm-media-section-id='manager-movies-two']")
         page.wait_for_selector(".hssm-owned-custom-page.is-active [data-hssm-section-id='manager-watch-again'] .hssm-client-card[data-id='watched-movie']")
@@ -507,8 +543,17 @@ def run() -> None:
               topPadding: parseFloat(getComputedStyle(document.querySelector('.hssm-owned-custom-page.is-active')).paddingTop)
             })"""
         )
-        assert {key: value for key, value in custom_page_state.items() if key != "topPadding"} == {"titleAbsent": True, "visibleSections": 3, "hiddenSectionAbsent": True, "mediaBars": 3, "lowerBarMarked": True}, custom_page_state
+        assert {key: value for key, value in custom_page_state.items() if key != "topPadding"} == {"titleAbsent": True, "visibleSections": 6, "hiddenSectionAbsent": True, "mediaBars": 3, "lowerBarMarked": True}, custom_page_state
         assert custom_page_state["topPadding"] >= 60, custom_page_state
+        book_card = page.locator(".hssm-owned-custom-page.is-active [data-hssm-section-id='manager-books'] .hssm-client-card[data-id='audio-book-one']")
+        assert book_card.locator(".hssm-card-title").inner_text().strip() == "The Long Book"
+        assert book_card.locator(".hssm-card-author").inner_text().strip() == "Excellent Author"
+        book_art = book_card.locator(".cardContent").evaluate("node => ({fit:getComputedStyle(node).backgroundSize,ratio:node.closest('.cardScalable').getBoundingClientRect().height/node.closest('.cardScalable').getBoundingClientRect().width})")
+        assert book_art["fit"] == "contain" and 1.45 <= book_art["ratio"] <= 1.55, book_art
+        page.wait_for_selector(".hssm-owned-custom-page.is-active [data-hssm-section-id='manager-recent-songs'] .hssm-client-card[data-id='recent-song-one']")
+        assert any("/HomeScreenSectionsManager/recent-listening" in url for url in requests), requests
+        page.wait_for_selector(".hssm-owned-custom-page.is-active [data-hssm-section-id='manager-library'] .hssm-client-card[data-id='actual-movie']")
+        assert page.locator(".hssm-owned-custom-page.is-active [data-hssm-section-id='manager-library'] .hssm-client-card[data-id='year-folder']").count() == 0
         custom_logo = page.frame_locator(".hssm-section-media-bar[data-hssm-media-section-id='manager-movies-two']").locator("#logo")
         custom_logo.wait_for(state="visible")
         assert "/Items/series-two/Images/Logo" in custom_logo.get_attribute("src")
@@ -574,6 +619,7 @@ def run() -> None:
         assert page.locator("#homeTab [data-hssm-section-id='manager-home-top'] .hssm-rank-number").count() == 0
         settings["TopRowAlwaysShow"] = True
         settings["TopRowPersistent"] = True
+        settings["TopRows"][0]["Persistent"] = True
         settings["TopRowMessageAlwaysShow"] = True
         settings["TopRowMessagePersistent"] = True
         page.evaluate("window.HomeScreenManagerClient.invalidate(); window.HomeScreenManagerClient.refresh();")
@@ -592,7 +638,7 @@ def run() -> None:
           detail.id='itemDetailPage';
           detail.className='page libraryPage itemDetailPage';
           detail.style.cssText='box-sizing:border-box;min-height:1200px;padding-top:80px';
-          detail.innerHTML='<div class="detailPagePrimaryContent" data-hssm-test-detail-content>Detail poster and metadata</div>';
+          detail.innerHTML='<div class="detailPageWrapperContainer"><div class="detailPagePrimaryContent" data-hssm-test-detail-content>Detail poster and metadata</div></div>';
           document.body.appendChild(detail);
           document.querySelector('#indexPage').classList.add('hide');
           window.__savedApiClient=window.ApiClient;
@@ -601,16 +647,20 @@ def run() -> None:
         }""")
         page.wait_for_function("document.querySelector('#itemDetailPage').classList.contains('hssm-top-chrome-content-offset')")
         assert page.locator(".hssm-top-row").get_attribute("data-hssm-identity-test") == "retained"
-        detail_offset = page.evaluate("""() => { const page=document.querySelector('#itemDetailPage'), content=page.querySelector('[data-hssm-test-detail-content]'), message=document.querySelector('.hssm-top-row-message').getBoundingClientRect(), row=document.querySelector('.hssm-top-row').getBoundingClientRect(), header=document.querySelector('.skinHeader').getBoundingClientRect(); return {padding:parseFloat(getComputedStyle(page).paddingTop),contentTop:content.getBoundingClientRect().top,chromeHeight:message.height+row.height,headerTop:header.top,rowBottom:row.bottom,hasSpacer:!!page.querySelector('.hssm-top-row-message-spacer,.hssm-top-row-row-spacer')}; }""")
-        assert detail_offset["padding"] >= 80 + detail_offset["chromeHeight"] - 2 and detail_offset["contentTop"] >= detail_offset["padding"] - 1 and detail_offset["headerTop"] >= detail_offset["rowBottom"] - 1 and not detail_offset["hasSpacer"], detail_offset
+        detail_offset = page.evaluate("""() => { const page=document.querySelector('#itemDetailPage'), wrapper=page.querySelector('.detailPageWrapperContainer'), content=page.querySelector('[data-hssm-test-detail-content]'), message=document.querySelector('.hssm-top-row-message').getBoundingClientRect(), row=document.querySelector('.hssm-top-row').getBoundingClientRect(), header=document.querySelector('.skinHeader').getBoundingClientRect(); return {padding:parseFloat(getComputedStyle(page).paddingTop),contentTop:content.getBoundingClientRect().top,wrapperTransform:getComputedStyle(wrapper).transform,chromeHeight:message.height+row.height,headerTop:header.top,rowBottom:row.bottom,hasSpacer:!!page.querySelector('.hssm-top-row-message-spacer,.hssm-top-row-row-spacer')}; }""")
+        assert abs(detail_offset["padding"] - 80) < 2 and detail_offset["contentTop"] >= 80 + detail_offset["chromeHeight"] - 2 and detail_offset["wrapperTransform"] != "none" and detail_offset["headerTop"] >= detail_offset["rowBottom"] - 1 and not detail_offset["hasSpacer"], detail_offset
         page.evaluate("window.ApiClient=window.__savedApiClient; delete window.__savedApiClient; window.HomeScreenManagerClient.refresh()")
-        page.wait_for_timeout(150)
-        assert page.locator(".hssm-top-row").get_attribute("data-hssm-identity-test") == "retained"
+        page.wait_for_selector(".hssm-top-row[data-hssm-top-row-id='movies-library-top-row']")
+        assert page.locator(".hssm-top-row").get_attribute("data-hssm-identity-test") is None
+        genre_link = page.locator(".hssm-top-row[data-hssm-top-row-id='movies-library-top-row'] .hssm-top-row-card[data-id='genre-drama'] .itemAction")
+        genre_link.wait_for(state="attached")
+        assert "genreIds=genre-drama" in genre_link.get_attribute("href") and "topParentId=library-one" in genre_link.get_attribute("href")
         page.wait_for_function("document.querySelector('.hssm-top-row') && document.querySelector('.hssm-top-row-message')")
         page.evaluate("location.hash='#/video'")
         page.wait_for_function("!document.querySelector('.hssm-top-row') && !document.querySelector('.hssm-top-row-message')")
         page.evaluate("document.querySelector('#itemDetailPage').remove(); document.querySelector('#indexPage').classList.remove('hide'); location.hash='#/home'")
-        page.wait_for_function("document.querySelector('.hssm-top-row') && document.querySelector('.hssm-top-row-message')")
+        page.wait_for_selector(".hssm-top-row[data-hssm-top-row-id='main-top-row']")
+        page.wait_for_function("document.querySelector('.hssm-top-row-message')")
         settings["HideFavorites"] = True
         settings["EnableTitleMarquee"] = False
         settings["PageOrder"] = ["home", "hidden:favorites", "my-list", "manager-page-movies"]
