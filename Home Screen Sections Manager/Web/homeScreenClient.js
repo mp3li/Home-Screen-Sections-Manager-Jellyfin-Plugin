@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    var CLIENT_VERSION = "0.1.0.51";
+    var CLIENT_VERSION = "0.1.0.52";
     if (window.HomeScreenManagerClient) {
         if (window.HomeScreenManagerClient.version === CLIENT_VERSION) {
             window.HomeScreenManagerClient.refresh();
@@ -843,7 +843,7 @@
         var showSectionName = prop(section, 'ShowSectionName', 'showSectionName', true) !== false;
         var titleDestination = sectionTitleDestination(section);
         var titleAttributes = titleDestination ? ' href="' + escapeHtml(titleDestination) + '"' : ' href="#" data-hssm-open-section="' + escapeHtml(id) + '"';
-        var sectionTitleMarkup = showSectionName ? '<div class="sectionTitleContainer sectionTitleContainer-cards"><a is="emby-linkbutton" class="more button-flat sectionTitleTextButton padded-left hssm-section-title-link"' + titleAttributes + '><h2 class="sectionTitle sectionTitle-cards">' + escapeHtml(name) + '</h2><span class="material-icons chevron_right hssm-section-title-arrow" aria-hidden="true"></span></a></div>' : '';
+        var sectionTitleMarkup = showSectionName ? '<div class="sectionTitleContainer sectionTitleContainer-cards padded-left"><a is="emby-linkbutton" class="more button-flat button-flat-mini sectionTitleTextButton hssm-section-title-link"' + titleAttributes + '><h2 class="sectionTitle sectionTitle-cards">' + escapeHtml(name) + '</h2><span class="material-icons chevron_right" aria-hidden="true"></span></a></div>' : '';
         var ownsScroller = forceOwnedScroller === true || (pageId !== 'home' && pageId !== 'my-list');
         var ranked = String(prop(section, 'Type', 'type', '')) === 'top-10-50' && prop(section, 'ShowRankNumbers', 'showRankNumbers', true) !== false;
         node.className = 'verticalSection emby-scroller-container hssm-client-section hssm-size-' + artSize + ' hssm-shape-' + artShape + ' hssm-art-' + artType + (showSectionName ? '' : ' hssm-hide-section-name') + (ranked ? ' hssm-top-ranked hssm-rank-' + String(prop(section, 'RankNumberColorMode', 'rankNumberColorMode', 'solid')) : '');
@@ -2902,7 +2902,11 @@
 
     function topChromeHost(alwaysShow) {
         if (isHomeRoute()) return document.querySelector('#indexPage');
-        return alwaysShow && !isPlaybackScreen() ? activePage() : null;
+        if (!alwaysShow || isPlaybackScreen()) return null;
+        var current = activePage();
+        if (current) return current;
+        var existing = document.querySelector('.hssm-top-row, .hssm-top-row-message');
+        return existing && existing._hssmFlowHost && existing._hssmFlowHost.isConnected ? existing._hssmFlowHost : null;
     }
 
     function topChromeVisible(enabled, alwaysShow, pageIds) {
@@ -2934,8 +2938,13 @@
         var text = String(setting(settings, 'TopRowMessageText', '') || '').trim();
         var visible = topChromeVisible(enabled && !!text, alwaysShow, pageIds);
         var host = topChromeHost(alwaysShow);
-        if (!visible || !host) { removeTopRowMessage(); return; }
+        if (!visible) { removeTopRowMessage(); return; }
         var existing = document.querySelector('.hssm-top-row-message');
+        if (!host && alwaysShow && existing) {
+            syncTopChromeHeaderOffset();
+            return;
+        }
+        if (!host) { removeTopRowMessage(); return; }
         var message = existing || document.createElement('aside');
         var persistent = setting(settings, 'TopRowMessagePersistent', false) === true;
         message.className = 'hssm-top-row-message' + (persistent ? ' hssm-top-row-message-persistent' : '');
@@ -3088,7 +3097,7 @@
         var visible = topChromeVisible(enabled, alwaysShow, pageIds) && section && sourceIds.length;
         var header = document.querySelector('.skinHeader');
         var topRowHost = topChromeHost(alwaysShow);
-        if (!visible || !header || !topRowHost) {
+        if (!visible || !header) {
             removeTopRow();
             return;
         }
@@ -3097,6 +3106,14 @@
         var logoShadow = String(setting(settings, 'TopRowLogoShadowColor', '#ffffff') || '');
         var signature = JSON.stringify([alwaysShow ? 'always' : pageId, persistent, sourceIds, prop(section, 'ContentOrder', 'contentOrder', 'manual'), prop(section, 'ArtType', 'artType', 'automatic'), prop(section, 'ArtShape', 'artShape', 'wide'), logosOnly, logoShadow, Array.from(logoCollectionIds)]);
         var existing = document.querySelector('.hssm-top-row');
+        if (!topRowHost && alwaysShow && existing && topRowRenderKey === signature) {
+            syncTopChromeHeaderOffset();
+            return;
+        }
+        if (!topRowHost) {
+            removeTopRow();
+            return;
+        }
         header.classList.add('hssm-top-row-host');
         document.body.classList.add('hssm-top-row-enabled');
         var rowShape = logosOnly ? 'wide' : cardShape(section).name;
@@ -3333,7 +3350,9 @@
                 clientReadyTimer = window.setTimeout(function () { routeRefresh(false); }, 100);
             }
             applyLogo(isPlaybackScreen() ? {} : (settingsCache || cacheRead('client-settings', 24 * 60 * 60 * 1000) || {}));
-            if (!isHomeRoute()) { removeTopRow(); removeTopRowMessage(); }
+            var retainedSettings = settingsCache || cacheRead('client-settings', 24 * 60 * 60 * 1000) || {};
+            if (setting(retainedSettings, 'TopRowAlwaysShow', false) !== true) removeTopRow();
+            if (setting(retainedSettings, 'TopRowMessageAlwaysShow', false) !== true) removeTopRowMessage();
             return;
         }
         clientReadyAttempts = 0;
@@ -3445,7 +3464,7 @@
     window.addEventListener('scroll', tryInfiniteScroll, { passive: true });
     window.HomeScreenManagerClient = {
         version: CLIENT_VERSION,
-        refresh: function () { routeRefresh(true); },
+        refresh: function () { routeRefresh(!settingsCache && !cacheRead('client-settings', 24 * 60 * 60 * 1000)); },
         invalidate: function () {
             settingsCache = null;
             settingsCacheAt = 0;

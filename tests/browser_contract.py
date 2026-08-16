@@ -244,6 +244,10 @@ def run() -> None:
         assert long_section_heading.inner_text().strip() == "Top 20 in Foreign Collection With A Deliberately Long Custom Section Name"
         assert "id=top-source" in long_section_heading.locator("xpath=..").get_attribute("href")
         assert long_section_heading.locator("xpath=../span[contains(@class,'chevron_right')]").count() == 1
+        assert long_section_heading.locator("xpath=../span[contains(@class,'chevron_right')]").inner_text().strip() == ""
+        assert "button-flat-mini" in long_section_heading.locator("xpath=..").get_attribute("class").split()
+        assert "padded-left" in long_section_heading.locator("xpath=../..").get_attribute("class").split()
+        assert "padded-left" not in long_section_heading.locator("xpath=..").get_attribute("class").split()
         heading_style = long_section_heading.evaluate("node => ({overflow:getComputedStyle(node).overflow,textOverflow:getComputedStyle(node).textOverflow,whiteSpace:getComputedStyle(node).whiteSpace,lineClamp:getComputedStyle(node).webkitLineClamp,width:node.getBoundingClientRect().width,parentWidth:node.parentElement.getBoundingClientRect().width})")
         assert heading_style["overflow"] == "visible" and heading_style["textOverflow"] == "clip" and heading_style["whiteSpace"] == "normal" and heading_style["lineClamp"] == "none" and heading_style["width"] > heading_style["parentWidth"] * 0.9, heading_style
         page.wait_for_selector(f"#indexPage > .hssm-top-row .hssm-top-row-card[data-id='{first_top_row_id}']")
@@ -472,7 +476,7 @@ def run() -> None:
         assert page.locator(".hssm-section-listing-page [data-hssm-section-image-type]").count() == 1
         assert page.locator(".hssm-section-listing-page [data-hssm-section-sort]").count() == 1
         listing_card_width = page.locator(".hssm-section-listing-page .hssm-client-card").first.evaluate("node => node.getBoundingClientRect().width")
-        assert listing_card_width <= 180, listing_card_width
+        assert 140 <= listing_card_width <= 180, listing_card_width
         page.locator(".hssm-section-listing-page [data-hssm-section-image-type]").select_option("backdrop")
         assert page.locator(".hssm-section-listing-page").evaluate("node => node.classList.contains('hssm-shape-wide')")
         page.locator(".hssm-section-listing-back").click()
@@ -573,7 +577,13 @@ def run() -> None:
         persistent_scroll_geometry = page.evaluate("""() => { const message=document.querySelector('.hssm-top-row-message').getBoundingClientRect(), row=document.querySelector('.hssm-top-row').getBoundingClientRect(), header=document.querySelector('.skinHeader').getBoundingClientRect(); return {messageTop:message.top,messageBottom:message.bottom,rowTop:row.top,rowBottom:row.bottom,headerTop:header.top}; }""")
         assert abs(persistent_scroll_geometry["messageTop"]) < 1 and abs(persistent_scroll_geometry["rowTop"] - persistent_scroll_geometry["messageBottom"]) < 2 and persistent_scroll_geometry["headerTop"] >= persistent_scroll_geometry["rowBottom"] - 1, persistent_scroll_geometry
         page.evaluate("window.scrollTo(0, 0)")
-        page.evaluate("location.hash='#/details?id=resume-one'")
+        page.locator(".hssm-top-row").evaluate("node => node.dataset.hssmIdentityTest='retained'")
+        page.evaluate("window.__savedApiClient=window.ApiClient; window.ApiClient=null; location.hash='#/details?id=resume-one'")
+        page.wait_for_timeout(150)
+        assert page.locator(".hssm-top-row").get_attribute("data-hssm-identity-test") == "retained"
+        page.evaluate("window.ApiClient=window.__savedApiClient; delete window.__savedApiClient; window.HomeScreenManagerClient.refresh()")
+        page.wait_for_timeout(150)
+        assert page.locator(".hssm-top-row").get_attribute("data-hssm-identity-test") == "retained"
         page.wait_for_function("document.querySelector('.hssm-top-row') && document.querySelector('.hssm-top-row-message')")
         page.evaluate("location.hash='#/video'")
         page.wait_for_function("!document.querySelector('.hssm-top-row') && !document.querySelector('.hssm-top-row-message')")

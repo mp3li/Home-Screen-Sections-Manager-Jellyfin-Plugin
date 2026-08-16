@@ -137,7 +137,8 @@ def run() -> None:
         assert page.locator("#hssmTopRowScrolls").is_checked()
         assert page.locator("#hssmTopRowLogoShadowColor").input_value() == "#ffffff"
         logo_shadow_size = page.locator("#hssmTopRowLogoShadowColor").evaluate("node => { const box=node.getBoundingClientRect(); return {width:box.width,height:box.height}; }")
-        assert abs(logo_shadow_size["width"] - logo_shadow_size["height"]) < 2, logo_shadow_size
+        assert abs(logo_shadow_size["width"] - logo_shadow_size["height"]) < 2 and 44 <= logo_shadow_size["width"] <= 64, logo_shadow_size
+        assert page.locator("#hssmTopRowLogoShadowColor").evaluate("node => node.closest('.hssm-single-color') !== null")
         appearance_gaps = page.locator(".hssm-message-appearance-grid").evaluate("node => ({gap:parseFloat(getComputedStyle(node).rowGap),groups:node.querySelectorAll('.hssm-message-appearance-group').length})")
         assert appearance_gaps["groups"] == 3 and appearance_gaps["gap"] >= 15, appearance_gaps
         logo_description_link = page.get_by_text("Collection Manager", exact=True)

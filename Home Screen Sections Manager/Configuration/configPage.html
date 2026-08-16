@@ -13,7 +13,9 @@
         #homeScreenSectionsManagerPage .hssm-colors { margin:1em 0 0; }
         #homeScreenSectionsManagerPage .hssm-actions { margin-top:1em; }
         #homeScreenSectionsManagerPage .hssm-colors .inputContainer { margin:0; min-width:14em; }
-        #homeScreenSectionsManagerPage .hssm-color { width:3.5em !important; min-width:3.5em; max-width:3.5em; height:3.5em; padding:.1em; }
+        #homeScreenSectionsManagerPage .hssm-color { box-sizing:border-box !important; display:block !important; flex:0 0 3.5em !important; width:3.5em !important; min-width:3.5em !important; max-width:3.5em !important; height:3.5em !important; min-height:3.5em !important; max-height:3.5em !important; padding:.1em !important; }
+        #homeScreenSectionsManagerPage .hssm-single-color { display:inline-flex; width:auto; min-width:0; margin-top:1em; }
+        #homeScreenSectionsManagerPage .hssm-single-color .inputContainer { display:block; width:auto !important; min-width:0 !important; max-width:max-content !important; margin:0; }
         #homeScreenSectionsManagerPage .hssm-message-appearance-grid { display:grid; gap:1.25em; margin-top:1em; }
         #homeScreenSectionsManagerPage .hssm-message-appearance-group { display:grid; gap:.65em; }
         #homeScreenSectionsManagerPage .hssm-message-appearance-group > * { margin-top:0; margin-bottom:0; }
@@ -248,7 +250,7 @@
             <section class="hssm-section">
                 <h2>Logo Only Mode Shadow Settings</h2>
                 <p class="fieldDescription">Choose the color of the very slight, partially transparent shadow placed behind Top Row logos when Display Logos Only is enabled. This can keep very dark logos visible without adding a background or outline.</p>
-                <div class="inputContainer"><label class="inputLabel inputLabelUnfocused" for="hssmTopRowLogoShadowColor">Logo Shadow Color</label><input is="emby-input" class="hssm-color" id="hssmTopRowLogoShadowColor" type="color" value="#ffffff" /></div>
+                <div class="hssm-single-color"><div class="inputContainer"><label class="inputLabel inputLabelUnfocused" for="hssmTopRowLogoShadowColor">Logo Shadow Color</label><input is="emby-input" class="hssm-color" id="hssmTopRowLogoShadowColor" type="color" value="#ffffff" style="box-sizing:border-box;display:block;width:3.5em;min-width:3.5em;max-width:3.5em;height:3.5em;min-height:3.5em;max-height:3.5em;padding:.1em" /></div></div>
                 <button is="emby-button" type="button" class="raised" id="hssmRemoveTopRowLogoShadow">Remove Shadow</button>
             </section>
             <section class="hssm-section">
