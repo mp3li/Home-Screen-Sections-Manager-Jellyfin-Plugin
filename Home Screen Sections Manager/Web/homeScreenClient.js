@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    var CLIENT_VERSION = "0.1.0.52";
+    var CLIENT_VERSION = "0.1.0.53";
     if (window.HomeScreenManagerClient) {
         if (window.HomeScreenManagerClient.version === CLIENT_VERSION) {
             window.HomeScreenManagerClient.refresh();
@@ -75,6 +75,8 @@
     var topRowRenderKey = '';
     var topRowLoadSequence = 0;
     var topChromeSyncBound = false;
+    var topChromeMutationObserver = null;
+    var topChromeSyncFrame = 0;
 
     function createLimiter(maximum) {
         var active = 0;
@@ -589,7 +591,7 @@
 
     function loadTopItemsFromSources(section) {
         var sources = prop(section, 'SourceIds', 'sourceIds', []).map(String).filter(Boolean);
-        var limit = Math.max(10, Math.min(50, Number(prop(section, 'DisplayTopCount', 'displayTopCount', 10)) || 10));
+        var limit = Math.max(5, Math.min(50, Number(prop(section, 'DisplayTopCount', 'displayTopCount', 10)) || 10));
         var key = cacheContext() + ':' + JSON.stringify([sources, limit, String(prop(section, 'Name', 'name', ''))]);
         if (topRecoveryRequests[key]) return topRecoveryRequests[key];
         topRecoveryRequests[key] = sources.reduce(function (work, source) {
@@ -823,7 +825,7 @@
         } else if (showText) {
             footer = '<div class="' + textClass + ' cardText-first hssm-card-title"><bdi><a is="emby-linkbutton" href="' + escapeHtml(href) + '" class="itemAction textActionButton">' + escapeHtml(name) + '</a></bdi></div>' + (year ? '<div class="' + textClass + ' cardText-secondary hssm-card-year"><bdi>' + escapeHtml(year) + '</bdi></div>' : '');
         }
-        var rankMarkup = rank && prop(section, 'ShowRankNumbers', 'showRankNumbers', true) !== false ? '<span class="hssm-rank-number" aria-hidden="true">' + rank + '</span>' : '';
+        var rankMarkup = rank && prop(section, 'ShowRankNumbers', 'showRankNumbers', true) !== false ? '<span class="hssm-rank-number" aria-hidden="true"><span class="hssm-rank-glyph">' + rank + '</span></span>' : '';
         var playMarkup = '<div class="cardOverlayContainer itemAction" data-action="link"><a href="' + escapeHtml(href) + '" class="cardImageContainer" aria-label="' + escapeHtml(name) + '"></a>' +
             '<button is="paper-icon-button-light" type="button" class="cardOverlayButton cardOverlayButton-hover itemAction paper-icon-button-light cardOverlayFab-primary" data-action="resume" title="Play" aria-label="Play ' + escapeHtml(name) + '"><span class="material-icons cardOverlayButtonIcon cardOverlayButtonIcon-hover play_arrow" aria-hidden="true"></span></button></div>';
         return '<div class="card ' + shape.card + ' card-hoverable card-withuserdata hssm-client-card" data-id="' + escapeHtml(id) + '" data-serverid="' + escapeHtml(serverId) + '" data-type="' + escapeHtml(type) + '" data-mediatype="' + escapeHtml(mediaType) + '" data-isfolder="' + String(isFolder) + '">' +
@@ -840,12 +842,15 @@
         var artShape = cardShape(section).name;
         var artType = String(prop(section, 'ArtType', 'artType', 'automatic'));
         var pageId = String(prop(section, 'PageId', 'pageId', 'home'));
+        var type = String(prop(section, 'Type', 'type', ''));
         var showSectionName = prop(section, 'ShowSectionName', 'showSectionName', true) !== false;
         var titleDestination = sectionTitleDestination(section);
-        var titleAttributes = titleDestination ? ' href="' + escapeHtml(titleDestination) + '"' : ' href="#" data-hssm-open-section="' + escapeHtml(id) + '"';
+        var titleAttributes = type === 'my-list-content'
+            ? ' href="#/home" data-hssm-open-my-list="true"'
+            : titleDestination ? ' href="' + escapeHtml(titleDestination) + '"' : ' href="#" data-hssm-open-section="' + escapeHtml(id) + '"';
         var sectionTitleMarkup = showSectionName ? '<div class="sectionTitleContainer sectionTitleContainer-cards padded-left"><a is="emby-linkbutton" class="more button-flat button-flat-mini sectionTitleTextButton hssm-section-title-link"' + titleAttributes + '><h2 class="sectionTitle sectionTitle-cards">' + escapeHtml(name) + '</h2><span class="material-icons chevron_right" aria-hidden="true"></span></a></div>' : '';
         var ownsScroller = forceOwnedScroller === true || (pageId !== 'home' && pageId !== 'my-list');
-        var ranked = String(prop(section, 'Type', 'type', '')) === 'top-10-50' && prop(section, 'ShowRankNumbers', 'showRankNumbers', true) !== false;
+        var ranked = type === 'top-10-50' && prop(section, 'ShowRankNumbers', 'showRankNumbers', true) !== false;
         node.className = 'verticalSection emby-scroller-container hssm-client-section hssm-size-' + artSize + ' hssm-shape-' + artShape + ' hssm-art-' + artType + (showSectionName ? '' : ' hssm-hide-section-name') + (ranked ? ' hssm-top-ranked hssm-rank-' + String(prop(section, 'RankNumberColorMode', 'rankNumberColorMode', 'solid')) : '');
         node.style.setProperty('--hssm-rank-one', String(prop(section, 'RankNumberColorOne', 'rankNumberColorOne', '#f5f5f7')));
         node.style.setProperty('--hssm-rank-two', String(prop(section, 'RankNumberColorTwo', 'rankNumberColorTwo', '#f5f5f7')));
@@ -2559,7 +2564,7 @@
     function sectionPageIds(section, cursor, limit) {
         var ids = prop(section, 'ItemIds', 'itemIds', []).map(String).filter(Boolean);
         if (String(prop(section, 'Type', 'type', '')) === 'top-10-50') {
-            ids = ids.slice(0, Math.max(10, Math.min(50, Number(prop(section, 'DisplayTopCount', 'displayTopCount', 10)) || 10)));
+            ids = ids.slice(0, Math.max(5, Math.min(50, Number(prop(section, 'DisplayTopCount', 'displayTopCount', 10)) || 10)));
         }
         return ids.slice(cursor, cursor + limit);
     }
@@ -2834,16 +2839,18 @@
         element._hssmFlowHost = flowHost;
         clearTopChromeSpacer(kind);
         if (persistent) {
-            var spacer = document.createElement('div');
-            spacer.className = 'hssm-top-row-' + kind + '-spacer';
-            spacer.setAttribute('aria-hidden', 'true');
-            spacer.style.height = Math.max(0, element.getBoundingClientRect().height) + 'px';
-            if (kind === 'message') flowHost.insertBefore(spacer, flowHost.firstChild);
-            else {
-                var messageSpacer = flowHost.querySelector(':scope > .hssm-top-row-message-spacer');
-                var flowMessage = flowHost.querySelector(':scope > .hssm-top-row-message');
-                var anchor = messageSpacer || flowMessage;
-                flowHost.insertBefore(spacer, anchor ? anchor.nextSibling : flowHost.firstChild);
+            if (flowHost.id === 'indexPage') {
+                var spacer = document.createElement('div');
+                spacer.className = 'hssm-top-row-' + kind + '-spacer';
+                spacer.setAttribute('aria-hidden', 'true');
+                spacer.style.height = Math.max(0, element.getBoundingClientRect().height) + 'px';
+                if (kind === 'message') flowHost.insertBefore(spacer, flowHost.firstChild);
+                else {
+                    var messageSpacer = flowHost.querySelector(':scope > .hssm-top-row-message-spacer');
+                    var flowMessage = flowHost.querySelector(':scope > .hssm-top-row-message');
+                    var anchor = messageSpacer || flowMessage;
+                    flowHost.insertBefore(spacer, anchor ? anchor.nextSibling : flowHost.firstChild);
+                }
             }
             if (element.parentNode !== document.body) document.body.appendChild(element);
             return;
@@ -2857,18 +2864,64 @@
         }
     }
 
+    function clearTopChromeContentOffsets(except) {
+        Array.from(document.querySelectorAll('.hssm-top-chrome-content-offset')).forEach(function (page) {
+            if (page === except) return;
+            if (page._hssmOriginalPaddingTop) page.style.setProperty('padding-top', page._hssmOriginalPaddingTop.value, page._hssmOriginalPaddingTop.priority);
+            else page.style.removeProperty('padding-top');
+            page.classList.remove('hssm-top-chrome-content-offset');
+            delete page._hssmOriginalPaddingTop;
+            delete page._hssmBasePaddingTop;
+        });
+    }
+
+    function applyTopChromeContentOffset(offset) {
+        var page = activePage();
+        if (!page || page.id === 'indexPage' || isHomeRoute() || offset <= 0 || isPlaybackScreen() || isDashboardScreen()) {
+            clearTopChromeContentOffsets(null);
+            return;
+        }
+        clearTopChromeContentOffsets(page);
+        if (!page.classList.contains('hssm-top-chrome-content-offset')) {
+            page._hssmOriginalPaddingTop = {
+                value:page.style.getPropertyValue('padding-top'),
+                priority:page.style.getPropertyPriority('padding-top')
+            };
+            page._hssmBasePaddingTop = Math.max(0, parseFloat(getComputedStyle(page).paddingTop) || 0);
+            page.classList.add('hssm-top-chrome-content-offset');
+        }
+        page.style.setProperty('padding-top', 'calc(' + page._hssmBasePaddingTop.toFixed(2) + 'px + ' + offset.toFixed(2) + 'px)', 'important');
+    }
+
+    function syncTopChromeFlowHosts() {
+        if (isPlaybackScreen() || isDashboardScreen()) return;
+        var host = topChromeHost(true);
+        if (!host) return;
+        [
+            { selector:'.hssm-top-row-message[data-hssm-always-show="true"]', kind:'message' },
+            { selector:'.hssm-top-row[data-hssm-always-show="true"]', kind:'row' }
+        ].forEach(function (entry) {
+            var element = document.querySelector(entry.selector);
+            var persistentClass = entry.kind === 'message' ? 'hssm-top-row-message-persistent' : 'hssm-top-row-persistent';
+            if (element && element._hssmFlowHost !== host) placeTopChromeElement(element, host, element.classList.contains(persistentClass), entry.kind);
+        });
+    }
+
     function syncTopChromeHeaderOffset() {
         var header = document.querySelector('.skinHeader');
         if (!header) return;
+        syncTopChromeFlowHosts();
         var message = document.querySelector('.hssm-top-row-message');
         var row = document.querySelector('.hssm-top-row');
         var persistentOffset = 0;
+        var persistentHeight = 0;
         var flowOffset = 0;
         if (message && message.isConnected) {
             var messageBox = message.getBoundingClientRect();
             if (message.classList.contains('hssm-top-row-message-persistent')) {
                 message.style.top = '0px';
                 persistentOffset += messageBox.height;
+                persistentHeight += messageBox.height;
             } else flowOffset = Math.max(flowOffset, Math.max(0, messageBox.bottom));
             var messageSpacer = document.querySelector('.hssm-top-row-message-spacer');
             if (messageSpacer) messageSpacer.style.height = messageBox.height.toFixed(2) + 'px';
@@ -2879,6 +2932,7 @@
                 var fixedTop = persistentOffset || flowOffset;
                 row.style.top = fixedTop.toFixed(2) + 'px';
                 persistentOffset = fixedTop + rowBox.height;
+                persistentHeight += rowBox.height;
             } else flowOffset = Math.max(flowOffset, Math.max(0, rowBox.bottom));
             var rowSpacer = document.querySelector('.hssm-top-row-row-spacer');
             if (rowSpacer) rowSpacer.style.height = rowBox.height.toFixed(2) + 'px';
@@ -2891,6 +2945,7 @@
             header.classList.remove('hssm-top-row-host');
             header.style.removeProperty('--hssm-top-row-header-offset');
         }
+        applyTopChromeContentOffset(persistentHeight);
     }
 
     function ensureTopChromeSync() {
@@ -2898,6 +2953,14 @@
         topChromeSyncBound = true;
         window.addEventListener('scroll', syncTopChromeHeaderOffset, { passive:true });
         window.addEventListener('resize', syncTopChromeHeaderOffset, { passive:true });
+        topChromeMutationObserver = new MutationObserver(function () {
+            if (topChromeSyncFrame) return;
+            topChromeSyncFrame = window.requestAnimationFrame(function () {
+                topChromeSyncFrame = 0;
+                syncTopChromeHeaderOffset();
+            });
+        });
+        topChromeMutationObserver.observe(document.body, { childList:true, subtree:true, attributes:true, attributeFilter:['class', 'hidden'] });
     }
 
     function topChromeHost(alwaysShow) {
@@ -2948,6 +3011,7 @@
         var message = existing || document.createElement('aside');
         var persistent = setting(settings, 'TopRowMessagePersistent', false) === true;
         message.className = 'hssm-top-row-message' + (persistent ? ' hssm-top-row-message-persistent' : '');
+        message.dataset.hssmAlwaysShow = alwaysShow ? 'true' : 'false';
         message.style.background = colorPaint(String(setting(settings, 'TopRowMessageBarColorMode', 'solid')), String(setting(settings, 'TopRowMessageBarColorOne', '#000000')), String(setting(settings, 'TopRowMessageBarColorTwo', '#333333')));
         message.style.color = String(setting(settings, 'TopRowMessageFontColor', '#ffffff'));
         var shadow = String(setting(settings, 'TopRowMessageFontShadowColor', '') || '');
@@ -3120,6 +3184,7 @@
         document.body.classList.remove('hssm-top-row-shape-wide', 'hssm-top-row-shape-square', 'hssm-top-row-shape-circle');
         document.body.classList.add('hssm-top-row-shape-' + rowShape);
         if (existing && topRowRenderKey === signature) {
+            existing.dataset.hssmAlwaysShow = alwaysShow ? 'true' : 'false';
             placeTopChromeElement(existing, topRowHost, persistent, 'row');
             syncTopChromeHeaderOffset();
             return;
@@ -3129,6 +3194,7 @@
         var loadSequence = ++topRowLoadSequence;
         var row = document.createElement('nav');
         row.className = 'hssm-top-row hssm-size-extra-small hssm-shape-' + rowShape + ' hssm-art-' + String(prop(section, 'ArtType', 'artType', 'automatic')) + (logosOnly ? ' hssm-top-row-logos-only' : '') + (persistent ? ' hssm-top-row-persistent' : '');
+        row.dataset.hssmAlwaysShow = alwaysShow ? 'true' : 'false';
         row.style.setProperty('--hssm-top-row-logo-shadow', hexShadowFilter(logoShadow));
         row.setAttribute('aria-label', 'Top Row');
         row.innerHTML = '<div class="hssm-top-row-track" aria-busy="true"></div>';
@@ -3444,6 +3510,14 @@
 
     window.addEventListener('hashchange', function () { queueRouteRefresh(false); });
     document.addEventListener('click', function (event) {
+        var myListTitle = event.target.closest('.hssm-section-title-link[data-hssm-open-my-list="true"]');
+        if (myListTitle) {
+            event.preventDefault();
+            var marker = myListPageMarker();
+            var panel = marker && marker.closest('.pageTabContent[data-index]');
+            showOwnedHomePanel(panel ? Number(panel.dataset.index) : ownedMyListTabIndex);
+            return;
+        }
         var title = event.target.closest('.hssm-section-title-link[data-hssm-open-section]');
         if (!title) return;
         event.preventDefault();

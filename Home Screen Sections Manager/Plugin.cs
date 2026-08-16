@@ -475,7 +475,7 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
 
     private static string NormalizeColorMode(string? value) => value switch { "vertical-gradient" => "vertical-gradient", "horizontal-gradient" => "horizontal-gradient", "center-gradient" => "center-gradient", _ => "solid" };
 
-    private static int NormalizeDisplayTopCount(int value) => value is 10 or 20 or 30 or 40 or 50 ? value : 10;
+    private static int NormalizeDisplayTopCount(int value) => value is 5 or 10 or 20 or 30 or 40 or 50 ? value : 10;
 
     private static string NormalizeActivityMediaType(string? value) => value switch { "series" => "series", "music-audiobooks" => "music-audiobooks", "books" => "books", _ => "movies" };
 

@@ -9,13 +9,13 @@
     "imageUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Assets/Branding/home-screen-sections-manager-plugin-photo.png",
     "versions": [
       {
-        "version": "0.1.0.52",
-        "changelog": "Fixes the remaining Top Row and section-navigation issues: constrains the logo-only shadow picker to the same compact square geometry as other color controls, matches Jellyfin's native title padding and chevron markup, enforces normal card sizing on custom section listing pages, keeps persistent Top Rows fixed through scrolling, and retains an already-loaded Always Show Top Row through Jellyfin page transitions without refetching it.",
+        "version": "0.1.0.53",
+        "changelog": "Adds Top 5 to the existing ranked-section choices, makes My List content headings activate the plugin's My List page despite Jellyfin's shared home URL, preserves native detail and library page spacing beneath persistent Top Row and message chrome, and applies ranked-number gradients across the visible number glyph.",
         "targetAbi": "10.11.11.0",
         "framework": "net9.0",
-        "sourceUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Test%20Releases/0.1.0.52-test/Jellyfin.Plugin.HomeScreenSectionsManager_0.1.0.52-test.zip",
-        "checksum": "775eb682314e795a6611b817d236e742",
-        "timestamp": "2026-08-16T21:09:20Z"
+        "sourceUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Test%20Releases/0.1.0.53-test/Jellyfin.Plugin.HomeScreenSectionsManager_0.1.0.53-test.zip",
+        "checksum": "5f1f8661c56d6ad6e08cfa9901a9bf73",
+        "timestamp": "2026-08-16T21:33:28Z"
       }
     ]
   }

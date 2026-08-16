@@ -345,10 +345,10 @@ def run() -> None:
         assert small_heart_hover_width > proportional_controls["smallHeart"] and small_heart_hover_width <= proportional_controls["mediumHeart"], {"before": proportional_controls["smallHeart"], "hover": small_heart_hover_width, "normal": proportional_controls["mediumHeart"]}
         assert page.locator("#homeTab [data-hssm-section-id='manager-home-top'] .hssm-rank-number").count() == 2
         assert page.locator("#homeTab [data-hssm-section-id='manager-home-top']").evaluate("node => node.classList.contains('hssm-top-ranked')")
-        rank_geometry = page.locator("#homeTab [data-hssm-section-id='manager-home-top'] .hssm-rank-number").first.evaluate("node => { const box=node.getBoundingClientRect(), scalable=node.closest('.cardScalable').getBoundingClientRect(), style=getComputedStyle(node), image=getComputedStyle(node.closest('.cardScalable').querySelector(':scope > .cardImageContainer')); return {width:box.width,height:box.height,fontSize:parseFloat(style.fontSize),display:style.display,visibility:style.visibility,bottomDelta:Math.abs(box.bottom-scalable.bottom),rankZ:Number(style.zIndex),imageZ:Number(image.zIndex),backgroundImage:style.backgroundImage,filter:style.filter,shadow:getComputedStyle(node.closest('.hssm-client-section')).getPropertyValue('--hssm-rank-shadow').trim()}; }")
+        rank_geometry = page.locator("#homeTab [data-hssm-section-id='manager-home-top'] .hssm-rank-number").first.evaluate("node => { const box=node.getBoundingClientRect(), scalable=node.closest('.cardScalable').getBoundingClientRect(), style=getComputedStyle(node), glyph=getComputedStyle(node.querySelector('.hssm-rank-glyph')), image=getComputedStyle(node.closest('.cardScalable').querySelector(':scope > .cardImageContainer')); return {width:box.width,height:box.height,fontSize:parseFloat(style.fontSize),display:style.display,visibility:style.visibility,bottomDelta:Math.abs(box.bottom-scalable.bottom),rankZ:Number(style.zIndex),imageZ:Number(image.zIndex),backgroundImage:glyph.backgroundImage,textFill:glyph.webkitTextFillColor,filter:style.filter,shadow:getComputedStyle(node.closest('.hssm-client-section')).getPropertyValue('--hssm-rank-shadow').trim()}; }")
         assert rank_geometry["width"] > 20 and rank_geometry["height"] > 20 and rank_geometry["fontSize"] > 40 and rank_geometry["display"] != "none" and rank_geometry["visibility"] == "visible", rank_geometry
         assert rank_geometry["bottomDelta"] < 1 and rank_geometry["rankZ"] < rank_geometry["imageZ"], rank_geometry
-        assert "linear-gradient" in rank_geometry["backgroundImage"] and rank_geometry["shadow"] == "rgba(18, 52, 86, 0.55)", rank_geometry
+        assert "linear-gradient" in rank_geometry["backgroundImage"] and "rgb(255, 0, 0)" in rank_geometry["backgroundImage"] and "rgb(0, 0, 255)" in rank_geometry["backgroundImage"] and rank_geometry["textFill"] in ("transparent", "rgba(0, 0, 0, 0)") and rank_geometry["shadow"] == "rgba(18, 52, 86, 0.55)", rank_geometry
         assert "drop-shadow" in rank_geometry["filter"] and "rgba(18, 52, 86, 0.55)" in rank_geometry["filter"], rank_geometry
         title_year_alignment = page.locator("#homeTab [data-hssm-section-id='manager-home-top'] .hssm-client-card").first.evaluate("card => { const title=card.querySelector('.hssm-card-title'), year=card.querySelector('.hssm-card-year'); return {title:title.getBoundingClientRect().left,year:year.getBoundingClientRect().left}; }")
         assert abs(title_year_alignment["title"] - title_year_alignment["year"]) < 1, title_year_alignment
@@ -455,6 +455,15 @@ def run() -> None:
         # Jellyfin's documented emby-tabs event owns the return to Home.
         page.evaluate("document.querySelector('.emby-tab-button[data-index=\"0\"]').click()")
         page.wait_for_function("getComputedStyle(document.querySelector('#homeTab > .hssm-owned-media-bar')).display === 'block'")
+        my_list_title = page.locator(".hssm-owned-my-list-page [data-hssm-section-id='my-list-content'] .hssm-section-title-link")
+        assert my_list_title.get_attribute("href") == "#/home"
+        assert my_list_title.get_attribute("data-hssm-open-my-list") == "true"
+        assert my_list_title.get_attribute("data-hssm-open-section") is None
+        my_list_title.evaluate("node => node.click()")
+        page.wait_for_function("document.querySelector('.hssm-owned-my-list-page').classList.contains('is-active')")
+        assert page.locator(".hssm-my-list-tab").evaluate("button => button.classList.contains('emby-tab-button-active')")
+        page.evaluate("document.querySelector('.emby-tab-button[data-index=\"0\"]').click()")
+        page.wait_for_function("document.querySelector('#homeTab').classList.contains('is-active')")
         page.wait_for_selector("#indexPage > .hssm-top-row")
         assert page.locator("#homeTab > .homeSectionsContainer").count() == 1
         assert page.locator("#homeTab .section0").count() == 1
@@ -578,16 +587,29 @@ def run() -> None:
         assert abs(persistent_scroll_geometry["messageTop"]) < 1 and abs(persistent_scroll_geometry["rowTop"] - persistent_scroll_geometry["messageBottom"]) < 2 and persistent_scroll_geometry["headerTop"] >= persistent_scroll_geometry["rowBottom"] - 1, persistent_scroll_geometry
         page.evaluate("window.scrollTo(0, 0)")
         page.locator(".hssm-top-row").evaluate("node => node.dataset.hssmIdentityTest='retained'")
-        page.evaluate("window.__savedApiClient=window.ApiClient; window.ApiClient=null; location.hash='#/details?id=resume-one'")
-        page.wait_for_timeout(150)
+        page.evaluate("""() => {
+          const detail=document.createElement('div');
+          detail.id='itemDetailPage';
+          detail.className='page libraryPage itemDetailPage';
+          detail.style.cssText='box-sizing:border-box;min-height:1200px;padding-top:80px';
+          detail.innerHTML='<div class="detailPagePrimaryContent" data-hssm-test-detail-content>Detail poster and metadata</div>';
+          document.body.appendChild(detail);
+          document.querySelector('#indexPage').classList.add('hide');
+          window.__savedApiClient=window.ApiClient;
+          window.ApiClient=null;
+          location.hash='#/details?id=resume-one';
+        }""")
+        page.wait_for_function("document.querySelector('#itemDetailPage').classList.contains('hssm-top-chrome-content-offset')")
         assert page.locator(".hssm-top-row").get_attribute("data-hssm-identity-test") == "retained"
+        detail_offset = page.evaluate("""() => { const page=document.querySelector('#itemDetailPage'), content=page.querySelector('[data-hssm-test-detail-content]'), message=document.querySelector('.hssm-top-row-message').getBoundingClientRect(), row=document.querySelector('.hssm-top-row').getBoundingClientRect(), header=document.querySelector('.skinHeader').getBoundingClientRect(); return {padding:parseFloat(getComputedStyle(page).paddingTop),contentTop:content.getBoundingClientRect().top,chromeHeight:message.height+row.height,headerTop:header.top,rowBottom:row.bottom,hasSpacer:!!page.querySelector('.hssm-top-row-message-spacer,.hssm-top-row-row-spacer')}; }""")
+        assert detail_offset["padding"] >= 80 + detail_offset["chromeHeight"] - 2 and detail_offset["contentTop"] >= detail_offset["padding"] - 1 and detail_offset["headerTop"] >= detail_offset["rowBottom"] - 1 and not detail_offset["hasSpacer"], detail_offset
         page.evaluate("window.ApiClient=window.__savedApiClient; delete window.__savedApiClient; window.HomeScreenManagerClient.refresh()")
         page.wait_for_timeout(150)
         assert page.locator(".hssm-top-row").get_attribute("data-hssm-identity-test") == "retained"
         page.wait_for_function("document.querySelector('.hssm-top-row') && document.querySelector('.hssm-top-row-message')")
         page.evaluate("location.hash='#/video'")
         page.wait_for_function("!document.querySelector('.hssm-top-row') && !document.querySelector('.hssm-top-row-message')")
-        page.evaluate("location.hash='#/home'")
+        page.evaluate("document.querySelector('#itemDetailPage').remove(); document.querySelector('#indexPage').classList.remove('hide'); location.hash='#/home'")
         page.wait_for_function("document.querySelector('.hssm-top-row') && document.querySelector('.hssm-top-row-message')")
         settings["HideFavorites"] = True
         settings["EnableTitleMarquee"] = False

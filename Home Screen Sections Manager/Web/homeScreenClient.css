@@ -1170,26 +1170,32 @@ body.hssm-infinite-scroll-active .listPaging {
     z-index: 0;
 }
 
-.hssm-rank-vertical-gradient .hssm-rank-number,
-.hssm-rank-horizontal-gradient .hssm-rank-number,
-.hssm-rank-center-gradient .hssm-rank-number {
-    background-clip: text;
-    color: transparent;
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-repeat: no-repeat;
-    background-size: 100% 100%;
+.hssm-rank-glyph {
+    color: inherit;
+    display: inline-block;
 }
 
-.hssm-rank-vertical-gradient .hssm-rank-number {
+.hssm-rank-vertical-gradient .hssm-rank-glyph,
+.hssm-rank-horizontal-gradient .hssm-rank-glyph,
+.hssm-rank-center-gradient .hssm-rank-glyph {
+    background-clip: text !important;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: 100% 100%;
+    color: transparent;
+    -webkit-background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+}
+
+.hssm-rank-vertical-gradient .hssm-rank-glyph {
     background-image: linear-gradient(to bottom, var(--hssm-rank-one), var(--hssm-rank-two));
 }
 
-.hssm-rank-horizontal-gradient .hssm-rank-number {
-    background-image: linear-gradient(to right, var(--hssm-rank-one), var(--hssm-rank-two));
+.hssm-rank-horizontal-gradient .hssm-rank-glyph {
+    background-image: linear-gradient(to right, var(--hssm-rank-one) 0%, var(--hssm-rank-two) 100%);
 }
 
-.hssm-rank-center-gradient .hssm-rank-number {
+.hssm-rank-center-gradient .hssm-rank-glyph {
     background-image: radial-gradient(circle at center, var(--hssm-rank-one) 0%, var(--hssm-rank-two) 100%);
 }
 

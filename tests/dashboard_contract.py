@@ -198,9 +198,13 @@ def run() -> None:
         page.locator("#hssmFinishSectionButton").click()
         page.wait_for_function("!document.querySelector('#hssmTypeSpecificSettings [data-hssm-save-move]').disabled")
         assert page.locator("#hssmTypeSpecificSettings [data-hssm-content-order]").input_value() == "rating-descending"
+        assert page.get_by_text("Top 5-50 Settings", exact=True).count() == 1
+        assert page.locator("#hssmTypeSpecificSettings [data-hssm-display-top] option[value='5']").count() == 1
         revised_top_name = "Top 20 in Foreign Collection - My Picks"
         page.locator("#hssmTypeSpecificSettings [data-hssm-top-draft-name]").fill(revised_top_name)
         page.wait_for_function("name => { const section=window.__sectionSettings.Sections.find(s => s.Id === 'manager-top'); return section.Name === name && section.Drafts[0].Name === name; }", arg=revised_top_name)
+        page.locator("#hssmTypeSpecificSettings [data-hssm-display-top]").select_option("5")
+        assert page.locator("#hssmTypeSpecificSettings [data-hssm-display-top]").input_value() == "5"
         page.locator("#hssmTypeSpecificSettings [data-hssm-display-top]").select_option("30")
         assert page.locator("#hssmTypeSpecificSettings [data-hssm-top-draft-name]").input_value() == revised_top_name
         page.evaluate("document.querySelector('#hssmTypeSpecificSettings [data-hssm-art-settings]').hidden = false")
