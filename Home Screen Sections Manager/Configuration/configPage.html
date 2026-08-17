@@ -76,6 +76,7 @@
         <div class="hssm-tabs" role="tablist" aria-label="Home Screen Manager tabs">
             <button type="button" class="hssm-tab active" data-tab="main-settings" role="tab" aria-selected="true">Main Settings</button>
             <button type="button" class="hssm-tab" data-tab="customization-settings" role="tab" aria-selected="false">Customization Settings</button>
+            <button type="button" class="hssm-tab" data-tab="marquee-message" role="tab" aria-selected="false">Marquee Message</button>
             <button type="button" class="hssm-tab" data-tab="top-row-settings" role="tab" aria-selected="false">Create and Manage Top Rows</button>
             <button type="button" class="hssm-tab" data-tab="create-sections" role="tab" aria-selected="false">Create and Manage Home Screen Sections</button>
             <button type="button" class="hssm-tab" data-tab="create-pages" role="tab" aria-selected="false">Create and Manage Home Screen Pages</button>
@@ -199,7 +200,7 @@
         <div class="hssm-panel" data-panel="top-row-settings" role="tabpanel">
             <section class="hssm-section">
                 <h2>Existing Top Rows</h2>
-                <p class="fieldDescription">This area shows the Main Top Row and every saved page or library Top Row. The Main Top Row is the fallback shown everywhere outside active playback. A targeted Top Row appears only when Override Main Top Row is turned on for its assigned Home screen page or Jellyfin library. Each page or library can have only one targeted Top Row. Select a row to edit, delete, or copy it.</p>
+                <p class="fieldDescription">This area shows the Main Top Row and every saved page or library Top Row. The Main Top Row is shown everywhere outside active playback unless an enabled targeted Top Row overrides it for its assigned Home screen page or Jellyfin library. Each page or library can have only one targeted Top Row. Select a row to edit, delete, or copy it.</p>
                 <div class="hssm-colors">
                     <div class="inputContainer"><label class="inputLabel inputLabelUnfocused" for="hssmMainTopRowLabelColor">Main Top Row Label Color</label><input is="emby-input" class="hssm-color" id="hssmMainTopRowLabelColor" type="color" value="#aa5cc3" /></div>
                     <div class="inputContainer"><label class="inputLabel inputLabelUnfocused" for="hssmTopRowTargetLabelColor">Applied Area Label Color</label><input is="emby-input" class="hssm-color" id="hssmTopRowTargetLabelColor" type="color" value="#00a4dc" /></div>
@@ -209,29 +210,31 @@
                 <div id="hssmTopRowList" class="hssm-section-list" aria-label="Existing Top Rows"></div>
                 <div class="hssm-actions"><button is="emby-button" type="button" class="raised" id="hssmCreateTopRowButton">Create Top Row</button><button is="emby-button" type="button" class="raised" id="hssmEditTopRowButton" disabled>Edit Top Row</button><button is="emby-button" type="button" class="raised" id="hssmDeleteTopRowButton" disabled>Delete Top Row</button><button is="emby-button" type="button" class="raised" id="hssmUndoDeleteTopRowButton" disabled>Undo Delete Top Row</button><button is="emby-button" type="button" class="raised" id="hssmCopyTopRowButton" disabled>Copy + Paste Top Row</button></div>
             </section>
+        </div>
+        <div class="hssm-panel" data-panel="marquee-message" role="tabpanel">
             <section class="hssm-section">
-                <h2>Top Row Message Settings</h2>
-                <p class="fieldDescription">Choose whether to enable or disable a custom Top Row message. The message appears at the very top of the selected page or pages for every user.</p>
-                <div class="hssm-yes-no"><label class="checkboxContainer"><input is="emby-checkbox" type="radio" name="hssmTopRowMessageEnabled" id="hssmEnableTopRowMessage" value="enable" /><span>Enable Top Row Message</span></label><label class="checkboxContainer"><input is="emby-checkbox" type="radio" name="hssmTopRowMessageEnabled" id="hssmDisableTopRowMessage" value="disable" checked /><span>Disable Top Row Message</span></label></div>
+                <h2>Marquee Message Settings</h2>
+                <p class="fieldDescription">Choose whether to enable or disable a custom Marquee Message. The message appears at the very top of the selected page or pages for every user.</p>
+                <div class="hssm-yes-no"><label class="checkboxContainer"><input is="emby-checkbox" type="radio" name="hssmTopRowMessageEnabled" id="hssmEnableTopRowMessage" value="enable" /><span>Enable Marquee Message</span></label><label class="checkboxContainer"><input is="emby-checkbox" type="radio" name="hssmTopRowMessageEnabled" id="hssmDisableTopRowMessage" value="disable" checked /><span>Disable Marquee Message</span></label></div>
             </section>
             <section class="hssm-section">
-                <h2>Top Row Message Page Visibility Settings</h2>
-                <p class="fieldDescription">Select which existing home screen pages should display the Top Row message. Home is selected by default, or choose Always Show to display it on every page except active playback.</p>
+                <h2>Marquee Message Page Visibility Settings</h2>
+                <p class="fieldDescription">Select which existing home screen pages should display the Marquee Message. Home is selected by default, or choose Always Show to display it on every page except active playback.</p>
                 <label class="checkboxContainer"><input is="emby-checkbox" type="checkbox" id="hssmTopRowMessageAlwaysShow" /><span>Always Show</span></label>
                 <div id="hssmTopRowMessagePagePicker"><p class="fieldDescription">Loading home screen pages…</p></div>
             </section>
             <section class="hssm-section">
-                <h2>Top Row Message Persistence Settings</h2>
-                <p class="fieldDescription">Choose whether the Top Row message scrolls away with the page or remains visible with Jellyfin's top navigation while you scroll.</p>
+                <h2>Marquee Message Persistence Settings</h2>
+                <p class="fieldDescription">Choose whether the Marquee Message scrolls away with the page or remains visible with Jellyfin's top navigation while you scroll.</p>
                 <div class="hssm-yes-no"><label class="checkboxContainer"><input is="emby-checkbox" type="radio" name="hssmTopRowMessagePersistence" id="hssmTopRowMessageScrolls" value="scroll" checked /><span>Scroll With Page</span></label><label class="checkboxContainer"><input is="emby-checkbox" type="radio" name="hssmTopRowMessagePersistence" id="hssmTopRowMessagePersists" value="persist" /><span>Keep Message Visible</span></label></div>
             </section>
             <section class="hssm-section">
-                <h2>Top Row Message Content</h2>
+                <h2>Marquee Message Content</h2>
                 <p class="fieldDescription">Enter the server-wide message that should appear at the top of the selected page or pages.</p>
                 <div class="inputContainer"><label class="inputLabel inputLabelUnfocused" for="hssmTopRowMessageText">Message</label><input is="emby-input" id="hssmTopRowMessageText" type="text" autocomplete="off" /></div>
             </section>
             <section class="hssm-section">
-                <h2>Top Row Message Appearance Settings</h2>
+                <h2>Marquee Message Appearance Settings</h2>
                 <p class="fieldDescription">Choose the message font, text and shadow colors, and the solid or gradient colors used by the message bar.</p>
                 <div class="hssm-message-appearance-grid">
                     <div class="hssm-message-appearance-group"><h3>Message Font</h3><div class="inputContainer"><label class="inputLabel inputLabelUnfocused" for="hssmTopRowMessageFont">Import Message Font</label><input is="emby-input" id="hssmTopRowMessageFont" type="file" accept=".ttf,.otf,font/ttf,font/otf,application/x-font-ttf,application/x-font-opentype" /></div><p class="fieldDescription" id="hssmTopRowMessageFontStatus">Using the default Abyss theme font.</p><button is="emby-button" type="button" class="raised" id="hssmRemoveTopRowMessageFont" hidden>Remove Imported Font</button></div>
@@ -240,21 +243,23 @@
                 </div>
             </section>
             <section class="hssm-section">
-                <h2>Top Row Message Marquee Speed Settings</h2>
-                <p class="fieldDescription">Choose how quickly a message that is wider than the screen scrolls across the Top Row message bar.</p>
+                <h2>Marquee Message Speed Settings</h2>
+                <p class="fieldDescription">Choose how quickly the message continuously scrolls across the Marquee Message bar.</p>
                 <div class="selectContainer"><label class="selectLabel" for="hssmTopRowMessageMarqueeSpeed">Marquee Speed</label><select is="emby-select" id="hssmTopRowMessageMarqueeSpeed"><option value="extra-slow">Extra Slow</option><option value="slow">Slow</option><option value="normal" selected>Normal Speed</option><option value="fast">Fast</option><option value="faster">Faster</option></select></div>
             </section>
-            <div class="hssm-actions"><button is="emby-button" type="button" class="raised button-submit" id="hssmSaveTopRowMessageButton">Save Top Row Message Settings</button></div>
+            <div class="hssm-actions"><button is="emby-button" type="button" class="raised button-submit" id="hssmSaveTopRowMessageButton">Save Marquee Message Settings</button></div>
+        </div>
+        <div class="hssm-panel" data-panel="top-row-settings" role="tabpanel">
             <div id="hssmTopRowEditor" class="hssm-new-settings" hidden>
             <section class="hssm-section">
                 <h2>Top Row Settings</h2>
-                <p class="fieldDescription">Choose a name for this saved Top Row. The Main Top Row name is fixed because it is the server-wide fallback.</p>
+                <p class="fieldDescription">Choose a name for this saved Top Row. The Main Top Row name is fixed because it is the server-wide default.</p>
                 <div class="inputContainer"><label class="inputLabel inputLabelUnfocused" for="hssmTopRowName">Top Row Name</label><input is="emby-input" id="hssmTopRowName" type="text" autocomplete="off" /></div>
             </section>
             <section class="hssm-section">
                 <h2>Top Row Application Settings</h2>
                 <p class="fieldDescription">Assign this Top Row to one Home screen page or one Jellyfin library. A library assignment covers the library landing page and every browse or detail page belonging to that library. Only one Top Row can be assigned to each area.</p>
-                <p class="fieldDescription" id="hssmMainTopRowApplication" hidden>The Main Top Row is the fallback for Home, every custom page, every Jellyfin library, and all other non-playback pages.</p>
+                <p class="fieldDescription" id="hssmMainTopRowApplication" hidden>The Main Top Row appears on Home, every custom page, every Jellyfin library, and all other non-playback pages unless an enabled targeted Top Row overrides it.</p>
                 <div id="hssmTargetedTopRowApplication">
                     <div class="selectContainer"><label class="selectLabel" for="hssmTopRowTargetType">Applied Area Type</label><select is="emby-select" id="hssmTopRowTargetType"><option value="page">Home Screen Page</option><option value="library">Jellyfin Library and Its Pages</option></select></div>
                     <div class="selectContainer"><label class="selectLabel" for="hssmTopRowTargetId">Applied Area</label><select is="emby-select" id="hssmTopRowTargetId"></select></div>
@@ -1073,7 +1078,7 @@
                 applyLabelColors();
                 list.innerHTML = rows.map(row => {
                     const id = rowId(row), main = rowIsMain(row), override = rowValue(row, 'OverrideMainTopRow', 'overrideMainTopRow', false) === true;
-                    return '<button type="button" class="hssm-section-row hssm-top-row-manager-row' + (selectedRowId === id ? ' selected' : '') + '" data-hssm-top-row-id="' + esc(id) + '"><strong class="hssm-section-name">' + esc(String(rowValue(row, 'Name', 'name', main ? 'Main Top Row' : 'Top Row'))) + '</strong><span class="hssm-badge" style="background:' + (main ? 'var(--hssm-top-main)' : 'var(--hssm-top-target)') + '">' + esc(main ? 'Main Top Row · Everywhere' : targetName(row)) + '</span><span class="hssm-badge" style="background:' + (main ? 'var(--hssm-top-main)' : override ? 'var(--hssm-top-on)' : 'var(--hssm-top-off)') + '">' + esc(main ? 'Fallback' : override ? 'Override On' : 'Override Off') + '</span></button>';
+                    return '<button type="button" class="hssm-section-row hssm-top-row-manager-row' + (selectedRowId === id ? ' selected' : '') + '" data-hssm-top-row-id="' + esc(id) + '"><strong class="hssm-section-name">' + esc(String(rowValue(row, 'Name', 'name', main ? 'Main Top Row' : 'Top Row'))) + '</strong><span class="hssm-badge" style="background:' + (main ? 'var(--hssm-top-main)' : 'var(--hssm-top-target)') + '">' + esc(main ? 'Main Top Row · Everywhere' : targetName(row)) + '</span>' + (main ? '' : '<span class="hssm-badge" style="background:' + (override ? 'var(--hssm-top-on)' : 'var(--hssm-top-off)') + '">' + esc(override ? 'Override On' : 'Override Off') + '</span>') + '</button>';
                 }).join('') || '<p class="fieldDescription" style="padding:.8em">No Top Rows are saved.</p>';
                 const selected = rows.find(row => rowId(row) === selectedRowId), main = selected && rowIsMain(selected);
                 page.querySelector('#hssmEditTopRowButton').disabled = !selected;
@@ -1244,7 +1249,7 @@
             selectedOrder.addEventListener('dragover', event => { if (draggedId && event.target.closest('[data-hssm-top-row-order-id]')) event.preventDefault(); });
             selectedOrder.addEventListener('drop', event => { const target = event.target.closest('[data-hssm-top-row-order-id]'); if (!target || !draggedId || target.dataset.hssmTopRowOrderId === draggedId) return; event.preventDefault(); const from = selectedIds.indexOf(draggedId), to = selectedIds.indexOf(target.dataset.hssmTopRowOrderId); if (from < 0 || to < 0) return; const moved = selectedIds.splice(from,1)[0]; selectedIds.splice(to,0,moved); renderSelectedOrder(); });
             saveButton.addEventListener('click', () => { const candidate = formRow(), main = candidate.IsMain; if (!main && !candidate.Name) { status.textContent = 'Enter a name for this Top Row.'; return; } if (!main && !candidate.TargetId) { status.textContent = 'Select one Home screen page or Jellyfin library for this Top Row.'; return; } if (selectedType() === 'genres-in-a-row' && (main || candidate.TargetType !== 'library')) { status.textContent = 'Genres in a Row requires a Top Row assigned to one Jellyfin library.'; return; } if (!main && rows.some(row => rowId(row) !== candidate.Id && !rowIsMain(row) && String(rowValue(row,'TargetType','targetType','page')) === candidate.TargetType && String(rowValue(row,'TargetId','targetId','')) === candidate.TargetId)) { status.textContent = 'That area already has a Top Row. Edit or delete the existing one instead.'; return; } if (candidate.EnableTopRow && !selectedIds.length) { status.textContent = 'Select at least one collection, library, or genre before enabling this Top Row.'; return; } const index = rows.findIndex(row => rowId(row) === candidate.Id); if (index < 0) rows.push(candidate); else rows[index] = candidate; selectedRowId = candidate.Id; saveButton.disabled = true; persist(index < 0 ? 'Top Row added.' : 'Top Row refreshed.').then(() => { editor.hidden = true; }, error => { status.textContent = 'Top Row settings could not be saved. ' + (error && (error.message || error.statusText) || ''); }).finally(() => { saveButton.disabled = false; }); });
-            page.querySelector('#hssmSaveTopRowMessageButton').addEventListener('click', event => { const enabled = page.querySelector('#hssmEnableTopRowMessage').checked, selectedPages = Array.from(messagePagePicker.querySelectorAll('[data-hssm-top-row-message-page]:checked')); if (enabled && !page.querySelector('#hssmTopRowMessageText').value.trim()) { status.textContent = 'Enter message content before enabling the Top Row message.'; return; } if (!page.querySelector('#hssmTopRowMessageAlwaysShow').checked && !selectedPages.length) { status.textContent = 'Select at least one Home screen page for the message or choose Always Show.'; return; } event.currentTarget.disabled = true; persist('Top Row message settings saved.').catch(error => { status.textContent = 'Top Row message settings could not be saved. ' + (error && (error.message || error.statusText) || ''); }).finally(() => { event.currentTarget.disabled = false; }); });
+            page.querySelector('#hssmSaveTopRowMessageButton').addEventListener('click', event => { const enabled = page.querySelector('#hssmEnableTopRowMessage').checked, selectedPages = Array.from(messagePagePicker.querySelectorAll('[data-hssm-top-row-message-page]:checked')); if (enabled && !page.querySelector('#hssmTopRowMessageText').value.trim()) { status.textContent = 'Enter message content before enabling the Marquee Message.'; return; } if (!page.querySelector('#hssmTopRowMessageAlwaysShow').checked && !selectedPages.length) { status.textContent = 'Select at least one Home screen page for the message or choose Always Show.'; return; } event.currentTarget.disabled = true; persist('Marquee Message settings saved.').catch(error => { status.textContent = 'Marquee Message settings could not be saved. ' + (error && (error.message || error.statusText) || ''); }).finally(() => { event.currentTarget.disabled = false; }); });
             [page.querySelector('#hssmMainTopRowLabelColor'),page.querySelector('#hssmTopRowTargetLabelColor'),page.querySelector('#hssmTopRowOverrideOnLabelColor'),page.querySelector('#hssmTopRowOverrideOffLabelColor')].forEach(input => input.addEventListener('input', renderRows));
             page.querySelector('#hssmTopRowMessageBarColorMode').addEventListener('change', syncMessageSecondColor);
             logoShadowColor.addEventListener('input', () => { savedLogoShadowColor = logoShadowColor.value; });
@@ -1253,7 +1258,7 @@
             page.querySelector('#hssmRemoveTopRowMessageFontShadow').addEventListener('click', () => { messageFontShadowColor = ''; status.textContent = 'Message font shadow removed. Save the message settings to apply the change.'; });
             messageFont.addEventListener('change', () => { const file = messageFont.files && messageFont.files[0]; if (!file) return; if (!/\.(?:ttf|otf)$/i.test(file.name) || file.size > 2000000) { messageFont.value = ''; messageFontStatus.textContent = 'Choose a .ttf or .otf font file no larger than 2 MB.'; return; } const reader = new FileReader(); reader.onload = () => { messageFontDataUrl = String(reader.result || ''); messageFontStatus.textContent = 'Custom message font imported.'; page.querySelector('#hssmRemoveTopRowMessageFont').hidden = false; }; reader.onerror = () => { messageFontDataUrl = ''; messageFontStatus.textContent = 'The font file could not be read.'; }; reader.readAsDataURL(file); });
             page.querySelector('#hssmRemoveTopRowMessageFont').addEventListener('click', event => { messageFontDataUrl = ''; messageFont.value = ''; messageFontStatus.textContent = 'Using the default Abyss theme font.'; event.currentTarget.hidden = true; });
-            page.addEventListener('click', event => { if (event.target.closest('[data-tab="top-row-settings"]')) window.setTimeout(load,0); });
+            page.addEventListener('click', event => { if (event.target.closest('[data-tab="top-row-settings"], [data-tab="marquee-message"]')) window.setTimeout(load,0); });
             load();
         })();
 
@@ -1349,6 +1354,18 @@
             const section = () => page.querySelector('.hssm-section-row.selected');
             const kind = () => state.type;
             const automaticSectionTypes = new Set(['my-list-content','watch-again','continue-watching','continue-listening','continue-reading','continue-watching-listening','continue-reading-listening','recently-listened-songs','recently-listened-artists','recently-listened-albums']);
+            const automaticTypeDefinitions = {
+                'my-list-content':['My List Content Section','No content selection is required. This section automatically loads the signed-in user’s own My List items, so every user sees only their own content.'],
+                'watch-again':['Watch Again','No content selection is required. This section automatically loads completed movies plus only the most recently completed episode from each series in the signed-in user’s own Jellyfin watch history.'],
+                'continue-watching':['Continue Watching','Create a native-style section containing the signed-in user’s resumable video items. No content selection is required.'],
+                'continue-listening':['Continue Listening','Create a native-style section containing the signed-in user’s resumable audiobook and audio items. No content selection is required.'],
+                'continue-reading':['Continue Reading','Create a native-style section containing the signed-in user’s resumable books. No content selection is required.'],
+                'continue-watching-listening':['Continue Watching & Listening','Create one user-specific section combining resumable video and audio content. No content selection is required.'],
+                'continue-reading-listening':['Continue Reading & Listening','Create one user-specific section combining resumable books and audio content. No content selection is required.'],
+                'recently-listened-songs':['Songs Recently Listened To','Create a user-specific section of songs listened to for at least 10 seconds. No content selection is required.'],
+                'recently-listened-artists':['Artists Recently Listened To','Create a user-specific section of artists from songs listened to for at least 10 seconds. No content selection is required.'],
+                'recently-listened-albums':['Albums Recently Listened To','Create a user-specific section of albums from songs listened to for at least 10 seconds. No content selection is required.']
+            };
             const collectionTypes = new Set(['individual-collection-content', 'multiple-collection-content', 'multiple-collections-in-a-row']);
             const tagTypes = new Set(['individual-tag-content', 'multiple-tag-content', 'muilti-match-tag-collection-content']);
             const libraryTypes = new Set(['library-content', 'recently-added-library', 'multiple-library-content', 'libraries-in-a-row']);
@@ -1374,15 +1391,23 @@
             styles.textContent += '#homeScreenSectionsManagerPage .hssm-draft-picker-body[hidden]{display:none!important}#homeScreenSectionsManagerPage .hssm-draft-picker{margin-top:1em}#homeScreenSectionsManagerPage .hssm-draft-picker-heading{display:flex;align-items:center;justify-content:flex-start;gap:1em}#homeScreenSectionsManagerPage .hssm-draft-picker-heading h3{margin:0}#homeScreenSectionsManagerPage .hssm-draft-picker-body{margin-top:.8em}#homeScreenSectionsManagerPage .hssm-source-drafts{margin-top:.75em}#homeScreenSectionsManagerPage .mcm-draft-card{border:1px solid var(--hssm-outline);border-radius:.45em;padding:1em;margin:0 0 1em}#homeScreenSectionsManagerPage .mcm-draft-card.dragging{opacity:.45}#homeScreenSectionsManagerPage .hssm-source-draft-heading{display:flex;align-items:flex-start;gap:.7em}#homeScreenSectionsManagerPage .hssm-source-draft-heading h3{flex:1;margin:.1em 0 0}#homeScreenSectionsManagerPage .hssm-source-draft-handle{font-size:1.15em;cursor:grab;opacity:.65}#homeScreenSectionsManagerPage .hssm-draft-window-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.75em}#homeScreenSectionsManagerPage .hssm-rotation-grid{display:grid;grid-template-columns:minmax(8em,12em) minmax(10em,14em);gap:.75em;align-items:end}#homeScreenSectionsManagerPage .hssm-content-pagination{display:flex;align-items:center;flex-wrap:wrap;gap:.65em;margin:.75em 0 1em}#homeScreenSectionsManagerPage .hssm-numbering-settings{border-top:1px solid var(--hssm-outline);margin-top:1.25em;padding-top:1.25em}#homeScreenSectionsManagerPage .hssm-numbering-settings h3{margin:0 0 .35em}#homeScreenSectionsManagerPage .hssm-yes-no{display:flex;flex-wrap:wrap;gap:1.25em;margin:.8em 0}#homeScreenSectionsManagerPage .hssm-numbering-colors{display:grid;grid-template-columns:minmax(11em,16em) repeat(2,minmax(7em,10em));gap:.65em;align-items:end}@media(max-width:42em){#homeScreenSectionsManagerPage .hssm-draft-window-grid,#homeScreenSectionsManagerPage .hssm-rotation-grid,#homeScreenSectionsManagerPage .hssm-numbering-colors{grid-template-columns:1fr}}';
             document.head.appendChild(styles);
 
+            function nativeLibraries() {
+                const request = typeof ApiClient.getUserViews === 'function' ? ApiClient.getUserViews({}, userId()) : ApiClient.getJSON(ApiClient.getUrl('Users/' + encodeURIComponent(userId()) + '/Views'));
+                return Promise.resolve(request).then(result => (result.Items || result.items || []).map(item => ({ Id:item.Id || item.id, ItemId:item.Id || item.id, Name:item.Name || item.name })));
+            }
+            function nativeCollections() {
+                return itemQuery({ IncludeItemTypes:'BoxSet', Recursive:true, Fields:'Overview,ChildCount', Limit:1000 }).then(result => (result.Items || result.items || []).map(item => ({ Id:item.Id || item.id, Name:item.Name || item.name, MediaItems:Number(item.ChildCount || item.childCount || 0) })));
+            }
             function setupData() {
-                return cm('settings/main').then(result => {
+                const settingsRequest = cm('settings/main').then(result => {
                     state.collectionManagerConfiguration = result.Configuration || result.configuration || {};
                     state.libraries = result.Libraries || result.libraries || [];
-                    return cm('art/collections');
-                }).then(result => {
-                    state.collections = result || [];
-                    return state;
+                }).catch(() => {
+                    state.collectionManagerConfiguration = {};
+                    return nativeLibraries().then(libraries => { state.libraries = libraries; });
                 });
+                const collectionsRequest = cm('art/collections').then(result => { state.collections = result || []; }).catch(() => nativeCollections().then(collections => { state.collections = collections; }));
+                return Promise.all([settingsRequest, collectionsRequest]).then(() => state);
             }
 
             function manualMarkup() {
@@ -1910,10 +1935,10 @@
                     return;
                 }
                 if (isAutomaticType()) {
-                    const choice = types.find(value => value[0] === kind());
+                    const choice = automaticTypeDefinitions[kind()];
                     host.innerHTML = contentMarkup();
                     const contentSection = host.querySelector('[data-hssm-content]').closest('section');
-                    contentSection.innerHTML = '<h2>' + esc(choice ? choice[1] : state.name) + '</h2><p class="fieldDescription">' + esc(choice ? choice[2] : 'No content selection is required. This section loads separately for each signed-in user.') + '</p>';
+                    contentSection.innerHTML = '<h2>' + esc(choice ? choice[0] : state.name) + '</h2><p class="fieldDescription">' + esc(choice ? choice[1] : 'No content selection is required. This section loads separately for each signed-in user.') + '</p>';
                     return;
                 }
                 if (isActivityType()) {
@@ -1944,7 +1969,7 @@
                     if (isLibraryType()) renderLibraries();
                     if (usesDraftSourcePicker()) { renderDraftCollections(); renderDraftLibraries(); renderTags(); renderSourceDrafts(); }
                     renderContent();
-                }, () => { host.innerHTML = '<p class="fieldDescription">Collection Manager must be installed and available before these reused pickers can load.</p>'; });
+                }, () => { host.innerHTML = '<p class="fieldDescription">Jellyfin could not load the available libraries and collections. Your current section draft has been kept; try opening it again.</p>'; });
             }
             function loadManualItems(id) {
                 const content = host.querySelector('[data-hssm-manual-content="' + CSS.escape(id) + '"]'), button = host.querySelector('[data-hssm-manual-open="' + CSS.escape(id) + '"]');
@@ -1953,7 +1978,10 @@
                 content.hidden = false; if (button) button.textContent = 'Click here to collapse';
                 if (state.manual[id]) { renderManualItems(id); return; }
                 content.innerHTML = '<p class="fieldDescription">Loading library media…</p>';
-                cm('manual-collections/library-items?libraryId=' + encodeURIComponent(id)).then(result => { state.manual[id] = result.Items || result.items || []; renderManualItems(id); }, () => { content.innerHTML = '<p class="fieldDescription">Could not load library media.</p>'; });
+                cm('manual-collections/library-items?libraryId=' + encodeURIComponent(id))
+                    .then(result => result.Items || result.items || [])
+                    .catch(() => loadAllParentItems(id, 0, [], null, true))
+                    .then(items => { state.manual[id] = items; renderManualItems(id); }, () => { content.innerHTML = '<p class="fieldDescription">Could not load library media.</p>'; });
             }            function tagChoiceMarkup(choice) {
                 const libraryId = String(choice.LibraryId), type = choice.MetadataType, value = choice.Value, key = libraryId + '|' + type + '|' + value, selected = isTopType() ? state.sources.indexOf('tag|' + key) >= 0 : isDraftType() ? !!selectedDraft('tag', key) : state.sources.indexOf(key) >= 0, multiple = usesDraftSourcePicker() || kind() !== 'individual-tag-content', imageMarkup = choice.PersonImageUrl ? '<img class="mcm-person-image" src="' + esc(ApiClient.getUrl('Items/' + choice.PersonImageUrl + '/Images/Primary')) + '" alt="" />' : '';
                 return '<div class="mcm-flat-tag-choice"><label class="checkboxContainer">' + imageMarkup + '<input is="emby-checkbox" type="' + (multiple ? 'checkbox' : 'radio') + '" name="hssmTagSource" data-hssm-tag="' + esc(key) + '"' + (selected ? ' checked' : '') + ' /> <span>' + esc(value) + ' (' + Number(choice.MatchingItems || 0) + ')</span></label><span class="fieldDescription">' + esc(choice.LibraryName) + '</span></div>';
@@ -2044,7 +2072,7 @@
                 return body && (body.Detail || body.detail || body.Message || body.message || body.Title || body.title) || (text && String(text).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()) || (error && (error.message || error.statusText)) || 'Jellyfin returned no error details.';
             }
             function loadHomeScreenClient() {
-                const version = "0.1.0.54";
+                const version = "0.1.0.55";
                 let style = document.querySelector("link[data-hssm-client-style]");
                 if (!style || style.dataset.hssmClientVersion !== version) {
                     if (style) style.remove();
@@ -2075,7 +2103,7 @@
                 });
             }
             function homeScreenLoaderScript() {
-                return "(function(){\x27use strict\x27;function boot(){if(!window.ApiClient||typeof ApiClient.getUrl!==\x27function\x27||!ApiClient.getCurrentUserId()){window.setTimeout(boot,100);return;}var existing=document.querySelector(\x27script[data-hssm-bootstrap-script]\x27);if(existing)existing.remove();var script=document.createElement(\x27script\x27);script.src=ApiClient.getUrl(\x27HomeScreenSectionsManager/bootstrap.js\x27,{_:Date.now()});script.dataset.hssmBootstrapScript=\x27true\x27;script.onerror=function(){console.error(\x27[Home Screen Manager] Could not load the browser bootstrap.\x27);};document.head.appendChild(script);}boot();}());";
+                return "(function(){\x27use strict\x27;var mask=document.getElementById(\x27hssm-media-bar-boot-mask\x27);if(!mask){mask=document.createElement(\x27style\x27);mask.id=\x27hssm-media-bar-boot-mask\x27;mask.textContent=\x27#homeTab>.featurediframe{display:none!important}\x27;document.head.appendChild(mask);window.setTimeout(function(){var stale=document.getElementById(\x27hssm-media-bar-boot-mask\x27);if(stale)stale.remove();},15000);}function boot(){if(!window.ApiClient||typeof ApiClient.getUrl!==\x27function\x27||!ApiClient.getCurrentUserId()){window.setTimeout(boot,100);return;}var existing=document.querySelector(\x27script[data-hssm-bootstrap-script]\x27);if(existing)existing.remove();var script=document.createElement(\x27script\x27);script.src=ApiClient.getUrl(\x27HomeScreenSectionsManager/bootstrap.js\x27,{_:Date.now()});script.dataset.hssmBootstrapScript=\x27true\x27;script.onerror=function(){var stale=document.getElementById(\x27hssm-media-bar-boot-mask\x27);if(stale)stale.remove();console.error(\x27[Home Screen Manager] Could not load the browser bootstrap.\x27);};document.head.appendChild(script);}boot();}());";
             }
             function ensureMyListCustomTab(enabled) {
                 return ApiClient.getJSON(ApiClient.getUrl('Plugins')).then(result => {

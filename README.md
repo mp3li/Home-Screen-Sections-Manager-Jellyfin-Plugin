@@ -29,7 +29,7 @@ for the selected top-navigation tab's non-hovered text. It also supplies the Hom
 logo, media-bar timing, and media-bar image type.
 
 **Create and Manage Top Rows** provides one server-wide **Main Top Row** plus as
-many uniquely targeted override rows as needed. Main is the fallback across
+many uniquely targeted override rows as needed. Main is the default across
 Home, custom pages, Jellyfin libraries, and their descendant browse/detail
 pages. Each Home screen page or Jellyfin library can own at most one override;
 when its override is off, Main remains visible, and when it is on, that one row

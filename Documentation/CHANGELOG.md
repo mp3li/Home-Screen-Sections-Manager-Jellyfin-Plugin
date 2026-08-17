@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.1.0.55-test] - 2026-08-16
+
+- Fixes **Continue Watching & Listening**, **Continue Reading & Listening**, and all three recently listened section types getting stuck on **Loading section settings…**.
+- Keeps existing section drafts and their appearance/order settings intact while reopening the content editor.
+- Lets Top, library, collection, and manual-content pickers use Jellyfin directly when Collection Manager is unavailable; only Collection Manager metadata-tag features require that plugin.
+- Moves all message controls into their own **Marquee Message** tab, renames their visible wording accordingly, removes the Main Top Row's Fallback badge, and keeps Top Row management focused on rows.
+- Changes Marquee Message motion into a continuously looping right-to-left marquee that starts outside the right edge and returns every cycle.
+- Restores Jellyfin's native detail-page placement and adds only a small clearance below persistent plugin chrome instead of moving the whole poster and metadata area by the Top Row height.
+- Corrects audiobook/book Author presentation in section cards and detail-page people cards, including old pages that remained open across a plugin update.
+- Hides the original Abyss spotlight immediately while the plugin client starts, preventing the old media-bar content and settings from flashing before the configured Media Bar takes over.
+
 ## [0.1.0.54-test] - 2026-08-16
 
 - Adds native-style **Continue Watching**, **Continue Listening**, **Continue Reading**, **Continue Watching & Listening**, **Continue Reading & Listening**, and per-library **Recently Added** section types.

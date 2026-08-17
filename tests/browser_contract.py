@@ -12,6 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 CLIENT = ROOT / "Home Screen Sections Manager" / "Web" / "homeScreenClient.js"
 CLIENT_CSS = ROOT / "Home Screen Sections Manager" / "Web" / "homeScreenClient.css"
 MEDIA_BAR = ROOT / "Home Screen Sections Manager" / "Web" / "mediaBar.html"
+CLIENT_CONTROLLER = ROOT / "Home Screen Sections Manager" / "Api" / "HomeScreenClientController.cs"
 
 
 def base_item(item_id: str, name: str, item_type: str = "Movie") -> dict:
@@ -27,6 +28,7 @@ def base_item(item_id: str, name: str, item_type: str = "Movie") -> dict:
 
 
 def run() -> None:
+    assert "hssm-media-bar-boot-mask" in CLIENT_CONTROLLER.read_text()
     settings = {
         "Sections": [
             {"Id": "jellyfin-0-resume", "Name": "Continue Watching", "PageId": "home", "Type": "resume", "ItemIds": [], "SourceIds": [], "IsApplied": True, "IsVisible": True, "IsMediaBar": False, "ArtSize": "large", "ArtType": "thumb", "ArtShape": "circle", "ShowText": False, "ShowSectionName": False},
@@ -222,7 +224,9 @@ def run() -> None:
               getDisplayPreferences: () => Promise.resolve({ CustomPrefs:{ homesection0:'resume' } }),
               getUserViews: () => Promise.resolve({ Items:[{ Id:'library-one', Name:'Movies', CollectionType:'movies' }] }),
               getItems: (userId, options) => fetch(ApiClient.getUrl('Users/' + userId + '/Items', options)).then(r => r.json()),
-              getItem: (userId, id) => Promise.resolve({ Id:id, Name:'Liked One', Type:'Movie', ImageTags:{Primary:'x'}, UserData:{Likes:true} }),
+              getItem: (userId, id) => Promise.resolve(id === 'audio-book-one'
+                ? { Id:id, Name:'The Long Book', Type:'AudioBook', ImageTags:{Primary:'x'}, People:[{Name:'Excellent Author',Type:'Author'}], UserData:{Likes:true} }
+                : { Id:id, Name:'Liked One', Type:'Movie', ImageTags:{Primary:'x'}, UserData:{Likes:true} }),
               getAncestorItems: () => Promise.resolve([{ Id:'library-one', Name:'Movies', Type:'CollectionFolder' }]),
               updateUserItemRating: () => Promise.resolve({ Likes:true })
             };
@@ -627,6 +631,8 @@ def run() -> None:
         persistent_positions = page.evaluate("""() => ({row:getComputedStyle(document.querySelector('.hssm-top-row')).position,message:getComputedStyle(document.querySelector('.hssm-top-row-message')).position})""")
         assert persistent_positions == {"row": "fixed", "message": "fixed"}, persistent_positions
         assert page.locator(".hssm-top-row-message").evaluate("node => node.classList.contains('hssm-top-row-message-marquee')")
+        marquee_message = page.locator(".hssm-top-row-message-text").evaluate("node => ({left:getComputedStyle(node).left,iterations:getComputedStyle(node).animationIterationCount,duration:getComputedStyle(node).animationDuration})")
+        assert marquee_message["left"] != "auto" and marquee_message["iterations"] == "infinite" and marquee_message["duration"] == "12s", marquee_message
         page.evaluate("window.scrollTo(0, 700)")
         page.wait_for_timeout(100)
         persistent_scroll_geometry = page.evaluate("""() => { const message=document.querySelector('.hssm-top-row-message').getBoundingClientRect(), row=document.querySelector('.hssm-top-row').getBoundingClientRect(), header=document.querySelector('.skinHeader').getBoundingClientRect(); return {messageTop:message.top,messageBottom:message.bottom,rowTop:row.top,rowBottom:row.bottom,headerTop:header.top}; }""")
@@ -647,11 +653,14 @@ def run() -> None:
         }""")
         page.wait_for_function("document.querySelector('#itemDetailPage').classList.contains('hssm-top-chrome-content-offset')")
         assert page.locator(".hssm-top-row").get_attribute("data-hssm-identity-test") == "retained"
-        detail_offset = page.evaluate("""() => { const page=document.querySelector('#itemDetailPage'), wrapper=page.querySelector('.detailPageWrapperContainer'), content=page.querySelector('[data-hssm-test-detail-content]'), message=document.querySelector('.hssm-top-row-message').getBoundingClientRect(), row=document.querySelector('.hssm-top-row').getBoundingClientRect(), header=document.querySelector('.skinHeader').getBoundingClientRect(); return {padding:parseFloat(getComputedStyle(page).paddingTop),contentTop:content.getBoundingClientRect().top,wrapperTransform:getComputedStyle(wrapper).transform,chromeHeight:message.height+row.height,headerTop:header.top,rowBottom:row.bottom,hasSpacer:!!page.querySelector('.hssm-top-row-message-spacer,.hssm-top-row-row-spacer')}; }""")
-        assert abs(detail_offset["padding"] - 80) < 2 and detail_offset["contentTop"] >= 80 + detail_offset["chromeHeight"] - 2 and detail_offset["wrapperTransform"] != "none" and detail_offset["headerTop"] >= detail_offset["rowBottom"] - 1 and not detail_offset["hasSpacer"], detail_offset
+        detail_offset = page.evaluate("""() => { const page=document.querySelector('#itemDetailPage'), wrapper=page.querySelector('.detailPageWrapperContainer'), content=page.querySelector('[data-hssm-test-detail-content]'), message=document.querySelector('.hssm-top-row-message').getBoundingClientRect(), row=document.querySelector('.hssm-top-row').getBoundingClientRect(), header=document.querySelector('.skinHeader').getBoundingClientRect(); return {padding:parseFloat(getComputedStyle(page).paddingTop),pageTop:page.getBoundingClientRect().top,contentTop:content.getBoundingClientRect().top,wrapperTransform:getComputedStyle(wrapper).transform,chromeHeight:message.height+row.height,headerTop:header.top,rowBottom:row.bottom,hasSpacer:!!page.querySelector('.hssm-top-row-message-spacer,.hssm-top-row-row-spacer')}; }""")
+        detail_clearance = detail_offset["contentTop"] - detail_offset["pageTop"] - detail_offset["padding"]
+        assert abs(detail_offset["padding"] - 80) < 2 and 8 <= detail_clearance <= 14 and detail_clearance < detail_offset["chromeHeight"] and detail_offset["wrapperTransform"] != "none" and detail_offset["headerTop"] >= detail_offset["rowBottom"] - 1 and not detail_offset["hasSpacer"], detail_offset
         page.evaluate("window.ApiClient=window.__savedApiClient; delete window.__savedApiClient; window.HomeScreenManagerClient.refresh()")
         page.wait_for_selector(".hssm-top-row[data-hssm-top-row-id='movies-library-top-row']")
         assert page.locator(".hssm-top-row").get_attribute("data-hssm-identity-test") is None
+        page.evaluate("""() => { const detail=document.querySelector('#itemDetailPage'); detail.innerHTML='<div class="detailPageWrapperContainer"><div class="detailPagePrimaryContent"><div id="castContent"><div class="card"><div class="cardText">Excellent Author</div><div class="cardText">Composer</div></div></div></div></div>'; location.hash='#/details?id=audio-book-one'; window.HomeScreenManagerClient.refresh(); }""")
+        page.wait_for_function("document.querySelector('#castContent .cardText:nth-child(2)').textContent === 'Author'")
         genre_link = page.locator(".hssm-top-row[data-hssm-top-row-id='movies-library-top-row'] .hssm-top-row-card[data-id='genre-drama'] .itemAction")
         genre_link.wait_for(state="attached")
         assert "genreIds=genre-drama" in genre_link.get_attribute("href") and "topParentId=library-one" in genre_link.get_attribute("href")

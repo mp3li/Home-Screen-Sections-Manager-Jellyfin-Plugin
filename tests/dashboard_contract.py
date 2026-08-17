@@ -91,7 +91,7 @@ def run() -> None:
                 getPluginConfiguration:()=>Promise.resolve({CustomJavaScripts:[]}),
                 updatePluginConfiguration:()=>Promise.resolve()
               };
-              window.HomeScreenManagerClient = { version:'0.1.0.54', refresh(){} };
+              window.HomeScreenManagerClient = { version:'0.1.0.55', refresh(){} };
               window.CustomElements = { upgradeSubtree(){} };
             }
             """
@@ -126,7 +126,7 @@ def run() -> None:
         main_top_row = page.locator("#hssmTopRowList [data-hssm-top-row-id='main-top-row']")
         assert main_top_row.get_attribute("draggable") is None
         assert "Main Top Row · Everywhere" in main_top_row.inner_text()
-        assert "Fallback" in main_top_row.inner_text()
+        assert "Fallback" not in main_top_row.inner_text()
         main_top_row.click()
         assert page.locator("#hssmEditTopRowButton").is_enabled()
         assert not page.locator("#hssmDeleteTopRowButton").is_enabled()
@@ -151,16 +151,21 @@ def run() -> None:
         assert page.locator("#hssmTopRowSettingsPanel [data-hssm-show-text]").count() == 0
         assert page.locator("#hssmTopRowSettingsPanel [data-hssm-show-section-name]").count() == 0
         assert not page.locator("#hssmTopRowDisplayLogosOnly").is_checked()
-        assert page.get_by_text("Top Row Message Settings", exact=True).count() == 1
+        assert page.get_by_text("Marquee Message Settings", exact=True).count() == 1
+        assert not page.get_by_text("Marquee Message Settings", exact=True).is_visible()
+        page.locator("[data-tab='marquee-message']").click()
+        assert page.locator("[data-tab='marquee-message']").inner_text().strip() == "Marquee Message"
+        assert page.get_by_text("Marquee Message Settings", exact=True).is_visible()
         assert page.locator("#hssmDisableTopRowMessage").is_checked()
         assert page.locator("#hssmTopRowMessagePagePicker [data-hssm-top-row-message-page='home']").is_checked()
+        appearance_gaps = page.locator(".hssm-message-appearance-grid").evaluate("node => ({gap:parseFloat(getComputedStyle(node).rowGap),groups:node.querySelectorAll('.hssm-message-appearance-group').length})")
+        assert appearance_gaps["groups"] == 3 and appearance_gaps["gap"] >= 15, appearance_gaps
+        page.locator("[data-tab='top-row-settings']").click()
         assert page.locator("#hssmTopRowScrolls").is_checked()
         assert page.locator("#hssmTopRowLogoShadowColor").input_value() == "#ffffff"
         logo_shadow_size = page.locator("#hssmTopRowLogoShadowColor").evaluate("node => { const box=node.getBoundingClientRect(); return {width:box.width,height:box.height}; }")
         assert abs(logo_shadow_size["width"] - logo_shadow_size["height"]) < 2 and 44 <= logo_shadow_size["width"] <= 64, logo_shadow_size
         assert page.locator("#hssmTopRowLogoShadowColor").evaluate("node => node.closest('.hssm-single-color') !== null")
-        appearance_gaps = page.locator(".hssm-message-appearance-grid").evaluate("node => ({gap:parseFloat(getComputedStyle(node).rowGap),groups:node.querySelectorAll('.hssm-message-appearance-group').length})")
-        assert appearance_gaps["groups"] == 3 and appearance_gaps["gap"] >= 15, appearance_gaps
         logo_description_link = page.get_by_text("Collection Manager", exact=True)
         assert logo_description_link.get_attribute("href") == "https://github.com/mp3li/Collection-Manager-Jellyfin-Plugin"
         page.locator("#hssmEnableTopRow").check()
@@ -380,10 +385,27 @@ def run() -> None:
         assert "Book / Audiobook" in page.locator("#hssmTypeSpecificSettings [data-hssm-art-shape] option").all_text_contents()
 
         page.locator("#hssmAddSectionButton").click()
+        page.locator("#hssmSectionList [data-hssm-inline-section-name]").fill("Continue Watching and Listening")
+        page.locator("input[name='hssmType'][value='continue-watching-listening']").check()
+        page.locator("#hssmFinishSectionButton").click()
+        page.locator("#hssmTypeSpecificSettings").get_by_text("Create one user-specific section combining resumable video and audio content. No content selection is required.", exact=True).wait_for()
+        assert "Loading section settings…" not in page.locator("#hssmTypeSpecificSettings").inner_text()
+
+        page.locator("#hssmAddSectionButton").click()
+        page.locator("#hssmSectionList [data-hssm-inline-section-name]").fill("Songs Recently Listened To")
+        page.locator("input[name='hssmType'][value='recently-listened-songs']").check()
+        page.locator("#hssmFinishSectionButton").click()
+        page.locator("#hssmTypeSpecificSettings").get_by_text("Create a user-specific section of songs listened to for at least 10 seconds. No content selection is required.", exact=True).wait_for()
+        assert "Loading section settings…" not in page.locator("#hssmTypeSpecificSettings").inner_text()
+
+        page.locator("#hssmAddSectionButton").click()
         page.locator("#hssmSectionList [data-hssm-inline-section-name]").fill("Top 20 in Foreign Collection")
         page.locator("input[name='hssmType'][value='top-10-50']").check()
+        page.evaluate("""() => { window.__savedDashboardGetJSON=ApiClient.getJSON; ApiClient.getJSON=url => String(url).includes('CollectionManager/') ? Promise.reject(new Error('Collection Manager unavailable')) : window.__savedDashboardGetJSON(url); }""")
         page.locator("#hssmFinishSectionButton").click()
         page.wait_for_selector("#hssmTypeSpecificSettings [data-hssm-top-draft-name]")
+        page.evaluate("ApiClient.getJSON=window.__savedDashboardGetJSON; delete window.__savedDashboardGetJSON")
+        assert "Collection Manager must be installed" not in page.locator("#hssmTypeSpecificSettings").inner_text()
         assert page.locator("#hssmTypeSpecificSettings [data-hssm-top-draft-name]").input_value() == "Top 20 in Foreign Collection"
         page.locator("#hssmTypeSpecificSettings [data-hssm-display-top]").select_option("20")
         assert page.locator("#hssmTypeSpecificSettings [data-hssm-top-draft-name]").input_value() == "Top 20 in Foreign Collection"

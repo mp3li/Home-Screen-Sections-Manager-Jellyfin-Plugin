@@ -9,13 +9,13 @@
     "imageUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Assets/Branding/home-screen-sections-manager-plugin-photo.png",
     "versions": [
       {
-        "version": "0.1.0.54",
-        "changelog": "Adds native and combined Continue sections, per-user recent music sections backed by a ten-second listening threshold, Recently Added per-library sections, uncropped Book and Audiobook art with author labels, music-specific Media Bar slides, native section-order reconciliation, correct media-only library expansion, and a Main Top Row with uniquely targeted page/library overrides and library-scoped Genres in a Row.",
+        "version": "0.1.0.55",
+        "changelog": "Fixes automatic section editors stuck loading, preserves drafts without requiring Collection Manager for ordinary sources, moves message controls into a Marquee Message tab with a true looping marquee, removes the Main Top Row Fallback badge, restores subtle detail-page clearance, corrects Author presentation, and prevents the original spotlight from flashing before the configured Media Bar.",
         "targetAbi": "10.11.11.0",
         "framework": "net9.0",
-        "sourceUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Test%20Releases/0.1.0.54-test/Jellyfin.Plugin.HomeScreenSectionsManager_0.1.0.54-test.zip",
-        "checksum": "43b983e88737c9c0485e291babcf884c",
-        "timestamp": "2026-08-16T23:42:51Z"
+        "sourceUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Test%20Releases/0.1.0.55-test/Jellyfin.Plugin.HomeScreenSectionsManager_0.1.0.55-test.zip",
+        "checksum": "ccaecb33c7dcd8ca434680c745dcbf16",
+        "timestamp": "2026-08-17T00:57:28Z"
       }
     ]
   }

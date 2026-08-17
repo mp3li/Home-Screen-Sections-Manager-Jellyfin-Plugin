@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    var CLIENT_VERSION = "0.1.0.54";
+    var CLIENT_VERSION = "0.1.0.55";
     if (window.HomeScreenManagerClient) {
         if (window.HomeScreenManagerClient.version === CLIENT_VERSION) {
             window.HomeScreenManagerClient.refresh();
@@ -808,11 +808,22 @@
     }
 
     function bookAuthor(item) {
-        var people = (prop(item, 'People', 'people', []) || []).filter(function (person) {
+        var allPeople = prop(item, 'People', 'people', []) || [];
+        var people = allPeople.filter(function (person) {
             var role = String(prop(person, 'Type', 'type', prop(person, 'Role', 'role', ''))).toLowerCase();
             return role === 'author' || role === 'writer';
         });
-        return personNames(people).concat(personNames(prop(item, 'AlbumArtists', 'albumArtists', [])), personNames(prop(item, 'Artists', 'artists', []))).filter(function (name, index, values) { return values.indexOf(name) === index; }).join(', ');
+        if (!people.length && (String(prop(item, 'Type', 'type', '')) === 'Book' || String(prop(item, 'Type', 'type', '')) === 'AudioBook')) {
+            people = allPeople.filter(function (person) {
+                return String(prop(person, 'Type', 'type', prop(person, 'Role', 'role', ''))).toLowerCase() === 'composer';
+            });
+        }
+        var title = String(prop(item, 'Name', 'name', '')).trim().toLowerCase();
+        var scalarAuthor = String(prop(item, 'AlbumArtist', 'albumArtist', '') || '').trim();
+        return personNames(people)
+            .concat(personNames(prop(item, 'AlbumArtists', 'albumArtists', [])), scalarAuthor ? [scalarAuthor] : [], personNames(prop(item, 'Artists', 'artists', [])))
+            .filter(function (name, index, values) { return !!name && name.trim().toLowerCase() !== title && values.indexOf(name) === index; })
+            .join(', ');
     }
 
     function card(item, section, rank) {
@@ -1241,7 +1252,7 @@
     function applyNativeBookPresentation(container) {
         var cards = Array.from(container.querySelectorAll(':scope > [class*="section"] .card[data-id]'));
         var ids = cards.map(function (node) { return String(node.dataset.id || ''); }).filter(Boolean);
-        var signature = ids.join(',');
+        var signature = CLIENT_VERSION + ':' + ids.join(',');
         if (!ids.length || container.dataset.hssmBookPresentationSignature === signature) return;
         container.dataset.hssmBookPresentationSignature = signature;
         queryIds(ids).then(function (items) {
@@ -1946,6 +1957,8 @@
     function ensureMediaBarFrame(container, settings) {
         var homeTab = container && container.closest('#homeTab');
         suppressAbyssMediaBar(homeTab);
+        var bootMask = document.getElementById('hssm-media-bar-boot-mask');
+        if (bootMask) bootMask.remove();
         observeAbyssMediaBar(homeTab);
         var frame = mediaBarFrameForContainer(container);
         if (!frame) {
@@ -1982,6 +1995,8 @@
     }
 
     function clearMediaBar(container) {
+        var bootMask = document.getElementById('hssm-media-bar-boot-mask');
+        if (bootMask) bootMask.remove();
         window.clearInterval(mediaBarTimer);
         mediaBarTimer = null;
         mediaBarSourceKey = '';
@@ -2451,18 +2466,26 @@
 
     function applyBookDetailAuthorLabel(scope) {
         var id = currentItemId();
-        if (!scope || !id || window.location.hash.indexOf('/details') < 0 || scope.dataset.hssmBookAuthorRequest === id) return;
-        scope.dataset.hssmBookAuthorRequest = id;
+        var requestKey = CLIENT_VERSION + ':' + id;
+        if (!scope || !id || window.location.hash.indexOf('/details') < 0 || scope.dataset.hssmBookAuthorRequest === requestKey) return;
+        scope.dataset.hssmBookAuthorRequest = requestKey;
         ApiClient.getItem(currentUserId(), id).then(function (item) {
             var type = String(prop(item, 'Type', 'type', ''));
             if (type !== 'Book' && type !== 'AudioBook') return;
+            var authorNames = bookAuthor(item).split(', ').filter(Boolean);
             var remaining = 12;
             function replaceComposerRole() {
                 if (!scope.isConnected || currentItemId() !== id) return;
-                Array.from(scope.querySelectorAll('.cardText-secondary, .personRole, .secondaryText')).forEach(function (node) {
+                Array.from(scope.querySelectorAll('.cardText, .cardText-secondary, .personRole, .secondaryText')).forEach(function (node) {
                     var text = String(node.textContent || '').trim();
                     if (text === 'Composer') node.textContent = 'Author';
                     else if (text === 'Composers') node.textContent = 'Authors';
+                });
+                Array.from(scope.querySelectorAll('#castContent .card, .peopleItems .card')).forEach(function (cardNode) {
+                    var lines = Array.from(cardNode.querySelectorAll('.cardText'));
+                    var personName = lines[0] ? String(lines[0].textContent || '').trim() : '';
+                    if (!personName || authorNames.indexOf(personName) < 0 || !lines[1]) return;
+                    lines[1].textContent = authorNames.length === 1 ? 'Author' : 'Authors';
                 });
                 if (remaining-- > 0) window.setTimeout(replaceComposerRole, 250);
             }

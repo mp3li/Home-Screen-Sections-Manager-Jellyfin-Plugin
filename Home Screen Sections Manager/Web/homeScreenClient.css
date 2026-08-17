@@ -606,18 +606,19 @@ body.hssm-top-row-enabled #indexPage {
     width: 100%;
 }
 
-/* Jellyfin's detail wrapper is positioned independently of its page padding.
-   Move that foreground content below persistent plugin chrome without moving
-   or cropping the page backdrop. */
+/* Jellyfin already settles detail content beneath its header after the view
+   finishes loading. Add only a small clearance so persistent plugin chrome
+   does not crowd that final native position. */
 .itemDetailPage.hssm-top-chrome-content-offset > .detailPageWrapperContainer,
 .itemDetailPage.hssm-top-chrome-content-offset .detailPageWrapperContainer {
-    margin-bottom: var(--hssm-persistent-top-chrome-height, 0px) !important;
-    transform: translateY(var(--hssm-persistent-top-chrome-height, 0px)) !important;
+    margin-bottom: 0.65rem !important;
+    transform: translateY(0.65rem) !important;
 }
 
 .hssm-top-row-message-viewport {
     max-width: 100%;
     overflow: hidden;
+    text-align: left;
     white-space: nowrap;
     width: 100%;
 }
@@ -625,7 +626,10 @@ body.hssm-top-row-enabled #indexPage {
 .hssm-top-row-message-text {
     display: inline-block;
     min-width: max-content;
+    position: relative;
+    left: 100%;
     transform: translateX(0);
+    will-change: transform;
 }
 
 .hssm-top-row-message-marquee .hssm-top-row-message-text {
