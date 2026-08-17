@@ -9,13 +9,13 @@
     "imageUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Assets/Branding/home-screen-sections-manager-plugin-photo.png",
     "versions": [
       {
-        "version": "0.1.0.58",
-        "changelog": "Preserves every saved section preference and selected item while editing; removes custom/native page remount and mutation delays; adds manual maximums for plugin and native rows; fixes full Continue episode labels and secondary marquee text; adds explicit Top Row/Marquee save feedback; and refines music Media Bar album grids.",
+        "version": "0.1.0.59",
+        "changelog": "Gives every visible page its own section-loading lane so hidden Home work cannot block custom or native pages; removes duplicate Media Bar row requests; makes Top recovery lighter; preserves refreshed editor settings immediately; restores secondary-line marquees; opens Top Row editing while catalogs load; clarifies native Jellyfin maximums; and raises detail artwork slightly.",
         "targetAbi": "10.11.11.0",
         "framework": "net9.0",
-        "sourceUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Test%20Releases/0.1.0.58-test/Jellyfin.Plugin.HomeScreenSectionsManager_0.1.0.58-test.zip",
-        "checksum": "91f08ee8648a33188f8679b8c6ebcf74",
-        "timestamp": "2026-08-17T06:13:58Z"
+        "sourceUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Test%20Releases/0.1.0.59-test/Jellyfin.Plugin.HomeScreenSectionsManager_0.1.0.59-test.zip",
+        "checksum": "8b037559af3a6f0c6bfba12877d39d2e",
+        "timestamp": "2026-08-17T22:04:38Z"
       }
     ]
   }

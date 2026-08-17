@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    var CLIENT_VERSION = "0.1.0.58";
+    var CLIENT_VERSION = "0.1.0.59";
     if (window.HomeScreenManagerClient) {
         if (window.HomeScreenManagerClient.version === CLIENT_VERSION) {
             window.HomeScreenManagerClient.refresh();
@@ -47,7 +47,7 @@
     var heartStatusTimer = null;
     var pendingHeartIds = {};
     var sectionRuntime = {};
-    var homeRequestLane = createLimiter(2);
+    var skippedSectionRequest = {};
     var heartRequestLane = createLimiter(1);
     var likedItemsById = {};
     var likedItemsLoaded = false;
@@ -94,6 +94,19 @@
         return function (work) {
             return new Promise(function (resolve, reject) { pending.push({ work: work, resolve: resolve, reject: reject }); next(); });
         };
+    }
+
+    function sectionRequestLane(state) {
+        if (!state || !state.container) return createLimiter(1);
+        if (!state.container._hssmSectionRequestLane) state.container._hssmSectionRequestLane = createLimiter(4);
+        return state.container._hssmSectionRequestLane;
+    }
+
+    function queueVisibleSectionRequest(state, work) {
+        return sectionRequestLane(state)(function () {
+            if (!sectionStateIsCurrent(state) || activeManagedSectionContainer() !== state.container) return skippedSectionRequest;
+            return work();
+        });
     }
 
     function prop(value, pascal, camel, fallback) {
@@ -430,6 +443,20 @@
         });
     }
 
+    function queryItemSummaries(parameters) {
+        var userId = currentUserId();
+        if (!userId) return Promise.resolve([]);
+        var options = Object.assign({
+            Fields:'CommunityRating,SortName,Tags',
+            EnableImages:false,
+            ImageTypeLimit:0,
+            EnableTotalRecordCount:false
+        }, parameters || {});
+        return getJson('Users/' + encodeURIComponent(userId) + '/Items', options).then(function (result) {
+            return prop(result, 'Items', 'items', []);
+        });
+    }
+
     function queryIds(ids) {
         var usable = (ids || []).map(String).filter(Boolean);
         var chunks = [];
@@ -612,7 +639,7 @@
                 var sourceType = split < 0 ? '' : source.slice(0, split);
                 var sourceId = split < 0 ? '' : source.slice(split + 1);
                 if (sourceType === 'collection' || sourceType === 'library') {
-                    return queryItems({
+                    return queryItemSummaries({
                         ParentId:sourceType === 'library' ? resolvedLibraryId(sourceId) : sourceId,
                         Recursive:true, Limit:5000, EnableTotalRecordCount:false
                     }).then(function (loaded) { return items.concat(sourceType === 'library' ? withoutNavigationFolders(loaded) : loaded); });
@@ -626,11 +653,13 @@
                 return items;
             });
         }, Promise.resolve([])).then(function (items) {
-            return uniqueItems(items).map(function (item) { return { item:item, rating:imdbTaggedRating(item) }; })
+            var ids = uniqueItems(items).map(function (item) { return { item:item, rating:imdbTaggedRating(item) }; })
                 .filter(function (entry) { return Number.isFinite(entry.rating); })
                 .sort(function (left, right) { return right.rating - left.rating; })
                 .slice(0, limit)
-                .map(function (entry) { return entry.item; });
+                .map(function (entry) { return String(prop(entry.item, 'Id', 'id', '')); })
+                .filter(Boolean);
+            return queryIds(ids);
         }).finally(function () { delete topRecoveryRequests[key]; });
         return topRecoveryRequests[key];
     }
@@ -1526,13 +1555,27 @@
         scope = scope || activePage() || document;
         function measure() {
             if (!enabled || !scope || !scope.isConnected && scope !== document) return;
-            var candidates = Array.from(scope.querySelectorAll('.cardText-first bdi, .hssm-card-title bdi, .cardText-secondary bdi, .hssm-card-year bdi, .hssm-card-author bdi'));
-            candidates.forEach(function (target) {
-                var host = target.closest('.cardText');
+            var hosts = Array.from(scope.querySelectorAll('.cardText-first, .hssm-card-title, .cardText-secondary, .hssm-card-year, .hssm-card-author'));
+            hosts.forEach(function (host) {
+                var target = host.querySelector('bdi') || host.querySelector('a') || host.querySelector('[data-hssm-marquee-text]');
+                if (!target && host.childNodes.length === 1 && host.firstChild.nodeType === Node.TEXT_NODE) {
+                    target = document.createElement('span');
+                    target.dataset.hssmMarqueeText = 'true';
+                    target.textContent = host.textContent;
+                    host.textContent = '';
+                    host.appendChild(target);
+                }
                 if (!host) return;
+                if (!target) return;
                 target.classList.add('hssm-marquee-measuring');
                 var available = host.clientWidth || host.getBoundingClientRect().width || 0;
-                var full = target.scrollWidth || target.getBoundingClientRect().width || 0;
+                var rangeWidth = 0;
+                try {
+                    var range = document.createRange();
+                    range.selectNodeContents(target);
+                    rangeWidth = range.getBoundingClientRect().width || 0;
+                } catch (_) {}
+                var full = Math.max(target.scrollWidth || 0, target.getBoundingClientRect().width || 0, rangeWidth);
                 target.classList.remove('hssm-marquee-measuring');
                 var overflow = Math.ceil(full - available);
                 if (available > 0 && overflow > 2) {
@@ -1550,6 +1593,7 @@
         }
         window.requestAnimationFrame(measure);
         window.setTimeout(measure, 450);
+        window.setTimeout(measure, 1100);
     }
 
     function responseItems(response) {
@@ -1723,6 +1767,7 @@
         var activeState = sectionRuntime[id];
         if (activeState && sectionStateIsCurrent(activeState)) {
             if (activeState.refreshPromise) return activeState.refreshPromise.then(function () { return orderItems(uniqueItems(activeState.items || []), section).slice(0, 30); });
+            if (activeState.pagePromise) return activeState.pagePromise.then(function () { return orderItems(uniqueItems(activeState.items || []), section).slice(0, 30); });
             if (activeState.items && activeState.items.length) return Promise.resolve(orderItems(uniqueItems(activeState.items), section).slice(0, 30));
         }
         var dynamic = dynamicSectionItems(section, latestNativePreferences || {}, activeManagedSectionContainer() || document);
@@ -2864,7 +2909,11 @@
         state.loading = true;
         var start = state.cursor;
         var pageSize = Math.min(40, maximum - start);
-        homeRequestLane(function () { return state.dynamicLoader(start, pageSize); }).then(function (items) {
+        var wasSkipped = false;
+        var pageRequest = queueVisibleSectionRequest(state, function () { return state.dynamicLoader(start, pageSize); });
+        state.pagePromise = pageRequest;
+        pageRequest.then(function (items) {
+            if (items === skippedSectionRequest) { wasSkipped = true; return; }
             if (!sectionStateIsCurrent(state) || !state.container.isConnected) return;
             items = uniqueItems(items || []);
             state.items = uniqueItems(state.items.concat(items));
@@ -2874,7 +2923,11 @@
             paintSectionState(state, false);
         }).catch(function (error) {
             console.warn("[Home Screen Manager] A dynamic section page could not load.", error);
-        }).finally(function () { state.loading = false; });
+        }).finally(function () {
+            state.loading = false;
+            if (state.pagePromise === pageRequest) state.pagePromise = null;
+            if (wasSkipped && activeManagedSectionContainer() === state.container) window.setTimeout(function () { loadDynamicPage(state); }, 0);
+        });
     }
 
     function sectionStateIsCurrent(state) {
@@ -2916,7 +2969,11 @@
             return;
         }
         state.loading = true;
-        homeRequestLane(function () { return queryIds(pageIds); }).then(function (items) {
+        var wasSkipped = false;
+        var pageRequest = queueVisibleSectionRequest(state, function () { return queryIds(pageIds); });
+        state.pagePromise = pageRequest;
+        pageRequest.then(function (items) {
+            if (items === skippedSectionRequest) { wasSkipped = true; return; }
             if (!sectionStateIsCurrent(state) || !state.container.isConnected) return;
             if (['library-content','multiple-library-content'].indexOf(String(prop(state.section, 'Type', 'type', ''))) >= 0) items = withoutNavigationFolders(items);
             state.items = uniqueItems(state.items.concat(items));
@@ -2930,7 +2987,11 @@
                 console.warn('[Home Screen Manager] A section page could not be loaded.', error);
                 paintSectionState(state, false);
             }
-        }).finally(function () { state.loading = false; });
+        }).finally(function () {
+            state.loading = false;
+            if (state.pagePromise === pageRequest) state.pagePromise = null;
+            if (wasSkipped && activeManagedSectionContainer() === state.container) window.setTimeout(function () { loadSectionPage(state); }, 0);
+        });
     }
 
     function loadDynamicSection(state) {
@@ -2994,7 +3055,7 @@
             }
         }
         if (!request) return;
-        state.refreshPromise = Promise.resolve(request).then(function (items) {
+        return Promise.resolve(request).then(function (items) {
             if (!sectionStateIsCurrent(state) || !state.container.isConnected) return;
             state.items = uniqueItems(items || []).slice(0, maximumSectionItems(state.section));
             state.cursor = state.items.length;
@@ -3003,8 +3064,29 @@
             paintSectionState(state, false);
         }).catch(function (error) {
             console.warn("[Home Screen Manager] A dynamic section could not refresh; its saved content remains visible.", error);
-        }).finally(function () { state.refreshPromise = null; });
-        return state.refreshPromise;
+        });
+    }
+
+    function queueInitialDynamicSection(state) {
+        if (!state || state.refreshPromise || state.initialLoadComplete || !sectionStateIsCurrent(state)) return;
+        var wasSkipped = false;
+        state.refreshPromise = queueVisibleSectionRequest(state, function () { return loadDynamicSection(state); }).then(function (result) {
+            wasSkipped = result === skippedSectionRequest;
+            if (!wasSkipped) state.initialLoadComplete = true;
+        }).finally(function () {
+            state.refreshPromise = null;
+            if (wasSkipped && activeManagedSectionContainer() === state.container) window.setTimeout(function () { queueInitialDynamicSection(state); }, 0);
+        });
+    }
+
+    function resumeContainerSectionLoads(container) {
+        if (!container || activeManagedSectionContainer() !== container) return;
+        Object.keys(sectionRuntime).forEach(function (id) {
+            var state = sectionRuntime[id];
+            if (!state || state.container !== container || !sectionStateIsCurrent(state)) return;
+            if (state.initialDynamic) queueInitialDynamicSection(state);
+            else if (!state.loading && !state.complete && !state.items.length) loadSectionPage(state);
+        });
     }
 
     function initializeSection(section, container, settings, preferences, generation) {
@@ -3022,7 +3104,11 @@
             loading:false,
             dynamicLoader:null,
             dynamicTotal:null,
-            node:null
+            node:null,
+            initialDynamic:false,
+            initialLoadComplete:false,
+            refreshPromise:null,
+            pagePromise:null
         };
         sectionRuntime[id] = state;
         paintSectionState(state, !cached);
@@ -3033,10 +3119,11 @@
         else if (!cached || !cached.items.length) loadSectionPage(state);
         else state.complete = sectionPageIds(section, state.cursor, 1).length === 0;
         if (type === 'my-list-content' || type === 'watch-again' || recoversTop || isAutomatic || type === 'other-users-activity' || type === 'rotating-sections' || type === 'seasonal-sections') {
+            state.initialDynamic = true;
             var delay = type === 'my-list-content' || type === 'watch-again' || recoversTop || isAutomatic ? 0 : 800;
-            if (!delay) state.refreshPromise = homeRequestLane(function () { return loadDynamicSection(state); });
+            if (!delay) queueInitialDynamicSection(state);
             else window.setTimeout(function () {
-                if (sectionStateIsCurrent(state)) state.refreshPromise = homeRequestLane(function () { return loadDynamicSection(state); });
+                if (sectionStateIsCurrent(state)) queueInitialDynamicSection(state);
             }, delay);
         }
         return state;
@@ -3772,6 +3859,7 @@
         }
         var customPanel = container.closest('.hssm-owned-custom-page');
         if (customPanel) clearPageContextTitle();
+        resumeContainerSectionLoads(container);
         renderExplicitMediaBars(settings, container, sections);
         return true;
     }
@@ -3922,6 +4010,7 @@
                     else {
                         applyHybridOrder(homeContainer, settings, cachedPreferences);
                         applyRouteFeatures(settings, homeContainer.closest('.libraryPage, .page') || homeContainer, true, cachedPreferences);
+                        resumeContainerSectionLoads(homeContainer);
                     }
                     renderMediaBar(settings, cachedPreferences, homeContainer, sections);
                     renderExplicitMediaBars(settings, homeContainer, sections, cachedPreferences);

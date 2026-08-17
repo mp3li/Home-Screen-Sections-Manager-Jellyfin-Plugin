@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.1.0.59-test] - 2026-08-17
+
+- Gives each visible Home/custom page its own four-request loading lane, skips queued work after a page becomes inactive, resumes it when the page returns, and prevents hidden Home requests from holding custom or native Jellyfin pages behind one global queue.
+- Reuses a section row's in-flight request for its matching Media Bar and loads only lightweight rating/tag summaries during emergency Top 5-100 recovery before hydrating the winning media, eliminating duplicate and oversized requests.
+- Keeps successful section saves successful even if the browser client refresh is delayed, immediately updates the open dashboard model, and preserves refreshed art, rank colors, item IDs, sources, names, and other preferences when the editor is reopened.
+- Makes secondary title lines use measured text width for marquee behavior, including native plain-text lines, and rechecks after delayed Jellyfin card rendering.
+- Opens **Edit Top Row** immediately while its library/collection catalog finishes in the background and shows visible loading feedback instead of making the button appear unresponsive.
+- Labels an uncapped native-row maximum as **Jellyfin Default** instead of **All**, clamps to the live native row's loaded count when available, and keeps plugin-owned rows' manual maximum behavior.
+- Moves the left-side detail poster slightly higher and makes that position override specific enough to apply consistently.
+
 ## [0.1.0.58-test] - 2026-08-16
 
 - Preserves every saved section preference and selected media while reopening or refreshing an existing section, including Top settings, numbering colors, art appearance, custom titles, and source selections.

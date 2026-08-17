@@ -1130,6 +1130,11 @@
                 selectedOrder.innerHTML = items.length ? items.map(item => '<div class="hssm-manual-order-row" draggable="true" data-hssm-top-row-order-id="' + esc(itemId(item)) + '"><span class="hssm-manual-order-handle" aria-hidden="true">⠿</span><span>' + esc(itemName(item)) + '</span></div>').join('') : '<p class="fieldDescription" style="padding:.75em">No Top Row navigation items are selected.</p>';
             }
             function renderSources() {
+                if (!catalogsLoaded) {
+                    sourcePicker.innerHTML = '<p class="fieldDescription">Loading Top Row libraries and collections…</p>';
+                    selectedOrder.innerHTML = '<p class="fieldDescription" style="padding:.75em">Saved Top Row navigation items will appear when the catalog finishes loading.</p>';
+                    return;
+                }
                 if (selectedType() === 'genres-in-a-row') {
                     const libraryId = targetType.value === 'library' ? targetId.value : '';
                     if (!libraryId) { sourcePicker.innerHTML = '<p class="fieldDescription">Assign this Top Row to a Jellyfin library before selecting its genres.</p>'; selectedOrder.innerHTML = '<p class="fieldDescription" style="padding:.75em">No Top Row navigation items are selected.</p>'; return; }
@@ -1152,11 +1157,6 @@
                 targetId.value = currentId;
             }
             function openEditor(row, adding) {
-                if (!catalogsLoaded) {
-                    status.textContent = 'Loading Top Row libraries and collections…';
-                    loadCatalogs().then(() => { status.textContent = ''; openEditor(row, adding); }, error => { status.textContent = 'Top Row libraries and collections could not be loaded. ' + (error && (error.message || error.statusText) || ''); });
-                    return;
-                }
                 editingRowId = rowId(row);
                 const main = rowIsMain(row), definition = rowSection(row);
                 editor.hidden = false;
@@ -1190,6 +1190,10 @@
                 saveButton.textContent = adding ? 'Add Top Row' : 'Refresh Top Row';
                 renderSources();
                 editor.scrollIntoView({ behavior:'smooth', block:'start' });
+                if (!catalogsLoaded) {
+                    status.textContent = 'Top Row editor opened. Loading libraries and collections…';
+                    loadCatalogs().then(() => { status.textContent = ''; }, error => { status.textContent = 'Top Row libraries and collections could not be loaded. ' + (error && (error.message || error.statusText) || ''); });
+                }
             }
             function messagePayload() {
                 return {
@@ -1390,7 +1394,7 @@
             const page = document.getElementById('homeScreenSectionsManagerPage');
             const host = page && page.querySelector('#hssmTypeSpecificSettings');
             if (!page || !host) return;
-            const state = { id:'', name:'', type:'', pageId:'home', isVisible:true, isMediaBar:false, isApplied:false, isEditing:false, nativeOnly:false, sources:[], items:{}, resolvedItemIds:[], contentItems:[], contentItemOrder:[], savedItemIds:[], contentSelectionDirty:false, savedPreviewLoadId:0, draggedContentId:null, contentPage:1, contentOrder:'title-ascending', maxItems:0, artSize:'medium', artType:'automatic', artShape:'poster', showText:true, showSectionName:true, libraries:[], collections:[], manual:{}, manualStates:{}, tagSearch:'', tagSources:{}, tagTypeLoadIds:{}, tagCatalogLoadId:0, drafts:[], draftLibraryIds:[], draggedDraftId:null, rotationValue:1, rotationUnit:'days', draftPreviewLoadId:0, topLoadRunning:false, topPending:null, displayTop:10, showRankNumbers:true, rankNumberColorMode:'solid', rankNumberColorOne:'#f5f5f7', rankNumberColorTwo:'#f5f5f7', rankNumberShadowColor:'#000000', rankNumberFontDataUrl:'', activityMaxItems:20, activityMediaType:'movies', activityPreviewLoadId:0 };
+            const state = { id:'', name:'', type:'', pageId:'home', isVisible:true, isMediaBar:false, isApplied:false, isEditing:false, nativeOnly:false, nativeAvailableItems:0, sources:[], items:{}, resolvedItemIds:[], contentItems:[], contentItemOrder:[], savedItemIds:[], contentSelectionDirty:false, savedPreviewLoadId:0, draggedContentId:null, contentPage:1, contentOrder:'title-ascending', maxItems:0, artSize:'medium', artType:'automatic', artShape:'poster', showText:true, showSectionName:true, libraries:[], collections:[], manual:{}, manualStates:{}, tagSearch:'', tagSources:{}, tagTypeLoadIds:{}, tagCatalogLoadId:0, drafts:[], draftLibraryIds:[], draggedDraftId:null, rotationValue:1, rotationUnit:'days', draftPreviewLoadId:0, topLoadRunning:false, topPending:null, displayTop:10, showRankNumbers:true, rankNumberColorMode:'solid', rankNumberColorOne:'#f5f5f7', rankNumberColorTwo:'#f5f5f7', rankNumberShadowColor:'#000000', rankNumberFontDataUrl:'', activityMaxItems:20, activityMediaType:'movies', activityPreviewLoadId:0 };
             const esc = value => { const el = document.createElement('span'); el.textContent = value == null ? '' : String(value); return el.innerHTML; };
             const cm = path => ApiClient.getJSON(ApiClient.getUrl('CollectionManager/' + path));
             const cmPost = (path, body) => ApiClient.ajax({ type:'POST', url:ApiClient.getUrl('CollectionManager/' + path), data:JSON.stringify(body), contentType:'application/json', dataType:'json' });
@@ -1540,7 +1544,8 @@
                 return options.map(option => '<option value="' + option[0] + '"' + (state.contentOrder === option[0] ? ' selected' : '') + '>' + option[1] + '</option>').join('');
             }
             function nativeArtMarkup() {
-                return '<section class="hssm-conditional-section hssm-order-settings"><h2>Section Content Order Settings</h2><p class="fieldDescription">Choose the maximum number of currently loaded items to display in this native Jellyfin section.</p><div class="inputContainer"><label class="inputLabel inputLabelUnfocused">Maximum Media in Section</label><input is="emby-input" type="number" min="0" step="1" inputmode="numeric" data-hssm-max-items value="' + (state.maxItems > 0 ? esc(state.maxItems) : '') + '" placeholder="All" /><p class="fieldDescription">Enter a maximum number, or leave this empty for All. If the number is larger than the available content, the section uses its actual content total.</p></div></section><section class="hssm-conditional-section hssm-art-settings"><h2>Section Art Appearance Settings</h2><p class="fieldDescription">Choose the size, Jellyfin image type, shape, and title-text visibility for this native Jellyfin section.</p><div class="selectContainer"><label class="selectLabel" for="hssmSectionArtSize">Art Size</label><select is="emby-select" id="hssmSectionArtSize" data-hssm-art-size>' + artSizeOptions() + '</select></div><div class="selectContainer"><label class="selectLabel" for="hssmSectionArtType">Art Type</label><select is="emby-select" id="hssmSectionArtType" data-hssm-art-type>' + artTypeOptions() + '</select></div><div class="selectContainer"><label class="selectLabel" for="hssmSectionArtShape">Art Shape</label><select is="emby-select" id="hssmSectionArtShape" data-hssm-art-shape>' + artShapeOptions() + '</select></div><label class="checkboxContainer"><input is="emby-checkbox" type="checkbox" data-hssm-show-text' + (state.showText ? ' checked' : '') + ' /><span>Show text under the art</span></label><p class="fieldDescription">Show the media name and year beneath each image.</p><label class="checkboxContainer"><input is="emby-checkbox" type="checkbox" data-hssm-show-section-name' + (state.showSectionName ? ' checked' : '') + ' /><span>Show section name</span></label><div class="hssm-actions"><button is="emby-button" type="button" class="raised button-submit" data-hssm-apply-section>Refresh Section</button></div><p class="fieldDescription" data-hssm-apply-status aria-live="polite"></p></section>';
+                const availableCopy = state.nativeAvailableItems > 0 ? ' This native row currently contains ' + state.nativeAvailableItems + ' loaded media items, so a higher entry will be reduced to ' + state.nativeAvailableItems + '.' : '';
+                return '<section class="hssm-conditional-section hssm-order-settings"><h2>Section Content Order Settings</h2><p class="fieldDescription">Choose the maximum number of currently loaded items to display in this native Jellyfin section.</p><div class="inputContainer"><label class="inputLabel inputLabelUnfocused">Maximum Media in Section</label><input is="emby-input" type="number" min="0" step="1" inputmode="numeric" data-hssm-max-items value="' + (state.maxItems > 0 ? esc(state.maxItems) : '') + '" placeholder="Jellyfin Default" /><p class="fieldDescription">Enter a maximum number, or leave this empty to keep Jellyfin’s own loaded-item limit.' + availableCopy + '</p></div></section><section class="hssm-conditional-section hssm-art-settings"><h2>Section Art Appearance Settings</h2><p class="fieldDescription">Choose the size, Jellyfin image type, shape, and title-text visibility for this native Jellyfin section.</p><div class="selectContainer"><label class="selectLabel" for="hssmSectionArtSize">Art Size</label><select is="emby-select" id="hssmSectionArtSize" data-hssm-art-size>' + artSizeOptions() + '</select></div><div class="selectContainer"><label class="selectLabel" for="hssmSectionArtType">Art Type</label><select is="emby-select" id="hssmSectionArtType" data-hssm-art-type>' + artTypeOptions() + '</select></div><div class="selectContainer"><label class="selectLabel" for="hssmSectionArtShape">Art Shape</label><select is="emby-select" id="hssmSectionArtShape" data-hssm-art-shape>' + artShapeOptions() + '</select></div><label class="checkboxContainer"><input is="emby-checkbox" type="checkbox" data-hssm-show-text' + (state.showText ? ' checked' : '') + ' /><span>Show text under the art</span></label><p class="fieldDescription">Show the media name and year beneath each image.</p><label class="checkboxContainer"><input is="emby-checkbox" type="checkbox" data-hssm-show-section-name' + (state.showSectionName ? ' checked' : '') + ' /><span>Show section name</span></label><div class="hssm-actions"><button is="emby-button" type="button" class="raised button-submit" data-hssm-apply-section>Refresh Section</button></div><p class="fieldDescription" data-hssm-apply-status aria-live="polite"></p></section>';
             }
             function selectOptions(options, selected) {
                 return options.map(option => '<option value="' + option[0] + '"' + (selected === option[0] ? ' selected' : '') + '>' + option[1] + '</option>').join('');
@@ -1654,7 +1659,7 @@
             }
             function clampMaximumToAvailable() {
                 if (!(state.maxItems > 0)) return;
-                const available = state.contentItemOrder.length || state.savedItemIds.length;
+                const available = state.nativeOnly ? state.nativeAvailableItems : (state.contentItemOrder.length || state.savedItemIds.length);
                 if (!available || state.maxItems <= available) return;
                 state.maxItems = available;
                 const input = host.querySelector('[data-hssm-max-items]');
@@ -2163,6 +2168,8 @@
                     window.HSSMNotifyClientSettingsChanged();
                     state.savedItemIds = itemIds.slice();
                     state.contentSelectionDirty = false;
+                    const model = (window.HSSMDashboardSectionModels || []).find(item => String(item.id) === state.id);
+                    if (model) model.definition = Object.assign({}, definition);
                     host.querySelector('[data-hssm-save-status]').textContent = 'Section settings saved.';
                     const orderSection = host.querySelector('[data-hssm-order-settings]');
                     const artSection = host.querySelector('[data-hssm-art-settings]');
@@ -2179,7 +2186,7 @@
                 return body && (body.Detail || body.detail || body.Message || body.message || body.Title || body.title) || (text && String(text).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()) || (error && (error.message || error.statusText)) || 'Jellyfin returned no error details.';
             }
             function loadHomeScreenClient() {
-                const version = "0.1.0.58";
+                const version = "0.1.0.59";
                 let style = document.querySelector("link[data-hssm-client-style]");
                 if (!style || style.dataset.hssmClientVersion !== version) {
                     if (style) style.remove();
@@ -2277,6 +2284,9 @@
                 state.artShape = artShape.value;
                 state.showText = showText.checked;
                 state.showSectionName = showSectionName.checked;
+                const maximumInput = host.querySelector('[data-hssm-max-items]');
+                if (maximumInput) state.maxItems = Math.max(0, Math.min(10000, Math.floor(Number(maximumInput.value) || 0)));
+                clampMaximumToAvailable();
                 const topName = host.querySelector('[data-hssm-top-draft-name]');
                 if (topName && topName.value.trim()) setSectionName(topName.value.trim());
                 const selectedRankNumbers = host.querySelector('[data-hssm-rank-numbers]:checked');
@@ -2305,7 +2315,11 @@
                         const definitions = (saved.Sections || saved.sections || []).filter(definition => String(definition.Id || definition.id) !== state.id);
                         definitions.push({ Id:state.id, Name:state.name, PageId:'home', Type:state.type, SourceIds:[], ItemIds:[], ContentOrder:'title-ascending', MaxItems:state.maxItems, ArtSize:state.artSize, ArtType:state.artType, ArtShape:state.artShape, ShowText:state.showText, ShowSectionName:state.showSectionName, IsVisible:true, IsMediaBar:false, IsApplied:true });
                         return ApiClient.ajax({ type:'POST', url:ApiClient.getUrl('HomeScreenSectionsManager/section-settings'), data:JSON.stringify({ JellyfinSectionLabelColor:saved.JellyfinSectionLabelColor || saved.jellyfinSectionLabelColor || '#00a4dc', ManagerSectionLabelColor:saved.ManagerSectionLabelColor || saved.managerSectionLabelColor || '#aa5cc3', MediaBarSectionLabelColor:saved.MediaBarSectionLabelColor || saved.mediaBarSectionLabelColor || '#c78000', Sections:definitions, SectionOrder:saved.SectionOrder || saved.sectionOrder || [], Pages:saved.Pages || saved.pages || [], PageOrder:saved.PageOrder || saved.pageOrder || [], PageLayouts:saved.PageLayouts || saved.pageLayouts || [] }), contentType:'application/json', dataType:'json' });
-                    }).then(response => { window.HSSMNotifyClientSettingsChanged(); return loadHomeScreenClient().then(() => response); }).then(() => {
+                    }).then(response => {
+                        window.HSSMNotifyClientSettingsChanged();
+                        loadHomeScreenClient().catch(error => console.warn('[Home Screen Manager] Saved native section settings, but the browser client could not be refreshed immediately.', error));
+                        return response;
+                    }).then(() => {
                         applyStatus.textContent = 'Section refreshed.';
                         const model = (window.HSSMDashboardSectionModels || []).find(item => String(item.id) === state.id);
                         if (model) model.definition = { Id:state.id, Name:state.name, PageId:'home', Type:state.type, MaxItems:state.maxItems, ArtSize:state.artSize, ArtType:state.artType, ArtShape:state.artShape, ShowText:state.showText, ShowSectionName:state.showSectionName, IsApplied:true };
@@ -2321,10 +2335,19 @@
                 const destination = destinationPageName();
                 const editing = state.isEditing;
                 applyStatus.textContent = editing ? 'Refreshing section…' : 'Adding section to ' + destination + '…';
-                clampMaximumToAvailable();
                 const appliedItemIds = state.isEditing && !state.contentSelectionDirty ? null : state.contentItemOrder;
-                ensureJavaScriptInjectorLoader().then(() => ApiClient.ajax({ type:'POST', url:ApiClient.getUrl('HomeScreenSectionsManager/sections/' + encodeURIComponent(state.id) + '/apply'), data:JSON.stringify({ Name:state.name, ContentOrder:state.contentOrder, MaxItems:state.maxItems, ItemIds:appliedItemIds, ArtSize:state.artSize, ArtType:state.artType, ArtShape:state.artShape, ShowText:state.showText, ShowSectionName:state.showSectionName, IsVisible:state.isVisible, IsMediaBar:state.isMediaBar, DisplayTopCount:state.displayTop, ShowRankNumbers:state.showRankNumbers, RankNumberColorMode:state.rankNumberColorMode, RankNumberColorOne:state.rankNumberColorOne, RankNumberColorTwo:state.rankNumberColorTwo, RankNumberShadowColor:state.rankNumberShadowColor, RankNumberFontDataUrl:state.rankNumberFontDataUrl, ActivityMaxItems:state.activityMaxItems, ActivityMediaType:state.activityMediaType }), contentType:'application/json', dataType:'json' })).then(response => { window.HSSMNotifyClientSettingsChanged(); return loadHomeScreenClient().then(() => response); }).then(() => {
+                ensureJavaScriptInjectorLoader().then(() => ApiClient.ajax({ type:'POST', url:ApiClient.getUrl('HomeScreenSectionsManager/sections/' + encodeURIComponent(state.id) + '/apply'), data:JSON.stringify({ Name:state.name, ContentOrder:state.contentOrder, MaxItems:state.maxItems, ItemIds:appliedItemIds, ArtSize:state.artSize, ArtType:state.artType, ArtShape:state.artShape, ShowText:state.showText, ShowSectionName:state.showSectionName, IsVisible:state.isVisible, IsMediaBar:state.isMediaBar, DisplayTopCount:state.displayTop, ShowRankNumbers:state.showRankNumbers, RankNumberColorMode:state.rankNumberColorMode, RankNumberColorOne:state.rankNumberColorOne, RankNumberColorTwo:state.rankNumberColorTwo, RankNumberShadowColor:state.rankNumberShadowColor, RankNumberFontDataUrl:state.rankNumberFontDataUrl, ActivityMaxItems:state.activityMaxItems, ActivityMediaType:state.activityMediaType }), contentType:'application/json', dataType:'json' })).then(response => {
+                    window.HSSMNotifyClientSettingsChanged();
+                    loadHomeScreenClient().catch(error => console.warn('[Home Screen Manager] Saved section settings, but the browser client could not be refreshed immediately.', error));
+                    return response;
+                }).then(() => {
                     state.isApplied = true;
+                    if (appliedItemIds) {
+                        state.savedItemIds = appliedItemIds.slice();
+                        state.contentSelectionDirty = false;
+                    }
+                    const model = (window.HSSMDashboardSectionModels || []).find(item => String(item.id) === state.id);
+                    if (model) model.definition = Object.assign({}, model.definition || {}, { Id:state.id, Name:state.name, PageId:state.pageId, Type:state.type, SourceIds:state.sources.slice(), ItemIds:state.savedItemIds.slice(), ContentOrder:state.contentOrder, MaxItems:state.maxItems, ArtSize:state.artSize, ArtType:state.artType, ArtShape:state.artShape, ShowText:state.showText, ShowSectionName:state.showSectionName, IsVisible:state.isVisible, IsMediaBar:state.isMediaBar, DisplayTopCount:state.displayTop, ShowRankNumbers:state.showRankNumbers, RankNumberColorMode:state.rankNumberColorMode, RankNumberColorOne:state.rankNumberColorOne, RankNumberColorTwo:state.rankNumberColorTwo, RankNumberShadowColor:state.rankNumberShadowColor, RankNumberFontDataUrl:state.rankNumberFontDataUrl, ActivityMaxItems:state.activityMaxItems, ActivityMediaType:state.activityMediaType, IsApplied:true });
                     applyStatus.textContent = editing ? 'Section refreshed.' : 'Section added to ' + destination + '.';
                     if (window.Dashboard && typeof Dashboard.alert === 'function') Dashboard.alert(editing ? 'Section refreshed through JavaScript Injector.' : 'Section added to ' + destination + ' through JavaScript Injector.');
                 }, error => {
@@ -2519,6 +2542,10 @@
                 state.nativeOnly = true;
                 state.contentOrder = String(definition.ContentOrder || definition.contentOrder || 'title-ascending');
                 state.maxItems = Number(definition.MaxItems || definition.maxItems || 0);
+                const nativeIndex = /^jellyfin-(\d+)-/.exec(state.id);
+                const nativeRow = nativeIndex && document.querySelector('#homeTab .section' + nativeIndex[1]);
+                state.nativeAvailableItems = nativeRow ? nativeRow.querySelectorAll('.card[data-id]').length : 0;
+                if (state.nativeAvailableItems > 0 && state.maxItems > state.nativeAvailableItems) state.maxItems = state.nativeAvailableItems;
                 state.savedItemIds = [];
                 state.contentSelectionDirty = false;
                 state.artSize = String(definition.ArtSize || definition.artSize || 'medium');
@@ -2547,6 +2574,7 @@
                 state.isMediaBar = !!detail.isMediaBar;
                 state.isEditing = !!detail.isEditing;
                 state.nativeOnly = false;
+                state.nativeAvailableItems = 0;
                 page.querySelector('#hssmNewSectionSettings').hidden = false;
                 page.querySelector('#hssmNewSectionSettings').classList.remove('hssm-native-only');
                 if (state.isEditing) {

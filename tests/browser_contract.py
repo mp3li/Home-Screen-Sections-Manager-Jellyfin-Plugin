@@ -516,7 +516,36 @@ def run() -> None:
         page.wait_for_selector("#indexPage > .hssm-top-row[data-hssm-top-row-id='main-top-row']")
         assert page.locator("#homeTab > .homeSectionsContainer").count() == 1
         assert page.locator("#homeTab .section0").count() == 1
+
+        # Slow Home requests must not hold the active custom page behind the
+        # same request queue. The custom page should get its own visible lane.
+        slow_sections = [
+            {"Id": f"manager-home-slow-{index}", "Name": f"Slow Home {index}", "PageId": "home", "Type": "manual-content", "ItemIds": [f"slow-{index}"], "IsApplied": True, "IsVisible": True, "IsMediaBar": False}
+            for index in range(4)
+        ]
+        settings["Sections"].extend(slow_sections)
+        settings["PageLayouts"][0]["SectionOrder"].extend(section["Id"] for section in slow_sections)
+        settings["SectionOrder"].extend(section["Id"] for section in slow_sections)
+        page.evaluate(
+            """() => {
+              window.__baseGetJSONForLaneTest=ApiClient.getJSON;
+              ApiClient.getJSON=url => String(url).includes('slow-')
+                ? new Promise(resolve => setTimeout(() => resolve({Items:[{Id:'slow-item',Name:'Slow Item',Type:'Movie',ImageTags:{Primary:'x'},UserData:{}}]}), 1400))
+                : window.__baseGetJSONForLaneTest(url);
+              const custom=document.querySelector('.hssm-owned-custom-page .hssm-custom-page-container');
+              custom.innerHTML='';
+              custom.dataset.hssmSectionSignature='';
+              window.HomeScreenManagerClient.invalidate();
+              window.HomeScreenManagerClient.refresh();
+            }"""
+        )
+        page.wait_for_selector("#homeTab [data-hssm-section-id='manager-home-slow-0'][data-hssm-loading='true']")
+        custom_start = page.evaluate("performance.now()")
         page.locator(".hssm-custom-page-tab[data-hssm-page-id='manager-page-movies']").click()
+        page.wait_for_selector(".hssm-owned-custom-page.is-active [data-hssm-section-id='manager-movies-one'] .hssm-client-card", timeout=900)
+        custom_elapsed = page.evaluate("start => performance.now() - start", custom_start)
+        assert custom_elapsed < 900, custom_elapsed
+        page.evaluate("ApiClient.getJSON=window.__baseGetJSONForLaneTest; delete window.__baseGetJSONForLaneTest")
         page.wait_for_selector("#indexPage > .hssm-top-row[data-hssm-top-row-id='movies-page-top-row']")
         settings["TopRows"][1]["OverrideMainTopRow"] = False
         page.evaluate("window.HomeScreenManagerClient.invalidate(); window.HomeScreenManagerClient.refresh();")
@@ -705,7 +734,7 @@ def run() -> None:
           detail.id='itemDetailPage';
           detail.className='page libraryPage itemDetailPage';
           detail.style.cssText='box-sizing:border-box;min-height:1200px;padding-top:80px';
-          detail.innerHTML='<div class="detailPageWrapperContainer"><div class="detailPagePrimaryContent" data-hssm-test-detail-content>Detail poster and metadata</div></div>';
+          detail.innerHTML='<div class="detailPageWrapperContainer"><div class="detailImageContainer" style="height:200px;position:absolute"></div><div class="detailPagePrimaryContent" data-hssm-test-detail-content>Detail poster and metadata</div></div>';
           document.body.appendChild(detail);
           document.querySelector('#indexPage').classList.add('hide');
           window.__savedApiClient=window.ApiClient;
@@ -718,6 +747,8 @@ def run() -> None:
         detail_offset = page.evaluate("""() => { const page=document.querySelector('#itemDetailPage'), wrapper=page.querySelector('.detailPageWrapperContainer'), content=page.querySelector('[data-hssm-test-detail-content]'), message=document.querySelector('.hssm-top-row-message').getBoundingClientRect(), row=document.querySelector('.hssm-top-row').getBoundingClientRect(), header=document.querySelector('.skinHeader').getBoundingClientRect(); return {padding:parseFloat(getComputedStyle(page).paddingTop),pageTop:page.getBoundingClientRect().top,contentTop:content.getBoundingClientRect().top,wrapperTransform:getComputedStyle(wrapper).transform,chromeHeight:message.height+row.height,headerTop:header.top,rowBottom:row.bottom,hasSpacer:!!page.querySelector('.hssm-top-row-message-spacer,.hssm-top-row-row-spacer')}; }""")
         detail_clearance = detail_offset["contentTop"] - detail_offset["pageTop"] - detail_offset["padding"]
         assert abs(detail_offset["padding"] - 80) < 2 and abs(detail_clearance) < 2 and detail_offset["wrapperTransform"] == "none" and detail_offset["headerTop"] >= detail_offset["rowBottom"] - 1 and not detail_offset["hasSpacer"], detail_offset
+        poster_translate = page.locator("#itemDetailPage .detailImageContainer").evaluate("node => new DOMMatrixReadOnly(getComputedStyle(node).transform).m42")
+        assert 28 <= poster_translate <= 32, poster_translate
         page.evaluate("window.ApiClient=window.__savedApiClient; delete window.__savedApiClient; window.HomeScreenManagerClient.refresh()")
         page.wait_for_selector(".hssm-top-row[data-hssm-top-row-id='movies-library-top-row']")
         assert page.locator(".hssm-top-row").get_attribute("data-hssm-identity-test") is None

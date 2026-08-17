@@ -92,7 +92,7 @@ def run() -> None:
                 getPluginConfiguration:()=>Promise.resolve({CustomJavaScripts:[]}),
                 updatePluginConfiguration:()=>Promise.resolve()
               };
-              window.HomeScreenManagerClient = { version:'0.1.0.58', refresh(){} };
+              window.HomeScreenManagerClient = { version:'0.1.0.59', refresh(){} };
               window.CustomElements = { upgradeSubtree(){} };
             }
             """
@@ -121,6 +121,19 @@ def run() -> None:
         page.wait_for_function("window.__mainSettings.EnableTitleMarquee === false")
         assert page.evaluate("window.__mainSettings.TitleMarqueeSpeed") == "fast"
 
+        page.evaluate(
+            """() => {
+              window.__delayTopRowCatalog=true;
+              window.__topRowCatalogResolvers=[];
+              const baseGetJSON=ApiClient.getJSON;
+              ApiClient.getJSON=url => window.__delayTopRowCatalog && String(url).includes('Users/user/Items?IncludeItemTypes=BoxSet')
+                ? new Promise(resolve => window.__topRowCatalogResolvers.push(() => resolve({Items:[{Id:'foreign',Name:'Foreign Collection',ChildCount:20}]})))
+                : baseGetJSON(url);
+              ApiClient.getUserViews=() => window.__delayTopRowCatalog
+                ? new Promise(resolve => window.__topRowCatalogResolvers.push(() => resolve({Items:[{Id:'library',Name:'Movies',CollectionType:'movies'}]})))
+                : Promise.resolve({Items:[{Id:'library',Name:'Movies',CollectionType:'movies'}]});
+            }"""
+        )
         page.locator("[data-tab='top-row-settings']").click()
         assert page.locator("[data-tab='top-row-settings']").inner_text().strip() == "Create and Manage Top Rows"
         page.wait_for_selector("#hssmTopRowList [data-hssm-top-row-id='main-top-row']")
@@ -134,6 +147,10 @@ def run() -> None:
         assert not page.locator("#hssmDeleteTopRowButton").is_enabled()
         assert page.locator("#hssmCopyTopRowButton").is_enabled()
         page.locator("#hssmEditTopRowButton").click()
+        assert page.locator("#hssmTopRowEditor").is_visible()
+        assert "editor opened" in page.locator("#hssmTopRowStatus").inner_text()
+        page.evaluate("window.__delayTopRowCatalog=false; window.__topRowCatalogResolvers.splice(0).forEach(resolve => resolve())")
+        page.wait_for_selector("#hssmTopRowSourcePicker [data-hssm-top-row-source='foreign']")
         assert page.locator("#hssmTopRowName").input_value() == "Main Top Row"
         assert page.locator("#hssmTopRowName").is_disabled()
         assert page.locator("#hssmMainTopRowApplication").is_visible()
@@ -242,6 +259,8 @@ def run() -> None:
         assert page.locator("#hssmNewSectionSettings > .hssm-conditional-section").first.is_hidden()
         assert page.locator("#hssmTypeSpecificSettings [data-hssm-content-order]").count() == 0
         assert page.locator("#hssmTypeSpecificSettings [data-hssm-max-items]").get_attribute("type") == "number"
+        assert page.locator("#hssmTypeSpecificSettings [data-hssm-max-items]").get_attribute("placeholder") == "Jellyfin Default"
+        assert "Jellyfin’s own loaded-item limit" in page.locator("#hssmTypeSpecificSettings").inner_text()
         page.locator("#hssmTypeSpecificSettings [data-hssm-max-items]").fill("7")
         page.locator("#hssmTypeSpecificSettings [data-hssm-art-size]").select_option("large")
         page.locator("#hssmTypeSpecificSettings [data-hssm-art-shape]").select_option("circle")
@@ -300,6 +319,14 @@ def run() -> None:
         assert page.evaluate("window.__sectionSettings.Sections.find(s => s.Id === 'manager-top').ItemIds[0]") == "stale-one"
         assert page.evaluate("window.__sectionSettings.Sections.find(s => s.Id === 'manager-top').Name") == revised_top_name
         assert page.evaluate("window.__sectionSettings.Sections.find(s => s.Id === 'manager-top').Drafts[0].Name") == revised_top_name
+        page.locator("#hssmSectionList [data-section-id='manager-one']").click()
+        page.locator("#hssmSectionList [data-section-id='manager-top']").click()
+        page.locator("#hssmEditSectionButton").click()
+        page.locator("#hssmFinishSectionButton").click()
+        page.wait_for_selector("#hssmTypeSpecificSettings [data-hssm-rank-color-one]", state="attached")
+        assert page.locator("#hssmTypeSpecificSettings [data-hssm-rank-color-one]").input_value() == "#112233"
+        assert page.locator("#hssmTypeSpecificSettings [data-hssm-rank-color-two]").input_value() == "#445566"
+        assert page.locator("#hssmTypeSpecificSettings [data-hssm-rank-shadow-color]").input_value() == "#778899"
 
         page.locator("#hssmSectionPageSelect").select_option("my-list")
         page.wait_for_selector("#hssmSectionList [data-section-id='my-list-content']")

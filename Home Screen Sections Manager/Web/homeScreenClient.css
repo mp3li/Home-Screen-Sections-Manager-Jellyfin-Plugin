@@ -41,8 +41,9 @@ body.hssm-client-enabled #homeTab > .featurediframe {
     display: none !important;
 }
 
-body.hssm-client-enabled .itemDetailPage .detailImageContainer {
-    transform: translateY(25%);
+body.hssm-client-enabled .itemDetailPage:not(.hide) .detailImageContainer,
+body.hssm-client-enabled .itemDetailPage.is-active .detailImageContainer {
+    transform: translateY(15%) !important;
 }
 
 @media (min-width: 1400px) {
