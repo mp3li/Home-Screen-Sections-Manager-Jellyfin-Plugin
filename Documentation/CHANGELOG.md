@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.1.0.57-test] - 2026-08-16
+
+- Fixes severe Jellyfin browsing delays by replacing the detail-page collection N+1 request pattern with one server-side lookup and by reusing in-flight custom-section and Media Bar loads.
+- Keeps custom pages from discarding and reloading already-rendered sections, gives Media Bars an explicit loading state, and prevents stale native Media Bar content from flashing before the configured content arrives.
+- Adds per-library filtering to every Continue section type, per-section maximum-media controls including All, fuller randomization, and Top 5-100 support with corrected multi-digit rank spacing.
+- Uses Series Primary artwork and Series/episode labels for Continue episodes, expands Watch Again to the newest completed episode per series, and adds album and year information to music Media Bars.
+- Preserves Top Row content and per-row logo-shadow colors across Marquee-only saves and older SourceIds/ItemIds layouts, repaints collection/library pickers when their catalogs finish, and honors non-default logo-shadow colors in Logo Only mode.
+- Keeps the non-home chrome order as Marquee Message, Top Row, Jellyfin header, then page title/content without the native page inset becoming a blank block or letting the title overlap the Top Row.
+- Renames the message tab to **Marquee Message Settings**, keeps its page picker independent of slow collection loading, restores its Save button, and shifts only detail artwork slightly below persistent chrome.
+
 ## [0.1.0.56-test] - 2026-08-16
 
 - Removes Collection Manager's slow settings and collection-art endpoints from ordinary section editing and Top Row dashboard startup; Jellyfin libraries and collections now load directly from Jellyfin.

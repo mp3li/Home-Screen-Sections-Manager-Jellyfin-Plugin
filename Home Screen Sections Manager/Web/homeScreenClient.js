@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    var CLIENT_VERSION = "0.1.0.56";
+    var CLIENT_VERSION = "0.1.0.57";
     if (window.HomeScreenManagerClient) {
         if (window.HomeScreenManagerClient.version === CLIENT_VERSION) {
             window.HomeScreenManagerClient.refresh();
@@ -73,6 +73,7 @@
     var watchAgainRequests = {};
     var topRecoveryRequests = {};
     var topRowRenderKey = '';
+    var topRowMessageRenderKey = '';
     var topRowLoadSequence = 0;
     var topRowLibraryRouteKey = '';
     var topRowLibraryId = '';
@@ -544,7 +545,8 @@
 
     function sectionSignature(section) {
         var ids = prop(section, 'ItemIds', 'itemIds', []).map(String);
-        return JSON.stringify([String(prop(section, 'Id', 'id', '')), ids.length, ids.slice(0, 5), ids.slice(-5)]);
+        var sources = prop(section, 'SourceIds', 'sourceIds', []).map(String);
+        return JSON.stringify([String(prop(section, 'Id', 'id', '')), String(prop(section, 'Type', 'type', '')), String(prop(section, 'ContentOrder', 'contentOrder', '')), ids.length, ids.slice(0, 5), ids.slice(-5), sources]);
     }
 
     function sectionCache(section) {
@@ -601,7 +603,7 @@
 
     function loadTopItemsFromSources(section) {
         var sources = prop(section, 'SourceIds', 'sourceIds', []).map(String).filter(Boolean);
-        var limit = Math.max(5, Math.min(50, Number(prop(section, 'DisplayTopCount', 'displayTopCount', 10)) || 10));
+        var limit = Math.max(5, Math.min(100, Number(prop(section, 'DisplayTopCount', 'displayTopCount', 10)) || 10));
         var key = cacheContext() + ':' + JSON.stringify([sources, limit, String(prop(section, 'Name', 'name', ''))]);
         if (topRecoveryRequests[key]) return topRecoveryRequests[key];
         topRecoveryRequests[key] = sources.reduce(function (work, source) {
@@ -725,6 +727,11 @@
         return sorted.sort(function (left, right) { return String(prop(left, 'SortName', 'sortName', prop(left, 'Name', 'name', ''))).localeCompare(String(prop(right, 'SortName', 'sortName', prop(right, 'Name', 'name', '')))); });
     }
 
+    function maximumSectionItems(section) {
+        var value = Number(prop(section, 'MaxItems', 'maxItems', 0)) || 0;
+        return value > 0 ? Math.max(1, Math.min(100, Math.floor(value))) : Number.POSITIVE_INFINITY;
+    }
+
     function normalizedArtType(section) {
         var type = String(prop(section, 'ArtType', 'artType', 'automatic')).toLowerCase();
         var names = {
@@ -831,6 +838,7 @@
         var name = String(prop(item, 'Name', 'name', ''));
         var type = String(prop(item, 'Type', 'type', ''));
         var isMyList = String(prop(section, 'Id', 'id', '')) === 'my-list' || String(prop(section, 'Type', 'type', '')) === 'my-list-content';
+        var isContinue = isContinueSectionType(String(prop(section, 'Type', 'type', '')));
         var isWatchAgainEpisode = prop(item, '_hssmWatchAgainEpisode', '_hssmWatchAgainEpisode', false) === true;
         var isWatchAgain = String(prop(section, 'Type', 'type', '')) === 'watch-again' || isWatchAgainEpisode;
         var seriesId = String(prop(item, '_hssmWatchAgainSeriesId', '_hssmWatchAgainSeriesId', prop(item, 'SeriesId', 'seriesId', '')));
@@ -842,14 +850,14 @@
         var href = '#/details?id=' + encodeURIComponent(id) + (serverId ? '&serverId=' + encodeURIComponent(serverId) : '');
         var seriesHref = '#/details?id=' + encodeURIComponent(seriesId || id) + (serverId ? '&serverId=' + encodeURIComponent(serverId) : '');
         var shape = cardShape(section);
-        var useSeriesPrimary = type === 'Episode' && seriesId && (isMyList || isWatchAgain);
+        var useSeriesPrimary = type === 'Episode' && seriesId && (isMyList || isWatchAgain || isContinue);
         var imageItem = useSeriesPrimary ? Object.assign({}, item, { Id:seriesId, ImageTags:{ Primary:prop(item, 'SeriesPrimaryImageTag', 'seriesPrimaryImageTag', '') || 'series-primary' }, BackdropImageTags:[], ParentBackdropImageTags:[] }) : item;
         var imageUrl = cardImage(imageItem, isWatchAgain && type === 'Episode' ? Object.assign({}, section, { ArtType:'primary', artType:'primary' }) : section);
         var showText = prop(section, 'ShowText', 'showText', true) !== false;
         var imageStyle = imageUrl ? ' style="background-image:url(&quot;' + escapeHtml(imageUrl) + '&quot;)"' : '';
         var footer = '';
         var textClass = 'cardText hssm-card-text' + (shape.name === 'circle' ? ' cardTextCentered hssm-card-text-centered' : ' hssm-card-text-left');
-        if (showText && isMyList && type === 'Episode') {
+        if (showText && (isMyList || isContinue) && type === 'Episode') {
             footer = '<div class="' + textClass + ' cardText-first hssm-card-title"><bdi><a is="emby-linkbutton" href="' + escapeHtml(seriesHref) + '" class="itemAction textActionButton">' + escapeHtml(seriesName || 'Unknown Series') + '</a></bdi></div><div class="' + textClass + ' cardText-secondary hssm-card-year"><bdi><a is="emby-linkbutton" href="' + escapeHtml(href) + '" class="itemAction textActionButton">' + escapeHtml(name) + '</a></bdi></div>';
         } else if (showText && isWatchAgain && type === 'Episode') {
             var seasonNumber = Math.max(0, Number(prop(item, 'ParentIndexNumber', 'parentIndexNumber', 0)) || 0);
@@ -861,7 +869,8 @@
             var author = type === 'Book' || type === 'AudioBook' ? bookAuthor(item) : '';
             footer = '<div class="' + textClass + ' cardText-first hssm-card-title"><bdi><a is="emby-linkbutton" href="' + escapeHtml(href) + '" class="itemAction textActionButton">' + escapeHtml(name) + '</a></bdi></div>' + (author ? '<div class="' + textClass + ' cardText-secondary hssm-card-author"><bdi>' + escapeHtml(author) + '</bdi></div>' : year ? '<div class="' + textClass + ' cardText-secondary hssm-card-year"><bdi>' + escapeHtml(year) + '</bdi></div>' : '');
         }
-        var rankMarkup = rank && prop(section, 'ShowRankNumbers', 'showRankNumbers', true) !== false ? '<span class="hssm-rank-number" aria-hidden="true"><span class="hssm-rank-glyph">' + rank + '</span></span>' : '';
+        var rankDigits = String(rank || '').length;
+        var rankMarkup = rank && prop(section, 'ShowRankNumbers', 'showRankNumbers', true) !== false ? '<span class="hssm-rank-number hssm-rank-digits-' + rankDigits + '" aria-hidden="true"><span class="hssm-rank-glyph">' + rank + '</span></span>' : '';
         var playMarkup = '<div class="cardOverlayContainer itemAction" data-action="link"><a href="' + escapeHtml(href) + '" class="cardImageContainer" aria-label="' + escapeHtml(name) + '"></a>' +
             '<button is="paper-icon-button-light" type="button" class="cardOverlayButton cardOverlayButton-hover itemAction paper-icon-button-light cardOverlayFab-primary" data-action="resume" title="Play" aria-label="Play ' + escapeHtml(name) + '"><span class="material-icons cardOverlayButtonIcon cardOverlayButtonIcon-hover play_arrow" aria-hidden="true"></span></button></div>';
         return '<div class="card ' + shape.card + ' card-hoverable card-withuserdata hssm-client-card" data-id="' + escapeHtml(id) + '" data-serverid="' + escapeHtml(serverId) + '" data-type="' + escapeHtml(type) + '" data-mediatype="' + escapeHtml(mediaType) + '" data-isfolder="' + String(isFolder) + '">' +
@@ -1604,10 +1613,10 @@
         return liveViewsRequest;
     }
 
-    function nativeSectionItems(token, preferences, container) {
+    function nativeSectionItems(token, preferences, container, libraryId) {
         var native = nativeTypes(preferences);
         var index = native.indexOf(token);
-        var row = index >= 0 ? container.querySelector('.section' + index) : null;
+        var row = !libraryId && index >= 0 ? container.querySelector('.section' + index) : null;
         var ids = row ? Array.from(row.querySelectorAll('.card[data-id], [data-id].card')).map(function (node) { return node.getAttribute('data-id'); }).filter(Boolean) : [];
         if (ids.length) return queryIds(ids.slice(0, 30)).then(function (items) {
             return items.map(function (item) { return Object.assign({}, item, { _source: token === 'resume' ? 'resume' : token }); });
@@ -1615,8 +1624,10 @@
         var userId = currentUserId();
         if (token === 'resume' || token === 'resumeaudio' || token === 'resumebook') {
             var resumeOptions = { Limit: 30, Recursive: true, Fields: 'Overview,PrimaryImageAspectRatio,PrimaryImageItemId,PrimaryImageTag,DateCreated,PremiereDate,ProductionYear,OfficialRating,CommunityRating,SortName,Tags,RunTimeTicks,UserData,SeriesName,SeriesId,ParentIndexNumber,IndexNumber,ParentLogoImageTag,ParentLogoItemId,Artists,AlbumArtists,ArtistItems,Album,AlbumId', ImageTypeLimit:1, EnableImageTypes:'Primary,Backdrop,Banner,Thumb,Logo' };
+            if (token === 'resume') resumeOptions.MediaTypes = 'Video';
             if (token === 'resumeaudio') resumeOptions.MediaTypes = 'Audio';
             if (token === 'resumebook') resumeOptions.MediaTypes = 'Book';
+            if (libraryId) resumeOptions.ParentId = resolvedLibraryId(libraryId);
             return getJson('Users/' + encodeURIComponent(userId) + '/Items/Resume', resumeOptions).then(responseItems).then(function (items) {
                 return items.map(function (item) { return Object.assign({}, item, { _source: 'resume' }); });
             });
@@ -1646,13 +1657,20 @@
         return ['continue-watching','continue-listening','continue-reading','continue-watching-listening','continue-reading-listening'].indexOf(String(type || '')) >= 0;
     }
 
-    function continueSectionItems(type, preferences, container) {
+    function continueSectionItems(section, preferences, container) {
+        var type = String(prop(section, 'Type', 'type', ''));
         var tokens = type === 'continue-watching' ? ['resume']
             : type === 'continue-listening' ? ['resumeaudio']
             : type === 'continue-reading' ? ['resumebook']
             : type === 'continue-watching-listening' ? ['resume','resumeaudio']
             : ['resumebook','resumeaudio'];
-        return Promise.all(tokens.map(function (token) { return nativeSectionItems(token, preferences || {}, container || document); })).then(function (groups) {
+        var libraries = prop(section, 'SourceIds', 'sourceIds', []).map(String).filter(Boolean);
+        var requests = [];
+        tokens.forEach(function (token) {
+            if (libraries.length) libraries.forEach(function (libraryId) { requests.push(nativeSectionItems(token, preferences || {}, container || document, libraryId)); });
+            else requests.push(nativeSectionItems(token, preferences || {}, container || document));
+        });
+        return Promise.all(requests).then(function (groups) {
             return uniqueItems(groups.flat()).sort(function (left, right) { return dateValue(right, 'completed') - dateValue(left, 'completed'); });
         });
     }
@@ -1681,17 +1699,23 @@
 
     function dynamicSectionItems(section, preferences, container) {
         var type = String(prop(section, 'Type', 'type', ''));
-        if (isContinueSectionType(type)) return continueSectionItems(type, preferences, container);
+        if (isContinueSectionType(type)) return continueSectionItems(section, preferences, container);
         if (type.indexOf('recently-listened-') === 0) return recentListeningItems(type);
         if (type === 'recently-added-library') {
             var libraryId = String((prop(section, 'SourceIds', 'sourceIds', []) || [])[0] || '');
-            return libraryId ? queryItems({ ParentId:resolvedLibraryId(libraryId), Recursive:true, SortBy:'DateCreated', SortOrder:'Descending', Limit:200, EnableTotalRecordCount:false }).then(withoutNavigationFolders) : Promise.resolve([]);
+            return libraryId ? queryItems({ ParentId:resolvedLibraryId(libraryId), Recursive:true, SortBy:'DateCreated', SortOrder:'Descending', Limit:30, EnableTotalRecordCount:false }).then(withoutNavigationFolders) : Promise.resolve([]);
         }
         return null;
     }
 
     function mediaBarSectionItems(section) {
         var type = String(prop(section, 'Type', 'type', ''));
+        var id = String(prop(section, 'Id', 'id', ''));
+        var activeState = sectionRuntime[id];
+        if (activeState && sectionStateIsCurrent(activeState)) {
+            if (activeState.refreshPromise) return activeState.refreshPromise.then(function () { return orderItems(uniqueItems(activeState.items || []), section).slice(0, 30); });
+            if (activeState.items && activeState.items.length) return Promise.resolve(orderItems(uniqueItems(activeState.items), section).slice(0, 30));
+        }
         var dynamic = dynamicSectionItems(section, latestNativePreferences || {}, activeManagedSectionContainer() || document);
         if (dynamic) return dynamic.then(function (items) { return orderItems(uniqueItems(items), section).slice(0, 30); });
         if (type === 'watch-again') {
@@ -1714,7 +1738,7 @@
         if (type === 'top-10-50' && !prop(section, 'ItemIds', 'itemIds', []).length) {
             return loadTopItemsFromSources(section);
         }
-        var ids = prop(section, 'ItemIds', 'itemIds', []).map(String).slice(0, 30);
+        var ids = sectionPageIds(section, 0, 30);
         var cached = sectionCache(section);
         if (!ids.length) return Promise.resolve([]);
         return queryIds(ids).then(function (items) { return orderItems(uniqueItems(items), section).slice(0, 30); }, function () {
@@ -1770,6 +1794,8 @@
                 return Object.assign({}, enriched, {
                     _hssmMusicArtistId:artistId,
                     _hssmMusicArtists:personNames(prop(item, 'ArtistItems', 'artistItems', [])).concat(personNames(prop(item, 'Artists', 'artists', []))).filter(function (name, index, values) { return values.indexOf(name) === index; }).join(', '),
+                    _hssmMusicAlbum:String(prop(album, 'Name', 'name', prop(item, 'Album', 'album', '')) || ''),
+                    _hssmMusicYear:Number(prop(album, 'ProductionYear', 'productionYear', prop(item, 'ProductionYear', 'productionYear', 0))) || 0,
                     _hssmArtistBackdropItemId:artistId,
                     _hssmArtistBackdropImageTag:String(artistBackdrops[0] || ''),
                     _hssmArtistLogoItemId:artistId,
@@ -2031,10 +2057,11 @@
         } catch (_) {}
         if (matchingCachedPayload) sendMediaBarPayload(frame);
         else {
-            mediaBarPayload = null;
-            frame._hssmPayload = null;
+            mediaBarPayload = { type:'home-screen-manager-media-bar', action:'configure', items:[], loading:true, intervalSeconds:interval, imageType:requestedImage, slowZoom:requestedSlowZoom, topGradient:true };
+            frame._hssmPayload = mediaBarPayload;
             mediaBarSourceKey = '';
             frame.dataset.hssmMediaBarPending = 'true';
+            sendMediaBarPayload(frame, true);
         }
         return source.items.then(resolveMediaBarLogos).then(function (items) {
             if (loadSequence !== mediaBarLoadSequence || container !== activeHomeContainer()) return;
@@ -2043,6 +2070,7 @@
                 type: 'home-screen-manager-media-bar',
                 action: 'configure',
                 items: items,
+                loading:false,
                 intervalSeconds: interval,
                 imageType: requestedImage,
                 slowZoom: requestedSlowZoom,
@@ -2057,7 +2085,7 @@
         }).catch(function (error) {
             if (loadSequence !== mediaBarLoadSequence || container !== activeHomeContainer()) return;
             console.warn('[Home Screen Manager] Could not load the selected media-bar source.', error);
-            mediaBarPayload = { type: 'home-screen-manager-media-bar', action: 'configure', items: [], intervalSeconds: 5, imageType: 'backdrop', slowZoom:requestedSlowZoom, topGradient:true };
+            mediaBarPayload = { type: 'home-screen-manager-media-bar', action: 'configure', items: [], loading:false, intervalSeconds: 5, imageType: 'backdrop', slowZoom:requestedSlowZoom, topGradient:true };
             frame._hssmPayload = mediaBarPayload;
             sendMediaBarPayload(frame);
         });
@@ -2118,9 +2146,13 @@
             var firstOnPage = visibleOrder.length ? visibleOrder[0] === id : configured[0] === section;
             var frame = ensureSectionMediaBarFrame(container, settings, section, sourceNode, firstOnPage);
             if (!frame) return;
-            var payload = { type:'home-screen-manager-media-bar', action:'configure', items:[], intervalSeconds:Math.max(1,Math.min(300,Number(setting(settings,'MediaBarIntervalSeconds',5))||5)), imageType:String(setting(settings,'MediaBarImageType','abyss-original')), slowZoom:setting(settings,'EnableMediaBarSlowZoom',true)!==false, topGradient:true };
+            var requestSignature = sectionSignature(section);
+            if (frame.dataset.hssmSectionRequestSignature === requestSignature && (frame._hssmItemsRequest || (frame._hssmPayload && frame._hssmPayload.items && frame._hssmPayload.items.length))) return;
+            frame.dataset.hssmSectionRequestSignature = requestSignature;
+            var payload = { type:'home-screen-manager-media-bar', action:'configure', items:[], loading:true, intervalSeconds:Math.max(1,Math.min(300,Number(setting(settings,'MediaBarIntervalSeconds',5))||5)), imageType:String(setting(settings,'MediaBarImageType','abyss-original')), slowZoom:setting(settings,'EnableMediaBarSlowZoom',true)!==false, topGradient:true };
             frame._hssmPayload = payload;
-            mediaBarSectionItems(section).then(resolveMediaBarLogos).then(function (items) { if(!frame.isConnected)return; payload.items=items; frame._hssmPayload=payload; sendMediaBarPayload(frame,true,payload); }, function () { sendMediaBarPayload(frame,true,payload); });
+            sendMediaBarPayload(frame, true, payload);
+            frame._hssmItemsRequest = mediaBarSectionItems(section).then(resolveMediaBarLogos).then(function (items) { if(!frame.isConnected || frame.dataset.hssmSectionRequestSignature !== requestSignature)return; payload.items=items; payload.loading=false; frame._hssmPayload=payload; sendMediaBarPayload(frame,true,payload); }, function () { payload.loading=false; sendMediaBarPayload(frame,true,payload); }).finally(function () { frame._hssmItemsRequest = null; });
         });
         applyHybridOrder(container, scoped, preferences || {});
     }
@@ -2453,10 +2485,10 @@
         var page = activePage(); if (!page || page.querySelector('.hssm-detail-collections') || collectionsWorkKey === id) return;
         var content = page.querySelector('.detailPageContent'); if (!content) return;
         collectionsWorkKey = id;
-        queryItems({ IncludeItemTypes: 'BoxSet', Recursive: true, Limit: 1000 }).then(function (collections) {
-            return Promise.all(collections.map(function (collection) { return queryItems({ ParentId: prop(collection, 'Id', 'id', ''), Recursive: false, Limit: 1000 }).then(function (members) { return members.some(function (member) { return String(prop(member, 'Id', 'id', '')) === id; }) ? collection : null; }); }));
+        getJson('HomeScreenSectionsManager/items/' + encodeURIComponent(id) + '/collections').then(function (result) {
+            return queryIds(prop(result, 'ItemIds', 'itemIds', []).map(String).filter(Boolean));
         }).then(function (collections) {
-            collections = collections.filter(Boolean); if (!collections.length || !content.isConnected) return;
+            if (!collections.length || !content.isConnected) return;
             var definition = { Id: 'detail-collections', Name: 'Also Part of These Collections', ArtSize: 'small', ArtType: 'primary', ArtShape: 'poster', ShowText: true };
             var node = sectionNode(definition, collections); node.classList.add('hssm-detail-collections'); node.hidden = false;
             var similar = content.querySelector('#similarCollapsible'); if (similar) content.insertBefore(node, similar); else content.appendChild(node);
@@ -2748,8 +2780,20 @@
     }
     function sectionPageIds(section, cursor, limit) {
         var ids = prop(section, 'ItemIds', 'itemIds', []).map(String).filter(Boolean);
+        if (String(prop(section, 'ContentOrder', 'contentOrder', '')) === 'random') {
+            if (!section._hssmRandomIds || section._hssmRandomIds.length !== ids.length) {
+                section._hssmRandomIds = ids.slice();
+                for (var randomIndex = section._hssmRandomIds.length - 1; randomIndex > 0; randomIndex--) {
+                    var swapIndex = Math.floor(Math.random() * (randomIndex + 1));
+                    var swap = section._hssmRandomIds[randomIndex];
+                    section._hssmRandomIds[randomIndex] = section._hssmRandomIds[swapIndex];
+                    section._hssmRandomIds[swapIndex] = swap;
+                }
+            }
+            ids = section._hssmRandomIds;
+        }
         if (String(prop(section, 'Type', 'type', '')) === 'top-10-50') {
-            ids = ids.slice(0, Math.max(5, Math.min(50, Number(prop(section, 'DisplayTopCount', 'displayTopCount', 10)) || 10)));
+            ids = ids.slice(0, Math.max(5, Math.min(100, Number(prop(section, 'DisplayTopCount', 'displayTopCount', 10)) || 10)));
         }
         return ids.slice(cursor, cursor + limit);
     }
@@ -2771,14 +2815,17 @@
 
     function loadDynamicPage(state) {
         if (!state || !state.dynamicLoader || state.loading || state.complete || state.generation !== runtimeGeneration) return;
+        var maximum = maximumSectionItems(state.section);
+        if (state.cursor >= maximum) { state.complete = true; return; }
         state.loading = true;
         var start = state.cursor;
-        homeRequestLane(function () { return state.dynamicLoader(start, 40); }).then(function (items) {
+        var pageSize = Math.min(40, maximum - start);
+        homeRequestLane(function () { return state.dynamicLoader(start, pageSize); }).then(function (items) {
             if (!sectionStateIsCurrent(state) || state.generation !== runtimeGeneration || !state.container.isConnected) return;
             items = uniqueItems(items || []);
             state.items = uniqueItems(state.items.concat(items));
             state.cursor = start + items.length;
-            state.complete = Number.isFinite(state.dynamicTotal) ? state.cursor >= state.dynamicTotal : items.length < 40;
+            state.complete = state.cursor >= maximum || (Number.isFinite(state.dynamicTotal) ? state.cursor >= state.dynamicTotal : items.length < pageSize);
             saveSectionCache(state.section, state.items, state.cursor);
             paintSectionState(state, false);
         }).catch(function (error) {
@@ -2797,7 +2844,7 @@
         var oldNode = state.node;
         var oldScroller = oldNode && oldNode.querySelector('.hssm-client-scroller');
         var oldScrollLeft = oldScroller ? Number(oldScroller.dataset.hssmOwnedOffset || oldScroller.scrollLeft || 0) : 0;
-        var ordered = orderItems(uniqueItems(state.items), state.section);
+        var ordered = orderItems(uniqueItems(state.items), state.section).slice(0, maximumSectionItems(state.section));
         var nextNode = sectionNode(state.section, ordered, loading, !!state.container.closest('.hssm-owned-custom-page'));
         if (oldNode && oldNode.isConnected) oldNode.replaceWith(nextNode);
         else state.container.appendChild(nextNode);
@@ -2816,7 +2863,9 @@
 
     function loadSectionPage(state) {
         if (!state || state.loading || state.complete || state.generation !== runtimeGeneration) return;
-        var pageIds = sectionPageIds(state.section, state.cursor, 40);
+        var maximum = maximumSectionItems(state.section);
+        if (state.cursor >= maximum) { state.complete = true; return; }
+        var pageIds = sectionPageIds(state.section, state.cursor, Math.min(40, maximum - state.cursor));
         if (!pageIds.length) {
             state.complete = true;
             if (!state.items.length) paintSectionState(state, false);
@@ -2828,7 +2877,7 @@
             if (['library-content','multiple-library-content'].indexOf(String(prop(state.section, 'Type', 'type', ''))) >= 0) items = withoutNavigationFolders(items);
             state.items = uniqueItems(state.items.concat(items));
             state.cursor += pageIds.length;
-            state.complete = sectionPageIds(state.section, state.cursor, 1).length === 0;
+            state.complete = state.cursor >= maximum || sectionPageIds(state.section, state.cursor, 1).length === 0;
             saveSectionCache(state.section, state.items, state.cursor);
             paintSectionState(state, false);
         }).catch(function (error) {
@@ -2845,9 +2894,13 @@
         var request = null;
         state.dynamicLoader = null;
         state.dynamicTotal = null;
-        var automaticRequest = dynamicSectionItems(state.section, state.preferences, state.container);
+        var automaticRequest = type === 'recently-added-library' ? null : dynamicSectionItems(state.section, state.preferences, state.container);
         if (automaticRequest) {
             request = automaticRequest.then(function (items) { state.dynamicTotal = items.length; return items; });
+        } else if (type === 'recently-added-library') {
+            var recentLibraryId = String((prop(state.section, 'SourceIds', 'sourceIds', []) || [])[0] || '');
+            state.dynamicLoader = function (start, limit) { return queryItems({ ParentId:resolvedLibraryId(recentLibraryId), Recursive:true, SortBy:'DateCreated', SortOrder:'Descending', StartIndex:start, Limit:limit, EnableTotalRecordCount:false }).then(withoutNavigationFolders); };
+            request = recentLibraryId ? state.dynamicLoader(0, Math.min(40, maximumSectionItems(state.section))) : Promise.resolve([]);
         } else if (type === "my-list-content") {
             request = loadLikedItems(true).then(function (items) {
                 state.dynamicTotal = items.length;
@@ -2897,16 +2950,17 @@
             }
         }
         if (!request) return;
-        return Promise.resolve(request).then(function (items) {
+        state.refreshPromise = Promise.resolve(request).then(function (items) {
             if (!sectionStateIsCurrent(state) || state.generation !== runtimeGeneration || !state.container.isConnected) return;
-            state.items = uniqueItems(items || []);
+            state.items = uniqueItems(items || []).slice(0, maximumSectionItems(state.section));
             state.cursor = state.items.length;
             state.complete = Number.isFinite(state.dynamicTotal) ? state.cursor >= state.dynamicTotal : state.items.length < 40;
             saveSectionCache(state.section, state.items, state.cursor);
             paintSectionState(state, false);
         }).catch(function (error) {
             console.warn("[Home Screen Manager] A dynamic section could not refresh; its saved content remains visible.", error);
-        });
+        }).finally(function () { state.refreshPromise = null; });
+        return state.refreshPromise;
     }
 
     function initializeSection(section, container, settings, preferences, generation) {
@@ -2935,9 +2989,11 @@
         else if (!cached || !cached.items.length) loadSectionPage(state);
         else state.complete = sectionPageIds(section, state.cursor, 1).length === 0;
         if (type === 'my-list-content' || type === 'watch-again' || recoversTop || isAutomatic || type === 'other-users-activity' || type === 'rotating-sections' || type === 'seasonal-sections') {
-            window.setTimeout(function () {
-                if (state.generation === runtimeGeneration && sectionStateIsCurrent(state)) homeRequestLane(function () { return loadDynamicSection(state); });
-            }, type === 'my-list-content' || type === 'watch-again' || recoversTop || isAutomatic ? 0 : 800);
+            var delay = type === 'my-list-content' || type === 'watch-again' || recoversTop || isAutomatic ? 0 : 800;
+            if (!delay) state.refreshPromise = homeRequestLane(function () { return loadDynamicSection(state); });
+            else window.setTimeout(function () {
+                if (state.generation === runtimeGeneration && sectionStateIsCurrent(state)) state.refreshPromise = homeRequestLane(function () { return loadDynamicSection(state); });
+            }, delay);
         }
         return state;
     }
@@ -2956,6 +3012,21 @@
             var name = String(prop(item, 'Name', 'name', '') || '').trim();
             if (name) applyPageContextTitle(scope, name);
         }).catch(function () {});
+    }
+
+    function placePageContextTitleAfterTopChrome(target, heading) {
+        if (!target || !heading) return;
+        var chromeNodes = Array.from(target.children).filter(function (node) {
+            return node !== heading && node.classList && (
+                node.classList.contains('hssm-top-row-message') ||
+                node.classList.contains('hssm-top-row') ||
+                node.classList.contains('hssm-top-row-message-spacer') ||
+                node.classList.contains('hssm-top-row-row-spacer')
+            );
+        });
+        var anchor = chromeNodes.length ? chromeNodes[chromeNodes.length - 1] : null;
+        var destination = anchor ? anchor.nextSibling : target.firstChild;
+        if (destination !== heading) target.insertBefore(heading, destination);
     }
 
     function applyPageContextTitle(scope, explicitTitle) {
@@ -2990,8 +3061,8 @@
         if (!heading) {
             heading = document.createElement("h1");
             heading.className = "hssm-page-context-title";
-            target.insertBefore(heading, target.firstChild);
         }
+        placePageContextTitleAfterTopChrome(target, heading);
         heading.textContent = title;
         Array.from(document.querySelectorAll(".pageTitle.hssm-page-context-source")).forEach(function (node) {
             if (node !== source) node.classList.remove("hssm-page-context-source");
@@ -3015,6 +3086,7 @@
     }
 
     function removeTopRowMessage() {
+        topRowMessageRenderKey = '';
         var message = document.querySelector('.hssm-top-row-message');
         if (message && message._hssmResizeHandler) window.removeEventListener('resize', message._hssmResizeHandler);
         if (message) message.remove();
@@ -3028,12 +3100,37 @@
         Array.from(document.querySelectorAll('.hssm-top-row-' + kind + '-spacer')).forEach(function (spacer) { spacer.remove(); });
     }
 
+    function syncTopChromeFlowInset(flowHost) {
+        if (!flowHost) return;
+        var nodes = Array.from(flowHost.children).filter(function (node) {
+            return node.classList && (
+                node.classList.contains('hssm-top-row-message') ||
+                node.classList.contains('hssm-top-row') ||
+                node.classList.contains('hssm-top-row-message-spacer') ||
+                node.classList.contains('hssm-top-row-row-spacer')
+            );
+        });
+        nodes.forEach(function (node) { node.style.removeProperty('margin-top'); });
+        if (!nodes.length || flowHost.id === 'indexPage' || flowHost.classList.contains('itemDetailPage')) return;
+        // Jellyfin's ordinary library/list pages already include a large top
+        // padding for their native header. The plugin chrome is intentionally
+        // above that header, so pull only its first flow placeholder/element
+        // through the pre-existing inset and leave the page content untouched.
+        var nativeInset = Math.max(0, parseFloat(getComputedStyle(flowHost).paddingTop) || 0);
+        if (nativeInset > 0) nodes[0].style.setProperty('margin-top', (-nativeInset).toFixed(2) + 'px');
+    }
+
     function placeTopChromeElement(element, flowHost, persistent, kind) {
         if (!element || !flowHost) return;
         element._hssmFlowHost = flowHost;
         clearTopChromeSpacer(kind);
         if (persistent) {
-            if (flowHost.id === 'indexPage') {
+            // Ordinary pages need a flow placeholder for a fixed Top Row
+            // element; otherwise their first heading can occupy the same
+            // vertical slot and appear between the row and message. Jellyfin
+            // detail pages already settle their own content beneath the
+            // shifted header and intentionally keep their native layout.
+            if (!flowHost.classList.contains('itemDetailPage')) {
                 var spacer = document.createElement('div');
                 spacer.className = 'hssm-top-row-' + kind + '-spacer';
                 spacer.setAttribute('aria-hidden', 'true');
@@ -3047,6 +3144,7 @@
                 }
             }
             if (element.parentNode !== document.body) document.body.appendChild(element);
+            syncTopChromeFlowInset(flowHost);
             return;
         }
         if (kind === 'message') flowHost.insertBefore(element, flowHost.firstChild);
@@ -3056,6 +3154,7 @@
             var after = message || messageGap;
             flowHost.insertBefore(element, after ? after.nextSibling : flowHost.firstChild);
         }
+        syncTopChromeFlowInset(flowHost);
     }
 
     function clearTopChromeContentOffsets(except) {
@@ -3073,6 +3172,10 @@
     function applyTopChromeContentOffset(offset) {
         var page = activePage();
         if (!page || page.id === 'indexPage' || isHomeRoute() || offset <= 0 || isPlaybackScreen() || isDashboardScreen()) {
+            clearTopChromeContentOffsets(null);
+            return;
+        }
+        if (page.querySelector(':scope > .hssm-top-row-message-spacer, :scope > .hssm-top-row-row-spacer')) {
             clearTopChromeContentOffsets(null);
             return;
         }
@@ -3113,6 +3216,8 @@
         var header = document.querySelector('.skinHeader');
         if (!header) return;
         syncTopChromeFlowHosts();
+        var activeHost = topChromeHost(true);
+        if (activeHost) syncTopChromeFlowInset(activeHost);
         var message = document.querySelector('.hssm-top-row-message');
         var row = document.querySelector('.hssm-top-row');
         var persistentOffset = 0;
@@ -3210,17 +3315,29 @@
             return;
         }
         if (!host) { removeTopRowMessage(); return; }
-        var message = existing || document.createElement('aside');
         var persistent = setting(settings, 'TopRowMessagePersistent', false) === true;
+        var colorMode = String(setting(settings, 'TopRowMessageBarColorMode', 'solid'));
+        var barColorOne = String(setting(settings, 'TopRowMessageBarColorOne', '#000000'));
+        var barColorTwo = String(setting(settings, 'TopRowMessageBarColorTwo', '#333333'));
+        var fontColor = String(setting(settings, 'TopRowMessageFontColor', '#ffffff'));
+        var shadow = String(setting(settings, 'TopRowMessageFontShadowColor', '') || '');
+        var speed = String(setting(settings, 'TopRowMessageMarqueeSpeed', 'normal'));
+        var fontData = String(setting(settings, 'TopRowMessageFontDataUrl', '') || '');
+        var signature = JSON.stringify([persistent, alwaysShow, text, colorMode, barColorOne, barColorTwo, fontColor, shadow, speed, fontData]);
+        if (existing && topRowMessageRenderKey === signature) {
+            existing.dataset.hssmAlwaysShow = alwaysShow ? 'true' : 'false';
+            placeTopChromeElement(existing, host, persistent, 'message');
+            syncTopChromeHeaderOffset();
+            return;
+        }
+        var message = existing || document.createElement('aside');
+        topRowMessageRenderKey = signature;
         message.className = 'hssm-top-row-message' + (persistent ? ' hssm-top-row-message-persistent' : '');
         message.dataset.hssmAlwaysShow = alwaysShow ? 'true' : 'false';
-        message.style.background = colorPaint(String(setting(settings, 'TopRowMessageBarColorMode', 'solid')), String(setting(settings, 'TopRowMessageBarColorOne', '#000000')), String(setting(settings, 'TopRowMessageBarColorTwo', '#333333')));
-        message.style.color = String(setting(settings, 'TopRowMessageFontColor', '#ffffff'));
-        var shadow = String(setting(settings, 'TopRowMessageFontShadowColor', '') || '');
+        message.style.background = colorPaint(colorMode, barColorOne, barColorTwo);
+        message.style.color = fontColor;
         message.style.textShadow = /^#[0-9a-f]{6}$/i.test(shadow) ? '0 1px 3px ' + shadow : 'none';
-        var speed = String(setting(settings, 'TopRowMessageMarqueeSpeed', 'normal'));
         message.style.setProperty('--hssm-message-marquee-duration', ({ 'extra-slow':'34s', slow:'26s', normal:'18s', fast:'12s', faster:'8s' })[speed] || '18s');
-        var fontData = String(setting(settings, 'TopRowMessageFontDataUrl', '') || '');
         var fontStyle = document.getElementById('hssm-top-row-message-font');
         if (fontData) {
             if (!fontStyle) { fontStyle = document.createElement('style'); fontStyle.id = 'hssm-top-row-message-font'; document.head.appendChild(fontStyle); }
@@ -3367,7 +3484,7 @@
         var scalableBox = sourceScalable ? sourceScalable.getBoundingClientRect() : sourceBox;
         var sourceArt = source.querySelector('.cardImageContainer');
         var radius = sourceArt ? getComputedStyle(sourceArt).borderRadius : '';
-        var scale = 0.82;
+        var scale = 0.72;
         if (sourceBox.width > 0) row.style.setProperty('--hssm-top-row-card-width', (sourceBox.width * scale).toFixed(2) + 'px');
         if (scalableBox.height > 0) row.style.setProperty('--hssm-top-row-card-height', (scalableBox.height * scale).toFixed(2) + 'px');
         if (radius) {
@@ -3430,7 +3547,8 @@
         var section = definition ? prop(definition, 'Section', 'section', null) : null;
         if (section) section._hssmTargetLibraryId = String(prop(definition, 'TargetType', 'targetType', '')) === 'library' ? String(prop(definition, 'TargetId', 'targetId', '')) : '';
         var pageId = activeTopRowPageId();
-        var sourceIds = prop(section, 'ItemIds', 'itemIds', prop(section, 'SourceIds', 'sourceIds', []) || []).map(String).filter(Boolean);
+        var itemIds = (prop(section, 'ItemIds', 'itemIds', []) || []).map(String).filter(Boolean);
+        var sourceIds = itemIds.concat((prop(section, 'SourceIds', 'sourceIds', []) || []).map(String).filter(function (id) { return id && itemIds.indexOf(id) < 0; }));
         var logoCollectionIds = new Set((setting(settings, 'TopRowLogoCollectionIds', []) || []).map(normalizedTopRowItemId));
         var visible = enabled && !isPlaybackScreen() && !isDashboardScreen() && section && sourceIds.length;
         var header = document.querySelector('.skinHeader');
@@ -3753,7 +3871,7 @@
                         applyHybridOrder(homeContainer, settings, cachedPreferences);
                         applyRouteFeatures(settings, homeContainer.closest('.libraryPage, .page') || homeContainer, true, cachedPreferences);
                     }
-                    if (!primeCachedMediaBar()) renderMediaBar(settings, cachedPreferences, homeContainer, sections);
+                    renderMediaBar(settings, cachedPreferences, homeContainer, sections);
                     renderExplicitMediaBars(settings, homeContainer, sections, cachedPreferences);
                     nativePreferences().then(function (preferences) {
                         if (generation !== routeGeneration || homeContainer !== activeHomeContainer()) return;

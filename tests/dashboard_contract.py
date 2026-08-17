@@ -92,7 +92,7 @@ def run() -> None:
                 getPluginConfiguration:()=>Promise.resolve({CustomJavaScripts:[]}),
                 updatePluginConfiguration:()=>Promise.resolve()
               };
-              window.HomeScreenManagerClient = { version:'0.1.0.56', refresh(){} };
+              window.HomeScreenManagerClient = { version:'0.1.0.57', refresh(){} };
               window.CustomElements = { upgradeSubtree(){} };
             }
             """
@@ -153,11 +153,11 @@ def run() -> None:
         assert page.locator("#hssmTopRowSettingsPanel [data-hssm-show-text]").count() == 0
         assert page.locator("#hssmTopRowSettingsPanel [data-hssm-show-section-name]").count() == 0
         assert not page.locator("#hssmTopRowDisplayLogosOnly").is_checked()
-        assert page.get_by_text("Marquee Message Settings", exact=True).count() == 1
-        assert not page.get_by_text("Marquee Message Settings", exact=True).is_visible()
+        assert page.locator('[data-tab="marquee-message"]', has_text="Marquee Message Settings").count() == 1
+        assert not page.locator('[data-panel="marquee-message"] h2', has_text="Marquee Message Settings").is_visible()
         page.locator("[data-tab='marquee-message']").click()
-        assert page.locator("[data-tab='marquee-message']").inner_text().strip() == "Marquee Message"
-        assert page.get_by_text("Marquee Message Settings", exact=True).is_visible()
+        assert page.locator("[data-tab='marquee-message']").inner_text().strip() == "Marquee Message Settings"
+        assert page.locator('[data-panel="marquee-message"] h2', has_text="Marquee Message Settings").is_visible()
         assert page.locator("#hssmDisableTopRowMessage").is_checked()
         assert page.locator("#hssmTopRowMessagePagePicker [data-hssm-top-row-message-page='home']").is_checked()
         appearance_gaps = page.locator(".hssm-message-appearance-grid").evaluate("node => ({gap:parseFloat(getComputedStyle(node).rowGap),groups:node.querySelectorAll('.hssm-message-appearance-group').length})")
@@ -252,7 +252,7 @@ def run() -> None:
         page.locator("#hssmFinishSectionButton").click()
         page.wait_for_function("!document.querySelector('#hssmTypeSpecificSettings [data-hssm-save-move]').disabled")
         assert page.locator("#hssmTypeSpecificSettings [data-hssm-content-order]").input_value() == "rating-descending"
-        assert page.get_by_text("Top 5-50 Settings", exact=True).count() == 1
+        assert page.get_by_text("Top 5-100 Settings", exact=True).count() == 1
         assert page.locator("#hssmTypeSpecificSettings [data-hssm-display-top] option[value='5']").count() == 1
         revised_top_name = "Top 20 in Foreign Collection - My Picks"
         page.locator("#hssmTypeSpecificSettings [data-hssm-top-draft-name]").fill(revised_top_name)
@@ -390,7 +390,9 @@ def run() -> None:
         page.locator("#hssmSectionList [data-hssm-inline-section-name]").fill("Continue Watching and Listening")
         page.locator("input[name='hssmType'][value='continue-watching-listening']").check()
         page.locator("#hssmFinishSectionButton").click()
-        page.locator("#hssmTypeSpecificSettings").get_by_text("Create one user-specific section combining resumable video and audio content. No content selection is required.", exact=True).wait_for()
+        page.locator("#hssmTypeSpecificSettings").get_by_text("Choose which Jellyfin libraries can supply resumable content. Existing sections default to every library.", exact=True).wait_for()
+        page.wait_for_selector("#hssmTypeSpecificSettings [data-hssm-continue-library]")
+        assert all(page.locator("#hssmTypeSpecificSettings [data-hssm-continue-library]").evaluate_all("nodes => nodes.map(node => node.checked)"))
         assert "Loading section settings…" not in page.locator("#hssmTypeSpecificSettings").inner_text()
 
         page.locator("#hssmAddSectionButton").click()

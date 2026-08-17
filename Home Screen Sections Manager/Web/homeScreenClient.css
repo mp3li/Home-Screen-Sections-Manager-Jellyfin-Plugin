@@ -37,6 +37,14 @@
     display: none !important;
 }
 
+body.hssm-client-enabled #homeTab > .featurediframe {
+    display: none !important;
+}
+
+body.hssm-client-enabled .itemDetailPage .detailImageContainer {
+    transform: translateY(25%);
+}
+
 @media (min-width: 1400px) {
     .hssm-owned-media-bar { --hssm-media-bar-base-height: 72vh; --hssm-media-bar-base-max-height: 760px; }
 }
@@ -580,7 +588,7 @@ body.hssm-top-row-enabled #indexPage {
     box-sizing: border-box;
     display: flex;
     font-size: clamp(0.9em, 1.15vw, 1.08em);
-    font-weight: 600;
+    font-weight: 400;
     justify-content: center;
     line-height: 1.25;
     min-height: 2.35em;
@@ -1139,7 +1147,7 @@ body.hssm-infinite-scroll-active .listPaging {
 .hssm-top-ranked.hssm-shape-circle.hssm-size-extra-large { --hssm-rank-size: 12em; }
 
 .hssm-top-ranked .hssm-client-items {
-    gap: 1.15em;
+    gap: 1.3em;
 }
 
 .hssm-top-ranked .hssm-client-card {
@@ -1190,6 +1198,18 @@ body.hssm-infinite-scroll-active .listPaging {
 .hssm-rank-glyph {
     color: inherit;
     display: inline-block;
+}
+
+.hssm-rank-number.hssm-rank-digits-2 {
+    letter-spacing: -0.09em;
+    right: calc(100% - 0.1em);
+    width: 1.02em;
+}
+
+.hssm-rank-number.hssm-rank-digits-3 {
+    letter-spacing: -0.12em;
+    right: calc(100% - 0.06em);
+    width: 1.4em;
 }
 
 .hssm-rank-vertical-gradient .hssm-rank-glyph,

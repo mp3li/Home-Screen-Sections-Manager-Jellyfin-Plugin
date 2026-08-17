@@ -225,6 +225,9 @@ public sealed class HomeScreenSectionDefinition
     /// <summary>Gets or sets the selected ordering applied to the section's displayed content.</summary>
     public string ContentOrder { get; set; } = "title-ascending";
 
+    /// <summary>Gets or sets the maximum displayed media count; zero means all available media.</summary>
+    public int MaxItems { get; set; }
+
     /// <summary>Gets or sets the selected home-screen art size.</summary>
     public string ArtSize { get; set; } = "medium";
 
@@ -512,6 +515,8 @@ public sealed class ApplySectionRequest
 
     /// <summary>Gets or sets the selected content ordering.</summary>
     public string ContentOrder { get; set; } = "title-ascending";
+
+    public int MaxItems { get; set; }
 
     /// <summary>Gets or sets the item identifiers in their final manual order.</summary>
     public List<string>? ItemIds { get; set; }

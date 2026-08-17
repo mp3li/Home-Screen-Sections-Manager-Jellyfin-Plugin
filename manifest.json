@@ -9,13 +9,13 @@
     "imageUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Assets/Branding/home-screen-sections-manager-plugin-photo.png",
     "versions": [
       {
-        "version": "0.1.0.56",
-        "changelog": "Removes blocking Collection Manager calls from ordinary section and Top Row setup, defers tag loading until opened, keeps unchanged Top Rows mounted and caches their logo files, restores native detail-page positioning, and moves Pages into a second dashboard tab row.",
+        "version": "0.1.0.57",
+        "changelog": "Fixes multi-minute browsing delays and repeated custom-page loads; adds per-library Continue filters, section maximums, Top 5-100, improved Continue and music Media Bar presentation; and repairs Marquee/Top Row ordering, preservation, picker loading, logo shadows, and route-stable marquee animation.",
         "targetAbi": "10.11.11.0",
         "framework": "net9.0",
-        "sourceUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Test%20Releases/0.1.0.56-test/Jellyfin.Plugin.HomeScreenSectionsManager_0.1.0.56-test.zip",
-        "checksum": "b8bc5acc0e0ad3bb11ddfa919d99ed05",
-        "timestamp": "2026-08-17T01:48:39Z"
+        "sourceUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Test%20Releases/0.1.0.57-test/Jellyfin.Plugin.HomeScreenSectionsManager_0.1.0.57-test.zip",
+        "checksum": "ce390be54ef8396c0a0dd334a1ee9bf2",
+        "timestamp": "2026-08-17T04:44:37Z"
       }
     ]
   }

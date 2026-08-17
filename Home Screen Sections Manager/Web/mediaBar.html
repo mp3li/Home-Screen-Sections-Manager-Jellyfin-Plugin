@@ -155,6 +155,7 @@
             const SVG_INFO = '<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="currentColor"><path d="M423.5-703.5Q400-727 400-760t23.5-56.5Q447-840 480-840t56.5 23.5Q560-793 560-760t-23.5 56.5Q513-680 480-680t-56.5-23.5Zm14 566Q420-155 420-180v-360q0-25 17.5-42.5T480-600q25 0 42.5 17.5T540-540v360q0 25-17.5 42.5T480-120q-25 0-42.5-17.5Z"/></svg>';
             const SVG_RATING = '<svg xmlns="http://www.w3.org/2000/svg" height="20px" viewBox="0 -960 960 960" width="20px" fill="currentColor"><path d="M168-144q-29 0-50.5-21.5T96-216v-528q0-29.7 21.5-50.85Q139-816 168-816h624q29 0 50.5 21.15T864-744v528q0 29-21.5 50.5T792-144H168Zm337.5-154.35Q516-308.7 516-324v-168q0-15.3-10.29-25.65Q495.42-528 480.21-528t-25.71 10.35Q444-507.3 444-492v168q0 15.3 10.29 25.65Q464.58-288 479.79-288t25.71-10.35ZM480-600q14 0 25-11t11-25.5q0-14.5-11-25T479.5-672q-14.5 0-25 10.35T444-636q0 14 10.35 25T480-600ZM168-228h72v-72h-72v72Zm552 0h72v-72h-72v72ZM168-372h72v-72h-72v72Zm552 0h72v-72h-72v72ZM168-516h72v-72h-72v72Zm552 0h72v-72h-72v72ZM168-660h72v-72h-72v72Zm552 0h72v-72h-72v72Z"/></svg>';
             const SVG_CLOCK = '<svg xmlns="http://www.w3.org/2000/svg" height="20px" viewBox="0 -960 960 960" width="20px" fill="currentColor"><path d="M516-510v-174q0-15.3-10.29-25.65Q495.42-720 480.21-720t-25.71 10.35Q444-699.3 444-684v189q0 8 3 14.5t8 11.5l133.85 133.85Q600-324 614.5-324.5 629-325 640-336t11-25.5q0-14.5-11.34-25.75L516-510ZM480-96q-79.38 0-149.19-30T208.5-208.5Q156-261 126-330.96t-30-149.5Q96-560 126-630q30-70 82.5-122t122.46-82q69.96-30 149.5-30t149.55 30.24q70 30.24 121.79 82.08 51.78 51.84 81.99 121.92Q864-559.68 864-480q0 79.38-30 149.19T752-208.5Q700-156 629.87-126T480-96Z"/></svg>';
+            const SVG_CALENDAR = '<svg xmlns="http://www.w3.org/2000/svg" height="20px" viewBox="0 -960 960 960" width="20px" fill="currentColor"><path d="M200-80q-33 0-56.5-23.5T120-160v-560q0-33 23.5-56.5T200-800h40v-80h80v80h320v-80h80v80h40q33 0 56.5 23.5T840-720v560q0 33-23.5 56.5T760-80H200Zm0-80h560v-400H200v400Z"/></svg>';
             const SVG_STAR = '<svg xmlns="http://www.w3.org/2000/svg" height="20px" viewBox="0 -960 960 960" width="20px" fill="currentColor"><path d="m480-285-164 98q-11 6-21.5 5t-18.5-7q-8-6-12-16.5t-1-21.5l43-183-145-123q-9-8-11-18.5t1-20.5q3-10 11-16.5t20-7.5l190-17 75-174q5-11 14-16.5t19-5.5q10 0 19 5.5t14 16.5l75 175 190 16q12 1 20 8t11 17q3 10 .5 20T798-533L654-410l43 183q3 11-1 21.5T684-189q-8 6-18.5 7t-21.5-5l-164-98Z"/></svg>';
 
             function normalizeAddress(value) {
@@ -565,12 +566,14 @@
                 if (item.OfficialRating) meta.appendChild(metaPill(SVG_RATING, item.OfficialRating));
                 const runtime = formatRuntime(item.RunTimeTicks);
                 if (runtime) meta.appendChild(metaPill(SVG_CLOCK, runtime));
+                const year = Number(isMusic ? item._hssmMusicYear || item.ProductionYear : 0);
+                if (year > 0) meta.appendChild(metaPill(SVG_CALENDAR, String(year)));
                 const rating = Number(item.CommunityRating);
                 if (Number.isFinite(rating) && rating > 0) meta.appendChild(metaPill(SVG_STAR, rating.toFixed(1)));
                 const playedPercentage = Number(item.UserData && item.UserData.PlayedPercentage);
                 $('progress-wrap').style.display = playedPercentage > 0 ? 'block' : 'none';
                 $('progress-bar').style.width = `${Math.min(Math.max(playedPercentage || 0, 0), 100)}%`;
-                $('plot').textContent = item.Overview || '';
+                $('plot').textContent = isMusic ? (item._hssmMusicAlbum || item.Album || '') : (item.Overview || '');
                 $('clickzone').setAttribute('aria-label', `View details for ${title || 'item'}`);
                 $('clickzone').onclick = () => navigateTo(detailRoute);
             }
@@ -637,6 +640,7 @@
                 slowZoomEnabled = authoritativeSlowZoom;
                 items = nextItems;
                 currentIndex = Math.max(0, items.findIndex(item => String(item.Id) === String(currentId || '')));
+                $('empty').textContent = data.loading === true ? 'Loading section content…' : 'Nothing to show';
                 $('empty').style.display = items.length ? 'none' : 'flex';
                 buildDots();
                 stopAuto();

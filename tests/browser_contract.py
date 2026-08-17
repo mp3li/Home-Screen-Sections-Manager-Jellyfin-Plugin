@@ -37,6 +37,7 @@ def run() -> None:
             {"Id": "manager-movies-one", "Name": "Movie Picks", "PageId": "manager-page-movies", "Type": "manual-content", "ItemIds": ["resume-one"], "IsApplied": True, "IsVisible": True, "IsMediaBar": True},
             {"Id": "manager-movies-two", "Name": "More Movies", "PageId": "manager-page-movies", "Type": "manual-content", "ItemIds": ["resume-two"], "IsApplied": True, "IsVisible": True, "IsMediaBar": True},
             {"Id": "manager-watch-again", "Name": "Watch Again", "PageId": "manager-page-movies", "Type": "watch-again", "ItemIds": [], "SourceIds": [], "ContentOrder": "completed-descending", "IsApplied": True, "IsVisible": True, "IsMediaBar": True},
+            {"Id": "manager-continue", "Name": "Continue Watching", "PageId": "manager-page-movies", "Type": "continue-watching", "ItemIds": [], "SourceIds": ["library-one"], "ContentOrder": "completed-descending", "IsApplied": True, "IsVisible": True, "IsMediaBar": False},
             {"Id": "manager-books", "Name": "Audiobooks", "PageId": "manager-page-movies", "Type": "manual-content", "ItemIds": ["audio-book-one"], "SourceIds": [], "ArtType": "primary", "ArtShape": "book", "ShowText": True, "IsApplied": True, "IsVisible": True, "IsMediaBar": False},
             {"Id": "manager-recent-songs", "Name": "Songs Recently Listened To", "PageId": "manager-page-movies", "Type": "recently-listened-songs", "ItemIds": [], "SourceIds": [], "ContentOrder": "completed-descending", "ArtType": "primary", "ArtShape": "square", "ShowText": True, "IsApplied": True, "IsVisible": True, "IsMediaBar": False},
             {"Id": "manager-library", "Name": "Library Items", "PageId": "manager-page-movies", "Type": "library-content", "ItemIds": ["year-folder", "actual-movie"], "SourceIds": ["library-one"], "IsApplied": True, "IsVisible": True, "IsMediaBar": False},
@@ -48,7 +49,7 @@ def run() -> None:
         "PageOrder": ["home", "favorites", "my-list", "manager-page-movies"],
         "PageLayouts": [
             {"PageId": "home", "SectionOrder": ["jellyfin-0-resume", "manager-home-top", "manager-home-test"]},
-            {"PageId": "manager-page-movies", "SectionOrder": ["manager-movies-one", "manager-movies-two", "manager-watch-again", "manager-books", "manager-recent-songs", "manager-library", "hidden:manager-movies-hidden"]},
+            {"PageId": "manager-page-movies", "SectionOrder": ["manager-movies-one", "manager-movies-two", "manager-watch-again", "manager-continue", "manager-books", "manager-recent-songs", "manager-library", "hidden:manager-movies-hidden"]},
             {"PageId": "my-list", "SectionOrder": ["my-list-content"]},
         ],
         "EnableMyList": True,
@@ -61,7 +62,7 @@ def run() -> None:
         "TopRowPageIds": ["home", "manager-page-movies"],
         "TopRowAlwaysShow": False,
         "TopRowPersistent": False,
-        "TopRowLogoShadowColor": "#ffffff",
+        "TopRowLogoShadowColor": "#33aa77",
         "EnableTopRowMessage": True,
         "TopRowMessagePageIds": ["home"],
         "TopRowMessageAlwaysShow": False,
@@ -121,7 +122,7 @@ def run() -> None:
     settings["TopRowSection"]["ItemIds"] = [item["Id"] for item in top_row_items]
     settings["TopRowLogoCollectionIds"] = [str(UUID(hex=item["Id"])) for item in top_row_items[:-1]]
     settings["TopRows"] = [
-        {"Id": "main-top-row", "Name": "Main Top Row", "IsMain": True, "EnableTopRow": True, "OverrideMainTopRow": False, "TargetType": "main", "TargetId": "", "Persistent": False, "LogoShadowColor": "#ffffff", "Section": json.loads(json.dumps(settings["TopRowSection"]))},
+        {"Id": "main-top-row", "Name": "Main Top Row", "IsMain": True, "EnableTopRow": True, "OverrideMainTopRow": False, "TargetType": "main", "TargetId": "", "Persistent": False, "LogoShadowColor": "#33aa77", "Section": json.loads(json.dumps(settings["TopRowSection"]))},
         {"Id": "movies-page-top-row", "Name": "Movies Page Top Row", "IsMain": False, "EnableTopRow": True, "OverrideMainTopRow": True, "TargetType": "page", "TargetId": "manager-page-movies", "Persistent": False, "LogoShadowColor": "#ffffff", "Section": json.loads(json.dumps(settings["TopRowSection"]))},
         {"Id": "movies-library-top-row", "Name": "Movies Library Top Row", "IsMain": False, "EnableTopRow": True, "OverrideMainTopRow": True, "TargetType": "library", "TargetId": "library-one", "Persistent": True, "LogoShadowColor": "#ffffff", "Section": {"Id":"top-row-section-movies-library", "Name":"Top Row", "Type":"genres-in-a-row", "SourceIds":["genre-drama"], "ItemIds":["genre-drama"], "ContentOrder":"manual", "ArtSize":"extra-small", "ArtType":"primary", "ArtShape":"wide", "DisplayLogosOnly":False, "IsApplied":True}},
     ]
@@ -319,7 +320,7 @@ def run() -> None:
         assert f"id={first_top_row_id}" in top_row_state["href"] and "blur" not in top_row_state["backdropFilter"] and top_row_state["scrollable"] and abs(top_row_state["gap"] - top_row_state["normalGap"]) < 1, top_row_state
         assert f"/HomeScreenSectionsManager/top-row-logo/{first_top_row_id}" in top_row_state["logoSrc"] and top_row_state["logoFit"] == "contain" and top_row_state["logoOverflow"] == "visible" and top_row_state["logoRadius"] == "0px", top_row_state
         assert top_row_state["logoBorder"] == "none" and top_row_state["logoOutline"] == "none" and top_row_state["logoShadow"] == "none" and top_row_state["logoClip"] == "none" and top_row_state["logoPadding"] > 0, top_row_state
-        assert "drop-shadow" in top_row_state["logoFilter"] and "rgba(255, 255, 255" in top_row_state["logoFilter"], top_row_state
+        assert "drop-shadow" in top_row_state["logoFilter"] and "rgba(51, 170, 119" in top_row_state["logoFilter"], top_row_state
         assert parse_qs(urlparse(top_row_state["logoSrc"]).query).get("ApiKey") == ["test-token"], top_row_state
         assert page.locator(f".hssm-top-row-card[data-id='{missing_top_row_id}']").count() == 0
         top_row_scroll = page.locator(".hssm-top-row-track").evaluate("""track => { const before=track.scrollLeft; track.dispatchEvent(new WheelEvent('wheel',{deltaY:260,bubbles:true,cancelable:true})); return {before,after:track.scrollLeft}; }""")
@@ -336,7 +337,7 @@ def run() -> None:
         hidden_name_spacing = page.locator("#homeTab [data-hssm-section-id='manager-home-test']").evaluate("node => parseFloat(getComputedStyle(node).paddingTop)")
         assert hidden_name_spacing >= 0.8, hidden_name_spacing
         extra_small_wide_width = page.locator("#homeTab [data-hssm-section-id='manager-home-test'] .hssm-client-card").evaluate("node => node.getBoundingClientRect().width")
-        assert abs((extra_small_wide_width * 0.82) - top_row_state["width"]) < 1, {"section": extra_small_wide_width, "topRow": top_row_state["width"]}
+        assert abs((extra_small_wide_width * 0.72) - top_row_state["width"]) < 1, {"section": extra_small_wide_width, "topRow": top_row_state["width"]}
         normal_scalable_ratio = page.locator("#homeTab [data-hssm-section-id='manager-home-test'] .hssm-client-card .cardScalable").evaluate("node => node.getBoundingClientRect().height / node.getBoundingClientRect().width")
         assert abs(normal_scalable_ratio - top_row_state["scalableRatio"]) < 0.01, {"section": normal_scalable_ratio, "topRow": top_row_state["scalableRatio"]}
         assert any(f"/HomeScreenSectionsManager/top-row-logo/{first_top_row_id}" in url for url in requests), requests
@@ -510,6 +511,12 @@ def run() -> None:
         page.evaluate("window.HomeScreenManagerClient.invalidate(); window.HomeScreenManagerClient.refresh();")
         page.wait_for_selector("#indexPage > .hssm-top-row[data-hssm-top-row-id='movies-page-top-row']")
         page.wait_for_selector(".hssm-owned-custom-page.is-active [data-hssm-section-id='manager-movies-one'] .hssm-client-card")
+        continue_episode = page.locator(".hssm-owned-custom-page.is-active [data-hssm-section-id='manager-continue'] .hssm-client-card[data-id='resume-two']")
+        continue_episode.wait_for(state="attached")
+        assert continue_episode.locator(".hssm-card-title").inner_text().strip() == "Series Two"
+        assert continue_episode.locator(".hssm-card-year").inner_text().strip() == "Resume Two"
+        assert "/Items/series-two/Images/Primary" in continue_episode.locator(".cardContent").get_attribute("style")
+        assert any("/Users/user/Items/Resume" in request and "ParentId=library-one" in request for request in requests)
         page.wait_for_selector(".hssm-owned-custom-page.is-active .hssm-section-media-bar[data-hssm-media-section-id='manager-movies-two']")
         page.wait_for_selector(".hssm-owned-custom-page.is-active [data-hssm-section-id='manager-watch-again'] .hssm-client-card[data-id='watched-movie']")
         page.wait_for_selector(".hssm-owned-custom-page.is-active [data-hssm-section-id='manager-watch-again'] .hssm-client-card[data-id='watched-episode-two']")
@@ -547,7 +554,7 @@ def run() -> None:
               topPadding: parseFloat(getComputedStyle(document.querySelector('.hssm-owned-custom-page.is-active')).paddingTop)
             })"""
         )
-        assert {key: value for key, value in custom_page_state.items() if key != "topPadding"} == {"titleAbsent": True, "visibleSections": 6, "hiddenSectionAbsent": True, "mediaBars": 3, "lowerBarMarked": True}, custom_page_state
+        assert {key: value for key, value in custom_page_state.items() if key != "topPadding"} == {"titleAbsent": True, "visibleSections": 7, "hiddenSectionAbsent": True, "mediaBars": 3, "lowerBarMarked": True}, custom_page_state
         assert custom_page_state["topPadding"] >= 60, custom_page_state
         book_card = page.locator(".hssm-owned-custom-page.is-active [data-hssm-section-id='manager-books'] .hssm-client-card[data-id='audio-book-one']")
         assert book_card.locator(".hssm-card-title").inner_text().strip() == "The Long Book"
@@ -618,9 +625,38 @@ def run() -> None:
                 "media": page.locator("#homeTab > .hssm-owned-media-bar").evaluate("node => ({connected:node.isConnected,zoom:node.dataset.hssmAppliedSlowZoom,image:node.dataset.hssmAppliedImageType,display:getComputedStyle(node).display})") if page.locator("#homeTab > .hssm-owned-media-bar").count() else None,
                 "recentRequests": requests[-20:],
             }) from error
-        page.wait_for_function("document.querySelector('#homeTab > .hssm-owned-media-bar').contentDocument.querySelector('#backdrop-img').getAnimations().length === 0")
+        page.wait_for_function("() => { const frame=document.querySelector('#homeTab > .hssm-owned-media-bar'), image=frame&&frame.contentDocument&&frame.contentDocument.querySelector('#backdrop-img'); return !!image && image.getAnimations().length === 0; }")
         page.wait_for_function("!document.querySelector('#homeTab [data-hssm-section-id=\"manager-home-top\"]').classList.contains('hssm-top-ranked')")
         assert page.locator("#homeTab [data-hssm-section-id='manager-home-top'] .hssm-rank-number").count() == 0
+
+        # On ordinary non-home pages Jellyfin's native top padding must not
+        # become a blank block above the Marquee Message, and a persistent Top
+        # Row must reserve space so the generated page title follows it.
+        settings["TopRowMessageAlwaysShow"] = True
+        settings["TopRowMessagePersistent"] = False
+        settings["TopRows"][2]["OverrideMainTopRow"] = True
+        page.evaluate("""() => {
+          const library=document.createElement('div');
+          library.id='collectionsPage';
+          library.className='page libraryPage';
+          library.style.cssText='box-sizing:border-box;min-height:1400px;padding-top:96px';
+          library.innerHTML='<div data-hssm-test-library-content>Library content</div>';
+          document.body.insertBefore(library, document.querySelector('#indexPage'));
+          document.querySelector('#indexPage').classList.add('hide');
+          document.querySelector('.headerLeft').innerHTML='<h1 class="pageTitle">Collections</h1>';
+          location.hash='#/list?topParentId=library-one';
+          window.scrollTo(0,0);
+          window.HomeScreenManagerClient.invalidate();
+          window.HomeScreenManagerClient.refresh();
+        }""")
+        page.wait_for_function("document.querySelector('#collectionsPage > .hssm-top-row-message') && document.querySelector('#collectionsPage > .hssm-top-row-row-spacer') && document.querySelector('#collectionsPage > .hssm-page-context-title')")
+        library_chrome = page.evaluate("""() => { const host=document.querySelector('#collectionsPage'), message=host.querySelector(':scope > .hssm-top-row-message').getBoundingClientRect(), row=document.querySelector('.hssm-top-row').getBoundingClientRect(), header=document.querySelector('.skinHeader').getBoundingClientRect(), title=host.querySelector(':scope > .hssm-page-context-title').getBoundingClientRect(), children=Array.from(host.children); return {messageTop:message.top,messageBottom:message.bottom,rowTop:row.top,rowBottom:row.bottom,headerTop:header.top,titleTop:title.top,messageBeforeSpacer:children.indexOf(host.querySelector(':scope > .hssm-top-row-message'))<children.indexOf(host.querySelector(':scope > .hssm-top-row-row-spacer')),spacerBeforeTitle:children.indexOf(host.querySelector(':scope > .hssm-top-row-row-spacer'))<children.indexOf(host.querySelector(':scope > .hssm-page-context-title')),padding:parseFloat(getComputedStyle(host).paddingTop),offsetClass:host.classList.contains('hssm-top-chrome-content-offset')}; }""")
+        assert abs(library_chrome["messageTop"]) < 2 and abs(library_chrome["rowTop"] - library_chrome["messageBottom"]) < 2, library_chrome
+        assert library_chrome["headerTop"] >= library_chrome["rowBottom"] - 1 and library_chrome["titleTop"] >= library_chrome["rowBottom"] - 1, library_chrome
+        assert library_chrome["messageBeforeSpacer"] and library_chrome["spacerBeforeTitle"] and abs(library_chrome["padding"] - 96) < 1 and not library_chrome["offsetClass"], library_chrome
+        page.evaluate("""() => { document.querySelector('#collectionsPage').remove(); document.querySelector('#indexPage').classList.remove('hide'); document.querySelector('.headerLeft').innerHTML=''; location.hash='#/home'; window.HomeScreenManagerClient.invalidate(); window.HomeScreenManagerClient.refresh(); }""")
+        page.wait_for_selector("#indexPage > .hssm-top-row")
+        page.wait_for_selector("#indexPage > .hssm-top-row-message")
         settings["TopRowAlwaysShow"] = True
         settings["TopRowPersistent"] = True
         settings["TopRows"][0]["Persistent"] = True
@@ -630,7 +666,7 @@ def run() -> None:
         page.wait_for_function("document.querySelector('.hssm-top-row').classList.contains('hssm-top-row-persistent') && document.querySelector('.hssm-top-row-message').classList.contains('hssm-top-row-message-persistent')")
         persistent_positions = page.evaluate("""() => ({row:getComputedStyle(document.querySelector('.hssm-top-row')).position,message:getComputedStyle(document.querySelector('.hssm-top-row-message')).position})""")
         assert persistent_positions == {"row": "fixed", "message": "fixed"}, persistent_positions
-        assert page.locator(".hssm-top-row-message").evaluate("node => node.classList.contains('hssm-top-row-message-marquee')")
+        page.wait_for_function("() => { const message=document.querySelector('.hssm-top-row-message'), text=message&&message.querySelector('.hssm-top-row-message-text'); return !!text && message.classList.contains('hssm-top-row-message-marquee') && getComputedStyle(text).animationIterationCount === 'infinite'; }")
         marquee_message = page.locator(".hssm-top-row-message-text").evaluate("node => ({left:getComputedStyle(node).left,iterations:getComputedStyle(node).animationIterationCount,duration:getComputedStyle(node).animationDuration})")
         assert marquee_message["left"] != "auto" and marquee_message["iterations"] == "infinite" and marquee_message["duration"] == "12s", marquee_message
         page.evaluate("window.scrollTo(0, 700)")

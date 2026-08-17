@@ -107,6 +107,9 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
                 ContentOrder = string.Equals(section.Id, normalizedId, StringComparison.Ordinal)
                     ? string.Equals(section.Type, "top-10-50", StringComparison.Ordinal) ? "rating-descending" : normalizedOrder
                     : NormalizeContentOrder(section.ContentOrder),
+                MaxItems = string.Equals(section.Id, normalizedId, StringComparison.Ordinal)
+                    ? NormalizeMaxItems(request.MaxItems)
+                    : NormalizeMaxItems(section.MaxItems),
                 ArtSize = string.Equals(section.Id, normalizedId, StringComparison.Ordinal)
                     ? NormalizeArtSize(request.ArtSize)
                     : NormalizeArtSize(section.ArtSize),
@@ -212,17 +215,19 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
             configuration.TopRowMessagePageIds.Add("home");
         }
 
+        var savedRows = GetEffectiveTopRows(configuration);
+        var hasSubmittedRows = request.TopRows is { Count: > 0 };
         var legacyMain = new TopRowDefinition
         {
             Id = "main-top-row",
             Name = "Main Top Row",
             IsMain = true,
-            EnableTopRow = request.EnableTopRow,
-            Persistent = request.TopRowPersistent,
-            LogoShadowColor = request.TopRowLogoShadowColor,
-            Section = request.TopRowSection ?? new HomeScreenSectionDefinition(),
+            EnableTopRow = hasSubmittedRows ? request.EnableTopRow : configuration.EnableTopRow,
+            Persistent = hasSubmittedRows ? request.TopRowPersistent : configuration.TopRowPersistent,
+            LogoShadowColor = hasSubmittedRows ? request.TopRowLogoShadowColor : configuration.TopRowLogoShadowColor,
+            Section = hasSubmittedRows ? request.TopRowSection ?? new HomeScreenSectionDefinition() : configuration.TopRowSection ?? new HomeScreenSectionDefinition(),
         };
-        configuration.TopRows = NormalizeTopRows(request.TopRows, legacyMain, validPageIds);
+        configuration.TopRows = NormalizeTopRows(hasSubmittedRows ? request.TopRows : savedRows, legacyMain, validPageIds);
         var main = configuration.TopRows[0];
         configuration.EnableTopRow = main.EnableTopRow;
         configuration.TopRowPageIds = ["home"];
@@ -335,6 +340,7 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
             SourceIds = [.. section.SourceIds],
             ItemIds = [.. section.ItemIds],
             ContentOrder = section.ContentOrder,
+            MaxItems = section.MaxItems,
             ArtSize = section.ArtSize,
             ArtType = section.ArtType,
             ArtShape = section.ArtShape,
@@ -396,7 +402,15 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
     private static HomeScreenSectionDefinition NormalizeTopRowSection(HomeScreenSectionDefinition requested, string rowId, bool allowGenres)
     {
         var type = requested.Type is "libraries-in-a-row" || (allowGenres && requested.Type is "genres-in-a-row") ? requested.Type : "multiple-collections-in-a-row";
-        var sources = (requested.SourceIds ?? []).Where(id => !string.IsNullOrWhiteSpace(id)).Distinct(StringComparer.Ordinal).ToList();
+        // Top Row items are navigation sources as well as their explicit
+        // display order. Older settings sometimes populated only one of the
+        // two arrays, so retain the union instead of treating an empty
+        // SourceIds array as permission to erase a populated ItemIds array.
+        var sources = (requested.SourceIds ?? [])
+            .Concat(requested.ItemIds ?? [])
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
         var requestedOrder = (requested.ItemIds ?? []).Where(sources.Contains).Distinct(StringComparer.Ordinal).ToList();
         sources.ForEach(id => { if (!requestedOrder.Contains(id, StringComparer.Ordinal)) requestedOrder.Add(id); });
         return new HomeScreenSectionDefinition
@@ -482,6 +496,7 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
         normalized.ContentOrder = string.Equals(normalized.Type, "top-10-50", StringComparison.Ordinal)
             ? "rating-descending"
             : NormalizeContentOrder(section.ContentOrder);
+        normalized.MaxItems = NormalizeMaxItems(section.MaxItems);
         normalized.ArtSize = NormalizeArtSize(section.ArtSize);
         normalized.ArtType = NormalizeArtType(section.ArtType);
         normalized.ArtShape = NormalizeArtShape(section.ArtShape);
@@ -572,7 +587,9 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
 
     private static string NormalizeColorMode(string? value) => value switch { "vertical-gradient" => "vertical-gradient", "horizontal-gradient" => "horizontal-gradient", "center-gradient" => "center-gradient", _ => "solid" };
 
-    private static int NormalizeDisplayTopCount(int value) => value is 5 or 10 or 20 or 30 or 40 or 50 ? value : 10;
+    private static int NormalizeDisplayTopCount(int value) => value is 5 or 10 or 20 or 30 or 40 or 50 or 75 or 100 ? value : 10;
+
+    private static int NormalizeMaxItems(int value) => value is 10 or 20 or 30 or 40 or 50 or 75 or 100 ? value : 0;
 
     private static string NormalizeActivityMediaType(string? value) => value switch { "series" => "series", "music-audiobooks" => "music-audiobooks", "books" => "books", _ => "movies" };
 

@@ -115,11 +115,12 @@ public sealed class HomeScreenClientController : ControllerBase
     public ActionResult GetBootstrapScript()
     {
         var version = Assembly.GetExecutingAssembly().GetName().Version?.ToString(4) ?? "0.0.0.0";
+        var earlyBodyClass = "if(document.body)document.body.classList.add('hssm-client-enabled');";
         var script = "(function(){'use strict';var version='" + version + "';var mask=document.getElementById('hssm-media-bar-boot-mask');if(!mask){mask=document.createElement('style');mask.id='hssm-media-bar-boot-mask';mask.textContent='#homeTab>.featurediframe{display:none!important}';document.head.appendChild(mask);window.setTimeout(function(){var stale=document.getElementById('hssm-media-bar-boot-mask');if(stale)stale.remove();},15000);}var style=document.querySelector('link[data-hssm-client-style]');if(!style||style.dataset.hssmClientVersion!==version){if(style)style.remove();style=document.createElement('link');style.rel='stylesheet';style.href=ApiClient.getUrl('HomeScreenSectionsManager/client.css',{v:version});style.dataset.hssmClientStyle='true';style.dataset.hssmClientVersion=version;document.head.appendChild(style);}if(window.HomeScreenManagerClient&&window.HomeScreenManagerClient.version===version){window.HomeScreenManagerClient.refresh();return;}document.querySelectorAll('script[data-hssm-client-script]').forEach(function(node){node.remove();});var client=document.createElement('script');client.src=ApiClient.getUrl('HomeScreenSectionsManager/client.js',{v:version});client.dataset.hssmClientScript='true';client.dataset.hssmClientVersion=version;client.onerror=function(){var stale=document.getElementById('hssm-media-bar-boot-mask');if(stale)stale.remove();console.error('[Home Screen Manager] Could not load the browser client.');};document.head.appendChild(client);}());";
         Response.Headers.CacheControl = "no-store, no-cache, must-revalidate, max-age=0";
         Response.Headers.Pragma = "no-cache";
         Response.Headers.Expires = "0";
-        return Content(script, "application/javascript");
+        return Content(earlyBodyClass + script, "application/javascript");
     }
 
     /// <summary>Serves the credited Abyss-compatible media-bar document.</summary>

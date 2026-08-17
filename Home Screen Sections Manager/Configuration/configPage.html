@@ -77,7 +77,7 @@
         <div class="hssm-tabs hssm-tabs-primary" role="tablist" aria-label="Home Screen Manager tabs">
             <button type="button" class="hssm-tab active" data-tab="main-settings" role="tab" aria-selected="true">Main Settings</button>
             <button type="button" class="hssm-tab" data-tab="customization-settings" role="tab" aria-selected="false">Customization Settings</button>
-            <button type="button" class="hssm-tab" data-tab="marquee-message" role="tab" aria-selected="false">Marquee Message</button>
+            <button type="button" class="hssm-tab" data-tab="marquee-message" role="tab" aria-selected="false">Marquee Message Settings</button>
             <button type="button" class="hssm-tab" data-tab="top-row-settings" role="tab" aria-selected="false">Create and Manage Top Rows</button>
             <button type="button" class="hssm-tab" data-tab="create-sections" role="tab" aria-selected="false">Create and Manage Home Screen Sections</button>
         </div>
@@ -487,7 +487,7 @@
                 ['libraries-in-a-row', 'Libraries in a Row', "Create a section that displays multiple libraries in a row, by their image. Similar to Jellyfin's main/big My Media section, but showing only selected libraries instead of all."],
                 ['rotating-sections', 'Rotating Sections', 'Create multiple section drafts from selected collections, libraries, and metadata tags, then rotate which draft appears on the home screen using the schedule you choose.'],
                 ['seasonal-sections', 'Seasonal Sections', 'Create multiple section drafts from selected collections, libraries, and metadata tags, then choose the recurring date window when each draft appears on the home screen.'],
-                ['top-10-50', 'Top 5-50', 'Based on IMDB ratings that must already be tagged in your media to use this feature. Select as much media as you’d like and the displayed media and media order will be picked based on your selections.'],
+                ['top-10-50', 'Top 5-100', 'Based on IMDB ratings that must already be tagged in your media to use this feature. Select as much media as you’d like and the displayed media and media order will be picked based on your selections.'],
                 ['other-users-activity', 'What Other Users Are Watching/Reading/Listening To', 'Displays a random combination of what all users have recently watched/are currently watching.']
             ];
             let sections = [], selectedId = null, draftId = null, draggedId = null, lastDeleted = null, activePageId = 'home', savedSnapshot = null, sectionLoadSequence = 0;
@@ -1045,7 +1045,7 @@
             const logoShadowColor = page.querySelector('#hssmTopRowLogoShadowColor'), messageFont = page.querySelector('#hssmTopRowMessageFont'), messageFontStatus = page.querySelector('#hssmTopRowMessageFontStatus');
             const targetType = page.querySelector('#hssmTopRowTargetType'), targetId = page.querySelector('#hssmTopRowTargetId');
             let pages = [], collections = [], libraries = [], genres = [], genreLibraryId = '', rows = [], selectedRowId = '', editingRowId = '', selectedIds = [], draggedId = '', lastDeleted = null;
-            let settingsSnapshot = {}, savedLogoShadowColor = '#ffffff', messageFontDataUrl = '', messageFontShadowColor = '', loadPromise = null, loaded = false;
+            let settingsSnapshot = {}, savedLogoShadowColor = '#ffffff', messageFontDataUrl = '', messageFontShadowColor = '', loadPromise = null, loaded = false, catalogsPromise = null, catalogsLoaded = false;
             const esc = value => { const node = document.createElement('span'); node.textContent = value == null ? '' : String(value); return node.innerHTML; };
             const valueOf = (value, pascal, camel, fallback) => value && value[pascal] !== undefined ? value[pascal] : value && value[camel] !== undefined ? value[camel] : fallback;
             const clone = value => JSON.parse(JSON.stringify(value));
@@ -1066,6 +1066,22 @@
             function nativeCollections() {
                 const id = currentUserId();
                 return ApiClient.getJSON(ApiClient.getUrl('Users/' + encodeURIComponent(id) + '/Items', { IncludeItemTypes:'BoxSet', Recursive:true, Fields:'Overview,ChildCount', Limit:1000 })).then(result => (result.Items || result.items || []).map(item => ({ Id:item.Id || item.id, Name:item.Name || item.name, MediaItems:Number(item.ChildCount || item.childCount || 0) })));
+            }
+            function loadCatalogs() {
+                if (catalogsLoaded) return Promise.resolve();
+                if (catalogsPromise) return catalogsPromise;
+                catalogsPromise = Promise.all([nativeLibraries(), nativeCollections()]).then(values => {
+                    libraries = values[0] || [];
+                    collections = values[1] || [];
+                    catalogsLoaded = true;
+                    renderRows();
+                    if (!editor.hidden && editingRowId) {
+                        const editing = rows.find(row => rowId(row) === editingRowId) || { Id:editingRowId, TargetId:targetId.value };
+                        renderTargetOptions(editing);
+                        renderSources();
+                    }
+                }).finally(() => { catalogsPromise = null; });
+                return catalogsPromise;
             }
             function syncMessageSecondColor() {
                 const second = page.querySelector('#hssmTopRowMessageBarColorTwo').closest('.inputContainer');
@@ -1133,6 +1149,11 @@
                 targetId.value = currentId;
             }
             function openEditor(row, adding) {
+                if (!catalogsLoaded) {
+                    status.textContent = 'Loading Top Row libraries and collections…';
+                    loadCatalogs().then(() => { status.textContent = ''; openEditor(row, adding); }, error => { status.textContent = 'Top Row libraries and collections could not be loaded. ' + (error && (error.message || error.statusText) || ''); });
+                    return;
+                }
                 editingRowId = rowId(row);
                 const main = rowIsMain(row), definition = rowSection(row);
                 editor.hidden = false;
@@ -1156,7 +1177,9 @@
                 const savedType = String(valueOf(definition, 'Type', 'type', 'multiple-collections-in-a-row'));
                 const type = ['libraries-in-a-row','genres-in-a-row'].includes(savedType) ? savedType : 'multiple-collections-in-a-row';
                 const input = page.querySelector('input[name="hssmTopRowType"][value="' + type + '"]'); if (input) input.checked = true;
-                selectedIds = (valueOf(definition, 'ItemIds', 'itemIds', []) || valueOf(definition, 'SourceIds', 'sourceIds', []) || []).map(String);
+                const savedItemIds = (valueOf(definition, 'ItemIds', 'itemIds', []) || []).map(String).filter(Boolean);
+                const savedSourceIds = (valueOf(definition, 'SourceIds', 'sourceIds', []) || []).map(String).filter(Boolean);
+                selectedIds = savedItemIds.concat(savedSourceIds.filter(id => savedItemIds.indexOf(id) < 0));
                 contentOrder.value = String(valueOf(definition, 'ContentOrder', 'contentOrder', 'manual'));
                 artType.value = String(valueOf(definition, 'ArtType', 'artType', 'automatic'));
                 artShape.value = ['wide','square','circle'].includes(String(valueOf(definition, 'ArtShape', 'artShape', 'wide'))) ? String(valueOf(definition, 'ArtShape', 'artShape', 'wide')) : 'wide';
@@ -1226,15 +1249,13 @@
                 if (loadPromise && !force) return loadPromise;
                 loadPromise = Promise.all([
                     ApiClient.getJSON(ApiClient.getUrl('HomeScreenSectionsManager/top-row-settings')),
-                    ApiClient.getJSON(ApiClient.getUrl('HomeScreenSectionsManager/section-settings')),
-                    nativeLibraries(),
-                    nativeCollections()
+                    ApiClient.getJSON(ApiClient.getUrl('HomeScreenSectionsManager/section-settings'))
                 ]).then(values => {
                     settingsSnapshot = values[0] || {};
                     const sectionSettings = values[1] || {};
                     const savedPages = valueOf(sectionSettings, 'Pages', 'pages', []) || [], pageMap = new Map([['home',{id:'home',name:'Home'}],['favorites',{id:'favorites',name:'Favorites'}]]);
                     savedPages.forEach(item => { const id = String(item.Id || item.id || ''); if (id) pageMap.set(id, { id, name:String(item.Name || item.name || id) }); });
-                    pages = Array.from(pageMap.values()); libraries = values[2] || []; collections = values[3] || [];
+                    pages = Array.from(pageMap.values());
                     rows = clone(valueOf(settingsSnapshot, 'TopRows', 'topRows', []) || []);
                     if (!rows.length) rows = [{ Id:'main-top-row',Name:'Main Top Row',IsMain:true,EnableTopRow:valueOf(settingsSnapshot,'EnableTopRow','enableTopRow',false),OverrideMainTopRow:false,TargetType:'main',TargetId:'',Persistent:valueOf(settingsSnapshot,'TopRowPersistent','topRowPersistent',false),LogoShadowColor:valueOf(settingsSnapshot,'TopRowLogoShadowColor','topRowLogoShadowColor','#ffffff'),Section:valueOf(settingsSnapshot,'TopRowSection','topRowSection',{}) || {} }];
                     selectedRowId = rows.some(row => rowId(row) === selectedRowId) ? selectedRowId : 'main-top-row';
@@ -1248,6 +1269,7 @@
                     messageFontShadowColor = String(valueOf(settingsSnapshot,'TopRowMessageFontShadowColor','topRowMessageFontShadowColor','') || ''); page.querySelector('#hssmTopRowMessageFontShadowColor').value = messageFontShadowColor || '#000000';
                     page.querySelector('#hssmTopRowMessageBarColorMode').value = String(valueOf(settingsSnapshot,'TopRowMessageBarColorMode','topRowMessageBarColorMode','solid') || 'solid'); page.querySelector('#hssmTopRowMessageBarColorOne').value = String(valueOf(settingsSnapshot,'TopRowMessageBarColorOne','topRowMessageBarColorOne','#000000') || '#000000'); page.querySelector('#hssmTopRowMessageBarColorTwo').value = String(valueOf(settingsSnapshot,'TopRowMessageBarColorTwo','topRowMessageBarColorTwo','#333333') || '#333333'); syncMessageSecondColor();
                     page.querySelector('#hssmTopRowMessageMarqueeSpeed').value = String(valueOf(settingsSnapshot,'TopRowMessageMarqueeSpeed','topRowMessageMarqueeSpeed','normal') || 'normal');
+                    page.querySelector('#hssmSaveTopRowMessageButton').disabled = false;
                     renderMessagePages(valueOf(settingsSnapshot,'TopRowMessagePageIds','topRowMessagePageIds',['home']) || ['home']); renderRows(); loaded = true;
                     return settingsSnapshot;
                 }, error => { status.textContent = 'Top Row settings could not be loaded. ' + (error && (error.message || error.statusText) || ''); throw error; }).finally(() => { loadPromise = null; });
@@ -1277,7 +1299,10 @@
             page.querySelector('#hssmRemoveTopRowMessageFontShadow').addEventListener('click', () => { messageFontShadowColor = ''; status.textContent = 'Message font shadow removed. Save the message settings to apply the change.'; });
             messageFont.addEventListener('change', () => { const file = messageFont.files && messageFont.files[0]; if (!file) return; if (!/\.(?:ttf|otf)$/i.test(file.name) || file.size > 2000000) { messageFont.value = ''; messageFontStatus.textContent = 'Choose a .ttf or .otf font file no larger than 2 MB.'; return; } const reader = new FileReader(); reader.onload = () => { messageFontDataUrl = String(reader.result || ''); messageFontStatus.textContent = 'Custom message font imported.'; page.querySelector('#hssmRemoveTopRowMessageFont').hidden = false; }; reader.onerror = () => { messageFontDataUrl = ''; messageFontStatus.textContent = 'The font file could not be read.'; }; reader.readAsDataURL(file); });
             page.querySelector('#hssmRemoveTopRowMessageFont').addEventListener('click', event => { messageFontDataUrl = ''; messageFont.value = ''; messageFontStatus.textContent = 'Using the default Abyss theme font.'; event.currentTarget.hidden = true; });
-            page.addEventListener('click', event => { if (event.target.closest('[data-tab="top-row-settings"], [data-tab="marquee-message"]')) window.setTimeout(() => load(false),0); });
+            page.addEventListener('click', event => {
+                if (event.target.closest('[data-tab="marquee-message"]')) window.setTimeout(() => load(false),0);
+                if (event.target.closest('[data-tab="top-row-settings"]')) window.setTimeout(() => load(false).then(loadCatalogs),0);
+            });
         })();
 
         (() => {
@@ -1362,7 +1387,7 @@
             const page = document.getElementById('homeScreenSectionsManagerPage');
             const host = page && page.querySelector('#hssmTypeSpecificSettings');
             if (!page || !host) return;
-            const state = { id:'', name:'', type:'', pageId:'home', isVisible:true, isMediaBar:false, isApplied:false, isEditing:false, nativeOnly:false, sources:[], items:{}, resolvedItemIds:[], contentItems:[], contentItemOrder:[], draggedContentId:null, contentPage:1, contentOrder:'title-ascending', artSize:'medium', artType:'automatic', artShape:'poster', showText:true, showSectionName:true, libraries:[], collections:[], manual:{}, manualStates:{}, tagSearch:'', tagSources:{}, tagTypeLoadIds:{}, tagCatalogLoadId:0, drafts:[], draftLibraryIds:[], draggedDraftId:null, rotationValue:1, rotationUnit:'days', draftPreviewLoadId:0, topLoadRunning:false, topPending:null, displayTop:10, showRankNumbers:true, rankNumberColorMode:'solid', rankNumberColorOne:'#f5f5f7', rankNumberColorTwo:'#f5f5f7', rankNumberShadowColor:'#000000', rankNumberFontDataUrl:'', activityMaxItems:20, activityMediaType:'movies', activityPreviewLoadId:0 };
+            const state = { id:'', name:'', type:'', pageId:'home', isVisible:true, isMediaBar:false, isApplied:false, isEditing:false, nativeOnly:false, sources:[], items:{}, resolvedItemIds:[], contentItems:[], contentItemOrder:[], draggedContentId:null, contentPage:1, contentOrder:'title-ascending', maxItems:0, artSize:'medium', artType:'automatic', artShape:'poster', showText:true, showSectionName:true, libraries:[], collections:[], manual:{}, manualStates:{}, tagSearch:'', tagSources:{}, tagTypeLoadIds:{}, tagCatalogLoadId:0, drafts:[], draftLibraryIds:[], draggedDraftId:null, rotationValue:1, rotationUnit:'days', draftPreviewLoadId:0, topLoadRunning:false, topPending:null, displayTop:10, showRankNumbers:true, rankNumberColorMode:'solid', rankNumberColorOne:'#f5f5f7', rankNumberColorTwo:'#f5f5f7', rankNumberShadowColor:'#000000', rankNumberFontDataUrl:'', activityMaxItems:20, activityMediaType:'movies', activityPreviewLoadId:0 };
             const esc = value => { const el = document.createElement('span'); el.textContent = value == null ? '' : String(value); return el.innerHTML; };
             const cm = path => ApiClient.getJSON(ApiClient.getUrl('CollectionManager/' + path));
             const cmPost = (path, body) => ApiClient.ajax({ type:'POST', url:ApiClient.getUrl('CollectionManager/' + path), data:JSON.stringify(body), contentType:'application/json', dataType:'json' });
@@ -1398,6 +1423,7 @@
             const isMyListContentType = () => kind() === 'my-list-content';
             const isWatchAgainType = () => kind() === 'watch-again';
             const isAutomaticType = () => automaticSectionTypes.has(kind());
+            const isContinueType = () => ['continue-watching','continue-listening','continue-reading','continue-watching-listening','continue-reading-listening'].includes(kind());
             let topLoadSequence = 0;
             const usesDraftSourcePicker = () => isDraftType() || isTopType();
             const rowImage = item => item.HasPrimaryImage || item.ImageTags ? '<img class="hssm-preview-image" loading="lazy" src="' + image(item.Id) + '" alt="" onerror="this.remove()" />' : '<span class="hssm-preview-image hssm-empty-image"></span>';
@@ -1418,9 +1444,12 @@
             }
             function setupData() {
                 state.collectionManagerConfiguration = {};
-                const settingsRequest = nativeLibraries().then(libraries => { state.libraries = libraries; });
-                const collectionsRequest = nativeCollections().then(collections => { state.collections = collections; });
-                return Promise.all([settingsRequest, collectionsRequest]).then(() => state);
+                const needsLibraries = kind() === 'manual-content' || isLibraryType() || isTagType() || isDraftType() || isTopType();
+                const needsCollections = isCollectionType() || isDraftType() || isTopType();
+                const requests = [];
+                if (needsLibraries) requests.push(nativeLibraries().then(libraries => { state.libraries = libraries; }));
+                if (needsCollections) requests.push(nativeCollections().then(collections => { state.collections = collections; }));
+                return Promise.all(requests).then(() => state);
             }
 
             function manualMarkup() {
@@ -1449,7 +1478,7 @@
                     + '</section>';
             }
             function topMarkup() {
-                return '<section class="hssm-conditional-section"><h2>Top 5-50 Settings</h2><p class="fieldDescription">Choose how many of the highest IMDb-tagged items from your selected sources will appear.</p><div class="selectContainer"><label class="selectLabel">Display Top:</label><select is="emby-select" data-hssm-display-top>' + selectOptions([[5,'5'],[10,'10'],[20,'20'],[30,'30'],[40,'40'],[50,'50']], state.displayTop) + '</select></div></section>'
+                return '<section class="hssm-conditional-section"><h2>Top 5-100 Settings</h2><p class="fieldDescription">Choose how many of the highest IMDb-tagged items from your selected sources will appear.</p><div class="selectContainer"><label class="selectLabel">Display Top:</label><select is="emby-select" data-hssm-display-top>' + selectOptions([[5,'5'],[10,'10'],[20,'20'],[30,'30'],[40,'40'],[50,'50'],[75,'75'],[100,'100']], state.displayTop) + '</select></div></section>'
                     + sourceDraftPickerMarkup()
                     + '<section class="hssm-conditional-section"><h2>Top Section Draft</h2><p class="fieldDescription">All media from the selected collections and libraries, plus all media matching the selected tags, is combined into one Top draft. You can edit its title.</p><div class="hssm-source-drafts" data-hssm-source-drafts></div></section>'
                     + contentMarkup();
@@ -1477,7 +1506,20 @@
                 const match = pages.find(item => String(item.id) === String(state.pageId || 'home'));
                 return match ? String(match.name) : (state.pageId === 'home' ? 'Home' : 'Selected Page');
             }
+            function installMaximumPicker() {
+                const numberingDescription = host.querySelector('.hssm-numbering-settings .fieldDescription');
+                if (numberingDescription) numberingDescription.textContent = numberingDescription.textContent.replace('Top 5-50', 'Top 5-100');
+                if (isTopType() || isActivityType()) return;
+                const orderSection = host.querySelector('[data-hssm-order-settings]');
+                if (!orderSection || orderSection.querySelector('[data-hssm-max-items]')) return;
+                const wrapper = document.createElement('div');
+                wrapper.className = 'selectContainer';
+                wrapper.innerHTML = '<label class="selectLabel">Maximum Media in Section</label><select is="emby-select" data-hssm-max-items>' + selectOptions([[0,'All'],[10,'10'],[20,'20'],[30,'30'],[40,'40'],[50,'50'],[75,'75'],[100,'100']], state.maxItems) + '</select>';
+                const manual = orderSection.querySelector('[data-hssm-manual-order]');
+                orderSection.insertBefore(wrapper, manual || null);
+            }
             function contentMarkup(rowMode) {
+                window.setTimeout(installMaximumPicker, 0);
                 return '<section class="hssm-conditional-section"><h2>Content In Section</h2><p class="fieldDescription">This selected content will be displayed in your section.</p><div data-hssm-content class="' + (rowMode ? 'hssm-row-preview' : '') + '"><p class="fieldDescription">No content is currently selected.</p></div></section><div class="hssm-actions"><button is="emby-button" type="button" class="raised button-submit" data-hssm-save-move>Save and Move On</button></div><p class="fieldDescription" data-hssm-save-status aria-live="polite"></p><section class="hssm-conditional-section hssm-order-settings" data-hssm-order-settings hidden><h2>Section Content Order Settings</h2><p class="fieldDescription">Select which order you want your home screen section content to appear in. Ordering by rating requires ratings to be in your media tags.</p><div class="selectContainer"><label class="selectLabel" for="hssmSectionContentOrder">Content Order</label><select is="emby-select" id="hssmSectionContentOrder" data-hssm-content-order>' + orderOptions() + '</select></div><div class="hssm-manual-order-editor" data-hssm-manual-order hidden><p class="fieldDescription">Drag the content below into the exact order you want it to appear in this home screen section.</p><div class="hssm-manual-order-list" data-hssm-manual-order-list></div></div></section><section class="hssm-conditional-section hssm-art-settings" data-hssm-art-settings hidden><h2>Section Art Appearance Settings</h2><p class="fieldDescription">Choose the size, Jellyfin image type, shape, and title-text visibility for the regular section row. When this section is a Media Bar, these settings affect the matching section directly below the Media Bar, not the Media Bar itself.</p><div class="selectContainer"><label class="selectLabel" for="hssmSectionArtSize">Art Size</label><select is="emby-select" id="hssmSectionArtSize" data-hssm-art-size>' + artSizeOptions() + '</select></div><div class="selectContainer"><label class="selectLabel" for="hssmSectionArtType">Art Type</label><select is="emby-select" id="hssmSectionArtType" data-hssm-art-type>' + artTypeOptions() + '</select></div><div class="selectContainer"><label class="selectLabel" for="hssmSectionArtShape">Art Shape</label><select is="emby-select" id="hssmSectionArtShape" data-hssm-art-shape>' + artShapeOptions() + '</select></div><label class="checkboxContainer"><input is="emby-checkbox" type="checkbox" data-hssm-show-text' + (state.showText ? ' checked' : '') + ' /><span>Show text under the art</span></label><p class="fieldDescription">Show the media name and year beneath each image.</p><label class="checkboxContainer"><input is="emby-checkbox" type="checkbox" data-hssm-show-section-name' + (state.showSectionName ? ' checked' : '') + ' /><span>Show section name</span></label>' + numberingMarkup() + '<div class="hssm-actions"><button is="emby-button" type="button" class="raised button-submit" data-hssm-apply-section>' + (state.isEditing ? 'Refresh Section' : 'Add Section to ' + esc(destinationPageName()) + ' Page') + '</button></div><p class="fieldDescription" data-hssm-apply-status aria-live="polite"></p></section>';
             }
             function orderOptions() {
@@ -1841,7 +1883,7 @@
                         return request.then(items => { groups.push(items); });
                     }), Promise.resolve()).then(() => {
                         const unique = groups.flat().filter((item, index, all) => all.findIndex(candidate => String(candidate.Id || candidate.id) === String(item.Id || item.id)) === index);
-                        const limit = [5,10,20,30,40,50].includes(Number(definition.DisplayTopCount || definition.displayTopCount)) ? Number(definition.DisplayTopCount || definition.displayTopCount) : 10;
+                        const limit = [5,10,20,30,40,50,75,100].includes(Number(definition.DisplayTopCount || definition.displayTopCount)) ? Number(definition.DisplayTopCount || definition.displayTopCount) : 10;
                         const ids = unique.map(item => ({ id:String(item.Id || item.id), rating:imdbTaggedRating(item) })).filter(entry => Number.isFinite(entry.rating)).sort((left, right) => right.rating - left.rating).slice(0, limit).map(entry => entry.id);
                         return { definition:Object.assign({}, definition, { ItemIds:ids }), skipped:false };
                     });
@@ -1945,6 +1987,20 @@
                     host.innerHTML = contentMarkup();
                     const contentSection = host.querySelector('[data-hssm-content]').closest('section');
                     contentSection.innerHTML = '<h2>Watch Again</h2><p class="fieldDescription">No content selection is required. This section automatically loads completed movies plus only the most recently completed episode from each series in the signed-in user’s own Jellyfin watch history.</p>';
+                    return;
+                }
+                if (isContinueType()) {
+                    const choice = automaticTypeDefinitions[kind()];
+                    host.innerHTML = contentMarkup();
+                    const contentSection = host.querySelector('[data-hssm-content]').closest('section');
+                    contentSection.innerHTML = '<h2>' + esc(choice ? choice[0] : state.name) + '</h2><p class="fieldDescription">Choose which Jellyfin libraries can supply resumable content. Existing sections default to every library.</p><div data-hssm-continue-libraries><p class="fieldDescription">Loading Jellyfin libraries…</p></div>';
+                    nativeLibraries().then(libraries => {
+                        state.libraries = libraries;
+                        const selected = new Set((state.sources.length ? state.sources : libraries.map(item => String(item.Id || item.ItemId))).map(String));
+                        const picker = host.querySelector('[data-hssm-continue-libraries]');
+                        if (!picker) return;
+                        picker.innerHTML = libraries.map(item => { const id = String(item.Id || item.ItemId); return '<label class="checkboxContainer"><input is="emby-checkbox" type="checkbox" data-hssm-continue-library="' + esc(id) + '"' + (selected.has(id) ? ' checked' : '') + ' /><span>' + esc(item.Name) + '</span></label>'; }).join('') || '<p class="fieldDescription">No Jellyfin libraries are available.</p>';
+                    }, () => { const picker = host.querySelector('[data-hssm-continue-libraries]'); if (picker) picker.innerHTML = '<p class="fieldDescription">Jellyfin libraries could not be loaded.</p>'; });
                     return;
                 }
                 if (isAutomaticType()) {
@@ -2056,7 +2112,7 @@
                 const order = Array.from(page.querySelectorAll('#hssmSectionList .hssm-section-row')).map(row => { const toggle = row.querySelector('[data-hssm-native-section-toggle]'); return toggle && !toggle.checked ? 'hidden:' + row.dataset.sectionId : row.dataset.sectionId; });
                 const itemIds = state.contentItemOrder.slice();
                 if (isTopType()) ensureTopDraft().Name = state.name;
-                const definition = { Id:state.id, Name:state.name, PageId:state.pageId, Type:state.type, IsVisible:state.isVisible, IsMediaBar:state.isMediaBar, SourceIds:state.sources, ItemIds:itemIds, ContentOrder:state.contentOrder, ArtSize:state.artSize, ArtType:state.artType, ArtShape:state.artShape, ShowText:state.showText, ShowSectionName:state.showSectionName, Drafts:state.drafts.map(draft => ({ Id:draft.Id, SourceType:draft.SourceType, SourceId:draft.SourceId, Name:draft.Name, StartMonth:draft.StartMonth, StartDay:draft.StartDay, EndMonth:draft.EndMonth, EndDay:draft.EndDay })), RotationIntervalMinutes:rotationIntervalMinutes(), RotationStartUnixMilliseconds:Date.now(), DisplayTopCount:state.displayTop, ShowRankNumbers:state.showRankNumbers, RankNumberColorMode:state.rankNumberColorMode, RankNumberColorOne:state.rankNumberColorOne, RankNumberColorTwo:state.rankNumberColorTwo, RankNumberShadowColor:state.rankNumberShadowColor, RankNumberFontDataUrl:state.rankNumberFontDataUrl, ActivityMaxItems:state.activityMaxItems, ActivityMediaType:state.activityMediaType, IsApplied:state.isApplied };
+                const definition = { Id:state.id, Name:state.name, PageId:state.pageId, Type:state.type, IsVisible:state.isVisible, IsMediaBar:state.isMediaBar, SourceIds:state.sources, ItemIds:itemIds, ContentOrder:state.contentOrder, MaxItems:state.maxItems, ArtSize:state.artSize, ArtType:state.artType, ArtShape:state.artShape, ShowText:state.showText, ShowSectionName:state.showSectionName, Drafts:state.drafts.map(draft => ({ Id:draft.Id, SourceType:draft.SourceType, SourceId:draft.SourceId, Name:draft.Name, StartMonth:draft.StartMonth, StartDay:draft.StartDay, EndMonth:draft.EndMonth, EndDay:draft.EndDay })), RotationIntervalMinutes:rotationIntervalMinutes(), RotationStartUnixMilliseconds:Date.now(), DisplayTopCount:state.displayTop, ShowRankNumbers:state.showRankNumbers, RankNumberColorMode:state.rankNumberColorMode, RankNumberColorOne:state.rankNumberColorOne, RankNumberColorTwo:state.rankNumberColorTwo, RankNumberShadowColor:state.rankNumberShadowColor, RankNumberFontDataUrl:state.rankNumberFontDataUrl, ActivityMaxItems:state.activityMaxItems, ActivityMediaType:state.activityMediaType, IsApplied:state.isApplied };
                 ApiClient.getJSON(ApiClient.getUrl('HomeScreenSectionsManager/section-settings')).then(saved => {
                     const existing = saved.Sections || saved.sections || [];
                     const sections = existing.filter(item => String(item.Id || item.id) !== state.id);
@@ -2083,7 +2139,7 @@
                 return body && (body.Detail || body.detail || body.Message || body.message || body.Title || body.title) || (text && String(text).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()) || (error && (error.message || error.statusText)) || 'Jellyfin returned no error details.';
             }
             function loadHomeScreenClient() {
-                const version = "0.1.0.56";
+                const version = "0.1.0.57";
                 let style = document.querySelector("link[data-hssm-client-style]");
                 if (!style || style.dataset.hssmClientVersion !== version) {
                     if (style) style.remove();
@@ -2222,7 +2278,7 @@
                 const editing = state.isEditing;
                 applyStatus.textContent = editing ? 'Refreshing section…' : 'Adding section to ' + destination + '…';
                 const appliedItemIds = state.isEditing && !state.contentItemOrder.length ? null : state.contentItemOrder;
-                ensureJavaScriptInjectorLoader().then(() => ApiClient.ajax({ type:'POST', url:ApiClient.getUrl('HomeScreenSectionsManager/sections/' + encodeURIComponent(state.id) + '/apply'), data:JSON.stringify({ Name:state.name, ContentOrder:state.contentOrder, ItemIds:appliedItemIds, ArtSize:state.artSize, ArtType:state.artType, ArtShape:state.artShape, ShowText:state.showText, ShowSectionName:state.showSectionName, IsVisible:state.isVisible, IsMediaBar:state.isMediaBar, DisplayTopCount:state.displayTop, ShowRankNumbers:state.showRankNumbers, RankNumberColorMode:state.rankNumberColorMode, RankNumberColorOne:state.rankNumberColorOne, RankNumberColorTwo:state.rankNumberColorTwo, RankNumberShadowColor:state.rankNumberShadowColor, RankNumberFontDataUrl:state.rankNumberFontDataUrl, ActivityMaxItems:state.activityMaxItems, ActivityMediaType:state.activityMediaType }), contentType:'application/json', dataType:'json' })).then(response => { window.HSSMNotifyClientSettingsChanged(); return loadHomeScreenClient().then(() => response); }).then(() => {
+                ensureJavaScriptInjectorLoader().then(() => ApiClient.ajax({ type:'POST', url:ApiClient.getUrl('HomeScreenSectionsManager/sections/' + encodeURIComponent(state.id) + '/apply'), data:JSON.stringify({ Name:state.name, ContentOrder:state.contentOrder, MaxItems:state.maxItems, ItemIds:appliedItemIds, ArtSize:state.artSize, ArtType:state.artType, ArtShape:state.artShape, ShowText:state.showText, ShowSectionName:state.showSectionName, IsVisible:state.isVisible, IsMediaBar:state.isMediaBar, DisplayTopCount:state.displayTop, ShowRankNumbers:state.showRankNumbers, RankNumberColorMode:state.rankNumberColorMode, RankNumberColorOne:state.rankNumberColorOne, RankNumberColorTwo:state.rankNumberColorTwo, RankNumberShadowColor:state.rankNumberShadowColor, RankNumberFontDataUrl:state.rankNumberFontDataUrl, ActivityMaxItems:state.activityMaxItems, ActivityMediaType:state.activityMediaType }), contentType:'application/json', dataType:'json' })).then(response => { window.HSSMNotifyClientSettingsChanged(); return loadHomeScreenClient().then(() => response); }).then(() => {
                     state.isApplied = true;
                     applyStatus.textContent = editing ? 'Section refreshed.' : 'Section added to ' + destination + '.';
                     if (window.Dashboard && typeof Dashboard.alert === 'function') Dashboard.alert(editing ? 'Section refreshed through JavaScript Injector.' : 'Section added to ' + destination + ' through JavaScript Injector.');
@@ -2289,6 +2345,14 @@
                 if (restored) { restored.focus(); restored.setSelectionRange(restored.value.length, restored.value.length); }
             });
             host.addEventListener('change', event => {
+                const continueLibrary = event.target.closest('[data-hssm-continue-library]');
+                if (continueLibrary) {
+                    if (!state.sources.length) state.sources = state.libraries.map(item => String(item.Id || item.ItemId));
+                    const id = continueLibrary.dataset.hssmContinueLibrary;
+                    if (continueLibrary.checked && state.sources.indexOf(id) < 0) state.sources.push(id);
+                    if (!continueLibrary.checked) state.sources = state.sources.filter(value => value !== id);
+                    return;
+                }
                 const displayTop = event.target.closest('[data-hssm-display-top]');
                 const activityType = event.target.closest('[data-hssm-activity-media-type]');
                 const activityMax = event.target.closest('[data-hssm-activity-max]');
@@ -2299,7 +2363,7 @@
                 const rankShadow = event.target.closest('[data-hssm-rank-shadow-color]');
                 const rankFont = event.target.closest('[data-hssm-rank-font]');
                 if (displayTop) {
-                    state.displayTop = [5,10,20,30,40,50].includes(Number(displayTop.value)) ? Number(displayTop.value) : 10;
+                    state.displayTop = [5,10,20,30,40,50,75,100].includes(Number(displayTop.value)) ? Number(displayTop.value) : 10;
                     const description = host.querySelector('[data-hssm-top-count-description]');
                     if (description) description.textContent = 'All selected sources are combined into one Top ' + state.displayTop + ' draft. Media without an IMDb rating tag is excluded.';
                     state.contentPage = 1; return;
@@ -2321,12 +2385,14 @@
                     reader.readAsDataURL(file); return;
                 }
                 const order = event.target.closest('[data-hssm-content-order]');
+                const maxItems = event.target.closest('[data-hssm-max-items]');
                 const artSize = event.target.closest('[data-hssm-art-size]');
                 const artType = event.target.closest('[data-hssm-art-type]');
                 const artShape = event.target.closest('[data-hssm-art-shape]');
                 const showText = event.target.closest('[data-hssm-show-text]');
                 const showSectionName = event.target.closest('[data-hssm-show-section-name]');
                 if (order) { state.contentOrder = order.value; renderManualOrder(); return; }
+                if (maxItems) { state.maxItems = [0,10,20,30,40,50,75,100].includes(Number(maxItems.value)) ? Number(maxItems.value) : 0; return; }
                 if (artSize) { state.artSize = artSize.value; return; }
                 if (artType) { state.artType = artType.value; return; }
                 if (artShape) { state.artShape = artShape.value; return; }
@@ -2440,6 +2506,7 @@
                 state.contentItemOrder = [];
                 state.contentPage = 1;
                 state.contentOrder = state.type === 'top-10-50' ? 'rating-descending' : state.type === 'recently-added-library' ? 'date-added-descending' : (state.type === 'watch-again' || automaticSectionTypes.has(state.type)) ? 'completed-descending' : 'title-ascending';
+                state.maxItems = 0;
                 state.artSize = 'medium';
                 state.artType = 'automatic';
                 state.artShape = 'poster';
@@ -2496,6 +2563,7 @@
                         state.resolvedItemIds = itemIds.slice();
                         state.contentItemOrder = itemIds.slice();
                         state.contentOrder = isTopType() ? 'rating-descending' : String(definition.ContentOrder || definition.contentOrder || 'title-ascending');
+                        state.maxItems = Number(definition.MaxItems || definition.maxItems || 0);
                         state.artSize = String(definition.ArtSize || definition.artSize || 'medium');
                         state.artType = String(definition.ArtType || definition.artType || 'automatic');
                         state.artShape = String(definition.ArtShape || definition.artShape || 'poster');
