@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    var CLIENT_VERSION = "0.1.0.55";
+    var CLIENT_VERSION = "0.1.0.56";
     if (window.HomeScreenManagerClient) {
         if (window.HomeScreenManagerClient.version === CLIENT_VERSION) {
             window.HomeScreenManagerClient.refresh();
@@ -3076,6 +3076,12 @@
             clearTopChromeContentOffsets(null);
             return;
         }
+        // Jellyfin settles detail content beneath its own header. Applying a
+        // second offset here makes the poster and metadata visibly jump.
+        if (page.classList.contains('itemDetailPage')) {
+            clearTopChromeContentOffsets(null);
+            return;
+        }
         clearTopChromeContentOffsets(page);
         if (!page.classList.contains('hssm-top-chrome-content-offset')) {
             page._hssmOriginalPaddingTop = {
@@ -3086,7 +3092,7 @@
             page.classList.add('hssm-top-chrome-content-offset');
         }
         page.style.setProperty('--hssm-persistent-top-chrome-height', offset.toFixed(2) + 'px');
-        page.style.setProperty('padding-top', page.classList.contains('itemDetailPage') ? page._hssmBasePaddingTop.toFixed(2) + 'px' : 'calc(' + page._hssmBasePaddingTop.toFixed(2) + 'px + ' + offset.toFixed(2) + 'px)', 'important');
+        page.style.setProperty('padding-top', 'calc(' + page._hssmBasePaddingTop.toFixed(2) + 'px + ' + offset.toFixed(2) + 'px)', 'important');
     }
 
     function syncTopChromeFlowHosts() {
@@ -3437,7 +3443,10 @@
         var persistent = prop(definition, 'Persistent', 'persistent', false) === true;
         var logoShadow = String(prop(definition, 'LogoShadowColor', 'logoShadowColor', '#ffffff') || '');
         var definitionId = String(prop(definition, 'Id', 'id', 'main-top-row'));
-        var signature = JSON.stringify([definitionId, pageId, persistent, sourceIds, prop(section, 'ContentOrder', 'contentOrder', 'manual'), prop(section, 'ArtType', 'artType', 'automatic'), prop(section, 'ArtShape', 'artShape', 'wide'), logosOnly, logoShadow, Array.from(logoCollectionIds)]);
+        // The definition id already identifies the effective Main/override
+        // row. Do not include the active custom-page id: doing so discarded
+        // and rebuilt an unchanged Main Top Row on every page switch.
+        var signature = JSON.stringify([definitionId, persistent, sourceIds, prop(section, 'ContentOrder', 'contentOrder', 'manual'), prop(section, 'ArtType', 'artType', 'automatic'), prop(section, 'ArtShape', 'artShape', 'wide'), logosOnly, logoShadow, Array.from(logoCollectionIds)]);
         var existing = document.querySelector('.hssm-top-row');
         if (!topRowHost && alwaysShow && existing && topRowRenderKey === signature) {
             syncTopChromeHeaderOffset();

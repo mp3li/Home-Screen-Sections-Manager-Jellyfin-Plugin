@@ -651,11 +651,12 @@ def run() -> None:
           window.ApiClient=null;
           location.hash='#/details?id=resume-one';
         }""")
-        page.wait_for_function("document.querySelector('#itemDetailPage').classList.contains('hssm-top-chrome-content-offset')")
+        page.wait_for_timeout(150)
+        assert not page.locator("#itemDetailPage").evaluate("node => node.classList.contains('hssm-top-chrome-content-offset')")
         assert page.locator(".hssm-top-row").get_attribute("data-hssm-identity-test") == "retained"
         detail_offset = page.evaluate("""() => { const page=document.querySelector('#itemDetailPage'), wrapper=page.querySelector('.detailPageWrapperContainer'), content=page.querySelector('[data-hssm-test-detail-content]'), message=document.querySelector('.hssm-top-row-message').getBoundingClientRect(), row=document.querySelector('.hssm-top-row').getBoundingClientRect(), header=document.querySelector('.skinHeader').getBoundingClientRect(); return {padding:parseFloat(getComputedStyle(page).paddingTop),pageTop:page.getBoundingClientRect().top,contentTop:content.getBoundingClientRect().top,wrapperTransform:getComputedStyle(wrapper).transform,chromeHeight:message.height+row.height,headerTop:header.top,rowBottom:row.bottom,hasSpacer:!!page.querySelector('.hssm-top-row-message-spacer,.hssm-top-row-row-spacer')}; }""")
         detail_clearance = detail_offset["contentTop"] - detail_offset["pageTop"] - detail_offset["padding"]
-        assert abs(detail_offset["padding"] - 80) < 2 and 8 <= detail_clearance <= 14 and detail_clearance < detail_offset["chromeHeight"] and detail_offset["wrapperTransform"] != "none" and detail_offset["headerTop"] >= detail_offset["rowBottom"] - 1 and not detail_offset["hasSpacer"], detail_offset
+        assert abs(detail_offset["padding"] - 80) < 2 and abs(detail_clearance) < 2 and detail_offset["wrapperTransform"] == "none" and detail_offset["headerTop"] >= detail_offset["rowBottom"] - 1 and not detail_offset["hasSpacer"], detail_offset
         page.evaluate("window.ApiClient=window.__savedApiClient; delete window.__savedApiClient; window.HomeScreenManagerClient.refresh()")
         page.wait_for_selector(".hssm-top-row[data-hssm-top-row-id='movies-library-top-row']")
         assert page.locator(".hssm-top-row").get_attribute("data-hssm-identity-test") is None

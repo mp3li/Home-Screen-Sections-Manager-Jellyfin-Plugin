@@ -9,13 +9,13 @@
     "imageUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Assets/Branding/home-screen-sections-manager-plugin-photo.png",
     "versions": [
       {
-        "version": "0.1.0.55",
-        "changelog": "Fixes automatic section editors stuck loading, preserves drafts without requiring Collection Manager for ordinary sources, moves message controls into a Marquee Message tab with a true looping marquee, removes the Main Top Row Fallback badge, restores subtle detail-page clearance, corrects Author presentation, and prevents the original spotlight from flashing before the configured Media Bar.",
+        "version": "0.1.0.56",
+        "changelog": "Removes blocking Collection Manager calls from ordinary section and Top Row setup, defers tag loading until opened, keeps unchanged Top Rows mounted and caches their logo files, restores native detail-page positioning, and moves Pages into a second dashboard tab row.",
         "targetAbi": "10.11.11.0",
         "framework": "net9.0",
-        "sourceUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Test%20Releases/0.1.0.55-test/Jellyfin.Plugin.HomeScreenSectionsManager_0.1.0.55-test.zip",
-        "checksum": "ccaecb33c7dcd8ca434680c745dcbf16",
-        "timestamp": "2026-08-17T00:57:28Z"
+        "sourceUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Test%20Releases/0.1.0.56-test/Jellyfin.Plugin.HomeScreenSectionsManager_0.1.0.56-test.zip",
+        "checksum": "b8bc5acc0e0ad3bb11ddfa919d99ed05",
+        "timestamp": "2026-08-17T01:48:39Z"
       }
     ]
   }

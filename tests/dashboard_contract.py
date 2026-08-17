@@ -46,10 +46,11 @@ def run() -> None:
               window.__displayPrefs = {CustomPrefs:{homesection0:'resume'}};
               window.__applyCalls = [];
               window.__brandingWrites = [];
+              window.__collectionManagerCatalogCalls = 0;
               window.Dashboard = { alert(){}, showLoadingMsg(){}, hideLoadingMsg(){} };
               window.ApiClient = {
                 getCurrentUserId:()=> 'user', serverId:()=> 'server',
-                getUrl:(path)=>path,
+                getUrl:(path,params)=>path + (params && params.IncludeItemTypes ? '?IncludeItemTypes=' + encodeURIComponent(params.IncludeItemTypes) : ''),
                 getJSON:(url)=> {
                   if(String(url).includes('top-row-settings')) return Promise.resolve(structuredClone(window.__topRowSettings));
                   if(String(url).includes('section-settings')) return Promise.resolve(structuredClone(window.__sectionSettings));
@@ -57,9 +58,9 @@ def run() -> None:
                   if(String(url).includes('customization-settings')) return Promise.resolve(structuredClone(window.__customizationSettings));
                   if(String(url).includes('DisplayPreferences')) return Promise.resolve({CustomPrefs:{homesection0:'resume'}});
                   if(String(url).includes('Users/user/Views')) return Promise.resolve({Items:[{Id:'library',Name:'Movies',CollectionType:'movies'}]});
+                  if(String(url).includes('Users/user/Items?IncludeItemTypes=BoxSet')) return Promise.resolve({Items:[{Id:'foreign',Name:'Foreign Collection',ChildCount:20}]});
                   if(String(url).includes('Genres')) return Promise.resolve({Items:[{Id:'genre-drama',Name:'Drama',Type:'Genre'},{Id:'genre-comedy',Name:'Comedy',Type:'Genre'}]});
-                  if(String(url).includes('CollectionManager/settings/main')) return Promise.resolve({Configuration:{},Libraries:[{ItemId:'library',Name:'Movies'}]});
-                  if(String(url).includes('CollectionManager/art/collections')) return Promise.resolve([{Id:'foreign',Name:'Foreign Collection',MediaItems:20}]);
+                  if(String(url).includes('CollectionManager/settings/main') || String(url).includes('CollectionManager/art/collections')) { window.__collectionManagerCatalogCalls += 1; return new Promise(()=>{}); }
                   if(String(url).includes('Plugins')) return Promise.resolve([{Name:'JavaScript Injector',Id:'injector'}]);
                   if(String(url).includes('Branding/Configuration')) return Promise.resolve({CustomCss:''});
                   return Promise.resolve({Items:[]});
@@ -91,7 +92,7 @@ def run() -> None:
                 getPluginConfiguration:()=>Promise.resolve({CustomJavaScripts:[]}),
                 updatePluginConfiguration:()=>Promise.resolve()
               };
-              window.HomeScreenManagerClient = { version:'0.1.0.55', refresh(){} };
+              window.HomeScreenManagerClient = { version:'0.1.0.56', refresh(){} };
               window.CustomElements = { upgradeSubtree(){} };
             }
             """
@@ -123,6 +124,7 @@ def run() -> None:
         page.locator("[data-tab='top-row-settings']").click()
         assert page.locator("[data-tab='top-row-settings']").inner_text().strip() == "Create and Manage Top Rows"
         page.wait_for_selector("#hssmTopRowList [data-hssm-top-row-id='main-top-row']")
+        assert page.evaluate("window.__collectionManagerCatalogCalls") == 0
         main_top_row = page.locator("#hssmTopRowList [data-hssm-top-row-id='main-top-row']")
         assert main_top_row.get_attribute("draggable") is None
         assert "Main Top Row · Everywhere" in main_top_row.inner_text()

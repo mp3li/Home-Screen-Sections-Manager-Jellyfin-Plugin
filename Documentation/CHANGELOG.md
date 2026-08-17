@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.0.56-test] - 2026-08-16
+
+- Removes Collection Manager's slow settings and collection-art endpoints from ordinary section editing and Top Row dashboard startup; Jellyfin libraries and collections now load directly from Jellyfin.
+- Defers metadata-tag catalog work until the Tags picker is actually expanded and loads manual library media directly from Jellyfin.
+- Keeps an unchanged Main Top Row mounted across custom-page changes and lets browsers cache versioned logo-only image files, avoiding repeated empty waits.
+- Restores Jellyfin's native detail-page positioning without applying any plugin wrapper transform or second content offset.
+- Moves **Create and Manage Home Screen Pages** into the same styled second tab row used by the developer's other Jellyfin plugins.
+
 ## [0.1.0.55-test] - 2026-08-16
 
 - Fixes **Continue Watching & Listening**, **Continue Reading & Listening**, and all three recently listened section types getting stuck on **Loading section settings…**.

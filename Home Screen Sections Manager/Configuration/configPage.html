@@ -2,6 +2,7 @@
     <style>
         #homeScreenSectionsManagerPage { --hssm-outline:rgba(128,128,128,.55); --hssm-jellyfin:#00a4dc; --hssm-manager:#aa5cc3; --hssm-media-bar:#c78000; --hssm-top-main:#aa5cc3; --hssm-top-target:#00a4dc; --hssm-top-on:#35a853; --hssm-top-off:#777777; }
         #homeScreenSectionsManagerPage .hssm-tabs { display:flex; flex-wrap:nowrap; gap:.5em; overflow-x:auto; overscroll-behavior-x:contain; border-bottom:0; margin:1.5em 0; padding-bottom:.15em; }
+        #homeScreenSectionsManagerPage .hssm-tabs-secondary { margin:-1.5em 0 1.5em; padding-top:.5em; border-bottom:0; }
         #homeScreenSectionsManagerPage .hssm-tab { flex:0 0 auto; white-space:nowrap; border:0; border-radius:.45em .45em 0 0; padding:.85em 1.25em; background:rgba(255,255,255,.08); color:inherit; cursor:pointer; font-size:1em; }
         #homeScreenSectionsManagerPage .hssm-tab.active { background:#00a4dc; color:#fff; font-weight:bold; }
         #homeScreenSectionsManagerPage .hssm-panel { display:none; }
@@ -73,13 +74,15 @@
         <h1>Home Screen Manager</h1>
         <p>For instructions and more information, check out the repo <a href="https://github.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin" target="_blank" rel="noopener noreferrer">here</a>. To stay up to date with more of the dev's work, check out their Patreon <a href="https://www.patreon.com/cw/mp3li" target="_blank" rel="noopener noreferrer">here</a>.</p>
 
-        <div class="hssm-tabs" role="tablist" aria-label="Home Screen Manager tabs">
+        <div class="hssm-tabs hssm-tabs-primary" role="tablist" aria-label="Home Screen Manager tabs">
             <button type="button" class="hssm-tab active" data-tab="main-settings" role="tab" aria-selected="true">Main Settings</button>
             <button type="button" class="hssm-tab" data-tab="customization-settings" role="tab" aria-selected="false">Customization Settings</button>
             <button type="button" class="hssm-tab" data-tab="marquee-message" role="tab" aria-selected="false">Marquee Message</button>
             <button type="button" class="hssm-tab" data-tab="top-row-settings" role="tab" aria-selected="false">Create and Manage Top Rows</button>
             <button type="button" class="hssm-tab" data-tab="create-sections" role="tab" aria-selected="false">Create and Manage Home Screen Sections</button>
-            <button type="button" class="hssm-tab" data-tab="create-pages" role="tab" aria-selected="false">Create and Manage Home Screen Pages</button>
+        </div>
+        <div class="hssm-tabs hssm-tabs-secondary" role="tablist" aria-label="Home Screen Manager additional tabs">
+            <button type="button" class="hssm-tab" data-tab="create-pages" data-secondary-tab="true" role="tab" aria-selected="false">Create and Manage Home Screen Pages</button>
         </div>
 
         <div class="hssm-panel active" data-panel="main-settings" role="tabpanel">
@@ -686,7 +689,9 @@
             page.addEventListener('click', event => {
                 const tab = event.target.closest('[data-tab]');
                 if (tab && page.contains(tab)) {
-                    page.querySelectorAll('[data-tab]').forEach(button => { const active = button === tab; button.classList.toggle('active', active); button.setAttribute('aria-selected', String(active)); });
+                    const secondary = tab.dataset.secondaryTab === 'true';
+                    page.querySelectorAll('.hssm-tabs-primary [data-tab]').forEach(button => { const active = !secondary && button === tab; button.classList.toggle('active', active); button.setAttribute('aria-selected', String(active)); });
+                    page.querySelectorAll('.hssm-tabs-secondary [data-tab]').forEach(button => { const active = secondary && button === tab; button.classList.toggle('active', active); button.setAttribute('aria-selected', String(active)); });
                     page.querySelectorAll('[data-panel]').forEach(panel => panel.classList.toggle('active', panel.dataset.panel === tab.dataset.tab));
                     return;
                 }
@@ -1040,7 +1045,7 @@
             const logoShadowColor = page.querySelector('#hssmTopRowLogoShadowColor'), messageFont = page.querySelector('#hssmTopRowMessageFont'), messageFontStatus = page.querySelector('#hssmTopRowMessageFontStatus');
             const targetType = page.querySelector('#hssmTopRowTargetType'), targetId = page.querySelector('#hssmTopRowTargetId');
             let pages = [], collections = [], libraries = [], genres = [], genreLibraryId = '', rows = [], selectedRowId = '', editingRowId = '', selectedIds = [], draggedId = '', lastDeleted = null;
-            let settingsSnapshot = {}, savedLogoShadowColor = '#ffffff', messageFontDataUrl = '', messageFontShadowColor = '';
+            let settingsSnapshot = {}, savedLogoShadowColor = '#ffffff', messageFontDataUrl = '', messageFontShadowColor = '', loadPromise = null, loaded = false;
             const esc = value => { const node = document.createElement('span'); node.textContent = value == null ? '' : String(value); return node.innerHTML; };
             const valueOf = (value, pascal, camel, fallback) => value && value[pascal] !== undefined ? value[pascal] : value && value[camel] !== undefined ? value[camel] : fallback;
             const clone = value => JSON.parse(JSON.stringify(value));
@@ -1052,6 +1057,16 @@
             const rowId = row => String(rowValue(row, 'Id', 'id', ''));
             const rowIsMain = row => rowValue(row, 'IsMain', 'isMain', false) === true || rowId(row) === 'main-top-row';
             const rowSection = row => rowValue(row, 'Section', 'section', {}) || {};
+            const currentUserId = () => typeof ApiClient.getCurrentUserId === 'function' ? ApiClient.getCurrentUserId() : '';
+            function nativeLibraries() {
+                const id = currentUserId();
+                const request = typeof ApiClient.getUserViews === 'function' ? ApiClient.getUserViews({}, id) : ApiClient.getJSON(ApiClient.getUrl('Users/' + encodeURIComponent(id) + '/Views'));
+                return Promise.resolve(request).then(result => (result.Items || result.items || []).map(item => ({ Id:item.Id || item.id, ItemId:item.Id || item.id, Name:item.Name || item.name })));
+            }
+            function nativeCollections() {
+                const id = currentUserId();
+                return ApiClient.getJSON(ApiClient.getUrl('Users/' + encodeURIComponent(id) + '/Items', { IncludeItemTypes:'BoxSet', Recursive:true, Fields:'Overview,ChildCount', Limit:1000 })).then(result => (result.Items || result.items || []).map(item => ({ Id:item.Id || item.id, Name:item.Name || item.name, MediaItems:Number(item.ChildCount || item.childCount || 0) })));
+            }
             function syncMessageSecondColor() {
                 const second = page.querySelector('#hssmTopRowMessageBarColorTwo').closest('.inputContainer');
                 if (second) second.hidden = page.querySelector('#hssmTopRowMessageBarColorMode').value === 'solid';
@@ -1206,18 +1221,20 @@
                     Section:{ Id:'top-row-section-' + editingRowId, Name:'Top Row', PageId:'home', Type:selectedType(), SourceIds:selectedIds, ItemIds:selectedIds, ContentOrder:contentOrder.value, ArtSize:'extra-small', ArtType:artType.value, ArtShape:artShape.value, DisplayLogosOnly:displayLogosOnly.checked, ShowText:false, ShowSectionName:false, IsVisible:true, IsMediaBar:false, IsApplied:selectedIds.length > 0 }
                 };
             }
-            function load() {
-                Promise.all([
+            function load(force) {
+                if (loaded && !force) { renderRows(); return Promise.resolve(settingsSnapshot); }
+                if (loadPromise && !force) return loadPromise;
+                loadPromise = Promise.all([
                     ApiClient.getJSON(ApiClient.getUrl('HomeScreenSectionsManager/top-row-settings')),
                     ApiClient.getJSON(ApiClient.getUrl('HomeScreenSectionsManager/section-settings')),
-                    ApiClient.getJSON(ApiClient.getUrl('CollectionManager/settings/main')),
-                    ApiClient.getJSON(ApiClient.getUrl('CollectionManager/art/collections'))
+                    nativeLibraries(),
+                    nativeCollections()
                 ]).then(values => {
                     settingsSnapshot = values[0] || {};
-                    const sectionSettings = values[1] || {}, collectionSettings = values[2] || {};
+                    const sectionSettings = values[1] || {};
                     const savedPages = valueOf(sectionSettings, 'Pages', 'pages', []) || [], pageMap = new Map([['home',{id:'home',name:'Home'}],['favorites',{id:'favorites',name:'Favorites'}]]);
                     savedPages.forEach(item => { const id = String(item.Id || item.id || ''); if (id) pageMap.set(id, { id, name:String(item.Name || item.name || id) }); });
-                    pages = Array.from(pageMap.values()); libraries = valueOf(collectionSettings, 'Libraries', 'libraries', []) || []; collections = Array.isArray(values[3]) ? values[3] : [];
+                    pages = Array.from(pageMap.values()); libraries = values[2] || []; collections = values[3] || [];
                     rows = clone(valueOf(settingsSnapshot, 'TopRows', 'topRows', []) || []);
                     if (!rows.length) rows = [{ Id:'main-top-row',Name:'Main Top Row',IsMain:true,EnableTopRow:valueOf(settingsSnapshot,'EnableTopRow','enableTopRow',false),OverrideMainTopRow:false,TargetType:'main',TargetId:'',Persistent:valueOf(settingsSnapshot,'TopRowPersistent','topRowPersistent',false),LogoShadowColor:valueOf(settingsSnapshot,'TopRowLogoShadowColor','topRowLogoShadowColor','#ffffff'),Section:valueOf(settingsSnapshot,'TopRowSection','topRowSection',{}) || {} }];
                     selectedRowId = rows.some(row => rowId(row) === selectedRowId) ? selectedRowId : 'main-top-row';
@@ -1231,8 +1248,10 @@
                     messageFontShadowColor = String(valueOf(settingsSnapshot,'TopRowMessageFontShadowColor','topRowMessageFontShadowColor','') || ''); page.querySelector('#hssmTopRowMessageFontShadowColor').value = messageFontShadowColor || '#000000';
                     page.querySelector('#hssmTopRowMessageBarColorMode').value = String(valueOf(settingsSnapshot,'TopRowMessageBarColorMode','topRowMessageBarColorMode','solid') || 'solid'); page.querySelector('#hssmTopRowMessageBarColorOne').value = String(valueOf(settingsSnapshot,'TopRowMessageBarColorOne','topRowMessageBarColorOne','#000000') || '#000000'); page.querySelector('#hssmTopRowMessageBarColorTwo').value = String(valueOf(settingsSnapshot,'TopRowMessageBarColorTwo','topRowMessageBarColorTwo','#333333') || '#333333'); syncMessageSecondColor();
                     page.querySelector('#hssmTopRowMessageMarqueeSpeed').value = String(valueOf(settingsSnapshot,'TopRowMessageMarqueeSpeed','topRowMessageMarqueeSpeed','normal') || 'normal');
-                    renderMessagePages(valueOf(settingsSnapshot,'TopRowMessagePageIds','topRowMessagePageIds',['home']) || ['home']); renderRows();
-                }, error => { status.textContent = 'Top Row settings could not be loaded. ' + (error && (error.message || error.statusText) || ''); });
+                    renderMessagePages(valueOf(settingsSnapshot,'TopRowMessagePageIds','topRowMessagePageIds',['home']) || ['home']); renderRows(); loaded = true;
+                    return settingsSnapshot;
+                }, error => { status.textContent = 'Top Row settings could not be loaded. ' + (error && (error.message || error.statusText) || ''); throw error; }).finally(() => { loadPromise = null; });
+                return loadPromise;
             }
             list.addEventListener('click', event => { const row = event.target.closest('[data-hssm-top-row-id]'); if (!row) return; selectedRowId = row.dataset.hssmTopRowId; renderRows(); });
             page.querySelector('#hssmCreateTopRowButton').addEventListener('click', () => { const draft = {Id:'top-row-' + Date.now(),Name:'New Top Row',IsMain:false,EnableTopRow:true,OverrideMainTopRow:false,TargetType:'page',TargetId:'',Persistent:false,LogoShadowColor:'#ffffff',Section:{Type:'multiple-collections-in-a-row',SourceIds:[],ItemIds:[],ContentOrder:'manual',ArtType:'automatic',ArtShape:'wide'}}; selectedRowId = draft.Id; openEditor(draft, true); });
@@ -1258,8 +1277,7 @@
             page.querySelector('#hssmRemoveTopRowMessageFontShadow').addEventListener('click', () => { messageFontShadowColor = ''; status.textContent = 'Message font shadow removed. Save the message settings to apply the change.'; });
             messageFont.addEventListener('change', () => { const file = messageFont.files && messageFont.files[0]; if (!file) return; if (!/\.(?:ttf|otf)$/i.test(file.name) || file.size > 2000000) { messageFont.value = ''; messageFontStatus.textContent = 'Choose a .ttf or .otf font file no larger than 2 MB.'; return; } const reader = new FileReader(); reader.onload = () => { messageFontDataUrl = String(reader.result || ''); messageFontStatus.textContent = 'Custom message font imported.'; page.querySelector('#hssmRemoveTopRowMessageFont').hidden = false; }; reader.onerror = () => { messageFontDataUrl = ''; messageFontStatus.textContent = 'The font file could not be read.'; }; reader.readAsDataURL(file); });
             page.querySelector('#hssmRemoveTopRowMessageFont').addEventListener('click', event => { messageFontDataUrl = ''; messageFont.value = ''; messageFontStatus.textContent = 'Using the default Abyss theme font.'; event.currentTarget.hidden = true; });
-            page.addEventListener('click', event => { if (event.target.closest('[data-tab="top-row-settings"], [data-tab="marquee-message"]')) window.setTimeout(load,0); });
-            load();
+            page.addEventListener('click', event => { if (event.target.closest('[data-tab="top-row-settings"], [data-tab="marquee-message"]')) window.setTimeout(() => load(false),0); });
         })();
 
         (() => {
@@ -1399,14 +1417,9 @@
                 return itemQuery({ IncludeItemTypes:'BoxSet', Recursive:true, Fields:'Overview,ChildCount', Limit:1000 }).then(result => (result.Items || result.items || []).map(item => ({ Id:item.Id || item.id, Name:item.Name || item.name, MediaItems:Number(item.ChildCount || item.childCount || 0) })));
             }
             function setupData() {
-                const settingsRequest = cm('settings/main').then(result => {
-                    state.collectionManagerConfiguration = result.Configuration || result.configuration || {};
-                    state.libraries = result.Libraries || result.libraries || [];
-                }).catch(() => {
-                    state.collectionManagerConfiguration = {};
-                    return nativeLibraries().then(libraries => { state.libraries = libraries; });
-                });
-                const collectionsRequest = cm('art/collections').then(result => { state.collections = result || []; }).catch(() => nativeCollections().then(collections => { state.collections = collections; }));
+                state.collectionManagerConfiguration = {};
+                const settingsRequest = nativeLibraries().then(libraries => { state.libraries = libraries; });
+                const collectionsRequest = nativeCollections().then(collections => { state.collections = collections; });
                 return Promise.all([settingsRequest, collectionsRequest]).then(() => state);
             }
 
@@ -1967,7 +1980,7 @@
                     if (isCollectionType()) renderCollections();
                     if (isTagType()) renderTags();
                     if (isLibraryType()) renderLibraries();
-                    if (usesDraftSourcePicker()) { renderDraftCollections(); renderDraftLibraries(); renderTags(); renderSourceDrafts(); }
+                    if (usesDraftSourcePicker()) { renderDraftCollections(); renderDraftLibraries(); renderSourceDrafts(); }
                     renderContent();
                 }, () => { host.innerHTML = '<p class="fieldDescription">Jellyfin could not load the available libraries and collections. Your current section draft has been kept; try opening it again.</p>'; });
             }
@@ -1978,9 +1991,7 @@
                 content.hidden = false; if (button) button.textContent = 'Click here to collapse';
                 if (state.manual[id]) { renderManualItems(id); return; }
                 content.innerHTML = '<p class="fieldDescription">Loading library media…</p>';
-                cm('manual-collections/library-items?libraryId=' + encodeURIComponent(id))
-                    .then(result => result.Items || result.items || [])
-                    .catch(() => loadAllParentItems(id, 0, [], null, true))
+                loadAllParentItems(id, 0, [], null, true)
                     .then(items => { state.manual[id] = items; renderManualItems(id); }, () => { content.innerHTML = '<p class="fieldDescription">Could not load library media.</p>'; });
             }            function tagChoiceMarkup(choice) {
                 const libraryId = String(choice.LibraryId), type = choice.MetadataType, value = choice.Value, key = libraryId + '|' + type + '|' + value, selected = isTopType() ? state.sources.indexOf('tag|' + key) >= 0 : isDraftType() ? !!selectedDraft('tag', key) : state.sources.indexOf(key) >= 0, multiple = usesDraftSourcePicker() || kind() !== 'individual-tag-content', imageMarkup = choice.PersonImageUrl ? '<img class="mcm-person-image" src="' + esc(ApiClient.getUrl('Items/' + choice.PersonImageUrl + '/Images/Primary')) + '" alt="" />' : '';
@@ -2072,7 +2083,7 @@
                 return body && (body.Detail || body.detail || body.Message || body.message || body.Title || body.title) || (text && String(text).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()) || (error && (error.message || error.statusText)) || 'Jellyfin returned no error details.';
             }
             function loadHomeScreenClient() {
-                const version = "0.1.0.55";
+                const version = "0.1.0.56";
                 let style = document.querySelector("link[data-hssm-client-style]");
                 if (!style || style.dataset.hssmClientVersion !== version) {
                     if (style) style.remove();
@@ -2247,7 +2258,7 @@
                 if (event.target.closest('[data-hssm-library-all]')) { state.sources = state.libraries.map(library => String(library.ItemId || library.Id)); renderLibraries(); renderContent(); return; }
                 if (event.target.closest('[data-hssm-library-none]')) { state.sources = []; renderLibraries(); renderContent(); return; }
                 const pickerToggle = event.target.closest('[data-hssm-draft-picker-toggle]');
-                if (pickerToggle) { const key = pickerToggle.dataset.hssmDraftPickerToggle, body = host.querySelector('[data-hssm-draft-picker-body="' + CSS.escape(key) + '"]'); if (body) { body.hidden = !body.hidden; pickerToggle.textContent = body.hidden ? 'Click here to expand' : 'Click here to collapse'; } return; }
+                if (pickerToggle) { const key = pickerToggle.dataset.hssmDraftPickerToggle, body = host.querySelector('[data-hssm-draft-picker-body="' + CSS.escape(key) + '"]'); if (body) { body.hidden = !body.hidden; pickerToggle.textContent = body.hidden ? 'Click here to expand' : 'Click here to collapse'; if (!body.hidden && key === 'tags' && !body.dataset.hssmLoaded) { body.dataset.hssmLoaded = 'true'; renderTags(); } } return; }
                 const removeSourceDraft = event.target.closest('[data-hssm-remove-draft]');
                 if (removeSourceDraft) { const draft = state.drafts.find(value => value.Id === removeSourceDraft.dataset.hssmRemoveDraft); if (draft) { removeDraft(draft.SourceType, draft.SourceId); const tagInput = host.querySelector('[data-hssm-tag="' + CSS.escape(draft.SourceId) + '"]'); if (tagInput) tagInput.checked = false; } renderDraftCollections(); renderSourceDrafts(); renderContent(); return; }
                 const tag = event.target.closest('[data-hssm-tag-open]');

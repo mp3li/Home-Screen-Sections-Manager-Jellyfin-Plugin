@@ -606,15 +606,6 @@ body.hssm-top-row-enabled #indexPage {
     width: 100%;
 }
 
-/* Jellyfin already settles detail content beneath its header after the view
-   finishes loading. Add only a small clearance so persistent plugin chrome
-   does not crowd that final native position. */
-.itemDetailPage.hssm-top-chrome-content-offset > .detailPageWrapperContainer,
-.itemDetailPage.hssm-top-chrome-content-offset .detailPageWrapperContainer {
-    margin-bottom: 0.65rem !important;
-    transform: translateY(0.65rem) !important;
-}
-
 .hssm-top-row-message-viewport {
     max-width: 100%;
     overflow: hidden;

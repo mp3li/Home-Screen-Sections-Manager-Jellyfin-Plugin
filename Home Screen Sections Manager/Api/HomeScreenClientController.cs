@@ -90,9 +90,9 @@ public sealed class HomeScreenClientController : ControllerBase
             return NotFound();
         }
 
-        Response.Headers.CacheControl = "no-store, no-cache, must-revalidate, max-age=0";
-        Response.Headers.Pragma = "no-cache";
-        Response.Headers.Expires = "0";
+        // The URL is versioned by the browser client. Let the signed-in
+        // browser reuse these immutable source-logo bytes across page changes.
+        Response.Headers.CacheControl = "private, max-age=86400";
         return File(logo.Stream, logo.ContentType);
     }
 
