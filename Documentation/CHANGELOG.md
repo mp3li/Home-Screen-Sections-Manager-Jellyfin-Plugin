@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.1.0.58-test] - 2026-08-16
+
+- Preserves every saved section preference and selected media while reopening or refreshing an existing section, including Top settings, numbering colors, art appearance, custom titles, and source selections.
+- Stops custom pages from discarding already-rendered rows during page switches and removes the document-wide mutation work that made custom pages, native libraries, collections, and detail pages take minutes to open.
+- Changes Maximum Media in Section to a manual number field with All support, applies it to plugin and native Jellyfin rows, clamps oversized values to available saved content, and raises the supported maximum to 10,000.
+- Keeps Random ordering tied to the complete saved media-ID set and prevents appearance-only edits from rescanning sources or replacing saved items with an empty preview.
+- Shows Continue episodes with Series Primary artwork and the full **Episode Title S00E00 Series Name** title, and applies title marquee behavior to secondary text such as years and authors.
+- Keeps unchanged Main and override Top Rows mounted across page switches, reports completed Top Row refreshes, and gives Marquee Message saves visible success or error feedback without leaving their buttons stuck.
+- Lowers music artwork within Media Bars and gives artist slides a bottom-right-first grid of up to six album covers with an overflow badge, while labeling album and artist details explicitly.
+
 ## [0.1.0.57-test] - 2026-08-16
 
 - Fixes severe Jellyfin browsing delays by replacing the detail-page collection N+1 request pattern with one server-side lookup and by reusing in-flight custom-section and Media Bar loads.

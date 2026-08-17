@@ -69,14 +69,50 @@
             object-fit: contain;
             position: absolute;
             right: 7%;
-            top: 50%;
+            top: 56%;
             transform: translateY(-50%);
             width: clamp(9em, 20vw, 17em);
             z-index: 4;
         }
+        #artist-album-grid {
+            display: none;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            grid-template-rows: repeat(2, minmax(0, 1fr));
+            gap: clamp(.35em, .65vw, .7em);
+            height: clamp(10em, 20vw, 18em);
+            position: absolute;
+            right: 6%;
+            top: 56%;
+            transform: translateY(-50%);
+            width: clamp(15em, 30vw, 27em);
+            z-index: 4;
+        }
+        .artist-album-slot { min-height: 0; min-width: 0; position: relative; }
+        .artist-album-slot img {
+            border-radius: .55em;
+            box-shadow: 0 .35em 1em rgba(0,0,0,.52);
+            display: block;
+            height: 100%;
+            object-fit: cover;
+            width: 100%;
+        }
+        .artist-album-more {
+            background: rgba(18,18,18,.82);
+            border: 1px solid rgba(255,255,255,.22);
+            border-radius: 999px;
+            box-shadow: 0 .2em .65em rgba(0,0,0,.45);
+            color: #fff;
+            font-size: clamp(.7rem, 1vw, .95rem);
+            font-weight: 700;
+            padding: .22em .52em;
+            position: absolute;
+            right: -.55em;
+            top: -.55em;
+        }
         body.hssm-music-slide #content { max-width: min(52%, 48em); }
         @media (max-width: 700px) {
             #music-art { height: clamp(6.5em, 25vw, 10em); right: 4%; width: clamp(6.5em, 25vw, 10em); }
+            #artist-album-grid { height: clamp(7em, 25vw, 10em); right: 3%; width: clamp(10.8em, 38vw, 16em); }
             body.hssm-music-slide #content { max-width: 62%; }
         }
     </style>
@@ -101,6 +137,7 @@
         <div id="buttons"></div>
     </div>
     <img id="music-art" alt="" />
+    <div id="artist-album-grid" aria-label="Artist albums"></div>
     <div id="carousel-dots"></div>
     <button id="clickzone" type="button" aria-label="View item details"></button>
     <div id="empty" style="display:none">Nothing to show</div>
@@ -133,7 +170,9 @@
                     String(item && item.ParentLogoItemId || ''),
                     String(item && item._hssmArtistBackdropImageTag || ''),
                     String(item && item._hssmArtistLogoImageTag || ''),
-                    String(item && item._hssmMusicPrimaryImageTag || '')
+                    String(item && item._hssmMusicPrimaryImageTag || ''),
+                    item && item._hssmArtistAlbums || [],
+                    Number(item && item._hssmArtistAlbumCount || 0)
                 ];
             }
             let items = [];
@@ -269,7 +308,7 @@
                 const backdrop = item.Type === 'Episode'
                     ? [seriesBackdrop, parentBackdrop, itemBackdrop]
                     : [itemBackdrop, parentBackdrop, seriesBackdrop];
-                const artistBackdrop = item.Type === 'Audio'
+                const artistBackdrop = ['Audio', 'MusicAlbum', 'MusicArtist'].includes(item.Type)
                     ? [candidate(item._hssmArtistBackdropItemId, 'Backdrop', 0, item._hssmArtistBackdropImageTag, false)]
                     : [];
                 const thumb = [
@@ -291,7 +330,7 @@
             function logoCandidates(item) {
                 const tags = item.ImageTags || {};
                 const candidates = [];
-                if (item.Type === 'Audio' && item._hssmArtistLogoItemId) candidates.push(logoUrl(item._hssmArtistLogoItemId, item._hssmArtistLogoImageTag));
+                if (['Audio', 'MusicAlbum', 'MusicArtist'].includes(item.Type) && item._hssmArtistLogoItemId) candidates.push(logoUrl(item._hssmArtistLogoItemId, item._hssmArtistLogoImageTag));
                 if (tags.Logo) candidates.push(logoUrl(item.Id, tags.Logo));
                 if (item.ParentLogoItemId) candidates.push(logoUrl(item.ParentLogoItemId, item.ParentLogoImageTag));
                 if (item.SeriesId) candidates.push(logoUrl(item.SeriesId, item.ParentLogoImageTag));
@@ -438,18 +477,44 @@
 
             function updateContent(item, artwork, sequence) {
                 const isEpisode = item.Type === 'Episode';
-                const isMusic = item.Type === 'Audio';
+                const isMusic = ['Audio', 'MusicAlbum', 'MusicArtist'].includes(item.Type);
+                const isArtist = item.Type === 'MusicArtist';
                 const detailId = isEpisode ? item.SeriesId || item.Id : item.Id;
                 const detailRoute = `/details?id=${detailId}`;
                 const title = isEpisode ? item.SeriesName || item.Name : item.Name;
                 const backdropImage = $('backdrop-img');
                 const reflectionImage = $('reflection-img');
                 const musicArt = $('music-art');
+                const artistAlbumGrid = $('artist-album-grid');
                 document.body.classList.toggle('hssm-music-slide', isMusic);
                 musicArt.onerror = null;
                 musicArt.removeAttribute('src');
                 musicArt.style.display = 'none';
-                if (isMusic) {
+                artistAlbumGrid.replaceChildren();
+                artistAlbumGrid.style.display = 'none';
+                if (isArtist) {
+                    const positions = [[2,3],[2,2],[2,1],[1,3],[1,2],[1,1]];
+                    const albums = Array.isArray(item._hssmArtistAlbums) ? item._hssmArtistAlbums.slice(0, 6) : [];
+                    albums.forEach((album, index) => {
+                        const slot = document.createElement('div');
+                        slot.className = 'artist-album-slot';
+                        slot.style.gridRow = String(positions[index][0]);
+                        slot.style.gridColumn = String(positions[index][1]);
+                        const cover = document.createElement('img');
+                        cover.alt = `${album.Name || 'Album'} artwork`;
+                        cover.src = imageUrl(album.Id, 'Primary', null, album.PrimaryImageTag || '');
+                        cover.onerror = () => slot.remove();
+                        slot.appendChild(cover);
+                        if (index === 3 && Number(item._hssmArtistAlbumCount || 0) > 6) {
+                            const more = document.createElement('span');
+                            more.className = 'artist-album-more';
+                            more.textContent = `+${Number(item._hssmArtistAlbumCount) - 6}`;
+                            slot.appendChild(more);
+                        }
+                        artistAlbumGrid.appendChild(slot);
+                    });
+                    if (albums.length) artistAlbumGrid.style.display = 'grid';
+                } else if (isMusic) {
                     const primaryItemId = item._hssmMusicPrimaryItemId || item.PrimaryImageItemId || item.AlbumId || item.Id;
                     const primaryTag = item._hssmMusicPrimaryImageTag || item.PrimaryImageTag || item.ImageTags && item.ImageTags.Primary || '';
                     musicArt.onerror = () => { musicArt.style.display = 'none'; musicArt.removeAttribute('src'); };
@@ -527,10 +592,13 @@
                 }
 
                 let episodePrefix = '';
-                if (isMusic) {
+                if (isMusic && !isArtist) {
                     const artists = item._hssmMusicArtists || (item.Artists || []).join(', ') || (item.AlbumArtists || []).join(', ');
                     $('episode-label').textContent = `${item.Name || 'Song'}${artists ? ` by ${artists}` : ''}`;
                     $('episode-label').style.display = 'block';
+                } else if (isArtist) {
+                    $('episode-label').textContent = '';
+                    $('episode-label').style.display = 'none';
                 } else if (isEpisode) {
                     const parts = [];
                     if (item.ParentIndexNumber != null && item.IndexNumber != null) {
@@ -573,7 +641,9 @@
                 const playedPercentage = Number(item.UserData && item.UserData.PlayedPercentage);
                 $('progress-wrap').style.display = playedPercentage > 0 ? 'block' : 'none';
                 $('progress-bar').style.width = `${Math.min(Math.max(playedPercentage || 0, 0), 100)}%`;
-                $('plot').textContent = isMusic ? (item._hssmMusicAlbum || item.Album || '') : (item.Overview || '');
+                const musicAlbum = item._hssmMusicAlbum || item.Album || '';
+                const musicArtists = item._hssmMusicArtists || (item.Artists || []).join(', ') || (item.AlbumArtists || []).join(', ');
+                $('plot').textContent = isMusic ? (musicAlbum ? `Album Name: ${musicAlbum}` : musicArtists ? `Artist Name: ${musicArtists}` : '') : (item.Overview || '');
                 $('clickzone').setAttribute('aria-label', `View details for ${title || 'item'}`);
                 $('clickzone').onclick = () => navigateTo(detailRoute);
             }

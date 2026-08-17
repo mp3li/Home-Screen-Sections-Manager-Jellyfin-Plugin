@@ -435,7 +435,7 @@ def run() -> None:
         assert any("/Items/resume-one/Images/Primary" in url for url in requests), requests
 
         page.evaluate(
-            """() => document.querySelector('.hssm-owned-media-bar').contentWindow.postMessage({type:'home-screen-manager-media-bar',action:'configure',intervalSeconds:30,imageType:'primary',slowZoom:false,topGradient:true,items:[{Id:'song-one',Name:'A Song',Type:'Audio',Artists:['The Artist'],ImageTags:{Primary:'song-primary'},_hssmMusicArtists:'The Artist',_hssmArtistBackdropItemId:'artist-one',_hssmArtistBackdropImageTag:'artist-backdrop',_hssmArtistLogoItemId:'artist-one',_hssmArtistLogoImageTag:'artist-logo',_hssmMusicPrimaryItemId:'album-one',_hssmMusicPrimaryImageTag:'album-primary'}]}, location.origin)"""
+            """() => document.querySelector('.hssm-owned-media-bar').contentWindow.postMessage({type:'home-screen-manager-media-bar',action:'configure',intervalSeconds:30,imageType:'primary',slowZoom:false,topGradient:true,items:[{Id:'song-one',Name:'A Song',Type:'Audio',Artists:['The Artist'],ImageTags:{Primary:'song-primary'},_hssmMusicArtists:'The Artist',_hssmMusicAlbum:'The Album',_hssmArtistBackdropItemId:'artist-one',_hssmArtistBackdropImageTag:'artist-backdrop',_hssmArtistLogoItemId:'artist-one',_hssmArtistLogoImageTag:'artist-logo',_hssmMusicPrimaryItemId:'album-one',_hssmMusicPrimaryImageTag:'album-primary'}]}, location.origin)"""
         )
         media_frame.locator("body.hssm-music-slide").wait_for(state="attached")
         assert media_frame.locator("#episode-label").inner_text().strip() == "A Song by The Artist"
@@ -444,6 +444,20 @@ def run() -> None:
         assert "/Items/artist-one/Images/Backdrop/0" in media_frame.locator("#backdrop-img").get_attribute("src")
         assert "/Items/artist-one/Images/Logo" in media_frame.locator("#logo").get_attribute("src")
         assert "rgba(0, 0, 0" in media_frame.locator("#music-art").evaluate("node => getComputedStyle(node).boxShadow")
+        assert media_frame.locator("#plot").inner_text().strip() == "Album Name: The Album"
+
+        artist_albums = [{"Id": f"album-{index}", "Name": f"Album {index}", "PrimaryImageTag": f"album-tag-{index}"} for index in range(1, 7)]
+        page.evaluate(
+            """albums => document.querySelector('.hssm-owned-media-bar').contentWindow.postMessage({type:'home-screen-manager-media-bar',action:'configure',intervalSeconds:30,imageType:'primary',slowZoom:false,topGradient:true,items:[{Id:'artist-one',Name:'The Artist',Type:'MusicArtist',ImageTags:{Logo:'artist-logo'},_hssmMusicArtists:'The Artist',_hssmArtistBackdropItemId:'artist-one',_hssmArtistBackdropImageTag:'artist-backdrop',_hssmArtistLogoItemId:'artist-one',_hssmArtistLogoImageTag:'artist-logo',_hssmArtistAlbums:albums,_hssmArtistAlbumCount:10}]}, location.origin)""",
+            artist_albums,
+        )
+        media_frame.locator("#artist-album-grid").wait_for(state="visible")
+        assert media_frame.locator("#artist-album-grid .artist-album-slot").count() == 6
+        assert media_frame.locator("#artist-album-grid .artist-album-more").inner_text().strip() == "+4"
+        artist_slots = media_frame.locator("#artist-album-grid .artist-album-slot").evaluate_all("nodes => nodes.map(node => [node.style.gridRow,node.style.gridColumn])")
+        assert artist_slots == [["2", "3"], ["2", "2"], ["2", "1"], ["1", "3"], ["1", "2"], ["1", "1"]], artist_slots
+        assert media_frame.locator("#music-art").is_hidden()
+        assert media_frame.locator("#plot").inner_text().strip() == "Artist Name: The Artist"
 
         # Simulate Abyss creating/replacing its iframe after the plugin starts.
         page.evaluate("""() => { const f=document.createElement('iframe'); f.className='featurediframe'; f.src='about:blank'; document.querySelector('#homeTab').prepend(f); }""")
@@ -513,8 +527,12 @@ def run() -> None:
         page.wait_for_selector(".hssm-owned-custom-page.is-active [data-hssm-section-id='manager-movies-one'] .hssm-client-card")
         continue_episode = page.locator(".hssm-owned-custom-page.is-active [data-hssm-section-id='manager-continue'] .hssm-client-card[data-id='resume-two']")
         continue_episode.wait_for(state="attached")
-        assert continue_episode.locator(".hssm-card-title").inner_text().strip() == "Series Two"
-        assert continue_episode.locator(".hssm-card-year").inner_text().strip() == "Resume Two"
+        assert continue_episode.locator(".hssm-card-title").inner_text().strip() == "Resume Two S00E00 Series Two"
+        assert continue_episode.locator(".hssm-card-year").count() == 0
+        secondary_line = page.locator(".hssm-owned-custom-page.is-active [data-hssm-section-id='manager-movies-one'] .hssm-card-year").first
+        secondary_line.evaluate("node => node.style.width='1em'")
+        page.evaluate("window.HomeScreenManagerClient.refresh()")
+        page.wait_for_function("node => node.querySelector('bdi').classList.contains('hssm-marquee-title')", arg=secondary_line.element_handle())
         assert "/Items/series-two/Images/Primary" in continue_episode.locator(".cardContent").get_attribute("style")
         assert any("/Users/user/Items/Resume" in request and "ParentId=library-one" in request for request in requests)
         page.wait_for_selector(".hssm-owned-custom-page.is-active .hssm-section-media-bar[data-hssm-media-section-id='manager-movies-two']")
@@ -569,6 +587,13 @@ def run() -> None:
         custom_logo.wait_for(state="visible")
         assert "/Items/series-two/Images/Logo" in custom_logo.get_attribute("src")
         page.frame_locator(".hssm-section-media-bar[data-hssm-media-section-id='manager-movies-two']").locator("body.hssm-media-bar-top-gradient").wait_for(state="attached")
+        resume_requests_before_return = len([request for request in requests if "/Users/user/Items/Resume" in request])
+        page.locator(".hssm-owned-custom-page.is-active [data-hssm-section-id='manager-movies-one']").evaluate("node => node.dataset.hssmRetentionProbe='retained'")
+        page.evaluate("document.querySelector('.emby-tab-button[data-index=\"0\"]').click()")
+        page.wait_for_function("document.querySelector('#homeTab').classList.contains('is-active')")
+        page.locator(".hssm-custom-page-tab[data-hssm-page-id='manager-page-movies']").click()
+        page.wait_for_function("document.querySelector('.hssm-owned-custom-page.is-active [data-hssm-section-id=\"manager-movies-one\"]').dataset.hssmRetentionProbe === 'retained'")
+        assert len([request for request in requests if "/Users/user/Items/Resume" in request]) == resume_requests_before_return
         assert any("Filters=IsPlayed" in url and "IncludeItemTypes=Movie" in url for url in requests), requests
         assert any("IncludeItemTypes=Episode" in url and "Filters=IsPlayed" in url for url in requests), requests
         assert any("Ids=watched-series" in url for url in requests), requests

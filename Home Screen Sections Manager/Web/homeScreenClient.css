@@ -1270,6 +1270,10 @@ body.hssm-title-marquee-enabled .hssm-marquee-title-host {
     white-space: nowrap !important;
 }
 
+.hssm-native-max-hidden {
+    display: none !important;
+}
+
 body.hssm-title-marquee-enabled .hssm-marquee-measuring,
 body.hssm-title-marquee-enabled .hssm-marquee-title {
     display: inline-block !important;

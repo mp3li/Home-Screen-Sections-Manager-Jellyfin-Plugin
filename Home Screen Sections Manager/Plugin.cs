@@ -589,7 +589,7 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
 
     private static int NormalizeDisplayTopCount(int value) => value is 5 or 10 or 20 or 30 or 40 or 50 or 75 or 100 ? value : 10;
 
-    private static int NormalizeMaxItems(int value) => value is 10 or 20 or 30 or 40 or 50 or 75 or 100 ? value : 0;
+    private static int NormalizeMaxItems(int value) => value <= 0 ? 0 : Math.Clamp(value, 1, 10000);
 
     private static string NormalizeActivityMediaType(string? value) => value switch { "series" => "series", "music-audiobooks" => "music-audiobooks", "books" => "books", _ => "movies" };
 

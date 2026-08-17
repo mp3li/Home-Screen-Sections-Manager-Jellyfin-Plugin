@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    var CLIENT_VERSION = "0.1.0.57";
+    var CLIENT_VERSION = "0.1.0.58";
     if (window.HomeScreenManagerClient) {
         if (window.HomeScreenManagerClient.version === CLIENT_VERSION) {
             window.HomeScreenManagerClient.refresh();
@@ -301,7 +301,7 @@
         syncOwnedMediaBarVisibility();
         lastFeatureScope = null;
         lastFeatureRoute = '';
-        queueRouteRefresh(true);
+        queueRouteRefresh(false);
     }
 
     function normalizeInitialHomeSelection() {
@@ -729,7 +729,7 @@
 
     function maximumSectionItems(section) {
         var value = Number(prop(section, 'MaxItems', 'maxItems', 0)) || 0;
-        return value > 0 ? Math.max(1, Math.min(100, Math.floor(value))) : Number.POSITIVE_INFINITY;
+        return value > 0 ? Math.max(1, Math.min(10000, Math.floor(value))) : Number.POSITIVE_INFINITY;
     }
 
     function normalizedArtType(section) {
@@ -857,8 +857,14 @@
         var imageStyle = imageUrl ? ' style="background-image:url(&quot;' + escapeHtml(imageUrl) + '&quot;)"' : '';
         var footer = '';
         var textClass = 'cardText hssm-card-text' + (shape.name === 'circle' ? ' cardTextCentered hssm-card-text-centered' : ' hssm-card-text-left');
-        if (showText && (isMyList || isContinue) && type === 'Episode') {
+        if (showText && isMyList && type === 'Episode') {
             footer = '<div class="' + textClass + ' cardText-first hssm-card-title"><bdi><a is="emby-linkbutton" href="' + escapeHtml(seriesHref) + '" class="itemAction textActionButton">' + escapeHtml(seriesName || 'Unknown Series') + '</a></bdi></div><div class="' + textClass + ' cardText-secondary hssm-card-year"><bdi><a is="emby-linkbutton" href="' + escapeHtml(href) + '" class="itemAction textActionButton">' + escapeHtml(name) + '</a></bdi></div>';
+        } else if (showText && isContinue && type === 'Episode') {
+            var continueSeason = Math.max(0, Number(prop(item, 'ParentIndexNumber', 'parentIndexNumber', 0)) || 0);
+            var continueEpisode = Math.max(0, Number(prop(item, 'IndexNumber', 'indexNumber', 0)) || 0);
+            var continueCode = 'S' + String(continueSeason).padStart(2, '0') + 'E' + String(continueEpisode).padStart(2, '0');
+            var continueTitle = [name, continueCode, seriesName].filter(Boolean).join(' ');
+            footer = '<div class="' + textClass + ' cardText-first hssm-card-title"><bdi><a is="emby-linkbutton" href="' + escapeHtml(href) + '" class="itemAction textActionButton">' + escapeHtml(continueTitle) + '</a></bdi></div>';
         } else if (showText && isWatchAgain && type === 'Episode') {
             var seasonNumber = Math.max(0, Number(prop(item, 'ParentIndexNumber', 'parentIndexNumber', 0)) || 0);
             var episodeNumber = Math.max(0, Number(prop(item, 'IndexNumber', 'indexNumber', 0)) || 0);
@@ -1306,6 +1312,7 @@
         node.style.removeProperty('--hssm-card-width');
         delete node.dataset.hssmNativeOverrideId;
         delete node.dataset.hssmNativeOverrideSignature;
+        Array.from(node.querySelectorAll('.hssm-native-max-hidden')).forEach(function (cardNode) { cardNode.classList.remove('hssm-native-max-hidden'); });
         Array.from(node.querySelectorAll('.cardImageContainer[data-hssm-original-background]')).forEach(function (image) {
             var original = image.dataset.hssmOriginalBackground;
             image.style.backgroundImage = original === '__empty__' ? '' : original;
@@ -1332,7 +1339,9 @@
             var artSize = String(prop(definition, 'ArtSize', 'artSize', 'medium'));
             var artShape = cardShape(definition).name;
             var artType = String(prop(definition, 'ArtType', 'artType', 'automatic'));
-            var signature = JSON.stringify([artSize, artShape, artType, prop(definition, 'ShowText', 'showText', true) !== false, prop(definition, 'ShowSectionName', 'showSectionName', true) !== false, cardIds]);
+            var maximum = maximumSectionItems(definition);
+            cards.forEach(function (cardNode, index) { cardNode.classList.toggle('hssm-native-max-hidden', Number.isFinite(maximum) && index >= maximum); });
+            var signature = JSON.stringify([artSize, artShape, artType, maximum, prop(definition, 'ShowText', 'showText', true) !== false, prop(definition, 'ShowSectionName', 'showSectionName', true) !== false, cardIds]);
             if (node.dataset.hssmNativeOverrideId && node.dataset.hssmNativeOverrideId !== id) restoreNativeAppearance(node);
             node.className = String(node.className || '').split(/\s+/).filter(function (name) { return name && name.indexOf('hssm-size-') !== 0 && name.indexOf('hssm-shape-') !== 0 && name.indexOf('hssm-art-') !== 0; }).join(' ');
             node.classList.add('hssm-native-art-override', 'hssm-size-' + artSize, 'hssm-shape-' + artShape, 'hssm-art-' + artType);
@@ -1517,7 +1526,7 @@
         scope = scope || activePage() || document;
         function measure() {
             if (!enabled || !scope || !scope.isConnected && scope !== document) return;
-            var candidates = Array.from(scope.querySelectorAll('.cardText-first bdi, .hssm-card-title bdi'));
+            var candidates = Array.from(scope.querySelectorAll('.cardText-first bdi, .hssm-card-title bdi, .cardText-secondary bdi, .hssm-card-year bdi, .hssm-card-author bdi'));
             candidates.forEach(function (target) {
                 var host = target.closest('.cardText');
                 if (!host) return;
@@ -1752,23 +1761,39 @@
         items = uniqueItems(items || []);
         var seriesIds = [];
         var musicParentIds = [];
+        var artistSlideIds = [];
         items.forEach(function (item) {
             var tags = prop(item, 'ImageTags', 'imageTags', {}) || {};
             var parentTag = String(prop(item, 'ParentLogoImageTag', 'parentLogoImageTag', '') || '');
             var seriesId = String(prop(item, 'SeriesId', 'seriesId', '') || '');
             if (!tags.Logo && !tags.logo && !parentTag && seriesId && seriesIds.indexOf(seriesId) < 0) seriesIds.push(seriesId);
-            if (String(prop(item, 'Type', 'type', '')) === 'Audio') {
+            var itemType = String(prop(item, 'Type', 'type', ''));
+            if (itemType === 'Audio' || itemType === 'MusicAlbum') {
                 var artist = (prop(item, 'ArtistItems', 'artistItems', []) || [])[0] || {};
                 var artistId = String(prop(artist, 'Id', 'id', ''));
                 var albumId = String(prop(item, 'AlbumId', 'albumId', ''));
                 if (artistId && musicParentIds.indexOf(artistId) < 0) musicParentIds.push(artistId);
                 if (albumId && musicParentIds.indexOf(albumId) < 0) musicParentIds.push(albumId);
             }
+            if (itemType === 'MusicArtist') {
+                var slideArtistId = String(prop(item, 'Id', 'id', ''));
+                if (slideArtistId && artistSlideIds.indexOf(slideArtistId) < 0) artistSlideIds.push(slideArtistId);
+            }
         });
-        if (!seriesIds.length && !musicParentIds.length) return Promise.resolve(items);
-        return Promise.all([queryIds(seriesIds), queryIds(musicParentIds)]).then(function (groups) {
-            var seriesItems = groups[0], musicParents = groups[1], musicById = {};
+        if (!seriesIds.length && !musicParentIds.length && !artistSlideIds.length) return Promise.resolve(items);
+        var artistAlbumsRequest = artistSlideIds.length ? queryItems({ ArtistIds:artistSlideIds.join(','), IncludeItemTypes:'MusicAlbum', Recursive:true, SortBy:'ProductionYear,SortName', SortOrder:'Descending', Limit:1000, EnableTotalRecordCount:false }) : Promise.resolve([]);
+        return Promise.all([queryIds(seriesIds), queryIds(musicParentIds), artistAlbumsRequest]).then(function (groups) {
+            var seriesItems = groups[0], musicParents = groups[1], artistAlbums = groups[2], musicById = {}, albumsByArtist = {};
             musicParents.forEach(function (parent) { musicById[String(prop(parent, 'Id', 'id', ''))] = parent; });
+            artistAlbums.forEach(function (album) {
+                var references = (prop(album, 'AlbumArtists', 'albumArtists', []) || []).concat(prop(album, 'ArtistItems', 'artistItems', []) || []);
+                references.forEach(function (reference) {
+                    var artistId = String(prop(reference, 'Id', 'id', ''));
+                    if (!artistId) return;
+                    if (!albumsByArtist[artistId]) albumsByArtist[artistId] = [];
+                    if (!albumsByArtist[artistId].some(function (existing) { return String(prop(existing, 'Id', 'id', '')) === String(prop(album, 'Id', 'id', '')); })) albumsByArtist[artistId].push(album);
+                });
+            });
             var logos = {};
             seriesItems.forEach(function (series) {
                 var id = String(prop(series, 'Id', 'id', '') || '');
@@ -1782,12 +1807,29 @@
                 var seriesId = String(prop(item, 'SeriesId', 'seriesId', '') || '');
                 var enriched = item;
                 if (!tags.Logo && !tags.logo && !parentTag && logos[seriesId]) enriched = Object.assign({}, enriched, { ParentLogoImageTag:logos[seriesId], ParentLogoItemId:seriesId });
-                if (String(prop(item, 'Type', 'type', '')) !== 'Audio') return enriched;
+                var itemType = String(prop(item, 'Type', 'type', ''));
+                if (itemType === 'MusicArtist') {
+                    var slideArtistId = String(prop(item, 'Id', 'id', ''));
+                    var slideTags = prop(item, 'ImageTags', 'imageTags', {}) || {};
+                    var slideBackdrops = prop(item, 'BackdropImageTags', 'backdropImageTags', []) || [];
+                    var albums = albumsByArtist[slideArtistId] || [];
+                    return Object.assign({}, enriched, {
+                        _hssmMusicArtistId:slideArtistId,
+                        _hssmMusicArtists:String(prop(item, 'Name', 'name', '')),
+                        _hssmArtistBackdropItemId:slideArtistId,
+                        _hssmArtistBackdropImageTag:String(slideBackdrops[0] || ''),
+                        _hssmArtistLogoItemId:slideArtistId,
+                        _hssmArtistLogoImageTag:String(slideTags.Logo || slideTags.logo || ''),
+                        _hssmArtistAlbums:albums.slice(0, 6).map(function (album) { var albumTags = prop(album, 'ImageTags', 'imageTags', {}) || {}; return { Id:String(prop(album, 'Id', 'id', '')), Name:String(prop(album, 'Name', 'name', '')), PrimaryImageTag:String(albumTags.Primary || albumTags.primary || '') }; }),
+                        _hssmArtistAlbumCount:albums.length
+                    });
+                }
+                if (itemType !== 'Audio' && itemType !== 'MusicAlbum') return enriched;
                 var artistReference = (prop(item, 'ArtistItems', 'artistItems', []) || [])[0] || {};
                 var artistId = String(prop(artistReference, 'Id', 'id', ''));
                 var artist = musicById[artistId] || {};
-                var albumId = String(prop(item, 'AlbumId', 'albumId', ''));
-                var album = musicById[albumId] || {};
+                var albumId = itemType === 'MusicAlbum' ? String(prop(item, 'Id', 'id', '')) : String(prop(item, 'AlbumId', 'albumId', ''));
+                var album = itemType === 'MusicAlbum' ? item : musicById[albumId] || {};
                 var artistTags = prop(artist, 'ImageTags', 'imageTags', {}) || {};
                 var albumTags = prop(album, 'ImageTags', 'imageTags', {}) || {};
                 var artistBackdrops = prop(artist, 'BackdropImageTags', 'backdropImageTags', []) || [];
@@ -2781,7 +2823,9 @@
     function sectionPageIds(section, cursor, limit) {
         var ids = prop(section, 'ItemIds', 'itemIds', []).map(String).filter(Boolean);
         if (String(prop(section, 'ContentOrder', 'contentOrder', '')) === 'random') {
-            if (!section._hssmRandomIds || section._hssmRandomIds.length !== ids.length) {
+            var randomSourceKey = ids.join('|');
+            if (!section._hssmRandomIds || section._hssmRandomSourceKey !== randomSourceKey) {
+                section._hssmRandomSourceKey = randomSourceKey;
                 section._hssmRandomIds = ids.slice();
                 for (var randomIndex = section._hssmRandomIds.length - 1; randomIndex > 0; randomIndex--) {
                     var swapIndex = Math.floor(Math.random() * (randomIndex + 1));
@@ -2814,14 +2858,14 @@
     }
 
     function loadDynamicPage(state) {
-        if (!state || !state.dynamicLoader || state.loading || state.complete || state.generation !== runtimeGeneration) return;
+        if (!state || !state.dynamicLoader || state.loading || state.complete || !sectionStateIsCurrent(state)) return;
         var maximum = maximumSectionItems(state.section);
         if (state.cursor >= maximum) { state.complete = true; return; }
         state.loading = true;
         var start = state.cursor;
         var pageSize = Math.min(40, maximum - start);
         homeRequestLane(function () { return state.dynamicLoader(start, pageSize); }).then(function (items) {
-            if (!sectionStateIsCurrent(state) || state.generation !== runtimeGeneration || !state.container.isConnected) return;
+            if (!sectionStateIsCurrent(state) || !state.container.isConnected) return;
             items = uniqueItems(items || []);
             state.items = uniqueItems(state.items.concat(items));
             state.cursor = start + items.length;
@@ -2836,11 +2880,11 @@
     function sectionStateIsCurrent(state) {
         if (!state) return false;
         var id = String(prop(state.section, 'Id', 'id', ''));
-        return !!id && sectionRuntime[id] === state;
+        return !!id && sectionRuntime[id] === state && state.container && state.container._hssmRuntimeGeneration === state.generation;
     }
 
     function paintSectionState(state, loading) {
-        if (!state || !sectionStateIsCurrent(state) || state.generation !== runtimeGeneration || !state.container.isConnected) return;
+        if (!state || !sectionStateIsCurrent(state) || !state.container.isConnected) return;
         var oldNode = state.node;
         var oldScroller = oldNode && oldNode.querySelector('.hssm-client-scroller');
         var oldScrollLeft = oldScroller ? Number(oldScroller.dataset.hssmOwnedOffset || oldScroller.scrollLeft || 0) : 0;
@@ -2862,7 +2906,7 @@
     }
 
     function loadSectionPage(state) {
-        if (!state || state.loading || state.complete || state.generation !== runtimeGeneration) return;
+        if (!state || state.loading || state.complete || !sectionStateIsCurrent(state)) return;
         var maximum = maximumSectionItems(state.section);
         if (state.cursor >= maximum) { state.complete = true; return; }
         var pageIds = sectionPageIds(state.section, state.cursor, Math.min(40, maximum - state.cursor));
@@ -2873,7 +2917,7 @@
         }
         state.loading = true;
         homeRequestLane(function () { return queryIds(pageIds); }).then(function (items) {
-            if (!sectionStateIsCurrent(state) || state.generation !== runtimeGeneration || !state.container.isConnected) return;
+            if (!sectionStateIsCurrent(state) || !state.container.isConnected) return;
             if (['library-content','multiple-library-content'].indexOf(String(prop(state.section, 'Type', 'type', ''))) >= 0) items = withoutNavigationFolders(items);
             state.items = uniqueItems(state.items.concat(items));
             state.cursor += pageIds.length;
@@ -2881,7 +2925,7 @@
             saveSectionCache(state.section, state.items, state.cursor);
             paintSectionState(state, false);
         }).catch(function (error) {
-            if (state.generation === runtimeGeneration) {
+            if (sectionStateIsCurrent(state)) {
                 lastError = String(error && (error.message || error.statusText) || error || 'Section loading failed');
                 console.warn('[Home Screen Manager] A section page could not be loaded.', error);
                 paintSectionState(state, false);
@@ -2951,7 +2995,7 @@
         }
         if (!request) return;
         state.refreshPromise = Promise.resolve(request).then(function (items) {
-            if (!sectionStateIsCurrent(state) || state.generation !== runtimeGeneration || !state.container.isConnected) return;
+            if (!sectionStateIsCurrent(state) || !state.container.isConnected) return;
             state.items = uniqueItems(items || []).slice(0, maximumSectionItems(state.section));
             state.cursor = state.items.length;
             state.complete = Number.isFinite(state.dynamicTotal) ? state.cursor >= state.dynamicTotal : state.items.length < 40;
@@ -2992,7 +3036,7 @@
             var delay = type === 'my-list-content' || type === 'watch-again' || recoversTop || isAutomatic ? 0 : 800;
             if (!delay) state.refreshPromise = homeRequestLane(function () { return loadDynamicSection(state); });
             else window.setTimeout(function () {
-                if (state.generation === runtimeGeneration && sectionStateIsCurrent(state)) state.refreshPromise = homeRequestLane(function () { return loadDynamicSection(state); });
+                if (sectionStateIsCurrent(state)) state.refreshPromise = homeRequestLane(function () { return loadDynamicSection(state); });
             }, delay);
         }
         return state;
@@ -3267,7 +3311,11 @@
                 syncTopChromeHeaderOffset();
             });
         });
-        topChromeMutationObserver.observe(document.body, { childList:true, subtree:true, attributes:true, attributeFilter:['class', 'hidden'] });
+        // Route/view hooks already resync the chrome. Watching every class and
+        // hidden-state mutation beneath the entire Jellyfin document made
+        // large native library pages pay for a layout pass on nearly every
+        // card inserted. Only direct body children matter to fixed chrome.
+        topChromeMutationObserver.observe(document.body, { childList:true });
     }
 
     function topChromeHost(alwaysShow) {
@@ -3677,8 +3725,11 @@
         var pageId = pageIdForContainer(container) || 'home';
         var sections = sectionsForPage(settings, pageId);
         var scopedSettings = settingsForPage(settings, pageId);
+        Object.keys(sectionRuntime).forEach(function (id) {
+            if (sectionRuntime[id] && sectionRuntime[id].container === container) delete sectionRuntime[id];
+        });
         Array.from(container.querySelectorAll(":scope > [data-hssm-section-id]")).forEach(function (node) { node.remove(); });
-        sectionRuntime = {};
+        container._hssmRuntimeGeneration = generation;
         sections.forEach(function (section) {
             var id = String(prop(section, 'Id', 'id', ''));
             var existing = id ? container.querySelector(':scope > [data-hssm-section-id="' + CSS.escape(id) + '"]') : null;
@@ -3688,6 +3739,7 @@
         lastContainer = container;
         container.dataset.hssmClientVersion = CLIENT_VERSION;
         lastSignature = signature(settings, pageId);
+        container.dataset.hssmSectionSignature = lastSignature;
         lastError = '';
         renderedSectionCount = sections.length;
         applyHybridOrder(container, scopedSettings, pageId === 'home' ? preferences : {});
@@ -3700,7 +3752,7 @@
     function homeContainerNeedsMount(container, sections, settings) {
         if (!container || (pageIdForContainer(container) === 'home' && !container.querySelector(':scope > .section0'))) return false;
         var pageId = pageIdForContainer(container) || 'home';
-        if (container !== lastContainer || signature(settings, pageId) !== lastSignature) return true;
+        if (signature(settings, pageId) !== String(container.dataset.hssmSectionSignature || '')) return true;
         if (container.dataset.hssmClientVersion !== CLIENT_VERSION) return true;
         return sections.some(function (section) {
             var id = String(prop(section, 'Id', 'id', ''));
@@ -3713,7 +3765,7 @@
         if (!container || container === activeHomeContainer()) return false;
         var pageId = pageIdForContainer(container);
         var sections = sectionsForPage(settings, pageId);
-        if (homeContainerNeedsMount(container, sections, settings) || container !== lastContainer) renderHomeRows(settings, {}, ++runtimeGeneration, container);
+        if (homeContainerNeedsMount(container, sections, settings)) renderHomeRows(settings, {}, ++runtimeGeneration, container);
         else {
             applyHybridOrder(container, settingsForPage(settings, pageId), {});
             applyRouteFeatures(settings, container.closest('.libraryPage, .page') || container, !!container.closest('.hssm-owned-custom-page'), {});

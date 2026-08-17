@@ -27,7 +27,7 @@ def run() -> None:
                 PageOrder:['home','favorites','my-list','manager-page-movies'],
                 Sections:[
                   {Id:'manager-one',Name:'Home Picks',PageId:'home',Type:'manual-content',ItemIds:['one'],SourceIds:[],IsApplied:true,IsVisible:true,IsMediaBar:false},
-                  {Id:'manager-top',Name:'Top 20 in Foreign Collection',PageId:'home',Type:'top-10-50',ItemIds:['stale-one'],SourceIds:['collection|foreign'],Drafts:[{Id:'top-draft-manager-top',SourceType:'top',SourceId:'combined',Name:'Top 20'}],DisplayTopCount:20,ShowRankNumbers:true,IsApplied:true,IsVisible:true,IsMediaBar:false},
+                  {Id:'manager-top',Name:'Top 20 in Foreign Collection',PageId:'home',Type:'top-10-50',ItemIds:['stale-one'],SourceIds:['collection|foreign'],Drafts:[{Id:'top-draft-manager-top',SourceType:'top',SourceId:'combined',Name:'Top 20'}],DisplayTopCount:20,ShowRankNumbers:true,RankNumberColorMode:'horizontal-gradient',RankNumberColorOne:'#123456',RankNumberColorTwo:'#abcdef',RankNumberShadowColor:'#222222',ArtSize:'small',ArtType:'primary',ArtShape:'wide',ShowText:false,ShowSectionName:true,IsApplied:true,IsVisible:true,IsMediaBar:false},
                   {Id:'manager-two',Name:'Movie Picks',PageId:'manager-page-movies',Type:'manual-content',ItemIds:['two'],SourceIds:[],IsApplied:true,IsVisible:true,IsMediaBar:true}
                 ],
                 SectionOrder:['jellyfin-0-resume','manager-one','manager-top'],
@@ -92,7 +92,7 @@ def run() -> None:
                 getPluginConfiguration:()=>Promise.resolve({CustomJavaScripts:[]}),
                 updatePluginConfiguration:()=>Promise.resolve()
               };
-              window.HomeScreenManagerClient = { version:'0.1.0.57', refresh(){} };
+              window.HomeScreenManagerClient = { version:'0.1.0.58', refresh(){} };
               window.CustomElements = { upgradeSubtree(){} };
             }
             """
@@ -162,6 +162,11 @@ def run() -> None:
         assert page.locator("#hssmTopRowMessagePagePicker [data-hssm-top-row-message-page='home']").is_checked()
         appearance_gaps = page.locator(".hssm-message-appearance-grid").evaluate("node => ({gap:parseFloat(getComputedStyle(node).rowGap),groups:node.querySelectorAll('.hssm-message-appearance-group').length})")
         assert appearance_gaps["groups"] == 3 and appearance_gaps["gap"] >= 15, appearance_gaps
+        page.locator("#hssmTopRowMessageMarqueeSpeed").select_option("faster")
+        page.locator("#hssmSaveTopRowMessageButton").click()
+        page.locator("#hssmTopRowMessageStatus").get_by_text("Marquee Message settings saved.", exact=True).wait_for()
+        assert page.locator("#hssmSaveTopRowMessageButton").is_enabled()
+        assert page.evaluate("window.__topRowSettings.TopRowMessageMarqueeSpeed") == "faster"
         page.locator("[data-tab='top-row-settings']").click()
         assert page.locator("#hssmTopRowScrolls").is_checked()
         assert page.locator("#hssmTopRowLogoShadowColor").input_value() == "#ffffff"
@@ -177,6 +182,8 @@ def run() -> None:
         page.locator("#hssmTopRowDisplayLogosOnly").check()
         page.locator("#hssmSaveTopRowButton").click()
         page.wait_for_function("window.__topRowSettings.TopRows && window.__topRowSettings.TopRows[0].EnableTopRow === true && window.__topRowSettings.TopRows[0].Section.SourceIds[0] === 'foreign'")
+        assert page.locator("#hssmTopRowStatus").inner_text().strip() == "Top Row refreshed."
+        assert page.locator("#hssmTopRowEditor").is_visible()
         assert page.evaluate("window.__topRowSettings.TopRows[0].IsMain") is True
         assert page.evaluate("window.__topRowSettings.TopRows[0].Section.ArtSize") == "extra-small"
         assert page.evaluate("window.__topRowSettings.TopRows[0].Section.ShowText") is False
@@ -229,11 +236,13 @@ def run() -> None:
         page.locator("#hssmSectionList [data-section-id^='jellyfin-']").first.click()
         assert page.locator("#hssmEditSectionButton").is_enabled()
         page.locator("#hssmEditSectionButton").click()
-        page.get_by_text("Only its art appearance can be edited.", exact=False).wait_for()
+        page.get_by_text("Choose the maximum number of currently loaded items", exact=False).wait_for()
         assert page.locator("#hssmNewSectionSettings").is_visible()
         assert page.locator("#hssmNewSectionSettings").evaluate("node => node.classList.contains('hssm-native-only')")
         assert page.locator("#hssmNewSectionSettings > .hssm-conditional-section").first.is_hidden()
         assert page.locator("#hssmTypeSpecificSettings [data-hssm-content-order]").count() == 0
+        assert page.locator("#hssmTypeSpecificSettings [data-hssm-max-items]").get_attribute("type") == "number"
+        page.locator("#hssmTypeSpecificSettings [data-hssm-max-items]").fill("7")
         page.locator("#hssmTypeSpecificSettings [data-hssm-art-size]").select_option("large")
         page.locator("#hssmTypeSpecificSettings [data-hssm-art-shape]").select_option("circle")
         page.locator("#hssmTypeSpecificSettings [data-hssm-show-text]").uncheck()
@@ -241,6 +250,7 @@ def run() -> None:
         page.locator("#hssmTypeSpecificSettings [data-hssm-show-section-name]").uncheck()
         page.locator("#hssmTypeSpecificSettings [data-hssm-apply-section]").click()
         page.wait_for_function("window.__sectionSettings.Sections.some(s => String(s.Id).startsWith('jellyfin-') && s.ArtSize === 'large' && s.ArtShape === 'circle' && s.ShowText === false && s.ShowSectionName === false)")
+        assert page.evaluate("window.__sectionSettings.Sections.find(s => String(s.Id).startsWith('jellyfin-')).MaxItems") == 7
 
         page.locator("#hssmSectionList [data-section-id='manager-top']").click()
         page.locator("#hssmEditSectionButton").click()
@@ -252,6 +262,14 @@ def run() -> None:
         page.locator("#hssmFinishSectionButton").click()
         page.wait_for_function("!document.querySelector('#hssmTypeSpecificSettings [data-hssm-save-move]').disabled")
         assert page.locator("#hssmTypeSpecificSettings [data-hssm-content-order]").input_value() == "rating-descending"
+        saved_art_size = page.locator("#hssmTypeSpecificSettings [data-hssm-art-size]").input_value()
+        assert saved_art_size == "small", saved_art_size
+        assert page.locator("#hssmTypeSpecificSettings [data-hssm-art-type]").input_value() == "primary"
+        assert page.locator("#hssmTypeSpecificSettings [data-hssm-art-shape]").input_value() == "wide"
+        assert page.locator("#hssmTypeSpecificSettings [data-hssm-show-text]").is_checked() is False
+        assert page.locator("#hssmTypeSpecificSettings [data-hssm-rank-color-mode]").input_value() == "horizontal-gradient"
+        assert page.locator("#hssmTypeSpecificSettings [data-hssm-rank-color-one]").input_value() == "#123456"
+        assert "Loading source" not in page.locator("#hssmTypeSpecificSettings").inner_text()
         assert page.get_by_text("Top 5-100 Settings", exact=True).count() == 1
         assert page.locator("#hssmTypeSpecificSettings [data-hssm-display-top] option[value='5']").count() == 1
         revised_top_name = "Top 20 in Foreign Collection - My Picks"
