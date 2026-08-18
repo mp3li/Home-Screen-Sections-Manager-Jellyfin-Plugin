@@ -253,7 +253,7 @@ def run() -> None:
         page.locator("#hssmSectionList [data-section-id^='jellyfin-']").first.click()
         assert page.locator("#hssmEditSectionButton").is_enabled()
         page.locator("#hssmEditSectionButton").click()
-        page.get_by_text("Choose the maximum number of currently loaded items", exact=False).wait_for()
+        page.get_by_text("Choose the maximum number of media items", exact=False).wait_for()
         assert page.locator("#hssmNewSectionSettings").is_visible()
         assert page.locator("#hssmNewSectionSettings").evaluate("node => node.classList.contains('hssm-native-only')")
         assert page.locator("#hssmNewSectionSettings > .hssm-conditional-section").first.is_hidden()
@@ -261,7 +261,7 @@ def run() -> None:
         assert page.locator("#hssmTypeSpecificSettings [data-hssm-max-items]").get_attribute("type") == "number"
         assert page.locator("#hssmTypeSpecificSettings [data-hssm-max-items]").get_attribute("placeholder") == "Jellyfin Default"
         assert "Jellyfin’s own loaded-item limit" in page.locator("#hssmTypeSpecificSettings").inner_text()
-        page.locator("#hssmTypeSpecificSettings [data-hssm-max-items]").fill("7")
+        page.locator("#hssmTypeSpecificSettings [data-hssm-max-items]").fill("30")
         page.locator("#hssmTypeSpecificSettings [data-hssm-art-size]").select_option("large")
         page.locator("#hssmTypeSpecificSettings [data-hssm-art-shape]").select_option("circle")
         page.locator("#hssmTypeSpecificSettings [data-hssm-show-text]").uncheck()
@@ -269,7 +269,7 @@ def run() -> None:
         page.locator("#hssmTypeSpecificSettings [data-hssm-show-section-name]").uncheck()
         page.locator("#hssmTypeSpecificSettings [data-hssm-apply-section]").click()
         page.wait_for_function("window.__sectionSettings.Sections.some(s => String(s.Id).startsWith('jellyfin-') && s.ArtSize === 'large' && s.ArtShape === 'circle' && s.ShowText === false && s.ShowSectionName === false)")
-        assert page.evaluate("window.__sectionSettings.Sections.find(s => String(s.Id).startsWith('jellyfin-')).MaxItems") == 7
+        assert page.evaluate("window.__sectionSettings.Sections.find(s => String(s.Id).startsWith('jellyfin-')).MaxItems") == 30
 
         page.locator("#hssmSectionList [data-section-id='manager-top']").click()
         page.locator("#hssmEditSectionButton").click()

@@ -1284,7 +1284,18 @@
             }
             list.addEventListener('click', event => { const row = event.target.closest('[data-hssm-top-row-id]'); if (!row) return; selectedRowId = row.dataset.hssmTopRowId; renderRows(); });
             page.querySelector('#hssmCreateTopRowButton').addEventListener('click', () => { const draft = {Id:'top-row-' + Date.now(),Name:'New Top Row',IsMain:false,EnableTopRow:true,OverrideMainTopRow:false,TargetType:'page',TargetId:'',Persistent:false,LogoShadowColor:'#ffffff',Section:{Type:'multiple-collections-in-a-row',SourceIds:[],ItemIds:[],ContentOrder:'manual',ArtType:'automatic',ArtShape:'wide'}}; selectedRowId = draft.Id; openEditor(draft, true); });
-            page.querySelector('#hssmEditTopRowButton').addEventListener('click', () => { const row = rows.find(candidate => rowId(candidate) === selectedRowId); if (row) openEditor(row, false); });
+            page.querySelector('#hssmEditTopRowButton').addEventListener('click', () => {
+                const row = rows.find(candidate => rowId(candidate) === selectedRowId);
+                if (row) { openEditor(row, false); return; }
+                status.textContent = 'Reloading the saved Top Row…';
+                load(true).then(() => {
+                    selectedRowId = rows.some(candidate => rowId(candidate) === selectedRowId) ? selectedRowId : 'main-top-row';
+                    renderRows();
+                    const savedRow = rows.find(candidate => rowId(candidate) === selectedRowId);
+                    if (savedRow) openEditor(savedRow, false);
+                    else status.textContent = 'No saved Top Row could be found.';
+                });
+            });
             page.querySelector('#hssmDeleteTopRowButton').addEventListener('click', () => { const index = rows.findIndex(row => rowId(row) === selectedRowId && !rowIsMain(row)); if (index < 0) return; lastDeleted = { row:rows[index], index }; rows.splice(index,1); selectedRowId = 'main-top-row'; editor.hidden = true; persist('Top Row deleted.').catch(error => { status.textContent = 'Top Row could not be deleted. ' + (error && (error.message || error.statusText) || ''); }); });
             page.querySelector('#hssmUndoDeleteTopRowButton').addEventListener('click', () => { if (!lastDeleted) return; rows.splice(Math.min(lastDeleted.index, rows.length),0,lastDeleted.row); selectedRowId = rowId(lastDeleted.row); lastDeleted = null; persist('Deleted Top Row restored.').catch(error => { status.textContent = 'Top Row could not be restored. ' + (error && (error.message || error.statusText) || ''); }); });
             page.querySelector('#hssmCopyTopRowButton').addEventListener('click', () => { const source = rows.find(row => rowId(row) === selectedRowId); if (!source) return; const copy = clone(source); copy.Id = 'top-row-' + Date.now(); copy.Name = 'Copy of ' + String(rowValue(source,'Name','name','Top Row')); copy.IsMain = false; copy.OverrideMainTopRow = false; copy.TargetType = 'page'; copy.TargetId = ''; selectedRowId = copy.Id; openEditor(copy, true); status.textContent = 'Choose an unused page or library for this copied Top Row.'; });
@@ -1308,7 +1319,7 @@
             page.querySelector('#hssmRemoveTopRowMessageFont').addEventListener('click', event => { messageFontDataUrl = ''; messageFont.value = ''; messageFontStatus.textContent = 'Using the default Abyss theme font.'; event.currentTarget.hidden = true; });
             page.addEventListener('click', event => {
                 if (event.target.closest('[data-tab="marquee-message"]')) window.setTimeout(() => load(false),0);
-                if (event.target.closest('[data-tab="top-row-settings"]')) window.setTimeout(() => load(false).then(loadCatalogs),0);
+                if (event.target.closest('[data-tab="top-row-settings"]')) window.setTimeout(() => load(true).then(loadCatalogs),0);
             });
         })();
 
@@ -1544,8 +1555,8 @@
                 return options.map(option => '<option value="' + option[0] + '"' + (state.contentOrder === option[0] ? ' selected' : '') + '>' + option[1] + '</option>').join('');
             }
             function nativeArtMarkup() {
-                const availableCopy = state.nativeAvailableItems > 0 ? ' This native row currently contains ' + state.nativeAvailableItems + ' loaded media items, so a higher entry will be reduced to ' + state.nativeAvailableItems + '.' : '';
-                return '<section class="hssm-conditional-section hssm-order-settings"><h2>Section Content Order Settings</h2><p class="fieldDescription">Choose the maximum number of currently loaded items to display in this native Jellyfin section.</p><div class="inputContainer"><label class="inputLabel inputLabelUnfocused">Maximum Media in Section</label><input is="emby-input" type="number" min="0" step="1" inputmode="numeric" data-hssm-max-items value="' + (state.maxItems > 0 ? esc(state.maxItems) : '') + '" placeholder="Jellyfin Default" /><p class="fieldDescription">Enter a maximum number, or leave this empty to keep Jellyfin’s own loaded-item limit.' + availableCopy + '</p></div></section><section class="hssm-conditional-section hssm-art-settings"><h2>Section Art Appearance Settings</h2><p class="fieldDescription">Choose the size, Jellyfin image type, shape, and title-text visibility for this native Jellyfin section.</p><div class="selectContainer"><label class="selectLabel" for="hssmSectionArtSize">Art Size</label><select is="emby-select" id="hssmSectionArtSize" data-hssm-art-size>' + artSizeOptions() + '</select></div><div class="selectContainer"><label class="selectLabel" for="hssmSectionArtType">Art Type</label><select is="emby-select" id="hssmSectionArtType" data-hssm-art-type>' + artTypeOptions() + '</select></div><div class="selectContainer"><label class="selectLabel" for="hssmSectionArtShape">Art Shape</label><select is="emby-select" id="hssmSectionArtShape" data-hssm-art-shape>' + artShapeOptions() + '</select></div><label class="checkboxContainer"><input is="emby-checkbox" type="checkbox" data-hssm-show-text' + (state.showText ? ' checked' : '') + ' /><span>Show text under the art</span></label><p class="fieldDescription">Show the media name and year beneath each image.</p><label class="checkboxContainer"><input is="emby-checkbox" type="checkbox" data-hssm-show-section-name' + (state.showSectionName ? ' checked' : '') + ' /><span>Show section name</span></label><div class="hssm-actions"><button is="emby-button" type="button" class="raised button-submit" data-hssm-apply-section>Refresh Section</button></div><p class="fieldDescription" data-hssm-apply-status aria-live="polite"></p></section>';
+                const availableCopy = state.nativeAvailableItems > 0 ? ' Jellyfin initially loaded ' + state.nativeAvailableItems + ' items in this row; Home Screen Manager will request additional items when your saved maximum is higher.' : '';
+                return '<section class="hssm-conditional-section hssm-order-settings"><h2>Section Content Order Settings</h2><p class="fieldDescription">Choose the maximum number of media items to display in this native Jellyfin section.</p><div class="inputContainer"><label class="inputLabel inputLabelUnfocused">Maximum Media in Section</label><input is="emby-input" type="number" min="0" step="1" inputmode="numeric" data-hssm-max-items value="' + (state.maxItems > 0 ? esc(state.maxItems) : '') + '" placeholder="Jellyfin Default" /><p class="fieldDescription">Enter a maximum number, or leave this empty to keep Jellyfin’s own loaded-item limit.' + availableCopy + '</p></div></section><section class="hssm-conditional-section hssm-art-settings"><h2>Section Art Appearance Settings</h2><p class="fieldDescription">Choose the size, Jellyfin image type, shape, and title-text visibility for this native Jellyfin section.</p><div class="selectContainer"><label class="selectLabel" for="hssmSectionArtSize">Art Size</label><select is="emby-select" id="hssmSectionArtSize" data-hssm-art-size>' + artSizeOptions() + '</select></div><div class="selectContainer"><label class="selectLabel" for="hssmSectionArtType">Art Type</label><select is="emby-select" id="hssmSectionArtType" data-hssm-art-type>' + artTypeOptions() + '</select></div><div class="selectContainer"><label class="selectLabel" for="hssmSectionArtShape">Art Shape</label><select is="emby-select" id="hssmSectionArtShape" data-hssm-art-shape>' + artShapeOptions() + '</select></div><label class="checkboxContainer"><input is="emby-checkbox" type="checkbox" data-hssm-show-text' + (state.showText ? ' checked' : '') + ' /><span>Show text under the art</span></label><p class="fieldDescription">Show the media name and year beneath each image.</p><label class="checkboxContainer"><input is="emby-checkbox" type="checkbox" data-hssm-show-section-name' + (state.showSectionName ? ' checked' : '') + ' /><span>Show section name</span></label><div class="hssm-actions"><button is="emby-button" type="button" class="raised button-submit" data-hssm-apply-section>Refresh Section</button></div><p class="fieldDescription" data-hssm-apply-status aria-live="polite"></p></section>';
             }
             function selectOptions(options, selected) {
                 return options.map(option => '<option value="' + option[0] + '"' + (selected === option[0] ? ' selected' : '') + '>' + option[1] + '</option>').join('');
@@ -1659,7 +1670,8 @@
             }
             function clampMaximumToAvailable() {
                 if (!(state.maxItems > 0)) return;
-                const available = state.nativeOnly ? state.nativeAvailableItems : (state.contentItemOrder.length || state.savedItemIds.length);
+                if (state.nativeOnly) return;
+                const available = state.contentItemOrder.length || state.savedItemIds.length;
                 if (!available || state.maxItems <= available) return;
                 state.maxItems = available;
                 const input = host.querySelector('[data-hssm-max-items]');
@@ -2545,7 +2557,6 @@
                 const nativeIndex = /^jellyfin-(\d+)-/.exec(state.id);
                 const nativeRow = nativeIndex && document.querySelector('#homeTab .section' + nativeIndex[1]);
                 state.nativeAvailableItems = nativeRow ? nativeRow.querySelectorAll('.card[data-id]').length : 0;
-                if (state.nativeAvailableItems > 0 && state.maxItems > state.nativeAvailableItems) state.maxItems = state.nativeAvailableItems;
                 state.savedItemIds = [];
                 state.contentSelectionDirty = false;
                 state.artSize = String(definition.ArtSize || definition.artSize || 'medium');

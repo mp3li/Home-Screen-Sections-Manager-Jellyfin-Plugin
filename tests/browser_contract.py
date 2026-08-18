@@ -31,7 +31,7 @@ def run() -> None:
     assert "hssm-media-bar-boot-mask" in CLIENT_CONTROLLER.read_text()
     settings = {
         "Sections": [
-            {"Id": "jellyfin-0-resume", "Name": "Continue Watching", "PageId": "home", "Type": "resume", "ItemIds": [], "SourceIds": [], "IsApplied": True, "IsVisible": True, "IsMediaBar": False, "ArtSize": "large", "ArtType": "thumb", "ArtShape": "circle", "ShowText": False, "ShowSectionName": False},
+            {"Id": "jellyfin-0-resume", "Name": "Continue Watching", "PageId": "home", "Type": "resume", "ItemIds": [], "SourceIds": [], "MaxItems": 3, "IsApplied": True, "IsVisible": True, "IsMediaBar": False, "ArtSize": "large", "ArtType": "thumb", "ArtShape": "circle", "ShowText": False, "ShowSectionName": False},
             {"Id": "manager-home-top", "Name": "Top 20 in Foreign Collection With A Deliberately Long Custom Section Name", "PageId": "home", "Type": "top-10-50", "SourceIds": ["collection|top-source"], "ItemIds": [], "DisplayTopCount": 20, "ShowRankNumbers": True, "RankNumberColorMode": "horizontal-gradient", "RankNumberColorOne": "#ff0000", "RankNumberColorTwo": "#0000ff", "RankNumberShadowColor": "#123456", "IsApplied": True, "IsVisible": True, "IsMediaBar": False},
             {"Id": "manager-home-test", "Name": "Test Section", "PageId": "home", "Type": "manual-content", "ItemIds": ["resume-two"], "ArtSize": "extra-small", "ArtShape": "wide", "ShowSectionName": False, "IsApplied": True, "IsVisible": True, "IsMediaBar": False},
             {"Id": "manager-movies-one", "Name": "Movie Picks", "PageId": "manager-page-movies", "Type": "manual-content", "ItemIds": ["resume-one"], "IsApplied": True, "IsVisible": True, "IsMediaBar": True},
@@ -80,6 +80,7 @@ def run() -> None:
     }
     resume = base_item("resume-one", "Resume One")
     resume_two = base_item("resume-two", "Resume Two", "Episode")
+    resume_three = base_item("resume-three", "Resume Three")
     resume_two["SeriesId"] = "series-two"
     resume_two["SeriesName"] = "Series Two"
     series_two = base_item("series-two", "Series Two", "Series")
@@ -128,7 +129,7 @@ def run() -> None:
     ]
     first_top_row_id = top_row_items[0]["Id"]
     missing_top_row_id = top_row_items[-1]["Id"]
-    items_by_id = {item["Id"]: item for item in [resume, resume_two, series_two, liked, liked_opaque, watched_movie, watched_series, watched_episode_one, watched_episode_two, watched_special, audio_book, recent_song, genre_drama, year_folder, actual_movie, *top_row_items]}
+    items_by_id = {item["Id"]: item for item in [resume, resume_two, resume_three, series_two, liked, liked_opaque, watched_movie, watched_series, watched_episode_one, watched_episode_two, watched_special, audio_book, recent_song, genre_drama, year_folder, actual_movie, *top_row_items]}
     requests: list[str] = []
     page_errors: list[str] = []
 
@@ -147,9 +148,12 @@ def run() -> None:
             elif path.endswith("/HomeScreenSectionsManager/recent-listening"):
                 route.fulfill(status=200, content_type="application/json", body=json.dumps({"ItemIds": ["recent-song-one"]}))
             elif path.endswith("/Users/user/Views"):
-                route.fulfill(status=200, content_type="application/json", body=json.dumps({"Items": [{"Id": "library-one", "Name": "Movies", "CollectionType": "movies"}]}))
+                route.fulfill(status=200, content_type="application/json", body=json.dumps({"Items": [
+                    {"Id": "library-one", "Name": "Movies", "CollectionType": "movies"},
+                    {"Id": "library-two", "Name": "Shows", "CollectionType": "tvshows"},
+                ]}))
             elif path.endswith("/Users/user/Items/Resume"):
-                route.fulfill(status=200, content_type="application/json", body=json.dumps({"Items": [resume, resume_two]}))
+                route.fulfill(status=200, content_type="application/json", body=json.dumps({"Items": [resume, resume_two, resume_three]}))
             elif path.endswith("/Users/user/Items"):
                 if query.get("Filters") == ["Likes"] and query.get("ParentId") == ["library-one"]:
                     route.fulfill(status=200, content_type="application/json", body=json.dumps({"Items": [liked, liked_opaque]}))
@@ -220,10 +224,14 @@ def run() -> None:
               getCurrentUserId: () => 'user',
               accessToken: () => 'test-token',
               serverId: () => 'server',
+              setRequestHeaders: headers => { headers.Authorization='MediaBrowser Token="test-token"'; },
               getUrl: (path, params) => { const u = new URL('/' + path, location.origin); Object.entries(params || {}).forEach(([k,v]) => u.searchParams.set(k, v)); return u.href; },
               getJSON: url => fetch(url).then(r => r.json()),
               getDisplayPreferences: () => Promise.resolve({ CustomPrefs:{ homesection0:'resume' } }),
-              getUserViews: () => Promise.resolve({ Items:[{ Id:'library-one', Name:'Movies', CollectionType:'movies' }] }),
+              getUserViews: () => Promise.resolve({ Items:[
+                { Id:'library-one', Name:'Movies', CollectionType:'movies' },
+                { Id:'library-two', Name:'Shows', CollectionType:'tvshows' }
+              ] }),
               getItems: (userId, options) => fetch(ApiClient.getUrl('Users/' + userId + '/Items', options)).then(r => r.json()),
               getItem: (userId, id) => Promise.resolve(id === 'audio-book-one'
                 ? { Id:id, Name:'The Long Book', Type:'AudioBook', ImageTags:{Primary:'x'}, People:[{Name:'Excellent Author',Type:'Author'}], UserData:{Likes:true} }
@@ -326,6 +334,8 @@ def run() -> None:
         top_row_scroll = page.locator(".hssm-top-row-track").evaluate("""track => { const before=track.scrollLeft; track.dispatchEvent(new WheelEvent('wheel',{deltaY:260,bubbles:true,cancelable:true})); return {before,after:track.scrollLeft}; }""")
         assert top_row_scroll["after"] > top_row_scroll["before"], top_row_scroll
         page.wait_for_selector("#homeTab .section0.hssm-native-art-override.hssm-size-large.hssm-shape-circle.hssm-art-thumb")
+        page.wait_for_selector("#homeTab .section0 .hssm-native-extended-card[data-id='resume-three']")
+        assert page.locator("#homeTab .section0 .card[data-id]").count() == 3
         assert page.locator("#homeTab .section0").evaluate("node => getComputedStyle(node).getPropertyValue('--hssm-card-width').trim()") == "14.5em"
         assert page.locator("#homeTab .section0 .cardText").first.evaluate("node => getComputedStyle(node).display") == "none"
         assert page.locator("#homeTab .section0 > .sectionTitle").evaluate("node => getComputedStyle(node).display") == "none"
@@ -528,10 +538,18 @@ def run() -> None:
         settings["SectionOrder"].extend(section["Id"] for section in slow_sections)
         page.evaluate(
             """() => {
-              window.__baseGetJSONForLaneTest=ApiClient.getJSON;
-              ApiClient.getJSON=url => String(url).includes('slow-')
-                ? new Promise(resolve => setTimeout(() => resolve({Items:[{Id:'slow-item',Name:'Slow Item',Type:'Movie',ImageTags:{Primary:'x'},UserData:{}}]}), 1400))
-                : window.__baseGetJSONForLaneTest(url);
+              window.__baseFetchForLaneTest=window.fetch;
+              window.__abortedSlowRequests=0;
+              window.fetch=(url, options) => String(url).includes('slow-')
+                ? new Promise((resolve, reject) => {
+                    const timer=setTimeout(() => resolve(new Response(JSON.stringify({Items:[{Id:'slow-item',Name:'Slow Item',Type:'Movie',ImageTags:{Primary:'x'},UserData:{}}]}), {status:200,headers:{'content-type':'application/json'}})), 1400);
+                    if (options && options.signal) options.signal.addEventListener('abort', () => {
+                      clearTimeout(timer);
+                      window.__abortedSlowRequests += 1;
+                      reject(new DOMException('Aborted', 'AbortError'));
+                    }, {once:true});
+                  })
+                : window.__baseFetchForLaneTest(url, options);
               const custom=document.querySelector('.hssm-owned-custom-page .hssm-custom-page-container');
               custom.innerHTML='';
               custom.dataset.hssmSectionSignature='';
@@ -545,7 +563,8 @@ def run() -> None:
         page.wait_for_selector(".hssm-owned-custom-page.is-active [data-hssm-section-id='manager-movies-one'] .hssm-client-card", timeout=900)
         custom_elapsed = page.evaluate("start => performance.now() - start", custom_start)
         assert custom_elapsed < 900, custom_elapsed
-        page.evaluate("ApiClient.getJSON=window.__baseGetJSONForLaneTest; delete window.__baseGetJSONForLaneTest")
+        assert page.evaluate("window.__abortedSlowRequests") >= 1
+        page.evaluate("window.fetch=window.__baseFetchForLaneTest; delete window.__baseFetchForLaneTest")
         page.wait_for_selector("#indexPage > .hssm-top-row[data-hssm-top-row-id='movies-page-top-row']")
         settings["TopRows"][1]["OverrideMainTopRow"] = False
         page.evaluate("window.HomeScreenManagerClient.invalidate(); window.HomeScreenManagerClient.refresh();")
@@ -561,9 +580,10 @@ def run() -> None:
         secondary_line = page.locator(".hssm-owned-custom-page.is-active [data-hssm-section-id='manager-movies-one'] .hssm-card-year").first
         secondary_line.evaluate("node => node.style.width='1em'")
         page.evaluate("window.HomeScreenManagerClient.refresh()")
+        secondary_line.hover()
         page.wait_for_function("node => node.querySelector('bdi').classList.contains('hssm-marquee-title')", arg=secondary_line.element_handle())
         assert "/Items/series-two/Images/Primary" in continue_episode.locator(".cardContent").get_attribute("style")
-        assert any("/Users/user/Items/Resume" in request and "ParentId=library-one" in request for request in requests)
+        assert any("/Users/user/Items/Resume" in request and "ParentId=library-one" in request for request in requests), requests
         page.wait_for_selector(".hssm-owned-custom-page.is-active .hssm-section-media-bar[data-hssm-media-section-id='manager-movies-two']")
         page.wait_for_selector(".hssm-owned-custom-page.is-active [data-hssm-section-id='manager-watch-again'] .hssm-client-card[data-id='watched-movie']")
         page.wait_for_selector(".hssm-owned-custom-page.is-active [data-hssm-section-id='manager-watch-again'] .hssm-client-card[data-id='watched-episode-two']")
@@ -647,10 +667,10 @@ def run() -> None:
         page.locator(".hssm-owned-custom-page.is-active [data-hssm-section-id='manager-watch-again'] .hssm-client-scroller").evaluate("scroller => scroller._hssmSetOwnedOffset(0)")
 
         custom_card = page.locator(".hssm-owned-custom-page.is-active [data-hssm-section-id='manager-watch-again'] .hssm-client-card[data-id='watched-episode-two']")
+        custom_card.hover()
         page.wait_for_function("node => node.querySelector('.hssm-card-title bdi').classList.contains('hssm-marquee-title')", arg=custom_card.element_handle())
         marquee_state = custom_card.locator(".hssm-card-title bdi").evaluate("node => ({enabled:document.body.classList.contains('hssm-title-marquee-enabled'),distance:node.style.getPropertyValue('--hssm-marquee-distance'),host:node.closest('.cardText').classList.contains('hssm-marquee-title-host')})")
         assert marquee_state["enabled"] and marquee_state["distance"].startswith("-") and marquee_state["host"], marquee_state
-        custom_card.hover()
         page.wait_for_timeout(1200)
         moving_state = custom_card.locator(".hssm-card-title bdi").evaluate("node => ({transform:getComputedStyle(node).transform,transition:getComputedStyle(node).transition,hover:node.closest('.card').matches(':hover'),distance:node.style.getPropertyValue('--hssm-marquee-distance')})")
         assert moving_state["transform"] not in ("none", "matrix(1, 0, 0, 1, 0, 0)"), moving_state
@@ -734,7 +754,7 @@ def run() -> None:
           detail.id='itemDetailPage';
           detail.className='page libraryPage itemDetailPage';
           detail.style.cssText='box-sizing:border-box;min-height:1200px;padding-top:80px';
-          detail.innerHTML='<div class="detailPageWrapperContainer"><div class="detailImageContainer" style="height:200px;position:absolute"></div><div class="detailPagePrimaryContent" data-hssm-test-detail-content>Detail poster and metadata</div></div>';
+          detail.innerHTML='<div class="detailPageWrapperContainer"><div class="detailImageContainer" style="height:200px;position:absolute"><div class="card" style="height:200px"></div></div><div class="detailPagePrimaryContent" data-hssm-test-detail-content>Detail poster and metadata</div></div>';
           document.body.appendChild(detail);
           document.querySelector('#indexPage').classList.add('hide');
           window.__savedApiClient=window.ApiClient;
@@ -744,11 +764,11 @@ def run() -> None:
         page.wait_for_timeout(150)
         assert not page.locator("#itemDetailPage").evaluate("node => node.classList.contains('hssm-top-chrome-content-offset')")
         assert page.locator(".hssm-top-row").get_attribute("data-hssm-identity-test") == "retained"
-        detail_offset = page.evaluate("""() => { const page=document.querySelector('#itemDetailPage'), wrapper=page.querySelector('.detailPageWrapperContainer'), content=page.querySelector('[data-hssm-test-detail-content]'), message=document.querySelector('.hssm-top-row-message').getBoundingClientRect(), row=document.querySelector('.hssm-top-row').getBoundingClientRect(), header=document.querySelector('.skinHeader').getBoundingClientRect(); return {padding:parseFloat(getComputedStyle(page).paddingTop),pageTop:page.getBoundingClientRect().top,contentTop:content.getBoundingClientRect().top,wrapperTransform:getComputedStyle(wrapper).transform,chromeHeight:message.height+row.height,headerTop:header.top,rowBottom:row.bottom,hasSpacer:!!page.querySelector('.hssm-top-row-message-spacer,.hssm-top-row-row-spacer')}; }""")
+        detail_offset = page.evaluate("""() => { const page=document.querySelector('#itemDetailPage'), wrapper=page.querySelector('.detailPageWrapperContainer'), imageContainer=page.querySelector('.detailImageContainer'), content=page.querySelector('[data-hssm-test-detail-content]'), message=document.querySelector('.hssm-top-row-message').getBoundingClientRect(), row=document.querySelector('.hssm-top-row').getBoundingClientRect(), header=document.querySelector('.skinHeader').getBoundingClientRect(); return {padding:parseFloat(getComputedStyle(page).paddingTop),pageTop:page.getBoundingClientRect().top,contentTop:content.getBoundingClientRect().top,wrapperTransform:getComputedStyle(wrapper).transform,imageContainerTransform:getComputedStyle(imageContainer).transform,chromeHeight:message.height+row.height,headerTop:header.top,rowBottom:row.bottom,hasSpacer:!!page.querySelector('.hssm-top-row-message-spacer,.hssm-top-row-row-spacer')}; }""")
         detail_clearance = detail_offset["contentTop"] - detail_offset["pageTop"] - detail_offset["padding"]
-        assert abs(detail_offset["padding"] - 80) < 2 and abs(detail_clearance) < 2 and detail_offset["wrapperTransform"] == "none" and detail_offset["headerTop"] >= detail_offset["rowBottom"] - 1 and not detail_offset["hasSpacer"], detail_offset
-        poster_translate = page.locator("#itemDetailPage .detailImageContainer").evaluate("node => new DOMMatrixReadOnly(getComputedStyle(node).transform).m42")
-        assert 28 <= poster_translate <= 32, poster_translate
+        assert abs(detail_offset["padding"] - 80) < 2 and abs(detail_clearance) < 2 and detail_offset["wrapperTransform"] == "none" and detail_offset["imageContainerTransform"] == "none" and detail_offset["headerTop"] >= detail_offset["rowBottom"] - 1 and not detail_offset["hasSpacer"], detail_offset
+        poster_translate = page.locator("#itemDetailPage .detailImageContainer > .card").evaluate("node => new DOMMatrixReadOnly(getComputedStyle(node).transform).m42")
+        assert -13 <= poster_translate <= -11, poster_translate
         page.evaluate("window.ApiClient=window.__savedApiClient; delete window.__savedApiClient; window.HomeScreenManagerClient.refresh()")
         page.wait_for_selector(".hssm-top-row[data-hssm-top-row-id='movies-library-top-row']")
         assert page.locator(".hssm-top-row").get_attribute("data-hssm-identity-test") is None
@@ -770,6 +790,9 @@ def run() -> None:
         page.wait_for_function("document.querySelector('.emby-tab-button[data-index=\"1\"]').classList.contains('hssm-hidden-page-tab')")
         page.wait_for_function("!document.body.classList.contains('hssm-title-marquee-enabled') && !document.querySelector('.hssm-marquee-title')")
         assert any("Filters=Likes" in url and "ParentId=library-one" in url for url in requests), requests
+        item_queries = [parse_qs(urlparse(url).query) for url in requests if urlparse(url).path.endswith("/Users/user/Items")]
+        assert any(query.get("Ids") == ["resume-one"] and query.get("EnableImageTypes") == ["Primary,Thumb,Backdrop,Logo"] for query in item_queries), item_queries
+        assert any(query.get("Fields") == ["UserData"] and query.get("EnableImages") == ["false"] for query in item_queries), item_queries
         assert not page_errors, page_errors
         browser.close()
 

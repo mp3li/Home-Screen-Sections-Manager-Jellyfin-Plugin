@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.1.0.60-test] - 2026-08-17
+
+- Prevents remote-user request starvation by allowing only two plugin section requests overall and one per managed page, serializing library-scoped Continue requests, collapsing an all-libraries Continue section to one request per media type, progressively loading only nearby Top Row artwork, and delaying lightweight My List heart-state reads until Jellyfin's own page request has room to run.
+- Cancels an active plugin row request as soon as its Home/custom page is left, so an abandoned remote response cannot keep Jellyfin library, collection, or detail navigation waiting; Watch Again history and Media Bar enrichment are also serialized instead of opening request bursts.
+- Makes cold custom, library, collection, and detail pages request only the image families and metadata each row can use, and postpones title measurement until an item is actually hovered so a remote user is not trapped behind oversized requests and page-wide layout work.
+- Applies the same reduced fields and image families to Continue, recently listened, recently added, rotating, seasonal, My List, and Watch Again reads rather than letting automatic sections fall back to the old all-metadata payload.
+- Keeps visible custom-page work active without consulting side-effectful page detection, preserves matching in-flight row and Media Bar loads, and invalidates a row cache when its saved maximum changes.
+- Lets native Jellyfin rows exceed the initially rendered 16 cards by fetching and appending the requested native media, while retaining Jellyfin Default when no manual maximum is saved.
+- Applies marquee motion to every overflowing title and secondary line on the hovered card, including lines Jellyfin finishes rendering after the card first appears.
+- Restores Jellyfin's detail layout and moves only the left poster artwork slightly higher instead of translating the poster-and-metadata section together.
+- Reloads Top Row management from saved server configuration when its tab or Edit button is opened, and recovers a populated Main Top Row from its legacy mirror if a stale dashboard submission tries to replace it with an empty row.
+
 ## [0.1.0.59-test] - 2026-08-17
 
 - Gives each visible Home/custom page its own four-request loading lane, skips queued work after a page becomes inactive, resumes it when the page returns, and prevents hidden Home requests from holding custom or native Jellyfin pages behind one global queue.

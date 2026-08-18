@@ -438,18 +438,26 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
     {
         var requested = (requestedRows ?? []).Where(row => row is not null).ToList();
         var requestedMain = requested.FirstOrDefault(row => row.IsMain || string.Equals(row.Id, "main-top-row", StringComparison.Ordinal)) ?? legacyMain;
+        // A stale Dashboard page used to be able to submit an empty Main Top
+        // Row while saving the independently edited Marquee Message. Recover
+        // from the still-populated legacy mirror instead of erasing a working
+        // row and presenting an empty Top Row manager after reload.
+        var requestedMainSection = requestedMain.Section ?? new HomeScreenSectionDefinition();
+        var legacyMainSection = legacyMain.Section ?? new HomeScreenSectionDefinition();
+        var recoverLegacyMain = !HasTopRowSources(requestedMainSection) && HasTopRowSources(legacyMainSection);
+        var effectiveMain = recoverLegacyMain ? legacyMain : requestedMain;
         var main = new TopRowDefinition
         {
             Id = "main-top-row",
             Name = "Main Top Row",
             IsMain = true,
-            EnableTopRow = requestedMain.EnableTopRow,
+            EnableTopRow = effectiveMain.EnableTopRow,
             OverrideMainTopRow = false,
             TargetType = "main",
             TargetId = string.Empty,
-            Persistent = requestedMain.Persistent,
-            LogoShadowColor = NormalizeOptionalColor(requestedMain.LogoShadowColor),
-            Section = NormalizeTopRowSection(requestedMain.Section ?? new HomeScreenSectionDefinition(), "main-top-row", false),
+            Persistent = effectiveMain.Persistent,
+            LogoShadowColor = NormalizeOptionalColor(effectiveMain.LogoShadowColor),
+            Section = NormalizeTopRowSection(effectiveMain.Section ?? new HomeScreenSectionDefinition(), "main-top-row", false),
         };
         var result = new List<TopRowDefinition> { main };
         var usedIds = new HashSet<string>(StringComparer.Ordinal) { main.Id };
@@ -482,6 +490,10 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
         }
         return result;
     }
+
+    private static bool HasTopRowSources(HomeScreenSectionDefinition section) =>
+        (section.SourceIds?.Any(id => !string.IsNullOrWhiteSpace(id)) ?? false)
+        || (section.ItemIds?.Any(id => !string.IsNullOrWhiteSpace(id)) ?? false);
 
     private static HomeScreenSectionDefinition NormalizeSection(HomeScreenSectionDefinition section, ISet<string> validPageIds)
     {

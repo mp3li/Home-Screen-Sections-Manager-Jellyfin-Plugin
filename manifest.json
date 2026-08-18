@@ -9,13 +9,13 @@
     "imageUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Assets/Branding/home-screen-sections-manager-plugin-photo.png",
     "versions": [
       {
-        "version": "0.1.0.59",
-        "changelog": "Gives every visible page its own section-loading lane so hidden Home work cannot block custom or native pages; removes duplicate Media Bar row requests; makes Top recovery lighter; preserves refreshed editor settings immediately; restores secondary-line marquees; opens Top Row editing while catalogs load; clarifies native Jellyfin maximums; and raises detail artwork slightly.",
+        "version": "0.1.0.60",
+        "changelog": "Prevents cold remote pages from starving Jellyfin's own requests by aborting abandoned page reads, globally bounding plugin section work, serializing Watch Again, Continue, and Media Bar enrichment, progressively loading Top Row art, and reducing automatic-row, card, and heart payloads; expands native rows beyond 16 items; fixes every overflowing card line's marquee; moves only detail poster art; and recovers the saved Main Top Row.",
         "targetAbi": "10.11.11.0",
         "framework": "net9.0",
-        "sourceUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Test%20Releases/0.1.0.59-test/Jellyfin.Plugin.HomeScreenSectionsManager_0.1.0.59-test.zip",
-        "checksum": "8b037559af3a6f0c6bfba12877d39d2e",
-        "timestamp": "2026-08-17T22:04:38Z"
+        "sourceUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Test%20Releases/0.1.0.60-test/Jellyfin.Plugin.HomeScreenSectionsManager_0.1.0.60-test.zip",
+        "checksum": "afb97ceff03eef1a88252f76b79906bb",
+        "timestamp": "2026-08-17T23:49:35Z"
       }
     ]
   }

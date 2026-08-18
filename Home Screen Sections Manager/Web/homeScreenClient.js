@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    var CLIENT_VERSION = "0.1.0.59";
+    var CLIENT_VERSION = "0.1.0.60";
     if (window.HomeScreenManagerClient) {
         if (window.HomeScreenManagerClient.version === CLIENT_VERSION) {
             window.HomeScreenManagerClient.refresh();
@@ -48,7 +48,13 @@
     var pendingHeartIds = {};
     var sectionRuntime = {};
     var skippedSectionRequest = {};
+    // Leave capacity for Jellyfin's own navigation requests. A separate
+    // four-request lane per page could consume every HTTP/1.1 connection to a
+    // remote server after navigation and leave native Collections waiting
+    // behind plugin requests that were started by the previous page.
+    var globalSectionRequestLane = createLimiter(2);
     var heartRequestLane = createLimiter(1);
+    var mediaBarMetadataLane = createLimiter(1);
     var likedItemsById = {};
     var likedItemsLoaded = false;
     var likedItemsRequest = null;
@@ -72,6 +78,7 @@
     var watchAgainCaches = {};
     var watchAgainRequests = {};
     var topRecoveryRequests = {};
+    var mediaBarMetadataRequests = {};
     var topRowRenderKey = '';
     var topRowMessageRenderKey = '';
     var topRowLoadSequence = 0;
@@ -81,6 +88,7 @@
     var topChromeSyncBound = false;
     var topChromeMutationObserver = null;
     var topChromeSyncFrame = 0;
+    var titleMarqueeHoverBound = false;
 
     function createLimiter(maximum) {
         var active = 0;
@@ -98,14 +106,34 @@
 
     function sectionRequestLane(state) {
         if (!state || !state.container) return createLimiter(1);
-        if (!state.container._hssmSectionRequestLane) state.container._hssmSectionRequestLane = createLimiter(4);
+        // One request per managed page lets a newly selected custom page use
+        // the second global slot while an old Home request finishes, without
+        // letting either page monopolize the browser/server connection pool.
+        if (!state.container._hssmSectionRequestLane) state.container._hssmSectionRequestLane = createLimiter(1);
         return state.container._hssmSectionRequestLane;
     }
 
     function queueVisibleSectionRequest(state, work) {
         return sectionRequestLane(state)(function () {
-            if (!sectionStateIsCurrent(state) || activeManagedSectionContainer() !== state.container) return skippedSectionRequest;
-            return work();
+            if (!sectionStateIsCurrent(state) || !managedSectionContainerIsActive(state.container)) return skippedSectionRequest;
+            return globalSectionRequestLane(function () {
+                if (!sectionStateIsCurrent(state) || !managedSectionContainerIsActive(state.container)) return skippedSectionRequest;
+                var controller = typeof AbortController === 'function' ? new AbortController() : null;
+                state._hssmRequestController = controller;
+                return Promise.resolve(work(controller ? controller.signal : null)).finally(function () {
+                    if (state._hssmRequestController === controller) state._hssmRequestController = null;
+                });
+            });
+        });
+    }
+
+    function abortInactiveSectionRequests() {
+        Object.keys(sectionRuntime).forEach(function (id) {
+            var state = sectionRuntime[id];
+            if (!state || !state._hssmRequestController) return;
+            if (sectionStateIsCurrent(state) && managedSectionContainerIsActive(state.container)) return;
+            state._hssmRequestController.abort();
+            state._hssmRequestController = null;
         });
     }
 
@@ -384,6 +412,15 @@
         return activeHomeContainer();
     }
 
+    function managedSectionContainerIsActive(container) {
+        if (!container || !container.isConnected) return false;
+        var customPanel = container.closest('.hssm-owned-custom-page');
+        if (customPanel) return customPanel.classList.contains('is-active');
+        var tabPanel = container.closest('.pageTabContent[data-index]');
+        if (tabPanel) return tabPanel.classList.contains('is-active');
+        return container === activeHomeContainer();
+    }
+
     function pageIdForContainer(container) {
         if (!container) return '';
         var custom = container.closest('.hssm-owned-custom-page');
@@ -426,11 +463,22 @@
         return sections;
     }
 
-    function getJson(path, parameters) {
-        return ApiClient.getJSON(ApiClient.getUrl(path, parameters));
+    function getJson(path, parameters, signal) {
+        var url = ApiClient.getUrl(path, parameters);
+        // ApiClient 1.11's getJSON timeout rejects without cancelling the
+        // underlying fetch. Section requests use the browser fetch contract so
+        // leaving a custom page actually closes its old response and frees the
+        // server for Jellyfin's next native page request.
+        if (!signal || typeof window.fetch !== 'function' || typeof ApiClient.setRequestHeaders !== 'function') return ApiClient.getJSON(url);
+        var headers = { accept:'application/json' };
+        ApiClient.setRequestHeaders(headers);
+        return window.fetch(url, { method:'GET', headers:headers, credentials:'same-origin', signal:signal }).then(function (response) {
+            if (!response.ok) throw response;
+            return response.json();
+        });
     }
 
-    function queryItems(parameters) {
+    function queryItems(parameters, signal) {
         var userId = currentUserId();
         if (!userId) return Promise.resolve([]);
         var options = Object.assign({
@@ -438,12 +486,48 @@
             ImageTypeLimit: 1,
             EnableImageTypes: 'Primary,Art,Backdrop,Banner,Logo,Thumb,Disc,Box,BoxRear,Screenshot,Menu,Chapter'
         }, parameters || {});
-        return getJson('Users/' + encodeURIComponent(userId) + '/Items', options).then(function (result) {
+        return getJson('Users/' + encodeURIComponent(userId) + '/Items', options, signal).then(function (result) {
             return prop(result, 'Items', 'items', []);
         });
     }
 
-    function queryItemSummaries(parameters) {
+    function sectionImageTypes(section) {
+        var selected = normalizedArtType(section || {});
+        var types = ['Primary', 'Thumb', 'Backdrop', 'Logo'];
+        if (selected !== 'Automatic' && types.indexOf(selected) < 0) types.unshift(selected);
+        return types.join(',');
+    }
+
+    function sectionItemOptions(section) {
+        var mediaBar = prop(section, 'IsMediaBar', 'isMediaBar', false) === true;
+        var fields = [
+            'PrimaryImageAspectRatio','PrimaryImageItemId','PrimaryImageTag','DateCreated','PremiereDate','ProductionYear',
+            'CommunityRating','SortName','RunTimeTicks','ParentId','ParentIndexNumber','IndexNumber','IsVirtualItem',
+            'SeriesId','SeriesName','SeriesPrimaryImageTag','ParentLogoImageTag','ParentLogoItemId','UserData',
+            'Artists','AlbumArtists','ArtistItems','Album','AlbumId'
+        ];
+        if (mediaBar) fields.push('Tags','Overview','People','ChildCount','RecursiveItemCount');
+        return {
+            // Cold custom-page loads should not ask Jellyfin to resolve every
+            // supported image family. Keep the metadata cards and Media Bars
+            // actually consume, plus the one explicitly selected art type.
+            EnableImageTypes:sectionImageTypes(section),
+            Fields:fields.join(','),
+            ImageTypeLimit:1,
+            EnableTotalRecordCount:false
+        };
+    }
+
+    function topRowItemOptions(section) {
+        return {
+            Fields:'PrimaryImageAspectRatio',
+            EnableImageTypes:sectionImageTypes(section),
+            ImageTypeLimit:1,
+            EnableTotalRecordCount:false
+        };
+    }
+
+    function queryItemSummaries(parameters, signal) {
         var userId = currentUserId();
         if (!userId) return Promise.resolve([]);
         var options = Object.assign({
@@ -452,18 +536,18 @@
             ImageTypeLimit:0,
             EnableTotalRecordCount:false
         }, parameters || {});
-        return getJson('Users/' + encodeURIComponent(userId) + '/Items', options).then(function (result) {
+        return getJson('Users/' + encodeURIComponent(userId) + '/Items', options, signal).then(function (result) {
             return prop(result, 'Items', 'items', []);
         });
     }
 
-    function queryIds(ids) {
+    function queryIds(ids, options, signal) {
         var usable = (ids || []).map(String).filter(Boolean);
         var chunks = [];
-        for (var index = 0; index < usable.length; index += 100) chunks.push(usable.slice(index, index + 100));
+        for (var index = 0; index < usable.length; index += 50) chunks.push(usable.slice(index, index + 50));
         return chunks.reduce(function (work, chunk) {
             return work.then(function (groups) {
-                return queryItems({ Ids: chunk.join(',') }).then(function (items) {
+                return queryItems(Object.assign({}, options || {}, { Ids: chunk.join(',') }), signal).then(function (items) {
                     groups.push(items);
                     return groups;
                 });
@@ -477,22 +561,36 @@
         });
     }
 
-    function watchAgainItems() {
-        var context = cacheContext();
+    function queryUserDataIds(ids) {
+        return queryIds(ids, {
+            Fields:'UserData',
+            EnableImages:false,
+            ImageTypeLimit:0,
+            EnableTotalRecordCount:false
+        });
+    }
+
+    function watchAgainItems(section, signal) {
+        section = section || {};
+        var context = cacheContext() + ':' + (prop(section, 'IsMediaBar', 'isMediaBar', false) === true ? 'media-bar' : 'row');
         var cached = watchAgainCaches[context];
         if (cached && Date.now() - cached.savedAt < 30 * 1000) return Promise.resolve(cached.items);
         if (watchAgainRequests[context]) return watchAgainRequests[context];
-        var movieRequest = queryItems({
+        var options = sectionItemOptions(section);
+        // These can be large libraries. Run the two history reads one after
+        // another so Watch Again never consumes both plugin request slots or
+        // competes with Jellyfin's native navigation request.
+        watchAgainRequests[context] = queryItems(Object.assign({}, options, {
             Filters:'IsPlayed', IncludeItemTypes:'Movie', Recursive:true,
             SortBy:'DatePlayed,SortName', SortOrder:'Descending', Limit:2000,
             EnableTotalRecordCount:false
-        });
-        var episodeRequest = queryItems({
-            Filters:'IsPlayed', IncludeItemTypes:'Episode', Recursive:true, IsVirtualItem:false,
-            SortBy:'DatePlayed,SortName', SortOrder:'Descending', Limit:10000,
-            EnableTotalRecordCount:false
-        });
-        watchAgainRequests[context] = Promise.all([movieRequest, episodeRequest]).then(function (groups) {
+        }), signal).then(function (movies) {
+            return queryItems(Object.assign({}, options, {
+                Filters:'IsPlayed', IncludeItemTypes:'Episode', Recursive:true, IsVirtualItem:false,
+                SortBy:'DatePlayed,SortName', SortOrder:'Descending', Limit:10000,
+                EnableTotalRecordCount:false
+            }), signal).then(function (episodes) { return [movies, episodes]; });
+        }).then(function (groups) {
             var latestEpisodeBySeries = {};
             groups[1].forEach(function (episode) {
                 var userData = prop(episode, 'UserData', 'userData', {}) || {};
@@ -504,7 +602,10 @@
                 }
             });
             var seriesIds = Object.keys(latestEpisodeBySeries);
-            return queryIds(seriesIds).catch(function () { return []; }).then(function (seriesItems) {
+            return queryIds(seriesIds, options, signal).catch(function (error) {
+                if (error && error.name === 'AbortError') throw error;
+                return [];
+            }).then(function (seriesItems) {
                 var seriesById = {};
                 seriesItems.forEach(function (series) {
                     seriesById[String(prop(series, 'Id', 'id', ''))] = series;
@@ -533,9 +634,9 @@
         return watchAgainRequests[context];
     }
 
-    function loadWatchAgainItems(start, limit, order) {
-        var section = { ContentOrder:String(order || '') === 'completed-ascending' ? 'completed-ascending' : 'completed-descending' };
-        return watchAgainItems().then(function (items) {
+    function loadWatchAgainItems(start, limit, section, signal) {
+        section = section || {};
+        return watchAgainItems(section, signal).then(function (items) {
             var offset = Math.max(0, Number(start) || 0);
             var count = Math.max(1, Math.min(100, Number(limit) || 40));
             return orderItems(items, section).slice(offset, offset + count);
@@ -573,7 +674,14 @@
     function sectionSignature(section) {
         var ids = prop(section, 'ItemIds', 'itemIds', []).map(String);
         var sources = prop(section, 'SourceIds', 'sourceIds', []).map(String);
-        return JSON.stringify([String(prop(section, 'Id', 'id', '')), String(prop(section, 'Type', 'type', '')), String(prop(section, 'ContentOrder', 'contentOrder', '')), ids.length, ids.slice(0, 5), ids.slice(-5), sources]);
+        return JSON.stringify([
+            String(prop(section, 'Id', 'id', '')),
+            String(prop(section, 'Type', 'type', '')),
+            String(prop(section, 'ContentOrder', 'contentOrder', '')),
+            Number(prop(section, 'MaxItems', 'maxItems', 0)) || 0,
+            Number(prop(section, 'DisplayTopCount', 'displayTopCount', 0)) || 0,
+            ids.length, ids.slice(0, 5), ids.slice(-5), sources
+        ]);
     }
 
     function sectionCache(section) {
@@ -628,7 +736,7 @@
         };
     }
 
-    function loadTopItemsFromSources(section) {
+    function loadTopItemsFromSources(section, signal) {
         var sources = prop(section, 'SourceIds', 'sourceIds', []).map(String).filter(Boolean);
         var limit = Math.max(5, Math.min(100, Number(prop(section, 'DisplayTopCount', 'displayTopCount', 10)) || 10));
         var key = cacheContext() + ':' + JSON.stringify([sources, limit, String(prop(section, 'Name', 'name', ''))]);
@@ -642,12 +750,12 @@
                     return queryItemSummaries({
                         ParentId:sourceType === 'library' ? resolvedLibraryId(sourceId) : sourceId,
                         Recursive:true, Limit:5000, EnableTotalRecordCount:false
-                    }).then(function (loaded) { return items.concat(sourceType === 'library' ? withoutNavigationFolders(loaded) : loaded); });
+                    }, signal).then(function (loaded) { return items.concat(sourceType === 'library' ? withoutNavigationFolders(loaded) : loaded); });
                 }
                 if (sourceType === 'tag') {
                     return postJson('CollectionManager/individual-collection-drafts/preview', tagSource(sourceId, prop(section, 'Name', 'name', ''))).then(function (preview) {
                         var ids = prop(preview, 'Items', 'items', []).map(function (item) { return String(prop(item, 'Id', 'id', '')); }).filter(Boolean);
-                        return queryIds(ids).then(function (loaded) { return items.concat(loaded); });
+                        return queryIds(ids, sectionItemOptions(section), signal).then(function (loaded) { return items.concat(loaded); });
                     });
                 }
                 return items;
@@ -659,7 +767,7 @@
                 .slice(0, limit)
                 .map(function (entry) { return String(prop(entry.item, 'Id', 'id', '')); })
                 .filter(Boolean);
-            return queryIds(ids);
+            return queryIds(ids, sectionItemOptions(section), signal);
         }).finally(function () { delete topRecoveryRequests[key]; });
         return topRecoveryRequests[key];
     }
@@ -992,7 +1100,7 @@
         var ids = prop(section, 'ItemIds', 'itemIds', []).map(String).filter(Boolean);
         if (ids.length) return queryIds(ids);
         if (type === 'my-list-content') return loadLikedItems(true);
-        if (type === 'watch-again') return watchAgainItems();
+        if (type === 'watch-again') return watchAgainItems(section);
         var dynamic = dynamicSectionItems(section, state && state.preferences || latestNativePreferences || {}, state && state.container || activeManagedSectionContainer() || document);
         if (dynamic) return dynamic;
         if (type === 'top-10-50') return loadTopItemsFromSources(section);
@@ -1333,6 +1441,63 @@
         return match ? container.querySelector('.section' + match[1]) : null;
     }
 
+    function nativeOverrideSource(id) {
+        if (id.indexOf('jellyfin-latest-') === 0) return { token:'latestmedia', libraryId:id.slice('jellyfin-latest-'.length) };
+        var match = id.match(/^jellyfin-\d+-(.+)$/);
+        return match ? { token:match[1], libraryId:'' } : null;
+    }
+
+    function extendNativeSection(node, definition, settings, container) {
+        var id = String(prop(definition, 'Id', 'id', ''));
+        var maximum = maximumSectionItems(definition);
+        var extended = Array.from(node.querySelectorAll('.hssm-native-extended-card'));
+        if (!Number.isFinite(maximum)) {
+            extended.forEach(function (cardNode) { cardNode.remove(); });
+            delete node.dataset.hssmNativeExtendSignature;
+            return;
+        }
+        var cards = Array.from(node.querySelectorAll('.card[data-id]'));
+        extended.forEach(function (cardNode) {
+            var index = cards.indexOf(cardNode);
+            if (index >= maximum) cardNode.remove();
+        });
+        cards = Array.from(node.querySelectorAll('.card[data-id]'));
+        if (cards.length >= maximum) return;
+        var source = nativeOverrideSource(id);
+        if (!source) return;
+        var requestSignature = JSON.stringify([id, maximum, source.token, source.libraryId]);
+        if (node.dataset.hssmNativeExtendSignature === requestSignature) return;
+        node.dataset.hssmNativeExtendSignature = requestSignature;
+        nativeSectionItems(source.token, latestNativePreferences || {}, container, source.libraryId, maximum, true, sectionItemOptions(definition)).then(function (items) {
+            if (!node.isConnected || node.dataset.hssmNativeExtendSignature !== requestSignature) return;
+            var currentCards = Array.from(node.querySelectorAll('.card[data-id]'));
+            var currentIds = {};
+            currentCards.forEach(function (cardNode) { currentIds[String(cardNode.dataset.id || '')] = true; });
+            var cardParent = currentCards[0] && currentCards[0].parentElement;
+            if (!cardParent) cardParent = node.querySelector('.scrollSlider, .itemsContainer');
+            if (!cardParent) return;
+            (items || []).some(function (item) {
+                if (currentCards.length >= maximum) return true;
+                var itemId = String(prop(item, 'Id', 'id', ''));
+                if (!itemId || currentIds[itemId]) return false;
+                var holder = document.createElement('div');
+                holder.innerHTML = card(item, definition);
+                var cardNode = holder.firstElementChild;
+                if (!cardNode) return false;
+                cardNode.classList.add('hssm-native-extended-card');
+                cardParent.appendChild(cardNode);
+                currentIds[itemId] = true;
+                currentCards.push(cardNode);
+                return false;
+            });
+            if (window.CustomElements && typeof window.CustomElements.upgradeSubtree === 'function') window.CustomElements.upgradeSubtree(node);
+            upgradeSectionControls(node);
+            if (setting(settings, 'EnableMyList', false)) Array.from(node.querySelectorAll('.hssm-native-extended-card[data-id]')).forEach(addMyListButton);
+        }).catch(function () {
+            if (node.dataset.hssmNativeExtendSignature === requestSignature) delete node.dataset.hssmNativeExtendSignature;
+        });
+    }
+
     function restoreNativeAppearance(node) {
         if (!node) return;
         node.className = String(node.className || '').split(/\s+/).filter(function (name) {
@@ -1341,6 +1506,8 @@
         node.style.removeProperty('--hssm-card-width');
         delete node.dataset.hssmNativeOverrideId;
         delete node.dataset.hssmNativeOverrideSignature;
+        delete node.dataset.hssmNativeExtendSignature;
+        Array.from(node.querySelectorAll('.hssm-native-extended-card')).forEach(function (cardNode) { cardNode.remove(); });
         Array.from(node.querySelectorAll('.hssm-native-max-hidden')).forEach(function (cardNode) { cardNode.classList.remove('hssm-native-max-hidden'); });
         Array.from(node.querySelectorAll('.cardImageContainer[data-hssm-original-background]')).forEach(function (image) {
             var original = image.dataset.hssmOriginalBackground;
@@ -1377,6 +1544,7 @@
             node.classList.toggle('hssm-native-hide-text', prop(definition, 'ShowText', 'showText', true) === false);
             node.classList.toggle('hssm-native-hide-section-name', prop(definition, 'ShowSectionName', 'showSectionName', true) === false);
             node.dataset.hssmNativeOverrideId = id;
+            extendNativeSection(node, definition, settings, container);
             if (node.dataset.hssmNativeOverrideSignature === signature) return;
             node.dataset.hssmNativeOverrideSignature = signature;
             cards.forEach(function (cardNode) {
@@ -1530,9 +1698,7 @@
         if (image && image.src !== dataUrl) image.src = dataUrl;
     }
 
-    function applyTitleMarquee(settings, scope) {
-        var enabled = setting(settings, 'EnableTitleMarquee', true) !== false;
-        var speedName = String(setting(settings, 'TitleMarqueeSpeed', 'normal') || 'normal').toLowerCase();
+    function marqueeSpeed(name) {
         var speeds = {
             'extra-slow':{ pixelsPerSecond:14, minimumSeconds:6 },
             'slow':{ pixelsPerSecond:24, minimumSeconds:4 },
@@ -1540,8 +1706,69 @@
             'fast':{ pixelsPerSecond:72, minimumSeconds:1.5 },
             'faster':{ pixelsPerSecond:96, minimumSeconds:1 }
         };
-        var speed = speeds[speedName] || speeds.normal;
+        return speeds[String(name || 'normal').toLowerCase()] || speeds.normal;
+    }
+
+    function measureTitleMarqueeHost(host, speed) {
+        if (!host || !host.isConnected) return;
+        var target = host.querySelector('bdi') || host.querySelector('a') || host.querySelector('[data-hssm-marquee-text]');
+        if (!target && host.childNodes.length === 1 && host.firstChild.nodeType === Node.TEXT_NODE) {
+            target = document.createElement('span');
+            target.dataset.hssmMarqueeText = 'true';
+            target.textContent = host.textContent;
+            host.textContent = '';
+            host.appendChild(target);
+        }
+        if (!target) return;
+        target.classList.add('hssm-marquee-measuring');
+        var available = host.clientWidth || host.getBoundingClientRect().width || 0;
+        var rangeWidth = 0;
+        try {
+            var range = document.createRange();
+            range.selectNodeContents(target);
+            rangeWidth = range.getBoundingClientRect().width || 0;
+        } catch (_) {}
+        var full = Math.max(target.scrollWidth || 0, target.getBoundingClientRect().width || 0, rangeWidth);
+        target.classList.remove('hssm-marquee-measuring');
+        var overflow = Math.ceil(full - available);
+        if (available > 0 && overflow > 2) {
+            host.classList.add('hssm-marquee-title-host');
+            target.classList.add('hssm-marquee-title');
+            target.style.setProperty('--hssm-marquee-distance', '-' + (overflow + 8) + 'px');
+            target.style.setProperty('--hssm-marquee-duration', Math.max(speed.minimumSeconds, (overflow + available) / speed.pixelsPerSecond).toFixed(2) + 's');
+        } else {
+            host.classList.remove('hssm-marquee-title-host');
+            target.classList.remove('hssm-marquee-title');
+            target.style.removeProperty('--hssm-marquee-distance');
+            target.style.removeProperty('--hssm-marquee-duration');
+        }
+    }
+
+    function measureHoveredCardTitles(node) {
+        if (!document.body.classList.contains('hssm-title-marquee-enabled')) return;
+        var card = node && node.closest ? node.closest('.card') : null;
+        var directHost = node && node.closest ? node.closest('.cardText-first, .cardText-secondary, .hssm-card-title, .hssm-card-year, .hssm-card-author') : null;
+        var hosts = card ? Array.from(card.querySelectorAll('.cardText')) : (directHost ? [directHost] : []);
+        var speed = marqueeSpeed(document.body.dataset.hssmTitleMarqueeSpeed || 'normal');
+        hosts.forEach(function (host) { measureTitleMarqueeHost(host, speed); });
+    }
+
+    function ensureTitleMarqueeHover() {
+        if (titleMarqueeHoverBound) return;
+        titleMarqueeHoverBound = true;
+        document.addEventListener('pointerover', function (event) {
+            measureHoveredCardTitles(event.target);
+            // Jellyfin can fill a secondary line just after the card itself
+            // appears. Remeasure the hovered card once that text settles.
+            window.setTimeout(function () { measureHoveredCardTitles(event.target); }, 120);
+        }, true);
+    }
+
+    function applyTitleMarquee(settings) {
+        var enabled = setting(settings, 'EnableTitleMarquee', true) !== false;
+        var speedName = String(setting(settings, 'TitleMarqueeSpeed', 'normal') || 'normal').toLowerCase();
         document.body.classList.toggle('hssm-title-marquee-enabled', enabled);
+        document.body.dataset.hssmTitleMarqueeSpeed = speedName;
         if (!enabled) {
             Array.from(document.querySelectorAll('.hssm-marquee-title')).forEach(function (target) {
                 target.classList.remove('hssm-marquee-title');
@@ -1552,48 +1779,7 @@
             });
             return;
         }
-        scope = scope || activePage() || document;
-        function measure() {
-            if (!enabled || !scope || !scope.isConnected && scope !== document) return;
-            var hosts = Array.from(scope.querySelectorAll('.cardText-first, .hssm-card-title, .cardText-secondary, .hssm-card-year, .hssm-card-author'));
-            hosts.forEach(function (host) {
-                var target = host.querySelector('bdi') || host.querySelector('a') || host.querySelector('[data-hssm-marquee-text]');
-                if (!target && host.childNodes.length === 1 && host.firstChild.nodeType === Node.TEXT_NODE) {
-                    target = document.createElement('span');
-                    target.dataset.hssmMarqueeText = 'true';
-                    target.textContent = host.textContent;
-                    host.textContent = '';
-                    host.appendChild(target);
-                }
-                if (!host) return;
-                if (!target) return;
-                target.classList.add('hssm-marquee-measuring');
-                var available = host.clientWidth || host.getBoundingClientRect().width || 0;
-                var rangeWidth = 0;
-                try {
-                    var range = document.createRange();
-                    range.selectNodeContents(target);
-                    rangeWidth = range.getBoundingClientRect().width || 0;
-                } catch (_) {}
-                var full = Math.max(target.scrollWidth || 0, target.getBoundingClientRect().width || 0, rangeWidth);
-                target.classList.remove('hssm-marquee-measuring');
-                var overflow = Math.ceil(full - available);
-                if (available > 0 && overflow > 2) {
-                    host.classList.add('hssm-marquee-title-host');
-                    target.classList.add('hssm-marquee-title');
-                    target.style.setProperty('--hssm-marquee-distance', '-' + (overflow + 8) + 'px');
-                    target.style.setProperty('--hssm-marquee-duration', Math.max(speed.minimumSeconds, (overflow + available) / speed.pixelsPerSecond).toFixed(2) + 's');
-                } else {
-                    host.classList.remove('hssm-marquee-title-host');
-                    target.classList.remove('hssm-marquee-title');
-                    target.style.removeProperty('--hssm-marquee-distance');
-                    target.style.removeProperty('--hssm-marquee-duration');
-                }
-            });
-        }
-        window.requestAnimationFrame(measure);
-        window.setTimeout(measure, 450);
-        window.setTimeout(measure, 1100);
+        ensureTitleMarqueeHover();
     }
 
     function responseItems(response) {
@@ -1649,11 +1835,19 @@
         cacheWrite('library-view-snapshots', current);
     }
 
-    function liveUserViews(force) {
+    function liveUserViews(force, signal) {
         if (!force && liveViewsCache && Date.now() - liveViewsCacheAt < 60000) return Promise.resolve(liveViewsCache);
-        if (liveViewsRequest) return liveViewsRequest;
         var userId = currentUserId();
         if (!userId) return Promise.resolve([]);
+        if (signal) {
+            return getJson('Users/' + encodeURIComponent(userId) + '/Views', {}, signal).then(function (result) {
+                liveViewsCache = responseItems(result);
+                liveViewsCacheAt = Date.now();
+                reconcileLibraryViewSnapshots(liveViewsCache);
+                return liveViewsCache;
+            });
+        }
+        if (liveViewsRequest) return liveViewsRequest;
         var request = typeof ApiClient.getUserViews === 'function'
             ? ApiClient.getUserViews({}, userId)
             : getJson('Users/' + encodeURIComponent(userId) + '/Views');
@@ -1666,30 +1860,36 @@
         return liveViewsRequest;
     }
 
-    function nativeSectionItems(token, preferences, container, libraryId) {
+    function nativeSectionItems(token, preferences, container, libraryId, requestedLimit, forceRemote, itemOptions, signal) {
         var native = nativeTypes(preferences);
         var index = native.indexOf(token);
         var row = !libraryId && index >= 0 ? container.querySelector('.section' + index) : null;
         var ids = row ? Array.from(row.querySelectorAll('.card[data-id], [data-id].card')).map(function (node) { return node.getAttribute('data-id'); }).filter(Boolean) : [];
-        if (ids.length) return queryIds(ids.slice(0, 30)).then(function (items) {
+        var limit = Math.max(1, Math.min(1000, Number(requestedLimit) || 30));
+        var requestedItemOptions = itemOptions || sectionItemOptions({ IsMediaBar:true });
+        if (ids.length && (!forceRemote || ids.length >= limit)) return queryIds(ids.slice(0, limit), requestedItemOptions, signal).then(function (items) {
             return items.map(function (item) { return Object.assign({}, item, { _source: token === 'resume' ? 'resume' : token }); });
         });
         var userId = currentUserId();
         if (token === 'resume' || token === 'resumeaudio' || token === 'resumebook') {
-            var resumeOptions = { Limit: 30, Recursive: true, Fields: 'Overview,PrimaryImageAspectRatio,PrimaryImageItemId,PrimaryImageTag,DateCreated,PremiereDate,ProductionYear,OfficialRating,CommunityRating,SortName,Tags,RunTimeTicks,UserData,SeriesName,SeriesId,ParentIndexNumber,IndexNumber,ParentLogoImageTag,ParentLogoItemId,Artists,AlbumArtists,ArtistItems,Album,AlbumId', ImageTypeLimit:1, EnableImageTypes:'Primary,Backdrop,Banner,Thumb,Logo' };
+            var resumeOptions = Object.assign({}, requestedItemOptions, { Limit: limit, Recursive: true });
             if (token === 'resume') resumeOptions.MediaTypes = 'Video';
             if (token === 'resumeaudio') resumeOptions.MediaTypes = 'Audio';
             if (token === 'resumebook') resumeOptions.MediaTypes = 'Book';
             if (libraryId) resumeOptions.ParentId = resolvedLibraryId(libraryId);
-            return getJson('Users/' + encodeURIComponent(userId) + '/Items/Resume', resumeOptions).then(responseItems).then(function (items) {
+            return getJson('Users/' + encodeURIComponent(userId) + '/Items/Resume', resumeOptions, signal).then(responseItems).then(function (items) {
                 return items.map(function (item) { return Object.assign({}, item, { _source: 'resume' }); });
             });
         }
-        if (token === 'nextup') return getJson('Shows/NextUp', { UserId: userId, Limit: 30, Fields: 'Overview,PrimaryImageAspectRatio,DateCreated,Path,MediaSourceCount,PremiereDate,ProductionYear,OfficialRating,CommunityRating,RunTimeTicks,UserData,SeriesName,SeriesId,ParentIndexNumber,IndexNumber,ParentLogoImageTag,ParentLogoItemId', ImageTypeLimit:1, EnableImageTypes:'Primary,Backdrop,Banner,Thumb,Logo', EnableTotalRecordCount:false, DisableFirstEpisode:false, EnableResumable:false }).then(responseItems).then(function (items) {
+        if (token === 'nextup') return getJson('Shows/NextUp', Object.assign({}, requestedItemOptions, { UserId:userId, Limit:limit, EnableTotalRecordCount:false, DisableFirstEpisode:false, EnableResumable:false }), signal).then(responseItems).then(function (items) {
             return items.map(function (item) { return Object.assign({}, item, { _source: 'nextup' }); });
         });
-        if (token === 'latestmedia') return queryItems({ Recursive: true, SortBy: 'DateCreated', SortOrder: 'Descending', Limit: 30 });
-        if (token === 'livetv') return getJson('LiveTv/Channels', { UserId: userId, Limit: 30, Fields: 'Overview,PrimaryImageAspectRatio,OfficialRating,CommunityRating' }).then(responseItems);
+        if (token === 'latestmedia') {
+            var latestOptions = Object.assign({}, requestedItemOptions, { Recursive:true, SortBy:'DateCreated', SortOrder:'Descending', Limit:limit, EnableTotalRecordCount:false });
+            if (libraryId) latestOptions.ParentId = resolvedLibraryId(libraryId);
+            return queryItems(latestOptions, signal);
+        }
+        if (token === 'livetv') return getJson('LiveTv/Channels', { UserId: userId, Limit: limit, Fields: 'Overview,PrimaryImageAspectRatio,OfficialRating,CommunityRating' }).then(responseItems);
         if (token === 'smalllibrarytiles' || token === 'librarybuttons') {
             return liveUserViews(false);
         }
@@ -1710,7 +1910,7 @@
         return ['continue-watching','continue-listening','continue-reading','continue-watching-listening','continue-reading-listening'].indexOf(String(type || '')) >= 0;
     }
 
-    function continueSectionItems(section, preferences, container) {
+    function continueSectionItems(section, preferences, container, signal) {
         var type = String(prop(section, 'Type', 'type', ''));
         var tokens = type === 'continue-watching' ? ['resume']
             : type === 'continue-listening' ? ['resumeaudio']
@@ -1718,20 +1918,40 @@
             : type === 'continue-watching-listening' ? ['resume','resumeaudio']
             : ['resumebook','resumeaudio'];
         var libraries = prop(section, 'SourceIds', 'sourceIds', []).map(String).filter(Boolean);
-        var requests = [];
-        tokens.forEach(function (token) {
-            if (libraries.length) libraries.forEach(function (libraryId) { requests.push(nativeSectionItems(token, preferences || {}, container || document, libraryId)); });
-            else requests.push(nativeSectionItems(token, preferences || {}, container || document));
-        });
-        return Promise.all(requests).then(function (groups) {
+        return liveUserViews(false, signal).then(function (views) {
+            var available = (views || []).filter(function (view) {
+                var collectionType = String(prop(view, 'CollectionType', 'collectionType', '') || '').toLowerCase();
+                return collectionType !== 'livetv' && collectionType !== 'channels';
+            }).map(function (view) { return normalizedTopRowItemId(prop(view, 'Id', 'id', '')); }).filter(Boolean);
+            var selected = new Set(libraries.map(function (id) { return normalizedTopRowItemId(resolvedLibraryId(id)); }));
+            var allLibrariesSelected = available.length > 0 && available.every(function (id) { return selected.has(id); });
+            var scopes = !libraries.length || allLibrariesSelected ? [''] : libraries;
+            var requests = [];
+            tokens.forEach(function (token) {
+                scopes.forEach(function (libraryId) { requests.push({ token:token, libraryId:libraryId }); });
+            });
+            // Do not fan out one request per selected library at the same
+            // instant. Older Continue sections defaulted to every library and
+            // could otherwise launch dozens of Resume queries on a cold
+            // remote account.
+            return requests.reduce(function (work, request) {
+                return work.then(function (groups) {
+                    return nativeSectionItems(request.token, preferences || {}, container || document, request.libraryId || '', undefined, undefined, sectionItemOptions(section), signal).then(function (items) {
+                        groups.push(items);
+                        return groups;
+                    });
+                });
+            }, Promise.resolve([]));
+        }).then(function (groups) {
             return uniqueItems(groups.flat()).sort(function (left, right) { return dateValue(right, 'completed') - dateValue(left, 'completed'); });
         });
     }
 
-    function recentListeningItems(type) {
-        return getJson('HomeScreenSectionsManager/recent-listening', { limit:300 }).then(function (result) {
+    function recentListeningItems(type, section, signal) {
+        var options = sectionItemOptions(section || {});
+        return getJson('HomeScreenSectionsManager/recent-listening', { limit:300 }, signal).then(function (result) {
             var ids = prop(result, 'ItemIds', 'itemIds', []).map(String).filter(Boolean);
-            return queryIds(ids).then(function (songs) {
+            return queryIds(ids, options, signal).then(function (songs) {
                 if (type === 'recently-listened-songs') return songs.map(function (item, index) { return Object.assign({}, item, { _hssmRecentListeningIndex:index }); });
                 var derivedIds = [];
                 songs.forEach(function (song) {
@@ -1745,18 +1965,18 @@
                         });
                     }
                 });
-                return queryIds(derivedIds).then(function (items) { return items.map(function (item, index) { return Object.assign({}, item, { _hssmRecentListeningIndex:index }); }); });
+                return queryIds(derivedIds, options, signal).then(function (items) { return items.map(function (item, index) { return Object.assign({}, item, { _hssmRecentListeningIndex:index }); }); });
             });
         });
     }
 
-    function dynamicSectionItems(section, preferences, container) {
+    function dynamicSectionItems(section, preferences, container, signal) {
         var type = String(prop(section, 'Type', 'type', ''));
-        if (isContinueSectionType(type)) return continueSectionItems(section, preferences, container);
-        if (type.indexOf('recently-listened-') === 0) return recentListeningItems(type);
+        if (isContinueSectionType(type)) return continueSectionItems(section, preferences, container, signal);
+        if (type.indexOf('recently-listened-') === 0) return recentListeningItems(type, section, signal);
         if (type === 'recently-added-library') {
             var libraryId = String((prop(section, 'SourceIds', 'sourceIds', []) || [])[0] || '');
-            return libraryId ? queryItems({ ParentId:resolvedLibraryId(libraryId), Recursive:true, SortBy:'DateCreated', SortOrder:'Descending', Limit:30, EnableTotalRecordCount:false }).then(withoutNavigationFolders) : Promise.resolve([]);
+            return libraryId ? queryItems(Object.assign({}, sectionItemOptions(section), { ParentId:resolvedLibraryId(libraryId), Recursive:true, SortBy:'DateCreated', SortOrder:'Descending', Limit:30, EnableTotalRecordCount:false }), signal).then(withoutNavigationFolders) : Promise.resolve([]);
         }
         return null;
     }
@@ -1773,7 +1993,7 @@
         var dynamic = dynamicSectionItems(section, latestNativePreferences || {}, activeManagedSectionContainer() || document);
         if (dynamic) return dynamic.then(function (items) { return orderItems(uniqueItems(items), section).slice(0, 30); });
         if (type === 'watch-again') {
-            return loadWatchAgainItems(0, 30, prop(section, 'ContentOrder', 'contentOrder', 'completed-descending')).then(function (items) {
+            return loadWatchAgainItems(0, 30, section).then(function (items) {
                 return orderItems(uniqueItems(items), section).slice(0, 30);
             });
         }
@@ -1804,6 +2024,8 @@
 
     function resolveMediaBarLogos(items) {
         items = uniqueItems(items || []);
+        var requestKey = items.map(function (item) { return String(prop(item, 'Id', 'id', '')); }).filter(Boolean).join('|');
+        if (requestKey && mediaBarMetadataRequests[requestKey]) return mediaBarMetadataRequests[requestKey];
         var seriesIds = [];
         var musicParentIds = [];
         var artistSlideIds = [];
@@ -1826,8 +2048,21 @@
             }
         });
         if (!seriesIds.length && !musicParentIds.length && !artistSlideIds.length) return Promise.resolve(items);
-        var artistAlbumsRequest = artistSlideIds.length ? queryItems({ ArtistIds:artistSlideIds.join(','), IncludeItemTypes:'MusicAlbum', Recursive:true, SortBy:'ProductionYear,SortName', SortOrder:'Descending', Limit:1000, EnableTotalRecordCount:false }) : Promise.resolve([]);
-        return Promise.all([queryIds(seriesIds), queryIds(musicParentIds), artistAlbumsRequest]).then(function (groups) {
+        var request = mediaBarMetadataLane(function () {
+            return queryIds(seriesIds, sectionItemOptions({ IsMediaBar:true })).then(function (seriesItems) {
+                return queryIds(musicParentIds, sectionItemOptions({ IsMediaBar:true })).then(function (musicParents) {
+                    var albumOptions = {
+                        ArtistIds:artistSlideIds.join(','), IncludeItemTypes:'MusicAlbum', Recursive:true,
+                        SortBy:'ProductionYear,SortName', SortOrder:'Descending', Limit:1000,
+                        Fields:'ProductionYear,SortName,AlbumArtists,ArtistItems,PrimaryImageAspectRatio',
+                        EnableImageTypes:'Primary', ImageTypeLimit:1, EnableTotalRecordCount:false
+                    };
+                    return (artistSlideIds.length ? queryItems(albumOptions) : Promise.resolve([])).then(function (artistAlbums) {
+                        return [seriesItems, musicParents, artistAlbums];
+                    });
+                });
+            });
+        }).then(function (groups) {
             var seriesItems = groups[0], musicParents = groups[1], artistAlbums = groups[2], musicById = {}, albumsByArtist = {};
             musicParents.forEach(function (parent) { musicById[String(prop(parent, 'Id', 'id', ''))] = parent; });
             artistAlbums.forEach(function (album) {
@@ -1891,7 +2126,11 @@
                     _hssmMusicPrimaryImageTag:String(albumTags.Primary || albumTags.primary || prop(item, 'PrimaryImageTag', 'primaryImageTag', ''))
                 });
             });
-        }, function () { return items; });
+        }, function () { return items; }).finally(function () {
+            if (requestKey && mediaBarMetadataRequests[requestKey] === request) delete mediaBarMetadataRequests[requestKey];
+        });
+        if (requestKey) mediaBarMetadataRequests[requestKey] = request;
+        return request;
     }
 
     function mediaBarSource(settings, preferences, container, sections) {
@@ -2320,7 +2559,7 @@
         });
     }
 
-    function loadLikedItems(force) {
+    function loadLikedItems(force, signal) {
         if (!force && likedItemsLoaded) return Promise.resolve(Object.keys(likedItemsById).map(function (id) { return likedItemsById[id]; }));
         if (likedItemsRequest) return likedItemsRequest;
         if (!likedItemsLoaded) {
@@ -2330,7 +2569,7 @@
         // Jellyfin's Likes filter is reliable when scoped to a live user view.
         // Resolve those stable view IDs at read time so library renames and
         // delete/recreate operations never leave My List with stale parents.
-        likedItemsRequest = liveUserViews(true).then(function (views) {
+        likedItemsRequest = liveUserViews(false, signal).then(function (views) {
             return (views || []).filter(function (view) {
                 var collectionType = String(prop(view, 'CollectionType', 'collectionType', '') || '').toLowerCase();
                 return collectionType !== 'livetv' && collectionType !== 'channels';
@@ -2348,9 +2587,10 @@
                         EnableImageTypes: 'Primary,Backdrop,Banner,Logo,Thumb',
                         EnableTotalRecordCount: false
                     };
-                    return ApiClient.getItems(currentUserId(), options).then(function (result) {
-                        return items.concat(responseItems(result));
+                    return queryItems(options, signal).then(function (loaded) {
+                        return items.concat(loaded);
                     }, function (error) {
+                        if (error && error.name === 'AbortError') throw error;
                         console.warn('[Home Screen Manager] Could not read My List items from one current library.', error);
                         return items;
                     });
@@ -2374,7 +2614,7 @@
             var ids = Object.keys(pendingHeartIds).slice(0, 100);
             ids.forEach(function (id) { delete pendingHeartIds[id]; });
             if (!ids.length || isDashboardScreen() || isPlaybackScreen()) return;
-            heartRequestLane(function () { return queryIds(ids); }).then(function (items) {
+            heartRequestLane(function () { return queryUserDataIds(ids); }).then(function (items) {
                 var returned = {};
                 items.forEach(function (item) {
                     var id = String(prop(item, 'Id', 'id', ''));
@@ -2388,7 +2628,7 @@
                     if (returned[id] && button.dataset.touched !== 'true') setMyListButtonState(button, !!likedItemsById[id]);
                 });
             }).catch(function () {});
-        }, 150);
+        }, 1500);
     }
 
     function addMyListButton(cardNode) {
@@ -2910,7 +3150,7 @@
         var start = state.cursor;
         var pageSize = Math.min(40, maximum - start);
         var wasSkipped = false;
-        var pageRequest = queueVisibleSectionRequest(state, function () { return state.dynamicLoader(start, pageSize); });
+        var pageRequest = queueVisibleSectionRequest(state, function (signal) { return state.dynamicLoader(start, pageSize, signal); });
         state.pagePromise = pageRequest;
         pageRequest.then(function (items) {
             if (items === skippedSectionRequest) { wasSkipped = true; return; }
@@ -2922,11 +3162,12 @@
             saveSectionCache(state.section, state.items, state.cursor);
             paintSectionState(state, false);
         }).catch(function (error) {
+            if (error && error.name === 'AbortError') { wasSkipped = true; return; }
             console.warn("[Home Screen Manager] A dynamic section page could not load.", error);
         }).finally(function () {
             state.loading = false;
             if (state.pagePromise === pageRequest) state.pagePromise = null;
-            if (wasSkipped && activeManagedSectionContainer() === state.container) window.setTimeout(function () { loadDynamicPage(state); }, 0);
+            if (wasSkipped && managedSectionContainerIsActive(state.container)) window.setTimeout(function () { loadDynamicPage(state); }, 0);
         });
     }
 
@@ -2970,7 +3211,7 @@
         }
         state.loading = true;
         var wasSkipped = false;
-        var pageRequest = queueVisibleSectionRequest(state, function () { return queryIds(pageIds); });
+        var pageRequest = queueVisibleSectionRequest(state, function (signal) { return queryIds(pageIds, sectionItemOptions(state.section), signal); });
         state.pagePromise = pageRequest;
         pageRequest.then(function (items) {
             if (items === skippedSectionRequest) { wasSkipped = true; return; }
@@ -2982,6 +3223,7 @@
             saveSectionCache(state.section, state.items, state.cursor);
             paintSectionState(state, false);
         }).catch(function (error) {
+            if (error && error.name === 'AbortError') { wasSkipped = true; return; }
             if (sectionStateIsCurrent(state)) {
                 lastError = String(error && (error.message || error.statusText) || error || 'Section loading failed');
                 console.warn('[Home Screen Manager] A section page could not be loaded.', error);
@@ -2990,32 +3232,32 @@
         }).finally(function () {
             state.loading = false;
             if (state.pagePromise === pageRequest) state.pagePromise = null;
-            if (wasSkipped && activeManagedSectionContainer() === state.container) window.setTimeout(function () { loadSectionPage(state); }, 0);
+            if (wasSkipped && managedSectionContainerIsActive(state.container)) window.setTimeout(function () { loadSectionPage(state); }, 0);
         });
     }
 
-    function loadDynamicSection(state) {
+    function loadDynamicSection(state, signal) {
         var type = String(prop(state.section, "Type", "type", ""));
         var request = null;
         state.dynamicLoader = null;
         state.dynamicTotal = null;
-        var automaticRequest = type === 'recently-added-library' ? null : dynamicSectionItems(state.section, state.preferences, state.container);
+        var automaticRequest = type === 'recently-added-library' ? null : dynamicSectionItems(state.section, state.preferences, state.container, signal);
         if (automaticRequest) {
             request = automaticRequest.then(function (items) { state.dynamicTotal = items.length; return items; });
         } else if (type === 'recently-added-library') {
             var recentLibraryId = String((prop(state.section, 'SourceIds', 'sourceIds', []) || [])[0] || '');
-            state.dynamicLoader = function (start, limit) { return queryItems({ ParentId:resolvedLibraryId(recentLibraryId), Recursive:true, SortBy:'DateCreated', SortOrder:'Descending', StartIndex:start, Limit:limit, EnableTotalRecordCount:false }).then(withoutNavigationFolders); };
-            request = recentLibraryId ? state.dynamicLoader(0, Math.min(40, maximumSectionItems(state.section))) : Promise.resolve([]);
+            state.dynamicLoader = function (start, limit, requestSignal) { return queryItems(Object.assign({}, sectionItemOptions(state.section), { ParentId:resolvedLibraryId(recentLibraryId), Recursive:true, SortBy:'DateCreated', SortOrder:'Descending', StartIndex:start, Limit:limit, EnableTotalRecordCount:false }), requestSignal).then(withoutNavigationFolders); };
+            request = recentLibraryId ? state.dynamicLoader(0, Math.min(40, maximumSectionItems(state.section)), signal) : Promise.resolve([]);
         } else if (type === "my-list-content") {
-            request = loadLikedItems(true).then(function (items) {
+            request = loadLikedItems(true, signal).then(function (items) {
                 state.dynamicTotal = items.length;
                 return items;
             });
         } else if (type === "watch-again") {
-            state.dynamicLoader = function (start, limit) { return loadWatchAgainItems(start, limit, prop(state.section, 'ContentOrder', 'contentOrder', 'completed-descending')); };
-            request = state.dynamicLoader(0, 40);
+            state.dynamicLoader = function (start, limit, requestSignal) { return loadWatchAgainItems(start, limit, state.section, requestSignal); };
+            request = state.dynamicLoader(0, 40, signal);
         } else if (type === "top-10-50" && !prop(state.section, 'ItemIds', 'itemIds', []).length) {
-            request = loadTopItemsFromSources(state.section).then(function (items) {
+            request = loadTopItemsFromSources(state.section, signal).then(function (items) {
                 state.dynamicTotal = items.length;
                 state.dynamicLoader = function (start, limit) { return Promise.resolve(items.slice(start, start + limit)); };
                 return state.dynamicLoader(0, 40);
@@ -3025,11 +3267,11 @@
             request = getJson("HomeScreenSectionsManager/other-users-items", {
                 mediaType:prop(state.section, "ActivityMediaType", "activityMediaType", "movies"),
                 limit:maximum
-            }).then(function (result) {
+            }, signal).then(function (result) {
                 var ids = prop(result, "ItemIds", "itemIds", []).map(String).filter(Boolean).slice(0, maximum);
                 state.dynamicTotal = ids.length;
-                state.dynamicLoader = function (start, limit) { return queryIds(ids.slice(start, start + limit)); };
-                return state.dynamicLoader(0, 40);
+                state.dynamicLoader = function (start, limit, requestSignal) { return queryIds(ids.slice(start, start + limit), sectionItemOptions(state.section), requestSignal); };
+                return state.dynamicLoader(0, 40, signal);
             });
         } else if (type === "rotating-sections" || type === "seasonal-sections") {
             var draft = activeSectionDraft(state.section);
@@ -3038,19 +3280,19 @@
             var sourceId = String(prop(draft, "SourceId", "sourceId", ""));
             if (sourceType === "collection" || sourceType === "library") {
                 var parentId = sourceType === "library" ? resolvedLibraryId(sourceId) : sourceId;
-                state.dynamicLoader = function (start, limit) {
-                    return queryItems({ ParentId:parentId, Recursive:true, StartIndex:start, Limit:limit }).then(function (items) {
+                state.dynamicLoader = function (start, limit, requestSignal) {
+                    return queryItems(Object.assign({}, sectionItemOptions(state.section), { ParentId:parentId, Recursive:true, StartIndex:start, Limit:limit, EnableTotalRecordCount:false }), requestSignal).then(function (items) {
                         return sourceType === 'library' ? withoutNavigationFolders(items) : items;
                     });
                 };
-                request = state.dynamicLoader(0, 40);
+                request = state.dynamicLoader(0, 40, signal);
             }
             if (sourceType === "tag") {
                 request = postJson("CollectionManager/individual-collection-drafts/preview", tagSource(sourceId, prop(state.section, "Name", "name", ""))).then(function (preview) {
                     var ids = prop(preview, "Items", "items", []).map(function (item) { return String(prop(item, "Id", "id", "")); }).filter(Boolean);
                     state.dynamicTotal = ids.length;
-                    state.dynamicLoader = function (start, limit) { return queryIds(ids.slice(start, start + limit)); };
-                    return state.dynamicLoader(0, 40);
+                    state.dynamicLoader = function (start, limit, requestSignal) { return queryIds(ids.slice(start, start + limit), sectionItemOptions(state.section), requestSignal); };
+                    return state.dynamicLoader(0, 40, signal);
                 });
             }
         }
@@ -3063,6 +3305,7 @@
             saveSectionCache(state.section, state.items, state.cursor);
             paintSectionState(state, false);
         }).catch(function (error) {
+            if (error && error.name === 'AbortError') return skippedSectionRequest;
             console.warn("[Home Screen Manager] A dynamic section could not refresh; its saved content remains visible.", error);
         });
     }
@@ -3070,17 +3313,17 @@
     function queueInitialDynamicSection(state) {
         if (!state || state.refreshPromise || state.initialLoadComplete || !sectionStateIsCurrent(state)) return;
         var wasSkipped = false;
-        state.refreshPromise = queueVisibleSectionRequest(state, function () { return loadDynamicSection(state); }).then(function (result) {
+        state.refreshPromise = queueVisibleSectionRequest(state, function (signal) { return loadDynamicSection(state, signal); }).then(function (result) {
             wasSkipped = result === skippedSectionRequest;
             if (!wasSkipped) state.initialLoadComplete = true;
         }).finally(function () {
             state.refreshPromise = null;
-            if (wasSkipped && activeManagedSectionContainer() === state.container) window.setTimeout(function () { queueInitialDynamicSection(state); }, 0);
+            if (wasSkipped && managedSectionContainerIsActive(state.container)) window.setTimeout(function () { queueInitialDynamicSection(state); }, 0);
         });
     }
 
     function resumeContainerSectionLoads(container) {
-        if (!container || activeManagedSectionContainer() !== container) return;
+        if (!container || !managedSectionContainerIsActive(container)) return;
         Object.keys(sectionRuntime).forEach(function (id) {
             var state = sectionRuntime[id];
             if (!state || state.container !== container || !sectionStateIsCurrent(state)) return;
@@ -3206,6 +3449,7 @@
         topRowLoadSequence += 1;
         topRowRenderKey = '';
         var row = document.querySelector('.hssm-top-row');
+        if (row && row._hssmArtworkObserver) row._hssmArtworkObserver.disconnect();
         if (row && row._hssmGeometryResizeHandler) window.removeEventListener('resize', row._hssmGeometryResizeHandler);
         if (row && row._hssmHeaderScrollHandler) window.removeEventListener('scroll', row._hssmHeaderScrollHandler);
         if (row) row.remove();
@@ -3589,13 +3833,68 @@
         if (typeof ApiClient.accessToken === 'function' && ApiClient.accessToken()) logoOptions.ApiKey = ApiClient.accessToken();
         var logoUrl = logosOnly ? ApiClient.getUrl('HomeScreenSectionsManager/top-row-logo/' + encodeURIComponent(id), logoOptions) : '';
         var imageUrl = logosOnly ? '' : cardImage(item, section);
-        var imageStyle = imageUrl ? ' style="background-image:url(&quot;' + escapeHtml(imageUrl) + '&quot;)"' : '';
+        var imageSource = imageUrl ? ' data-hssm-top-row-image="' + escapeHtml(imageUrl) + '"' : '';
         var shape = logosOnly ? cardShape({ ArtShape:'wide' }) : cardShape(section);
         if (logosOnly) {
-            return '<a is="emby-linkbutton" href="' + escapeHtml(href) + '" data-action="link" class="itemAction hssm-top-row-card hssm-top-row-logo-card" data-id="' + escapeHtml(id) + '" aria-label="' + escapeHtml(name) + '"><img class="hssm-top-row-logo-image" src="' + escapeHtml(logoUrl) + '" alt="" /></a>';
+            return '<a is="emby-linkbutton" href="' + escapeHtml(href) + '" data-action="link" class="itemAction hssm-top-row-card hssm-top-row-logo-card" data-id="' + escapeHtml(id) + '" aria-label="' + escapeHtml(name) + '"><img class="hssm-top-row-logo-image" data-hssm-top-row-image="' + escapeHtml(logoUrl) + '" alt="" decoding="async" fetchpriority="low" /></a>';
         }
-        var art = '<a is="emby-linkbutton" href="' + escapeHtml(href) + '" data-action="link" class="cardImageContainer coveredImage cardContent itemAction hssm-top-row-art" aria-label="' + escapeHtml(name) + '"' + imageStyle + '><span class="hssm-top-row-hover"></span></a>';
+        var art = '<a is="emby-linkbutton" href="' + escapeHtml(href) + '" data-action="link" class="cardImageContainer coveredImage cardContent itemAction hssm-top-row-art" aria-label="' + escapeHtml(name) + '"' + imageSource + '><span class="hssm-top-row-hover"></span></a>';
         return '<div class="card ' + shape.card + ' card-hoverable hssm-client-card hssm-top-row-card" data-id="' + escapeHtml(id) + '"><div class="cardBox"><div class="cardScalable"><div class="cardPadder ' + shape.padder + '"></div>' + art + '</div></div></div>';
+    }
+
+    function bindTopRowArtwork(row) {
+        var track = row && row.querySelector('.hssm-top-row-track');
+        if (!track || track.dataset.hssmArtworkBound === 'true') return;
+        track.dataset.hssmArtworkBound = 'true';
+        var queued = new Set();
+        var waiting = [];
+        var active = 0;
+        function next() {
+            while (active < 2 && waiting.length) {
+                let target = waiting.shift();
+                if (!target.isConnected || target.dataset.hssmTopRowImageLoaded === 'true') continue;
+                let source = String(target.dataset.hssmTopRowImage || '');
+                if (!source) continue;
+                active += 1;
+                target.dataset.hssmTopRowImageLoaded = 'true';
+                if (target.tagName === 'IMG') {
+                    var done = function () { active -= 1; next(); };
+                    target.addEventListener('load', done, { once:true });
+                    target.addEventListener('error', done, { once:true });
+                    target.src = source;
+                } else {
+                    var loader = new Image();
+                    loader.onload = function () {
+                        if (target.isConnected) target.style.backgroundImage = 'url("' + source.replace(/"/g, '%22') + '")';
+                        active -= 1;
+                        next();
+                    };
+                    loader.onerror = function () { active -= 1; next(); };
+                    loader.src = source;
+                }
+            }
+        }
+        function enqueue(target) {
+            if (!target || queued.has(target)) return;
+            queued.add(target);
+            waiting.push(target);
+            next();
+        }
+        var targets = Array.from(track.querySelectorAll('[data-hssm-top-row-image]'));
+        if (targets.length) enqueue(targets[0]);
+        if ('IntersectionObserver' in window) {
+            row._hssmArtworkObserver = new IntersectionObserver(function (entries) {
+                entries.forEach(function (entry) {
+                    if (entry.isIntersecting) {
+                        enqueue(entry.target);
+                        row._hssmArtworkObserver.unobserve(entry.target);
+                    }
+                });
+            }, { root:track, rootMargin:'0px 320px 0px 320px' });
+            targets.slice(1).forEach(function (target) { row._hssmArtworkObserver.observe(target); });
+        } else {
+            targets.slice(1).forEach(enqueue);
+        }
     }
 
     function syncTopRowCardGeometry(row, section) {
@@ -3749,6 +4048,7 @@
                     if (card) card.remove();
                 }, { once:true });
             });
+            bindTopRowArtwork(row);
             if (window.CustomElements && typeof window.CustomElements.upgradeSubtree === 'function') window.CustomElements.upgradeSubtree(row);
             window.requestAnimationFrame(function () { syncTopRowCardGeometry(row, section); });
             row._hssmGeometryResizeHandler = function () { syncTopRowCardGeometry(row, section); };
@@ -3759,7 +4059,7 @@
         var cachedTopRow = cacheRead('top-row-items', 60 * 60 * 1000);
         var cacheMatches = cachedTopRow && JSON.stringify(cachedTopRow.ids || []) === JSON.stringify(sourceIds);
         if (cacheMatches) paintTopRow(cachedTopRow.items || []);
-        else queryIds(sourceIds).then(function (items) {
+        else queryIds(sourceIds, topRowItemOptions(section)).then(function (items) {
             cacheWrite('top-row-items', { ids:sourceIds, items:items });
             paintTopRow(items);
         }).catch(function () {
@@ -3813,7 +4113,10 @@
         var sections = sectionsForPage(settings, pageId);
         var scopedSettings = settingsForPage(settings, pageId);
         Object.keys(sectionRuntime).forEach(function (id) {
-            if (sectionRuntime[id] && sectionRuntime[id].container === container) delete sectionRuntime[id];
+            if (sectionRuntime[id] && sectionRuntime[id].container === container) {
+                if (sectionRuntime[id]._hssmRequestController) sectionRuntime[id]._hssmRequestController.abort();
+                delete sectionRuntime[id];
+            }
         });
         Array.from(container.querySelectorAll(":scope > [data-hssm-section-id]")).forEach(function (node) { node.remove(); });
         container._hssmRuntimeGeneration = generation;
@@ -3925,6 +4228,7 @@
         bindHomeTabs();
         var featureScope = currentFeatureScope();
         var featureRoute = String(window.location.hash || "#/home");
+        abortInactiveSectionRequests();
         if (!force && window.ApiClient && currentUserId() && featureScope && featureScope === lastFeatureScope && featureRoute === lastFeatureRoute) {
             var immediateSettings = settingsCache || cacheRead("client-settings", 24 * 60 * 60 * 1000);
             if (immediateSettings) {

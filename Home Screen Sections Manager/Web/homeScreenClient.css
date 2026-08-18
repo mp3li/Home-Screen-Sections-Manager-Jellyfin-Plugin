@@ -43,7 +43,14 @@ body.hssm-client-enabled #homeTab > .featurediframe {
 
 body.hssm-client-enabled .itemDetailPage:not(.hide) .detailImageContainer,
 body.hssm-client-enabled .itemDetailPage.is-active .detailImageContainer {
-    transform: translateY(15%) !important;
+    transform: none !important;
+}
+
+body.hssm-client-enabled .itemDetailPage:not(.hide) .detailImageContainer > .card,
+body.hssm-client-enabled .itemDetailPage.is-active .detailImageContainer > .card,
+body.hssm-client-enabled .itemDetailPage:not(.hide) .detailImageContainer > .detailImage,
+body.hssm-client-enabled .itemDetailPage.is-active .detailImageContainer > .detailImage {
+    transform: translateY(-6%) !important;
 }
 
 @media (min-width: 1400px) {
