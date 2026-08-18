@@ -2,20 +2,20 @@
   {
     "guid": "7948ef78-238c-4a8b-be2b-3ab473e50a1b",
     "name": "Home Screen Manager",
-    "description": "TEST BUILD — Designs, orders, and renders hybrid Jellyfin/Abyss home sections using manual media, collections, metadata tags, and libraries.",
-    "overview": "TEST BUILD — Home Screen Manager creation, ordering, rendering, and Abyss customization for Jellyfin 10.11.11.",
+    "description": "TEST BUILD \u2014 Designs, orders, and renders hybrid Jellyfin/Abyss home sections using manual media, collections, metadata tags, and libraries.",
+    "overview": "TEST BUILD \u2014 Home Screen Manager creation, ordering, rendering, and Abyss customization for Jellyfin 10.11.11.",
     "owner": "mp3li",
     "category": "General",
     "imageUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Assets/Branding/home-screen-sections-manager-plugin-photo.png",
     "versions": [
       {
-        "version": "0.1.0.60",
-        "changelog": "Prevents cold remote pages from starving Jellyfin's own requests by aborting abandoned page reads, globally bounding plugin section work, serializing Watch Again, Continue, and Media Bar enrichment, progressively loading Top Row art, and reducing automatic-row, card, and heart payloads; expands native rows beyond 16 items; fixes every overflowing card line's marquee; moves only detail poster art; and recovers the saved Main Top Row.",
+        "version": "0.1.0.62",
+        "changelog": "Rollback-safe rediscovery release; runtime behavior is intentionally identical to 0.1.0.60 while preserving a higher update version for server rollback safety.",
         "targetAbi": "10.11.11.0",
         "framework": "net9.0",
-        "sourceUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Test%20Releases/0.1.0.60-test/Jellyfin.Plugin.HomeScreenSectionsManager_0.1.0.60-test.zip",
-        "checksum": "afb97ceff03eef1a88252f76b79906bb",
-        "timestamp": "2026-08-17T23:49:35Z"
+        "sourceUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Test%20Releases/0.1.0.62-test/Jellyfin.Plugin.HomeScreenSectionsManager_0.1.0.62-test.zip",
+        "checksum": "d34af162e8cbb6cb42ec10dd5a4a6e3f",
+        "timestamp": "2026-08-18T04:37:12Z"
       }
     ]
   }
