@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.1.0.62-test] - 2026-08-18
+## [0.1.0.62-test] - 2026-08-17
 
 - Rollback-safe rediscovery release; runtime behavior is intentionally identical to 0.1.0.60.
 

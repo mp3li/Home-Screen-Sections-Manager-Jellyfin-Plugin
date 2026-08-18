@@ -10,12 +10,12 @@
     "versions": [
       {
         "version": "0.1.0.62",
-        "changelog": "Rollback-safe rediscovery release; runtime behavior is intentionally identical to 0.1.0.60 while preserving a higher update version for server rollback safety.",
+        "changelog": "Rollback-safe rediscovery release; runtime behavior is intentionally identical to 0.1.0.60.",
         "targetAbi": "10.11.11.0",
         "framework": "net9.0",
         "sourceUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Test%20Releases/0.1.0.62-test/Jellyfin.Plugin.HomeScreenSectionsManager_0.1.0.62-test.zip",
         "checksum": "d34af162e8cbb6cb42ec10dd5a4a6e3f",
-        "timestamp": "2026-08-18T04:37:12Z"
+        "timestamp": "2026-08-17T21:38:00Z"
       }
     ]
   }
