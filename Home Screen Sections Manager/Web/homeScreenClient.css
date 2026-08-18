@@ -46,11 +46,11 @@ body.hssm-client-enabled .itemDetailPage.is-active .detailImageContainer {
     transform: none !important;
 }
 
-body.hssm-client-enabled .itemDetailPage:not(.hide) .detailImageContainer > .card,
-body.hssm-client-enabled .itemDetailPage.is-active .detailImageContainer > .card,
 body.hssm-client-enabled .itemDetailPage:not(.hide) .detailImageContainer > .detailImage,
-body.hssm-client-enabled .itemDetailPage.is-active .detailImageContainer > .detailImage {
-    transform: translateY(-6%) !important;
+body.hssm-client-enabled .itemDetailPage.is-active .detailImageContainer > .detailImage,
+body.hssm-client-enabled .itemDetailPage:not(.hide) .detailImageContainer .cardImageContainer,
+body.hssm-client-enabled .itemDetailPage.is-active .detailImageContainer .cardImageContainer {
+    transform: translateY(-4%) !important;
 }
 
 @media (min-width: 1400px) {
@@ -88,6 +88,7 @@ body.hssm-client-enabled .itemDetailPage.is-active .detailImageContainer > .deta
     opacity: 0.72;
     padding-bottom: 2em;
     padding-top: 1em;
+    display: none;
 }
 
 .hssm-client-section[hidden] {

@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    var CLIENT_VERSION = "0.1.0.60";
+    var CLIENT_VERSION = "0.1.0.61";
     if (window.HomeScreenManagerClient) {
         if (window.HomeScreenManagerClient.version === CLIENT_VERSION) {
             window.HomeScreenManagerClient.refresh();
@@ -52,7 +52,7 @@
     // four-request lane per page could consume every HTTP/1.1 connection to a
     // remote server after navigation and leave native Collections waiting
     // behind plugin requests that were started by the previous page.
-    var globalSectionRequestLane = createLimiter(2);
+    var globalSectionRequestLane = createLimiter(4);
     var heartRequestLane = createLimiter(1);
     var mediaBarMetadataLane = createLimiter(1);
     var likedItemsById = {};
@@ -107,9 +107,9 @@
     function sectionRequestLane(state) {
         if (!state || !state.container) return createLimiter(1);
         // One request per managed page lets a newly selected custom page use
-        // the second global slot while an old Home request finishes, without
-        // letting either page monopolize the browser/server connection pool.
-        if (!state.container._hssmSectionRequestLane) state.container._hssmSectionRequestLane = createLimiter(1);
+        // Two requests per managed page reduce long custom-page startup times
+        // while still limiting pressure with the shared global lane.
+        if (!state.container._hssmSectionRequestLane) state.container._hssmSectionRequestLane = createLimiter(2);
         return state.container._hssmSectionRequestLane;
     }
 
@@ -506,7 +506,7 @@
             'SeriesId','SeriesName','SeriesPrimaryImageTag','ParentLogoImageTag','ParentLogoItemId','UserData',
             'Artists','AlbumArtists','ArtistItems','Album','AlbumId'
         ];
-        if (mediaBar) fields.push('Tags','Overview','People','ChildCount','RecursiveItemCount');
+        if (mediaBar) fields.push('OfficialRating','Genres','Tags','Overview','People','ChildCount','RecursiveItemCount');
         return {
             // Cold custom-page loads should not ask Jellyfin to resolve every
             // supported image family. Keep the metadata cards and Media Bars
@@ -1054,7 +1054,7 @@
         node.dataset.hssmSectionId = id;
         if (!items.length) {
             if (loading) {
-                node.innerHTML = sectionTitleMarkup + '<p class="hssm-section-loading padded-left">Loading section content…</p>';
+                node.innerHTML = sectionTitleMarkup;
                 node.dataset.hssmLoading = 'true';
             } else if (String(prop(section, 'Type', 'type', '')) === 'my-list-content') {
                 node.innerHTML = sectionTitleMarkup + '<p class="hssm-empty-list padded-left">My List is empty.</p>';
