@@ -9,13 +9,13 @@
     "imageUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Assets/Branding/home-screen-sections-manager-plugin-photo.png",
     "versions": [
       {
-        "version": "0.1.0.61",
-        "changelog": "Maintains prior stability and performance work, removes top-row loading placeholders, adds first-3-genre pills to movie/series media bars, and updates normal dashboard update metadata/versioning.",
+        "version": "0.1.0.60",
+        "changelog": "Prevents cold remote pages from starving Jellyfin's own requests by aborting abandoned page reads, globally bounding plugin section work, serializing Watch Again, Continue, and Media Bar enrichment, progressively loading Top Row art, and reducing automatic-row, card, and heart payloads; expands native rows beyond 16 items; fixes every overflowing card line's marquee; moves only detail poster art; and recovers the saved Main Top Row.",
         "targetAbi": "10.11.11.0",
         "framework": "net9.0",
-        "sourceUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Test%20Releases/0.1.0.61-test/Jellyfin.Plugin.HomeScreenSectionsManager_0.1.0.61-test.zip",
-        "checksum": "e03502db62bf6d2802b637ce1b0ac77a",
-        "timestamp": "2026-08-18T22:18:27Z"
+        "sourceUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Test%20Releases/0.1.0.60-test/Jellyfin.Plugin.HomeScreenSectionsManager_0.1.0.60-test.zip",
+        "checksum": "afb97ceff03eef1a88252f76b79906bb",
+        "timestamp": "2026-08-17T23:49:35Z"
       }
     ]
   }

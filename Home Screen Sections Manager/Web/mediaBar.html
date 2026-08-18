@@ -240,15 +240,6 @@
                 return pill;
             }
 
-            function mediaBarGenres(item) {
-                const rawGenres = item && item.Genres ? item.Genres : [];
-                const values = Array.isArray(rawGenres) ? rawGenres : String(rawGenres).split(',');
-                return values
-                    .map((entry) => String(typeof entry === 'string' ? entry : (entry && (entry.Name || entry.name) ? (entry.Name || entry.name) : '')).trim())
-                    .filter((entry) => !!entry)
-                    .slice(0, 3);
-            }
-
             function navigateTo(route) {
                 try { window.top.location.hash = route; }
                 catch (_) { window.location.hash = route; }
@@ -647,8 +638,6 @@
                 if (year > 0) meta.appendChild(metaPill(SVG_CALENDAR, String(year)));
                 const rating = Number(item.CommunityRating);
                 if (Number.isFinite(rating) && rating > 0) meta.appendChild(metaPill(SVG_STAR, rating.toFixed(1)));
-                const genres = isMusic ? [] : mediaBarGenres(item);
-                if (genres.length) meta.appendChild(metaPill('', genres.join(', ')));
                 const playedPercentage = Number(item.UserData && item.UserData.PlayedPercentage);
                 $('progress-wrap').style.display = playedPercentage > 0 ? 'block' : 'none';
                 $('progress-bar').style.width = `${Math.min(Math.max(playedPercentage || 0, 0), 100)}%`;

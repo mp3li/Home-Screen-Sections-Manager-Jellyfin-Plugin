@@ -1,15 +1,5 @@
 # Changelog
 
-## [0.1.0.61-test] - 2026-08-18
-
-- Improves custom/home-page request scheduling, preserves running section requests across page changes, and keeps page-switch latencies from stacking behind one another.
-- Removes placeholder borders during Top Row loading, keeps first-load UI cleaner, and stabilizes section/media bar rendering under heavy page loads.
-- Restores section-type-specific maximum controls with a manual numeric field and all-to-default behavior for native rows, including clamped values and full random ordering across all eligible saved items.
-- Applies marquee motion to overflowing primary and secondary card text across all sections while preserving fallback behavior.
-- Keeps detail-page poster art positioning aligned to its own placement needs without moving entire page sections.
-- Adds Movie/Series Media Bar rating, content rating, duration, and top-3 genre pill rendering.
-- Keeps plugin release metadata aligned for a test-channel dashboard update path.
-
 ## [0.1.0.60-test] - 2026-08-17
 
 - Prevents remote-user request starvation by allowing only two plugin section requests overall and one per managed page, serializing library-scoped Continue requests, collapsing an all-libraries Continue section to one request per media type, progressively loading only nearby Top Row artwork, and delaying lightweight My List heart-state reads until Jellyfin's own page request has room to run.
