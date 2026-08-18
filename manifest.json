@@ -9,13 +9,13 @@
     "imageUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Assets/Branding/home-screen-sections-manager-plugin-photo.png",
     "versions": [
       {
-        "version": "0.1.0.62",
-        "changelog": "Rollback-safe rediscovery release; runtime behavior is intentionally identical to 0.1.0.60.",
+        "version": "0.1.0.60",
+        "changelog": "Prevents remote-user request starvation by allowing only two plugin section requests overall and one per managed page, serializing library-scoped Continue requests, collapsing an all-libraries Continue section to one request per media type, progressively loading only nearby Top Row artwork, and delaying lightweight My List heart-state reads until Jellyfin's own page request has room to run.",
         "targetAbi": "10.11.11.0",
         "framework": "net9.0",
-        "sourceUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Test%20Releases/0.1.0.62-test/Jellyfin.Plugin.HomeScreenSectionsManager_0.1.0.62-test.zip",
-        "checksum": "d34af162e8cbb6cb42ec10dd5a4a6e3f",
-        "timestamp": "2026-08-17T21:38:00Z"
+        "sourceUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Test%20Releases/0.1.0.60-test/Jellyfin.Plugin.HomeScreenSectionsManager_0.1.0.60-test.zip",
+        "checksum": "afb97ceff03eef1a88252f76b79906bb",
+        "timestamp": "2026-08-17T21:37:00Z"
       }
     ]
   }

@@ -1,9 +1,5 @@
 # Changelog
 
-## [0.1.0.62-test] - 2026-08-17
-
-- Rollback-safe rediscovery release; runtime behavior is intentionally identical to 0.1.0.60.
-
 ## [0.1.0.60-test] - 2026-08-17
 
 - Prevents remote-user request starvation by allowing only two plugin section requests overall and one per managed page, serializing library-scoped Continue requests, collapsing an all-libraries Continue section to one request per media type, progressively loading only nearby Top Row artwork, and delaying lightweight My List heart-state reads until Jellyfin's own page request has room to run.
