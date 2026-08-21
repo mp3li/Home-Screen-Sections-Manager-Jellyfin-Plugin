@@ -60,6 +60,14 @@ def run() -> None:
     assert "StartIndex:(Math.max(1, view.page) - 1) * 16, Limit:16" in DASHBOARD
     assert "renderIdBackedContent(content, state.savedItemIds" in DASHBOARD
 
+    # A full all-pages refresh must be single-flight, reuse repeated source
+    # scans, omit image/count payload work, and breathe between large pages.
+    assert "HSSMRefreshSavedSectionsInFlight" in DASHBOARD
+    assert "function cachedRefreshRequest(key, request)" in DASHBOARD
+    assert "EnableImages:false, EnableTotalRecordCount:false" in DASHBOARD
+    assert "refreshBreather(60)" in DASHBOARD
+    assert "loadRefreshParentItems(sourceId, excludeNavigationFolders, '')" in DASHBOARD
+
 
 if __name__ == "__main__":
     run()

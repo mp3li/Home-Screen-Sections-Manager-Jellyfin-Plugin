@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.1.0.65-test] - 2026-08-21
+
+- Keeps the fast "create another similar section" workflow while rebinding every repeated section to a collision-resistant new identity, retaining its content/order/art choices, confirming both save and apply responses before showing success, and rejecting duplicate section IDs instead of silently dropping a row.
+- Makes **Refresh Home Screen and All Pages Sections** single-flight and server-friendly: sections and source pages remain sequential, duplicate library/collection/tag scans are reused across sections, refresh queries omit images and total-count work, and large scans briefly yield between batches instead of continuously occupying Jellyfin.
+- Switches the Home top navigation to an arrowed, mouse-wheel/trackpad-scrollable horizontal strip only when more than four custom pages are visible, while keeping the unchanged native layout for four or fewer custom pages.
+- Stops horizontal media rows and Top Rows from trapping ordinary mouse-wheel up/down gestures, reserving horizontal movement for horizontal trackpad input, Shift+wheel, dragging, and the existing row arrows so custom pages remain vertically scrollable while hovered.
+- Restores Jellyfin's native multi-select hookup on custom-page rows, including the selection count and three-dot bulk-actions menu, and closes selection mode when a non-media part of Home or a custom page is clicked while leaving cards and the native selection controls interactive.
+- Lowers only the Primary/Poster artwork on detail pages by the live Top Row height while leaving Jellyfin's poster container, metadata, and overall detail layout in their native positions.
+- Gives custom-page horizontal sections the same full-width edge travel as Home by overlaying their arrows instead of reserving side width that clips the row early.
+
 ## [0.1.0.64-test] - 2026-08-20
 
 - Restores custom section names to Jellyfin-style text headings and removes the unintended first-item backdrop banner from those headings. Card artwork and its lazy loading are unchanged.

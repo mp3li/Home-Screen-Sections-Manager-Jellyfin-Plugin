@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    var CLIENT_VERSION = "0.1.0.64";
+    var CLIENT_VERSION = "0.1.0.65";
     if (window.HomeScreenManagerClient) {
         if (window.HomeScreenManagerClient.version === CLIENT_VERSION) {
             window.HomeScreenManagerClient.refresh();
@@ -217,6 +217,77 @@
         return document.querySelector('.headerTabs:not(.hide) [is="emby-tabs"]');
     }
 
+    function updatePageTabArrowState(tabs, slider) {
+        if (!tabs || !slider || !tabs.classList.contains('hssm-page-tabs-overflow')) return;
+        var header = tabs.closest('.headerTabs');
+        var left = header && header.querySelector(':scope > .hssm-page-nav-arrow-left');
+        var right = header && header.querySelector(':scope > .hssm-page-nav-arrow-right');
+        var maximum = Math.max(0, slider.scrollWidth - slider.clientWidth);
+        if (left) left.disabled = slider.scrollLeft <= 1;
+        if (right) right.disabled = slider.scrollLeft >= maximum - 1;
+    }
+
+    function updatePageTabOverflow(tabs, slider) {
+        if (!tabs || !slider) return;
+        var header = tabs.closest('.headerTabs');
+        if (!header) return;
+        var customPageCount = Array.from(slider.querySelectorAll('.hssm-custom-page-tab')).filter(function (button) { return !button.hidden && !button.classList.contains('hssm-hidden-page-tab'); }).length;
+        var enabled = customPageCount > 4;
+        header.classList.toggle('hssm-page-tabs-overflow-shell', enabled);
+        tabs.classList.toggle('hssm-page-tabs-overflow', enabled);
+        var left = header.querySelector(':scope > .hssm-page-nav-arrow-left');
+        var right = header.querySelector(':scope > .hssm-page-nav-arrow-right');
+        if (!enabled) {
+            if (left) left.remove();
+            if (right) right.remove();
+            slider.scrollLeft = 0;
+            return;
+        }
+        if (!left) {
+            left = document.createElement('button');
+            left.type = 'button';
+            left.className = 'hssm-page-nav-arrow hssm-page-nav-arrow-left';
+            left.setAttribute('aria-label', 'Scroll page navigation left');
+            left.textContent = '‹';
+            header.insertBefore(left, tabs);
+        }
+        if (!right) {
+            right = document.createElement('button');
+            right.type = 'button';
+            right.className = 'hssm-page-nav-arrow hssm-page-nav-arrow-right';
+            right.setAttribute('aria-label', 'Scroll page navigation right');
+            right.textContent = '›';
+            header.insertBefore(right, tabs.nextSibling);
+        }
+        if (left.dataset.hssmPageNavBound !== 'true') {
+            left.dataset.hssmPageNavBound = 'true';
+            left.addEventListener('click', function () { slider.scrollBy({ left:-Math.max(180, slider.clientWidth * 0.72), behavior:'smooth' }); });
+        }
+        if (right.dataset.hssmPageNavBound !== 'true') {
+            right.dataset.hssmPageNavBound = 'true';
+            right.addEventListener('click', function () { slider.scrollBy({ left:Math.max(180, slider.clientWidth * 0.72), behavior:'smooth' }); });
+        }
+        if (slider.dataset.hssmPageOverflowBound !== 'true') {
+            slider.dataset.hssmPageOverflowBound = 'true';
+            slider.addEventListener('scroll', function () { updatePageTabArrowState(tabs, slider); }, { passive:true });
+            slider.addEventListener('wheel', function (event) {
+                if (!tabs.classList.contains('hssm-page-tabs-overflow')) return;
+                var delta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
+                var maximum = Math.max(0, slider.scrollWidth - slider.clientWidth);
+                var canMove = delta < 0 ? slider.scrollLeft > 0 : delta > 0 && slider.scrollLeft < maximum;
+                if (!delta || !canMove) return;
+                event.preventDefault();
+                slider.scrollLeft = Math.max(0, Math.min(maximum, slider.scrollLeft + delta));
+            }, { passive:false });
+            if (typeof ResizeObserver === 'function') {
+                var observer = new ResizeObserver(function () { updatePageTabArrowState(tabs, slider); });
+                observer.observe(slider);
+                slider.hssmPageOverflowResizeObserver = observer;
+            }
+        }
+        window.requestAnimationFrame(function () { updatePageTabArrowState(tabs, slider); });
+    }
+
     function ensureOwnedMyListPage(settings) {
         var indexPage = visibleIndexPage();
         var pageOrder = prop(settings || {}, 'PageOrder', 'pageOrder', []).map(sectionOrderEntry);
@@ -361,6 +432,7 @@
         }
         if (window.CustomElements && typeof window.CustomElements.upgradeSubtree === 'function') window.CustomElements.upgradeSubtree(tabs);
         if (typeof tabs.refresh === 'function') tabs.refresh();
+        updatePageTabOverflow(tabs, slider);
     }
 
     function showOwnedHomePanel(index) {
@@ -373,6 +445,9 @@
         Array.from(tabs.querySelectorAll('.emby-tab-button[data-index]')).forEach(function (button) {
             button.classList.toggle('emby-tab-button-active', Number(button.dataset.index) === Number(index));
         });
+        var activeButton = tabs.querySelector('.emby-tab-button-active[data-index]');
+        var slider = tabs.querySelector('.emby-tabs-slider');
+        if (activeButton && slider && tabs.classList.contains('hssm-page-tabs-overflow')) activeButton.scrollIntoView({ behavior:'smooth', block:'nearest', inline:'nearest' });
         tabs.setAttribute('data-index', String(index));
         syncOwnedMediaBarVisibility();
         lastFeatureScope = null;
@@ -1133,7 +1208,7 @@
         }
         var cards = items.map(function (item, index) { return card(item, section, String(prop(section, 'Type', 'type', '')) === 'top-10-50' ? index + 1 : 0); }).join('');
         var scroller = ownsScroller
-            ? '<div class="hssm-owned-scroll-shell"><button type="button" class="hssm-scroll-button hssm-scroll-button-left emby-button" data-hssm-scroll-direction="left" aria-label="Scroll ' + escapeHtml(name) + ' left"><span class="material-icons chevron_left" aria-hidden="true"></span></button><div class="hssm-client-scroller hssm-owned-horizontal-scroll padded-top-focusscale padded-bottom-focusscale"><div class="focuscontainer-x itemsContainer hssm-client-items">' + cards + '</div></div><button type="button" class="hssm-scroll-button hssm-scroll-button-right emby-button" data-hssm-scroll-direction="right" aria-label="Scroll ' + escapeHtml(name) + ' right"><span class="material-icons chevron_right" aria-hidden="true"></span></button></div>'
+            ? '<div class="hssm-owned-scroll-shell"><button type="button" class="hssm-scroll-button hssm-scroll-button-left emby-button" data-hssm-scroll-direction="left" aria-label="Scroll ' + escapeHtml(name) + ' left"><span class="material-icons chevron_left" aria-hidden="true"></span></button><div class="hssm-client-scroller hssm-owned-horizontal-scroll padded-top-focusscale padded-bottom-focusscale"><div is="emby-itemscontainer" class="focuscontainer-x itemsContainer hssm-client-items">' + cards + '</div></div><button type="button" class="hssm-scroll-button hssm-scroll-button-right emby-button" data-hssm-scroll-direction="right" aria-label="Scroll ' + escapeHtml(name) + ' right"><span class="material-icons chevron_right" aria-hidden="true"></span></button></div>'
             : '<div is="emby-scroller" class="hssm-client-scroller padded-top-focusscale padded-bottom-focusscale" data-horizontal="true" data-centerfocus="true" data-scrollevent="true"><div is="emby-itemscontainer" class="focuscontainer-x itemsContainer scrollSlider animatedScrollX hssm-client-items">' + cards + '</div></div>';
         node.innerHTML = sectionTitleMarkup + scroller;
         return node;
@@ -1300,11 +1375,15 @@
             ownedScroller.addEventListener('scroll', updateButtons, { passive:true });
             ownedScroller.addEventListener('wheel', function (event) {
                 if (maximumOffset() <= 1) return;
-                var amount = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
+                var horizontalGesture = Math.abs(event.deltaX) >= Math.abs(event.deltaY) && event.deltaX !== 0;
+                var shiftedWheel = event.shiftKey && event.deltaY !== 0;
+                if (!horizontalGesture && !shiftedWheel) return;
+                var amount = horizontalGesture ? event.deltaX : event.deltaY;
                 if (!amount) return;
+                var before = currentOffset();
                 setOwnedOffset(currentOffset() + amount);
                 updateButtons();
-                event.preventDefault();
+                if (Math.abs(currentOffset() - before) > 0.5) event.preventDefault();
             }, { passive:false });
             var drag = null;
             var suppressClick = false;
@@ -4211,10 +4290,14 @@
         if (!track || track.dataset.hssmTopRowScrollBound === 'true') return;
         track.dataset.hssmTopRowScrollBound = 'true';
         track.addEventListener('wheel', function (event) {
-            var amount = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
+            var horizontalGesture = Math.abs(event.deltaX) >= Math.abs(event.deltaY) && event.deltaX !== 0;
+            var shiftedWheel = event.shiftKey && event.deltaY !== 0;
+            if (!horizontalGesture && !shiftedWheel) return;
+            var amount = horizontalGesture ? event.deltaX : event.deltaY;
             if (!amount || track.scrollWidth <= track.clientWidth + 1) return;
+            var before = track.scrollLeft;
             track.scrollLeft += amount;
-            event.preventDefault();
+            if (Math.abs(track.scrollLeft - before) > 0.5) event.preventDefault();
         }, { passive:false });
         var drag = null;
         track.addEventListener('pointerdown', function (event) {
@@ -4473,6 +4556,16 @@
         homeTabsListener.addEventListener("tabchange", handleHomeTabChange);
     }
 
+    function handleNativeMultiSelectOutsideClick(event) {
+        var commands = document.querySelector('.selectionCommandsPanel');
+        var page = visibleIndexPage();
+        if (!commands || !page || !isHomeRoute() || isDashboardScreen() || isPlaybackScreen()) return;
+        var target = event.target && event.target.closest ? event.target : null;
+        if (!target || target.closest('.card, .selectionCommandsPanel, .actionSheet, .dialog, .popup, .toast, [role="dialog"], [role="menu"]')) return;
+        var close = commands.querySelector('.btnCloseSelectionPanel');
+        if (close && !close.disabled) close.click();
+    }
+
     function handleHomeTabChange() {
         window.setTimeout(function () {
             lastFeatureScope = null;
@@ -4623,6 +4716,7 @@
     }
 
     window.addEventListener('hashchange', function () { queueRouteRefresh(false); });
+    document.addEventListener('click', handleNativeMultiSelectOutsideClick, true);
     document.addEventListener('click', function (event) {
         var myListTitle = event.target.closest('.hssm-section-title-link[data-hssm-open-my-list="true"]');
         if (myListTitle) {

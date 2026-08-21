@@ -9,13 +9,13 @@
     "imageUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Assets/Branding/home-screen-sections-manager-plugin-photo.png",
     "versions": [
       {
-        "version": "0.1.0.64",
-        "changelog": "Restores Jellyfin-style text section headings and keeps explicit custom-page Media Bars working across Home/page round trips without repeating Jellyfin item queries.",
+        "version": "0.1.0.65",
+        "changelog": "Adds safe repeated section creation and a lighter deduplicated all-pages refresh; restores native multi-select and outside-click exit; adds overflow navigation for more than four custom pages; fixes vertical wheel trapping, custom-row edges, and detail poster height.",
         "targetAbi": "10.11.11.0",
         "framework": "net9.0",
-        "sourceUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Test%20Releases/0.1.0.64-test/Jellyfin.Plugin.HomeScreenSectionsManager_0.1.0.64-test.zip",
-        "checksum": "29c10047f585fff9db599ef839e4ed58",
-        "timestamp": "2026-08-21T05:40:04Z"
+        "sourceUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Test%20Releases/0.1.0.65-test/Jellyfin.Plugin.HomeScreenSectionsManager_0.1.0.65-test.zip",
+        "checksum": "2685bd7fc505032258bfca4296775d9d",
+        "timestamp": "2026-08-21T07:00:23Z"
       }
     ]
   }

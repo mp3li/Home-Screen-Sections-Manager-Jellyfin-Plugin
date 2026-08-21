@@ -27,6 +27,15 @@ public sealed class SectionSettingsController : ControllerBase
             return StatusCode(StatusCodes.Status503ServiceUnavailable, "Home Screen Manager is not initialized.");
         }
 
+        var duplicateSectionId = (request.Sections ?? [])
+            .Where(section => !string.IsNullOrWhiteSpace(section.Id))
+            .GroupBy(section => section.Id.Trim(), StringComparer.Ordinal)
+            .FirstOrDefault(group => group.Count() > 1)?.Key;
+        if (duplicateSectionId is not null)
+        {
+            return BadRequest($"Every section must have a unique ID. Duplicate section ID: {duplicateSectionId}");
+        }
+
         return Ok(Plugin.Instance.UpdateSectionSettings(request));
     }
 

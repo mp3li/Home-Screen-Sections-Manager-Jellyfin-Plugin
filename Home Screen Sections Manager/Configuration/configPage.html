@@ -88,7 +88,7 @@
         <div class="hssm-panel active" data-panel="main-settings" role="tabpanel">
             <section class="hssm-section">
                 <h2>Refresh Home Screen and All Pages Sections Settings</h2>
-                <p class="fieldDescription">Refresh your saved Home screen and all pages sections after changing media, tags, collections, libraries, or library names. Sections from every page are refreshed together. Rotating, seasonal, and user-activity sections update separately and do not require this refresh.</p>
+                <p class="fieldDescription">Refresh your saved Home screen and all pages sections after changing media, tags, collections, libraries, or library names. Sections are refreshed one at a time, matching sources are reused, and large libraries pause briefly between lightweight ID batches so Jellyfin remains responsive. Rotating, seasonal, and user-activity sections update separately and do not require this refresh.</p>
                 <div class="hssm-actions"><button is="emby-button" type="button" class="raised button-submit" id="hssmRefreshSectionsButton">Refresh Home Screen and All Pages Sections</button></div>
                 <p class="fieldDescription" id="hssmRefreshSectionsStatus" aria-live="polite"></p>
             </section>
@@ -491,7 +491,7 @@
                 ['top-10-50', 'Top 5-100', 'Based on IMDB ratings that must already be tagged in your media to use this feature. Select as much media as you’d like and the displayed media and media order will be picked based on your selections.'],
                 ['other-users-activity', 'What Other Users Are Watching/Reading/Listening To', 'Displays a random combination of what all users have recently watched/are currently watching.']
             ];
-            let sections = [], selectedId = null, draftId = null, draggedId = null, lastDeleted = null, activePageId = 'home', savedSnapshot = null, sectionLoadSequence = 0;
+            let sections = [], selectedId = null, draftId = null, draggedId = null, lastDeleted = null, activePageId = 'home', savedSnapshot = null, sectionLoadSequence = 0, sectionIdSequence = 0;
             const list = page.querySelector('#hssmSectionList');
             const pageSelect = page.querySelector('#hssmSectionPageSelect');
             const addButton = page.querySelector('#hssmAddSectionButton');
@@ -514,6 +514,19 @@
             const selected = () => sections.find(section => section.id === selectedId);
             const draft = () => sections.find(section => section.id === draftId);
             const mediaBarEligible = section => !!section && section.enabled !== false && !(section.origin === 'jellyfin' && mediaBarBlockedTypes.has(section.type));
+
+            function newManagerSectionId() {
+                const known = new Set(sections.map(section => String(section.id)));
+                let id = '';
+                do {
+                    sectionIdSequence += 1;
+                    const random = window.crypto && typeof window.crypto.randomUUID === 'function'
+                        ? window.crypto.randomUUID().replace(/-/g, '').slice(0, 12)
+                        : Math.random().toString(36).slice(2, 14);
+                    id = 'manager-' + Date.now().toString(36) + '-' + sectionIdSequence.toString(36) + '-' + random;
+                } while (known.has(id));
+                return id;
+            }
 
             function valueOf(value, pascal, camel, fallback) { return value && value[pascal] !== undefined ? value[pascal] : value && value[camel] !== undefined ? value[camel] : fallback; }
             function savedPages(saved) {
@@ -870,14 +883,21 @@
 
             addButton.addEventListener('click', () => {
                 sectionLoadSequence += 1;
-                const id = 'manager-' + Date.now();
-                const item = { id, name:'New Section', origin:'manager', type:'', enabled:true, isMediaBar:false, pageId:activePageId, isEditing:false };
+                const previous = selected();
+                const repeatFromId = previous && previous.origin === 'manager' && previous.type ? previous.id : '';
+                const id = newManagerSectionId();
+                const item = { id, name:'New Section', origin:'manager', type:repeatFromId ? previous.type : '', enabled:true, isMediaBar:repeatFromId ? !!previous.isMediaBar : false, pageId:activePageId, isEditing:false, repeatFromId:repeatFromId };
                 const index = sections.findIndex(section => section.id === selectedId);
                 sections.splice(index < 0 ? sections.length : index + 1, 0, item);
                 selectedId = id;
                 draftId = id;
                 render();
                 showDraft();
+                if (repeatFromId) {
+                    page.dispatchEvent(new CustomEvent('hssm-section-type-created', { detail:{ id:item.id, name:item.name, type:item.type, pageId:activePageId, isMediaBar:item.isMediaBar, isEditing:false, preserveOptions:true, repeatFromId:repeatFromId } }));
+                } else {
+                    page.querySelector('#hssmTypeSpecificSettings').innerHTML = '';
+                }
                 const inlineName = list.querySelector('[data-hssm-inline-section-name]');
                 if (inlineName) { inlineName.focus(); inlineName.select(); }
             });
@@ -1000,7 +1020,7 @@
                 const item = draft();
                 if (!item || !item.name.trim() || !item.type) return;
                 item.name = item.name.trim();
-                const created = { id:item.id, name:item.name, type:item.type, pageId:activePageId, isMediaBar:!!item.isMediaBar, isEditing:!!item.isEditing };
+                const created = { id:item.id, name:item.name, type:item.type, pageId:activePageId, isMediaBar:!!item.isMediaBar, isEditing:!!item.isEditing, preserveOptions:!!item.repeatFromId, repeatFromId:item.repeatFromId || '' };
                 render();
                 newSettings.hidden = false;
                 page.dispatchEvent(new CustomEvent('hssm-section-type-created', { detail:created }));
@@ -1901,6 +1921,56 @@
                     return items.length && next < total ? loadAllParentItems(parentId, next, all, progress, excludeNavigationFolders, fields) : all;
                 });
             }
+            let refreshRunContext = null;
+            function refreshBreather(milliseconds) {
+                return new Promise(resolve => window.setTimeout(resolve, milliseconds));
+            }
+            function cachedRefreshRequest(key, request) {
+                const context = refreshRunContext;
+                if (!context) return request();
+                if (context.cache.has(key)) {
+                    context.cacheHits += 1;
+                    return context.cache.get(key);
+                }
+                context.requests += 1;
+                const pending = Promise.resolve().then(request).catch(error => { context.cache.delete(key); throw error; });
+                context.cache.set(key, pending);
+                return pending;
+            }
+            function loadRefreshParentItems(parentId, excludeNavigationFolders, fields, progress) {
+                const normalizedFields = fields || '';
+                const key = 'parent|' + String(parentId) + '|' + (excludeNavigationFolders ? 'folders-excluded' : 'all') + '|' + normalizedFields;
+                return cachedRefreshRequest(key, () => {
+                    const all = [], pageSize = 200;
+                    function loadPage(start) {
+                        const params = { ParentId:parentId, Recursive:true, StartIndex:start, Limit:pageSize, EnableImages:false, EnableTotalRecordCount:false };
+                        if (normalizedFields) params.Fields = normalizedFields;
+                        return itemQuery(params).then(result => {
+                            const items = result.Items || result.items || [];
+                            all.push(...(excludeNavigationFolders ? items.filter(item => !isNavigationFolder(item)) : items));
+                            if (progress) progress(all.length, null);
+                            if (items.length < pageSize) return all;
+                            return refreshBreather(60).then(() => loadPage(start + items.length));
+                        });
+                    }
+                    return loadPage(0);
+                });
+            }
+            function loadRefreshItemIds(ids) {
+                const values = uniqueIds(ids), chunks = [];
+                for (let index = 0; index < values.length; index += 16) chunks.push(values.slice(index, index + 16));
+                return chunks.reduce((work, chunk, index) => work.then(groups => {
+                    const key = 'rated-items|' + chunk.join(',');
+                    return cachedRefreshRequest(key, () => itemQuery({ Ids:chunk.join(','), Fields:'Tags,CommunityRating,SortName,SeriesName,SeriesId', EnableImages:false, EnableTotalRecordCount:false })).then(result => {
+                        groups.push(result.Items || result.items || []);
+                        return index + 1 < chunks.length ? refreshBreather(35).then(() => groups) : groups;
+                    });
+                }), Promise.resolve([])).then(groups => {
+                    const byId = {};
+                    groups.flat().forEach(item => { byId[String(item.Id || item.id)] = item; });
+                    return values.map(id => byId[id]).filter(Boolean);
+                });
+            }
             function uniqueIds(values) {
                 const seen = new Set();
                 return (values || []).map(String).filter(id => id && !seen.has(id) && seen.add(id));
@@ -1915,10 +1985,10 @@
             function genericTagItems(sourceId, sectionName) {
                 const parts = String(sourceId).split('|');
                 const selectedTag = { SourceLibraryId:parts[0], MetadataType:parts[1], MetadataValue:parts.slice(2).join('|'), AdditionalLibraryIds:[], CollectionTitle:sectionName || '', Overview:'', ExistingCollectionAction:'', ArtPreference:'JellyfinDefault' };
-                return cmPost('individual-collection-drafts/preview', selectedTag).then(preview => (preview.Items || preview.items || []).map(item => String(item.Id || item.id)));
+                return cachedRefreshRequest('tag|' + String(sourceId), () => cmPost('individual-collection-drafts/preview', selectedTag)).then(preview => (preview.Items || preview.items || []).map(item => String(item.Id || item.id)));
             }
             function refreshDefinition(definition, progress) {
-                const type = String(definition.Type || definition.type || ''), sourceIds = (definition.SourceIds || definition.sourceIds || []).map(value => window.HSSMMigrateSectionSource(type, value)), name = String(definition.Name || definition.name || 'Section');
+                const type = String(definition.Type || definition.type || ''), sourceIds = uniqueIds((definition.SourceIds || definition.sourceIds || []).map(value => window.HSSMMigrateSectionSource(type, value))), name = String(definition.Name || definition.name || 'Section');
                 if (String(definition.Id || definition.id || '').indexOf('jellyfin-') === 0) return Promise.resolve({ definition, skipped:true });
                 const migratedDrafts = (definition.Drafts || definition.drafts || []).map(draft => {
                     const sourceType = String(draft.SourceType || draft.sourceType || '');
@@ -1931,7 +2001,8 @@
                 if (type === 'multiple-collections-in-a-row' || type === 'libraries-in-a-row') return Promise.resolve({ definition:Object.assign({}, definition, { ItemIds:sourceIds }), skipped:false });
                 if (type === 'individual-tag-content' || type === 'multiple-tag-content' || type === 'muilti-match-tag-collection-content') {
                     const selectedTags = sourceIds.map(value => { const parts = value.split('|'); return { SourceLibraryId:parts[0], MetadataType:parts[1], MetadataValue:parts.slice(2).join('|'), AdditionalLibraryIds:[], CollectionTitle:name, Overview:'', ExistingCollectionAction:'', ArtPreference:'JellyfinDefault' }; });
-                    const request = type === 'individual-tag-content' ? cmPost('individual-collection-drafts/preview', selectedTags[0]) : cmPost('tag-collection-drafts/preview', { SelectedTags:selectedTags, AdditionalLibraryIds:[], RequireAllTags:type === 'muilti-match-tag-collection-content', CollectionTitle:name, Overview:'', ExistingCollectionAction:'', ArtPreference:'JellyfinDefault' });
+                    const tagKey = 'tags|' + type + '|' + sourceIds.join('||');
+                    const request = cachedRefreshRequest(tagKey, () => type === 'individual-tag-content' ? cmPost('individual-collection-drafts/preview', selectedTags[0]) : cmPost('tag-collection-drafts/preview', { SelectedTags:selectedTags, AdditionalLibraryIds:[], RequireAllTags:type === 'muilti-match-tag-collection-content', CollectionTitle:name, Overview:'', ExistingCollectionAction:'', ArtPreference:'JellyfinDefault' }));
                     return request.then(preview => ({ definition:Object.assign({}, definition, { ItemIds:refreshedOrder(definition, (preview.Items || preview.items || []).map(item => String(item.Id || item.id))) }), skipped:false }));
                 }
                 if (type === 'top-10-50') {
@@ -1939,7 +2010,7 @@
                     return sourceIds.reduce((work, source, sourceIndex) => work.then(() => {
                         if (progress) progress('Loading Top source ' + (sourceIndex + 1) + ' of ' + sourceIds.length + ' for ' + name + '…');
                         const split = source.indexOf('|'), sourceType = split < 0 ? '' : source.slice(0, split), sourceId = split < 0 ? '' : source.slice(split + 1);
-                        const request = sourceType === 'collection' || sourceType === 'library' ? loadAllParentItems(sourceId, 0, [], null, sourceType === 'library', 'Tags,CommunityRating,SortName,SeriesName,SeriesId') : sourceType === 'tag' ? genericTagItems(sourceId, name).then(loadItemIds) : Promise.resolve([]);
+                        const request = sourceType === 'collection' || sourceType === 'library' ? loadRefreshParentItems(sourceId, sourceType === 'library', 'Tags,CommunityRating,SortName,SeriesName,SeriesId') : sourceType === 'tag' ? genericTagItems(sourceId, name).then(loadRefreshItemIds) : Promise.resolve([]);
                         return request.then(items => { groups.push(items); });
                     }), Promise.resolve()).then(() => {
                         const unique = groups.flat().filter((item, index, all) => all.findIndex(candidate => String(candidate.Id || candidate.id) === String(item.Id || item.id)) === index);
@@ -1952,20 +2023,44 @@
                 return sourceIds.reduce((work, sourceId, sourceIndex) => work.then(() => {
                     if (progress) progress('Loading source ' + (sourceIndex + 1) + ' of ' + sourceIds.length + ' for ' + name + '…');
                     const excludeNavigationFolders = ['library-content','multiple-library-content'].includes(type);
-                    return loadAllParentItems(sourceId, 0, [], null, excludeNavigationFolders).then(items => { groups.push(items); });
+                    return loadRefreshParentItems(sourceId, excludeNavigationFolders, '').then(items => { groups.push(items); });
                 }), Promise.resolve()).then(() => ({ definition:Object.assign({}, definition, { ItemIds:refreshedOrder(definition, groups.flat().map(item => String(item.Id || item.id))) }), skipped:false }));
             }
             window.HSSMRefreshSectionDefinition = refreshDefinition;
             window.HSSMRefreshSavedSections = function (report) {
                 const update = typeof report === 'function' ? report : function () {};
+                if (window.HSSMRefreshSavedSectionsInFlight) {
+                    update('A Home screen and all pages refresh is already running…');
+                    return window.HSSMRefreshSavedSectionsInFlight;
+                }
                 update('Loading saved Home Screen sections…');
-                return ApiClient.getJSON(ApiClient.getUrl('HomeScreenSectionsManager/section-settings')).then(saved => {
-                    const existing = saved.Sections || saved.sections || [], refreshed = [], stats = { refreshed:0, skipped:0, total:existing.length };
+                const context = { cache:new Map(), requests:0, cacheHits:0 };
+                refreshRunContext = context;
+                const operation = ApiClient.getJSON(ApiClient.getUrl('HomeScreenSectionsManager/section-settings')).then(saved => {
+                    const existing = saved.Sections || saved.sections || [], refreshed = [], stats = { refreshed:0, skipped:0, total:existing.length, requests:0, cacheHits:0 };
                     return existing.reduce((work, definition, index) => work.then(() => {
                         update('Refreshing section ' + (index + 1) + ' of ' + existing.length + ': ' + String(definition.Name || definition.name || 'Unnamed Section') + '…');
-                        return refreshDefinition(definition, update).then(result => { refreshed.push(result.definition); if (result.skipped) stats.skipped += 1; else stats.refreshed += 1; });
-                    }), Promise.resolve()).then(() => ApiClient.ajax({ type:'POST', url:ApiClient.getUrl('HomeScreenSectionsManager/section-settings'), data:JSON.stringify({ JellyfinSectionLabelColor:saved.JellyfinSectionLabelColor || saved.jellyfinSectionLabelColor || '#00a4dc', ManagerSectionLabelColor:saved.ManagerSectionLabelColor || saved.managerSectionLabelColor || '#aa5cc3', MediaBarSectionLabelColor:saved.MediaBarSectionLabelColor || saved.mediaBarSectionLabelColor || '#c78000', Sections:refreshed, SectionOrder:saved.SectionOrder || saved.sectionOrder || [], Pages:saved.Pages || saved.pages || [], PageOrder:saved.PageOrder || saved.pageOrder || [], PageLayouts:saved.PageLayouts || saved.pageLayouts || [] }), contentType:'application/json', dataType:'json' })).then(() => { window.HSSMNotifyClientSettingsChanged(); return stats; });
+                        return refreshDefinition(definition, update).then(result => {
+                            refreshed.push(result.definition);
+                            if (result.skipped) stats.skipped += 1; else stats.refreshed += 1;
+                            if (!result.skipped && index + 1 < existing.length) return refreshBreather(100);
+                        });
+                    }), Promise.resolve()).then(() => {
+                        update('Saving refreshed section settings…');
+                        return ApiClient.ajax({ type:'POST', url:ApiClient.getUrl('HomeScreenSectionsManager/section-settings'), data:JSON.stringify({ JellyfinSectionLabelColor:saved.JellyfinSectionLabelColor || saved.jellyfinSectionLabelColor || '#00a4dc', ManagerSectionLabelColor:saved.ManagerSectionLabelColor || saved.managerSectionLabelColor || '#aa5cc3', MediaBarSectionLabelColor:saved.MediaBarSectionLabelColor || saved.mediaBarSectionLabelColor || '#c78000', Sections:refreshed, SectionOrder:saved.SectionOrder || saved.sectionOrder || [], Pages:saved.Pages || saved.pages || [], PageOrder:saved.PageOrder || saved.pageOrder || [], PageLayouts:saved.PageLayouts || saved.pageLayouts || [] }), contentType:'application/json', dataType:'json' });
+                    }).then(() => {
+                        stats.requests = context.requests;
+                        stats.cacheHits = context.cacheHits;
+                        window.HSSMNotifyClientSettingsChanged();
+                        return stats;
+                    });
                 });
+                const guarded = operation.finally(() => {
+                    if (refreshRunContext === context) refreshRunContext = null;
+                    if (window.HSSMRefreshSavedSectionsInFlight === guarded) delete window.HSSMRefreshSavedSectionsInFlight;
+                });
+                window.HSSMRefreshSavedSectionsInFlight = guarded;
+                return guarded;
             };
             function renderManual() {
                 const target = host.querySelector('[data-hssm-manual-libraries]');
@@ -2220,7 +2315,10 @@
                     layouts.push({ PageId:state.pageId, SectionOrder:order });
                     const home = layouts.find(layout => layout.PageId === 'home');
                     return ApiClient.ajax({ type:'POST', url:ApiClient.getUrl('HomeScreenSectionsManager/section-settings'), data:JSON.stringify({ JellyfinSectionLabelColor:page.querySelector('#hssmJellyfinColor').value, ManagerSectionLabelColor:page.querySelector('#hssmManagerColor').value, MediaBarSectionLabelColor:page.querySelector('#hssmMediaBarColor').value, Sections:sections, SectionOrder:home ? home.SectionOrder : (saved.SectionOrder || saved.sectionOrder || []), Pages:saved.Pages || saved.pages || [], PageOrder:saved.PageOrder || saved.pageOrder || [], PageLayouts:layouts }), contentType:'application/json', dataType:'json' });
-                }).then(() => {
+                }).then(savedConfiguration => {
+                    const persisted = savedConfiguration && (savedConfiguration.Sections || savedConfiguration.sections || []);
+                    const persistedMatches = persisted.filter(item => String(item.Id || item.id) === state.id);
+                    if (persistedMatches.length !== 1) throw new Error('Jellyfin did not persist this section as a separate section.');
                     window.HSSMNotifyClientSettingsChanged();
                     state.savedItemIds = itemIds.slice();
                     state.contentSelectionDirty = false;
@@ -2234,7 +2332,7 @@
                     artSection.hidden = false;
                     if (orderSelect) orderSelect.value = state.contentOrder;
                     renderManualOrder();
-                }, () => { host.querySelector('[data-hssm-save-status]').textContent = 'Section settings could not be saved.'; });
+                }, error => { host.querySelector('[data-hssm-save-status]').textContent = 'Section settings could not be saved: ' + errorMessage(error); });
             }
             function errorMessage(error) {
                 const body = error && error.responseJSON;
@@ -2242,7 +2340,7 @@
                 return body && (body.Detail || body.detail || body.Message || body.message || body.Title || body.title) || (text && String(text).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()) || (error && (error.message || error.statusText)) || 'Jellyfin returned no error details.';
             }
             function loadHomeScreenClient() {
-                const version = "0.1.0.64";
+                const version = "0.1.0.65";
                 let style = document.querySelector("link[data-hssm-client-style]");
                 if (!style || style.dataset.hssmClientVersion !== version) {
                     if (style) style.remove();
@@ -2393,6 +2491,9 @@
                 applyStatus.textContent = editing ? 'Refreshing section…' : 'Adding section to ' + destination + '…';
                 const appliedItemIds = state.isEditing && !state.contentSelectionDirty ? null : state.contentItemOrder;
                 ensureJavaScriptInjectorLoader().then(() => ApiClient.ajax({ type:'POST', url:ApiClient.getUrl('HomeScreenSectionsManager/sections/' + encodeURIComponent(state.id) + '/apply'), data:JSON.stringify({ Name:state.name, ContentOrder:state.contentOrder, MaxItems:state.maxItems, ItemIds:appliedItemIds, ArtSize:state.artSize, ArtType:state.artType, ArtShape:state.artShape, ShowText:state.showText, ShowSectionName:state.showSectionName, IsVisible:state.isVisible, IsMediaBar:state.isMediaBar, DisplayTopCount:state.displayTop, ShowRankNumbers:state.showRankNumbers, RankNumberColorMode:state.rankNumberColorMode, RankNumberColorOne:state.rankNumberColorOne, RankNumberColorTwo:state.rankNumberColorTwo, RankNumberShadowColor:state.rankNumberShadowColor, RankNumberFontDataUrl:state.rankNumberFontDataUrl, ActivityMaxItems:state.activityMaxItems, ActivityMediaType:state.activityMediaType }), contentType:'application/json', dataType:'json' })).then(response => {
+                    const applied = response && (response.Applied !== undefined ? response.Applied : response.applied);
+                    const appliedSection = response && (response.Section || response.section);
+                    if (applied !== true || !appliedSection || String(appliedSection.Id || appliedSection.id) !== state.id) throw new Error('Jellyfin did not confirm that this section was applied.');
                     window.HSSMNotifyClientSettingsChanged();
                     loadHomeScreenClient().catch(error => console.warn('[Home Screen Manager] Saved section settings, but the browser client could not be refreshed immediately.', error));
                     return response;
@@ -2631,6 +2732,10 @@
             page.addEventListener('hssm-section-type-created', event => {
                 const detail = event.detail || {};
                 if (!detail.id || !detail.name || !detail.type) return;
+                const preserveOptions = !!detail.preserveOptions
+                    && state.type === String(detail.type)
+                    && (state.id === String(detail.repeatFromId || '') || state.id === String(detail.id));
+                const repeatedDraftAlreadyBound = preserveOptions && state.id === String(detail.id);
                 state.id = String(detail.id);
                 state.name = String(detail.name);
                 state.type = String(detail.type);
@@ -2649,6 +2754,19 @@
                     state.name = savedName;
                     state.isMediaBar = savedMediaBar;
                     renderEditor();
+                    return;
+                }
+                if (preserveOptions) {
+                    state.isVisible = true;
+                    state.isApplied = false;
+                    state.savedItemIds = [];
+                    state.contentSelectionDirty = true;
+                    state.contentPage = 1;
+                    state.savedPreviewLoadId += 1;
+                    state.editorLoadId += 1;
+                    if (isTopType()) ensureTopDraft().Name = state.name;
+                    if (isActivityType()) setSectionName(activitySectionName(state.activityMediaType));
+                    if (!repeatedDraftAlreadyBound) renderEditor();
                     return;
                 }
                 state.isVisible = true;
@@ -2906,7 +3024,7 @@
                 refreshSectionsButton.disabled = true;
                 refreshSectionsStatus.textContent = 'Queued…';
                 window.HSSMRefreshSavedSections(message => { refreshSectionsStatus.textContent = message; }).then(stats => {
-                    const message = 'Home screen and all pages sections refreshed. Updated ' + stats.refreshed + ' saved section' + (stats.refreshed === 1 ? '' : 's') + '; ' + stats.skipped + ' dynamic, manual, or unfinished section' + (stats.skipped === 1 ? '' : 's') + ' did not require refresh.';
+                    const message = 'Home screen and all pages sections refreshed. Updated ' + stats.refreshed + ' saved section' + (stats.refreshed === 1 ? '' : 's') + '; ' + stats.skipped + ' dynamic, manual, or unfinished section' + (stats.skipped === 1 ? '' : 's') + ' did not require refresh.' + (stats.cacheHits ? ' Reused ' + stats.cacheHits + ' matching source scan' + (stats.cacheHits === 1 ? '' : 's') + '.' : '');
                     refreshSectionsStatus.textContent = message;
                     Dashboard.alert(message);
                 }, error => {

@@ -45,11 +45,12 @@ def run() -> None:
               window.__customizationSettings = {};
               window.__displayPrefs = {CustomPrefs:{homesection0:'resume'}};
               window.__applyCalls = [];
+              window.__alerts = [];
               window.__brandingWrites = [];
               window.__collectionManagerCatalogCalls = 0;
               window.__itemIdBatchSizes = [];
               window.__oversizedItemIdRequests = 0;
-              window.Dashboard = { alert(){}, showLoadingMsg(){}, hideLoadingMsg(){} };
+              window.Dashboard = { alert(message){ window.__alerts.push(String(message)); }, showLoadingMsg(){}, hideLoadingMsg(){} };
               window.ApiClient = {
                 getCurrentUserId:()=> 'user', serverId:()=> 'server',
                 getUrl:(path,params)=> {
@@ -89,8 +90,16 @@ def run() -> None:
                       if(section.Type === 'top-10-50' && section.Drafts && section.Drafts.length && body.Name) section.Drafts[0].Name = body.Name;
                     }
                     window.__applyCalls.push({id, body});
+                    return section
+                      ? Promise.resolve({Applied:true,Section:structuredClone(section),RequiresRefresh:true})
+                      : Promise.reject({status:404,responseText:'Save the section content before adding it to the home screen.'});
                   }
-                  if(String(options.url).includes('section-settings')) window.__sectionSettings = Object.assign({}, window.__sectionSettings, body);
+                  if(String(options.url).includes('section-settings')) {
+                    const ids = (body.Sections || []).map(section => String(section.Id || section.id));
+                    if(new Set(ids).size !== ids.length) return Promise.reject({status:400,responseText:'Every section must have a unique ID.'});
+                    window.__sectionSettings = Object.assign({}, window.__sectionSettings, body);
+                    return Promise.resolve(structuredClone(window.__sectionSettings));
+                  }
                   if(String(options.url).includes('top-row-settings')) window.__topRowSettings = Object.assign({}, window.__topRowSettings, body);
                   if(String(options.url).includes('main-settings')) window.__mainSettings = Object.assign({}, window.__mainSettings, body);
                   if(String(options.url).includes('customization-settings')) window.__customizationSettings = Object.assign({}, window.__customizationSettings, body);
@@ -421,6 +430,7 @@ def run() -> None:
         assert page.locator("input[name='hssmMediaBarSection'][value='yes']").count() == 1
         assert page.locator("#hssmSectionList .hssm-badge-media").count() == 1
 
+        page.evaluate("window.__realDateNow = Date.now; Date.now = () => 4242424242")
         page.locator("#hssmAddSectionButton").click()
         watch_again_id = page.locator("#hssmSectionList [data-hssm-inline-section-name]").locator("xpath=ancestor::*[@data-section-id]").get_attribute("data-section-id")
         page.locator("#hssmSectionList [data-hssm-inline-section-name]").fill("Watch Again")
@@ -438,9 +448,52 @@ def run() -> None:
             arg=[watch_again_id],
         )
         page.locator("#hssmTypeSpecificSettings [data-hssm-content-order]").select_option("completed-ascending")
+        page.locator("#hssmTypeSpecificSettings [data-hssm-art-size]").select_option("large")
         page.locator("#hssmTypeSpecificSettings [data-hssm-apply-section]").click()
         page.wait_for_function("([id]) => window.__sectionSettings.Sections.some(s => s.Id === id && s.ContentOrder === 'completed-ascending')", arg=[watch_again_id])
+        page.wait_for_function("window.__alerts.includes('Section added to Movies through JavaScript Injector.')")
         assert "Book / Audiobook" in page.locator("#hssmTypeSpecificSettings [data-hssm-art-shape] option").all_text_contents()
+
+        page.locator("#hssmAddSectionButton").click()
+        repeated_watch_again_id = page.locator("#hssmSectionList [data-hssm-inline-section-name]").locator("xpath=ancestor::*[@data-section-id]").get_attribute("data-section-id")
+        assert repeated_watch_again_id != watch_again_id
+        assert page.locator("input[name='hssmType'][value='watch-again']").is_checked()
+        assert page.locator("#hssmTypeSpecificSettings [data-hssm-content-order]").input_value() == "completed-ascending"
+        assert page.locator("#hssmTypeSpecificSettings [data-hssm-art-size]").input_value() == "large"
+        page.locator("#hssmSectionList [data-hssm-inline-section-name]").fill("Watch Again Too")
+        page.locator("#hssmFinishSectionButton").click()
+        assert page.locator("#hssmTypeSpecificSettings [data-hssm-content-order]").input_value() == "completed-ascending"
+        page.locator("#hssmTypeSpecificSettings [data-hssm-save-move]").click()
+        page.wait_for_function("([id]) => window.__sectionSettings.Sections.filter(s => s.Id === id && s.Name === 'Watch Again Too').length === 1", arg=[repeated_watch_again_id])
+        page.locator("#hssmTypeSpecificSettings [data-hssm-apply-section]").click()
+        page.wait_for_function("([id]) => window.__sectionSettings.Sections.some(s => s.Id === id && s.IsApplied === true)", arg=[repeated_watch_again_id])
+        page.wait_for_function("window.__alerts.filter(message => message === 'Section added to Movies through JavaScript Injector.').length === 2")
+        assert page.evaluate("ids => ids.every(id => window.__sectionSettings.Sections.filter(s => s.Id === id).length === 1)", [watch_again_id, repeated_watch_again_id])
+        page.evaluate("Date.now = window.__realDateNow; delete window.__realDateNow")
+
+        page.locator("#hssmAddSectionButton").click()
+        page.locator("#hssmSectionList [data-hssm-inline-section-name]").fill("Foreign Collection Row")
+        page.locator("input[name='hssmType'][value='multiple-collections-in-a-row']").check()
+        page.locator("#hssmFinishSectionButton").click()
+        page.wait_for_selector("#hssmTypeSpecificSettings [data-hssm-collection='foreign']")
+        page.locator("#hssmTypeSpecificSettings [data-hssm-collection='foreign']").check()
+        page.locator("#hssmTypeSpecificSettings [data-hssm-save-move]").click()
+        page.wait_for_function("window.__sectionSettings.Sections.some(s => s.Name === 'Foreign Collection Row' && s.SourceIds[0] === 'foreign')")
+        page.locator("#hssmTypeSpecificSettings [data-hssm-apply-section]").click()
+        page.wait_for_function("window.__sectionSettings.Sections.some(s => s.Name === 'Foreign Collection Row' && s.IsApplied === true)")
+
+        page.locator("#hssmAddSectionButton").click()
+        repeated_collection_id = page.locator("#hssmSectionList [data-hssm-inline-section-name]").locator("xpath=ancestor::*[@data-section-id]").get_attribute("data-section-id")
+        assert page.locator("input[name='hssmType'][value='multiple-collections-in-a-row']").is_checked()
+        page.wait_for_selector("#hssmTypeSpecificSettings [data-hssm-collection='foreign']")
+        assert page.locator("#hssmTypeSpecificSettings [data-hssm-collection='foreign']").is_checked()
+        page.locator("#hssmSectionList [data-hssm-inline-section-name]").fill("Foreign Collection Row Two")
+        page.locator("#hssmFinishSectionButton").click()
+        assert page.locator("#hssmTypeSpecificSettings [data-hssm-collection='foreign']").is_checked()
+        page.locator("#hssmTypeSpecificSettings [data-hssm-save-move]").click()
+        page.wait_for_function("([id]) => window.__sectionSettings.Sections.some(s => s.Id === id && s.Name === 'Foreign Collection Row Two' && s.SourceIds[0] === 'foreign')", arg=[repeated_collection_id])
+        page.locator("#hssmTypeSpecificSettings [data-hssm-apply-section]").click()
+        page.wait_for_function("([id]) => window.__sectionSettings.Sections.some(s => s.Id === id && s.IsApplied === true)", arg=[repeated_collection_id])
 
         page.locator("#hssmAddSectionButton").click()
         page.locator("#hssmSectionList [data-hssm-inline-section-name]").fill("Continue Watching and Listening")
@@ -538,6 +591,51 @@ def run() -> None:
         page.locator("#hssmTypeSpecificSettings [data-hssm-save-move]").click()
         page.wait_for_function("window.__sectionSettings.Sections.find(section => section.Id === 'manager-one').ItemIds.length === 40")
         page.evaluate("ApiClient.getUserViews = window.__savedGetUserViews")
+
+        refresh_result = page.evaluate(
+            """
+            async () => {
+              const shared = ['refresh-shared-one', 'refresh-shared-two'].map((id, index) => ({
+                Id:id, Name:'Shared Library ' + (index + 1), PageId:'home', Type:'library-content',
+                SourceIds:['shared-library'], ItemIds:[], ContentOrder:'title-ascending', IsApplied:true, IsVisible:true
+              }));
+              window.__sectionSettings.Sections.push(...shared);
+              const originalGetJSON = ApiClient.getJSON;
+              let parentRequests = 0;
+              ApiClient.getJSON = url => {
+                const parsed = new URL(String(url), 'https://jellyfin.test/');
+                if (parsed.pathname.endsWith('/Users/user/Items') && parsed.searchParams.get('ParentId') === 'shared-library') {
+                  parentRequests += 1;
+                  const start = Number(parsed.searchParams.get('StartIndex') || 0);
+                  const count = start === 0 ? 200 : 1;
+                  return Promise.resolve({Items:Array.from({length:count}, (_, index) => ({Id:'shared-' + (start + index),Type:'Movie'}))});
+                }
+                return originalGetJSON(url);
+              };
+              try {
+                const progress = [];
+                const first = window.HSSMRefreshSavedSections(message => progress.push(message));
+                const second = window.HSSMRefreshSavedSections(message => progress.push(message));
+                const samePromise = first === second;
+                const stats = await first;
+                return {
+                  samePromise,
+                  parentRequests,
+                  cacheHits:stats.cacheHits,
+                  itemCounts:shared.map(section => window.__sectionSettings.Sections.find(candidate => candidate.Id === section.Id).ItemIds.length),
+                  includesSaving:progress.includes('Saving refreshed section settings…')
+                };
+              } finally {
+                ApiClient.getJSON = originalGetJSON;
+              }
+            }
+            """
+        )
+        assert refresh_result["samePromise"] is True
+        assert refresh_result["parentRequests"] == 2, refresh_result
+        assert refresh_result["cacheHits"] >= 1, refresh_result
+        assert refresh_result["itemCounts"] == [201, 201], refresh_result
+        assert refresh_result["includesSaving"] is True
         assert not page_errors, page_errors
         browser.close()
 

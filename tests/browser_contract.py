@@ -264,6 +264,10 @@ def run() -> None:
                 scroller.removeScrollEventListener=(handler,options)=>scroller.removeEventListener('scrollanimate',handler,options);
                 scroller.scrollToPosition=position=>{ scroller._hssmTestScrollPosition=Number(position)||0; scroller.dispatchEvent(new Event('scrollanimate')); };
               });
+              const itemContainers=[];
+              if(root && root.matches && root.matches('[is="emby-itemscontainer"]'))itemContainers.push(root);
+              if(root && root.querySelectorAll)itemContainers.push(...root.querySelectorAll('[is="emby-itemscontainer"]'));
+              itemContainers.forEach(container => { container.dataset.hssmItemsContainerUpgraded='true'; });
             } };
             window.__playedIds = [];
             document.addEventListener('click', event => {
@@ -356,8 +360,8 @@ def run() -> None:
         assert "drop-shadow" in top_row_state["logoFilter"] and "rgba(51, 170, 119" in top_row_state["logoFilter"], top_row_state
         assert parse_qs(urlparse(top_row_state["logoSrc"]).query).get("ApiKey") == ["test-token"], top_row_state
         assert page.locator(f".hssm-top-row-card[data-id='{missing_top_row_id}']").count() == 0
-        top_row_scroll = page.locator(".hssm-top-row-track").evaluate("""track => { const before=track.scrollLeft; track.dispatchEvent(new WheelEvent('wheel',{deltaY:260,bubbles:true,cancelable:true})); return {before,after:track.scrollLeft}; }""")
-        assert top_row_scroll["after"] > top_row_scroll["before"], top_row_scroll
+        top_row_scroll = page.locator(".hssm-top-row-track").evaluate("""track => { const before=track.scrollLeft, vertical=new WheelEvent('wheel',{deltaY:260,bubbles:true,cancelable:true}); track.dispatchEvent(vertical); const afterVertical=track.scrollLeft, horizontal=new WheelEvent('wheel',{deltaX:260,bubbles:true,cancelable:true}); track.dispatchEvent(horizontal); return {before,afterVertical,afterHorizontal:track.scrollLeft,verticalPrevented:vertical.defaultPrevented,horizontalPrevented:horizontal.defaultPrevented}; }""")
+        assert top_row_scroll["afterVertical"] == top_row_scroll["before"] and not top_row_scroll["verticalPrevented"] and top_row_scroll["afterHorizontal"] > top_row_scroll["afterVertical"] and top_row_scroll["horizontalPrevented"], top_row_scroll
         page.wait_for_selector("#homeTab .section0.hssm-native-art-override.hssm-size-large.hssm-shape-circle.hssm-art-thumb")
         page.wait_for_selector("#homeTab .section0 .hssm-native-extended-card[data-id='resume-three']")
         assert page.locator("#homeTab .section0 .card[data-id]").count() == 3
@@ -431,6 +435,7 @@ def run() -> None:
         assert page.locator("#homeTab [data-hssm-section-id^='manager-movies-']").count() == 0
         page.wait_for_selector(".hssm-my-list-tab")
         page.wait_for_selector(".hssm-custom-page-tab[data-hssm-page-id='manager-page-movies']")
+        assert page.locator(".hssm-page-nav-arrow").count() == 0
         page.wait_for_function("document.querySelector('.hssm-owned-media-bar').dataset.hssmAppliedImageType === 'primary'")
         page.wait_for_function("getComputedStyle(document.body).getPropertyValue('--hssm-top-row-height').trim().endsWith('px')")
         top_row_background = page.locator(".hssm-top-row").evaluate("row => ({image:getComputedStyle(row).backgroundImage,color:getComputedStyle(row).backgroundColor})")
@@ -679,6 +684,39 @@ def run() -> None:
         )
         assert {key: value for key, value in custom_page_state.items() if key != "topPadding"} == {"titleAbsent": True, "visibleSections": 8, "hiddenSectionAbsent": True, "mediaBars": 3, "lowerBarMarked": True}, custom_page_state
         assert custom_page_state["topPadding"] >= 60, custom_page_state
+        multi_select_state = page.evaluate("""() => {
+          const page=document.querySelector('.hssm-owned-custom-page.is-active');
+          const items=page.querySelector('[data-hssm-section-id="manager-watch-again"] .hssm-client-items');
+          const card=items.querySelector('.hssm-client-card');
+          const outside=document.createElement('button');
+          outside.className='hssm-test-non-media';
+          outside.textContent='Outside media';
+          let outsideClicks=0;
+          outside.addEventListener('click',()=>outsideClicks++);
+          page.querySelector('.hssm-custom-page-container').appendChild(outside);
+          const makeCommands=() => {
+            const commands=document.createElement('div');
+            commands.className='selectionCommandsPanel';
+            commands.innerHTML='<button class="btnCloseSelectionPanel"><span class="material-icons close"></span></button><span class="itemSelectionCount">2</span><button class="btnSelectionPanelOptions"><span class="material-icons more_vert"></span></button>';
+            let closes=0;
+            commands.querySelector('.btnCloseSelectionPanel').addEventListener('click',()=>{ closes++; commands.remove(); });
+            document.body.appendChild(commands);
+            return {commands,get closes(){return closes;}};
+          };
+          const outsideRun=makeCommands();
+          outside.click();
+          const outsideClosed=outsideRun.closes===1 && !outsideRun.commands.isConnected;
+          const cardRun=makeCommands();
+          card.click();
+          const cardKept=cardRun.closes===0 && cardRun.commands.isConnected;
+          const options=cardRun.commands.querySelector('.btnSelectionPanelOptions');
+          options.click();
+          const controlsKept=cardRun.closes===0 && cardRun.commands.isConnected;
+          cardRun.commands.querySelector('.btnCloseSelectionPanel').click();
+          outside.remove();
+          return {is:items.getAttribute('is'),upgraded:items.dataset.hssmItemsContainerUpgraded==='true',outsideClosed,outsideClicks,cardKept,controlsKept,threeDot:options.querySelector('.more_vert')!==null};
+        }""")
+        assert multi_select_state == {"is": "emby-itemscontainer", "upgraded": True, "outsideClosed": True, "outsideClicks": 1, "cardKept": True, "controlsKept": True, "threeDot": True}, multi_select_state
         page.locator(".hssm-owned-custom-page.is-active [data-hssm-section-id='manager-books']").evaluate("node => node.scrollIntoView({block:'center'})")
         book_card = page.locator(".hssm-owned-custom-page.is-active [data-hssm-section-id='manager-books'] .hssm-client-card[data-id='audio-book-one']")
         book_card.wait_for(state="attached")
@@ -735,6 +773,14 @@ def run() -> None:
         assert any("Ids=watched-series" in url for url in requests), requests
         assert any("Filters=IsPlayed" in url and "SortOrder=Descending" in url for url in requests), requests
 
+        custom_edge_geometry = page.locator(".hssm-owned-custom-page.is-active [data-hssm-section-id='manager-watch-again']").evaluate("""section => {
+          const shell=section.querySelector('.hssm-owned-scroll-shell'), scroller=shell.querySelector('.hssm-owned-horizontal-scroll'), left=shell.querySelector('.hssm-scroll-button-left'), right=shell.querySelector('.hssm-scroll-button-right');
+          const shellBox=shell.getBoundingClientRect(), scrollerBox=scroller.getBoundingClientRect(), leftStyle=getComputedStyle(left), rightStyle=getComputedStyle(right);
+          return {shellLeft:shellBox.left,shellRight:shellBox.right,scrollerLeft:scrollerBox.left,scrollerRight:scrollerBox.right,shellPaddingLeft:parseFloat(getComputedStyle(shell).paddingLeft),shellPaddingRight:parseFloat(getComputedStyle(shell).paddingRight),leftPosition:leftStyle.position,rightPosition:rightStyle.position,leftInside:left.getBoundingClientRect().left>=scrollerBox.left,rightInside:right.getBoundingClientRect().right<=scrollerBox.right};
+        }""")
+        assert abs(custom_edge_geometry["shellLeft"] - custom_edge_geometry["scrollerLeft"]) < 1 and abs(custom_edge_geometry["shellRight"] - custom_edge_geometry["scrollerRight"]) < 1, custom_edge_geometry
+        assert custom_edge_geometry["shellPaddingLeft"] == 0 and custom_edge_geometry["shellPaddingRight"] == 0 and custom_edge_geometry["leftPosition"] == "absolute" and custom_edge_geometry["rightPosition"] == "absolute" and custom_edge_geometry["leftInside"] and custom_edge_geometry["rightInside"], custom_edge_geometry
+
         scroll_result = page.locator(".hssm-owned-custom-page.is-active [data-hssm-section-id='manager-watch-again']").evaluate("""section => {
           const scroller=section.querySelector('.hssm-client-scroller');
           section.querySelector('.hssm-client-items').style.width='3600px';
@@ -745,12 +791,16 @@ def run() -> None:
             button.click();
             setTimeout(()=>{
               const afterArrow=Number(scroller.dataset.hssmOwnedOffset||0);
-              scroller.dispatchEvent(new WheelEvent('wheel',{deltaY:240,bubbles:true,cancelable:true}));
-              setTimeout(()=>resolve({afterArrow,afterWheel:Number(scroller.dataset.hssmOwnedOffset||0),transform:getComputedStyle(section.querySelector('.hssm-client-items')).transform,owned:scroller.classList.contains('hssm-owned-horizontal-scroll'),rightWasEnabled}),80);
+            const vertical=new WheelEvent('wheel',{deltaY:240,bubbles:true,cancelable:true});
+            scroller.dispatchEvent(vertical);
+            const afterVertical=Number(scroller.dataset.hssmOwnedOffset||0);
+            const horizontal=new WheelEvent('wheel',{deltaX:240,bubbles:true,cancelable:true});
+            scroller.dispatchEvent(horizontal);
+            setTimeout(()=>resolve({afterArrow,afterVertical,afterWheel:Number(scroller.dataset.hssmOwnedOffset||0),verticalPrevented:vertical.defaultPrevented,horizontalPrevented:horizontal.defaultPrevented,transform:getComputedStyle(section.querySelector('.hssm-client-items')).transform,owned:scroller.classList.contains('hssm-owned-horizontal-scroll'),rightWasEnabled}),80);
             },450);
           },180));
         }""")
-        assert scroll_result["owned"] and scroll_result["rightWasEnabled"] and scroll_result["afterArrow"] > 0 and scroll_result["afterWheel"] > scroll_result["afterArrow"] and scroll_result["transform"] != "none", scroll_result
+        assert scroll_result["owned"] and scroll_result["rightWasEnabled"] and scroll_result["afterArrow"] > 0 and scroll_result["afterVertical"] == scroll_result["afterArrow"] and not scroll_result["verticalPrevented"] and scroll_result["afterWheel"] > scroll_result["afterVertical"] and scroll_result["horizontalPrevented"] and scroll_result["transform"] != "none", scroll_result
         page.locator(".hssm-owned-custom-page.is-active [data-hssm-section-id='manager-watch-again'] .hssm-client-scroller").evaluate("scroller => scroller._hssmSetOwnedOffset(0)")
 
         custom_card = page.locator(".hssm-owned-custom-page.is-active [data-hssm-section-id='manager-watch-again'] .hssm-client-card[data-id='watched-episode-two']")
@@ -851,11 +901,11 @@ def run() -> None:
         page.wait_for_timeout(150)
         assert not page.locator("#itemDetailPage").evaluate("node => node.classList.contains('hssm-top-chrome-content-offset')")
         assert page.locator(".hssm-top-row").get_attribute("data-hssm-identity-test") == "retained"
-        detail_offset = page.evaluate("""() => { const page=document.querySelector('#itemDetailPage'), wrapper=page.querySelector('.detailPageWrapperContainer'), imageContainer=page.querySelector('.detailImageContainer'), content=page.querySelector('[data-hssm-test-detail-content]'), message=document.querySelector('.hssm-top-row-message').getBoundingClientRect(), row=document.querySelector('.hssm-top-row').getBoundingClientRect(), header=document.querySelector('.skinHeader').getBoundingClientRect(); return {padding:parseFloat(getComputedStyle(page).paddingTop),pageTop:page.getBoundingClientRect().top,contentTop:content.getBoundingClientRect().top,wrapperTransform:getComputedStyle(wrapper).transform,imageContainerTransform:getComputedStyle(imageContainer).transform,chromeHeight:message.height+row.height,headerTop:header.top,rowBottom:row.bottom,hasSpacer:!!page.querySelector('.hssm-top-row-message-spacer,.hssm-top-row-row-spacer')}; }""")
+        detail_offset = page.evaluate("""() => { const page=document.querySelector('#itemDetailPage'), wrapper=page.querySelector('.detailPageWrapperContainer'), imageContainer=page.querySelector('.detailImageContainer'), content=page.querySelector('[data-hssm-test-detail-content]'), message=document.querySelector('.hssm-top-row-message').getBoundingClientRect(), row=document.querySelector('.hssm-top-row').getBoundingClientRect(), header=document.querySelector('.skinHeader').getBoundingClientRect(); return {padding:parseFloat(getComputedStyle(page).paddingTop),pageTop:page.getBoundingClientRect().top,contentTop:content.getBoundingClientRect().top,wrapperTransform:getComputedStyle(wrapper).transform,imageContainerTransform:getComputedStyle(imageContainer).transform,chromeHeight:message.height+row.height,rowHeight:row.height,headerTop:header.top,rowBottom:row.bottom,hasSpacer:!!page.querySelector('.hssm-top-row-message-spacer,.hssm-top-row-row-spacer')}; }""")
         detail_clearance = detail_offset["contentTop"] - detail_offset["pageTop"] - detail_offset["padding"]
         assert abs(detail_offset["padding"] - 80) < 2 and abs(detail_clearance) < 2 and detail_offset["wrapperTransform"] == "none" and detail_offset["imageContainerTransform"] == "none" and detail_offset["headerTop"] >= detail_offset["rowBottom"] - 1 and not detail_offset["hasSpacer"], detail_offset
         poster_translate = page.locator("#itemDetailPage .detailImageContainer > .card").evaluate("node => new DOMMatrixReadOnly(getComputedStyle(node).transform).m42")
-        assert -13 <= poster_translate <= -11, poster_translate
+        assert abs(poster_translate - detail_offset["rowHeight"]) < 2, {"posterTranslate": poster_translate, "detail": detail_offset}
         page.evaluate("window.ApiClient=window.__savedApiClient; delete window.__savedApiClient; window.HomeScreenManagerClient.refresh()")
         page.wait_for_selector(".hssm-top-row[data-hssm-top-row-id='movies-library-top-row']")
         assert page.locator(".hssm-top-row").get_attribute("data-hssm-identity-test") is None
@@ -870,6 +920,29 @@ def run() -> None:
         page.evaluate("document.querySelector('#itemDetailPage').remove(); document.querySelector('#indexPage').classList.remove('hide'); location.hash='#/home'")
         page.wait_for_selector(".hssm-top-row[data-hssm-top-row-id='main-top-row']")
         page.wait_for_function("document.querySelector('.hssm-top-row-message')")
+
+        original_pages = json.loads(json.dumps(settings["Pages"]))
+        original_page_order = list(settings["PageOrder"])
+        overflow_pages = [
+            {"Id": f"manager-page-overflow-{index}", "Name": f"Custom Page {index} With A Long Navigation Name"}
+            for index in range(1, 5)
+        ]
+        settings["Pages"].extend(overflow_pages)
+        settings["PageOrder"].extend(page_definition["Id"] for page_definition in overflow_pages)
+        page.evaluate("window.HomeScreenManagerClient.invalidate(); window.HomeScreenManagerClient.refresh();")
+        page.wait_for_selector(".hssm-page-nav-arrow-left")
+        page.wait_for_selector(".hssm-page-nav-arrow-right")
+        overflow_nav = page.evaluate("""() => { const tabs=document.querySelector('.headerTabs [is="emby-tabs"]'), slider=tabs.querySelector('.emby-tabs-slider'), left=document.querySelector('.hssm-page-nav-arrow-left'), right=document.querySelector('.hssm-page-nav-arrow-right'); return {customPages:slider.querySelectorAll('.hssm-custom-page-tab').length,tabsOverflow:tabs.classList.contains('hssm-page-tabs-overflow'),shellOverflow:tabs.closest('.headerTabs').classList.contains('hssm-page-tabs-overflow-shell'),scrollWidth:slider.scrollWidth,clientWidth:slider.clientWidth,leftDisabled:left.disabled,rightDisabled:right.disabled}; }""")
+        assert overflow_nav["customPages"] == 5 and overflow_nav["tabsOverflow"] and overflow_nav["shellOverflow"] and overflow_nav["scrollWidth"] > overflow_nav["clientWidth"] and overflow_nav["leftDisabled"] and not overflow_nav["rightDisabled"], overflow_nav
+        page.locator(".hssm-page-nav-arrow-right").click()
+        page.wait_for_function("document.querySelector('.hssm-page-tabs-overflow > .emby-tabs-slider').scrollLeft > 0")
+        nav_mouse_scroll = page.evaluate("""() => { const slider=document.querySelector('.hssm-page-tabs-overflow > .emby-tabs-slider'); slider.scrollLeft=0; const wheel=new WheelEvent('wheel',{deltaY:220,bubbles:true,cancelable:true}); slider.dispatchEvent(wheel); return {after:slider.scrollLeft,prevented:wheel.defaultPrevented}; }""")
+        assert nav_mouse_scroll["after"] > 0 and nav_mouse_scroll["prevented"], nav_mouse_scroll
+        settings["Pages"] = original_pages
+        settings["PageOrder"] = original_page_order
+        page.evaluate("window.HomeScreenManagerClient.invalidate(); window.HomeScreenManagerClient.refresh();")
+        page.wait_for_function("!document.querySelector('.hssm-page-nav-arrow') && !document.querySelector('.headerTabs [is=\"emby-tabs\"]').classList.contains('hssm-page-tabs-overflow')")
+
         settings["HideFavorites"] = True
         settings["EnableTitleMarquee"] = False
         settings["PageOrder"] = ["home", "hidden:favorites", "my-list", "manager-page-movies"]

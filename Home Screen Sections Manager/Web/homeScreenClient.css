@@ -7,6 +7,68 @@
     display: none !important;
 }
 
+.headerTabs.hssm-page-tabs-overflow-shell {
+    align-items: center;
+    display: flex;
+    min-width: 0;
+}
+
+.headerTabs.hssm-page-tabs-overflow-shell > .hssm-page-tabs-overflow {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+}
+
+.hssm-page-tabs-overflow > .emby-tabs-slider {
+    display: flex !important;
+    justify-content: flex-start !important;
+    min-width: 0;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    overscroll-behavior-x: contain;
+    scroll-behavior: smooth;
+    scrollbar-width: none;
+    touch-action: pan-x;
+    transform: none !important;
+}
+
+.hssm-page-tabs-overflow > .emby-tabs-slider::-webkit-scrollbar {
+    display: none;
+}
+
+.hssm-page-tabs-overflow > .emby-tabs-slider > .emby-tab-button {
+    flex: 0 0 auto;
+}
+
+.hssm-page-nav-arrow {
+    align-items: center;
+    appearance: none;
+    background: rgba(0, 0, 0, 0.52);
+    border: 0;
+    border-radius: 50%;
+    color: inherit;
+    cursor: pointer;
+    display: inline-flex;
+    flex: 0 0 2.25rem;
+    font-size: 2rem;
+    height: 2.25rem;
+    justify-content: center;
+    line-height: 1;
+    margin: 0 0.18rem;
+    padding: 0 0 0.12rem;
+    width: 2.25rem;
+}
+
+.hssm-page-nav-arrow:disabled {
+    cursor: default;
+    opacity: 0.28;
+}
+
+.hssm-page-nav-arrow:focus-visible {
+    outline: 2px solid currentColor;
+    outline-offset: 2px;
+}
+
 /* The plugin-owned bar deliberately does not use Abyss's .featurediframe
    identity. Abyss retains its own hidden frame and lifecycle; this frame uses
    the same responsive measurements without competing for ownership. */
@@ -50,7 +112,14 @@ body.hssm-client-enabled .itemDetailPage:not(.hide) .detailImageContainer > .car
 body.hssm-client-enabled .itemDetailPage.is-active .detailImageContainer > .card,
 body.hssm-client-enabled .itemDetailPage:not(.hide) .detailImageContainer > .detailImage,
 body.hssm-client-enabled .itemDetailPage.is-active .detailImageContainer > .detailImage {
-    transform: translateY(-6%) !important;
+    transform: none !important;
+}
+
+body.hssm-client-enabled.hssm-top-row-enabled .itemDetailPage:not(.hide) .detailImageContainer > .card,
+body.hssm-client-enabled.hssm-top-row-enabled .itemDetailPage.is-active .detailImageContainer > .card,
+body.hssm-client-enabled.hssm-top-row-enabled .itemDetailPage:not(.hide) .detailImageContainer > .detailImage,
+body.hssm-client-enabled.hssm-top-row-enabled .itemDetailPage.is-active .detailImageContainer > .detailImage {
+    transform: translateY(var(--hssm-top-row-height, 0px)) !important;
 }
 
 @media (min-width: 1400px) {
@@ -115,9 +184,10 @@ body.hssm-client-enabled .itemDetailPage.is-active .detailImageContainer > .deta
     align-items: center;
     box-sizing: border-box;
     display: flex;
-    gap: 0.25em;
+    gap: 0;
     min-width: 0;
-    padding: 0 1.1em;
+    padding: 0;
+    position: relative;
     width: 100%;
 }
 
@@ -162,8 +232,19 @@ body.hssm-client-enabled .itemDetailPage.is-active .detailImageContainer > .deta
     justify-content: center;
     margin: 0 !important;
     padding: 0 !important;
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
     width: 2.7em;
     z-index: 4;
+}
+
+.hssm-scroll-button-left {
+    left: 0.55em;
+}
+
+.hssm-scroll-button-right {
+    right: 0.55em;
 }
 
 .hssm-scroll-button:disabled {
