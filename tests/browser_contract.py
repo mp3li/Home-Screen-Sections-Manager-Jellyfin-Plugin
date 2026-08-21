@@ -621,8 +621,10 @@ def run() -> None:
         page.evaluate("window.HomeScreenManagerClient.invalidate(); window.HomeScreenManagerClient.refresh();")
         page.wait_for_selector("#indexPage > .hssm-top-row[data-hssm-top-row-id='movies-page-top-row']")
         page.wait_for_selector(".hssm-owned-custom-page.is-active [data-hssm-section-id='manager-movies-one'] .hssm-client-card")
-        first_section_header = page.locator(".hssm-owned-custom-page.is-active [data-hssm-section-id='manager-movies-one'] > .hssm-section-title-with-art")
-        page.wait_for_function("node => node.style.backgroundImage.includes('/Items/resume-one/Images/Primary')", arg=first_section_header.element_handle())
+        first_section_header = page.locator(".hssm-owned-custom-page.is-active [data-hssm-section-id='manager-movies-one'] > .sectionTitleContainer")
+        assert "hssm-section-title-with-art" not in (first_section_header.get_attribute("class") or "")
+        assert first_section_header.get_attribute("data-hssm-image-url") is None
+        assert first_section_header.evaluate("node => node.style.backgroundImage") == ""
         page.locator(".hssm-owned-custom-page.is-active [data-hssm-section-id='manager-continue']").evaluate("node => node.scrollIntoView({block:'center'})")
         continue_episode = page.locator(".hssm-owned-custom-page.is-active [data-hssm-section-id='manager-continue'] .hssm-client-card[data-id='resume-two']")
         continue_episode.wait_for(state="attached")
@@ -703,12 +705,31 @@ def run() -> None:
         assert "/Items/series-two/Images/Logo" in custom_logo.get_attribute("src")
         page.frame_locator(".hssm-section-media-bar[data-hssm-media-section-id='manager-movies-two']").locator("body.hssm-media-bar-top-gradient").wait_for(state="attached")
         resume_requests_before_return = len([request for request in requests if "/Users/user/Items/Resume" in request])
+        item_queries_before_return = len([request for request in requests if "/Users/user/Items" in request])
+        page.evaluate("""() => {
+          document.querySelectorAll('.hssm-owned-custom-page.is-active .hssm-section-media-bar').forEach(frame => {
+            frame.dataset.hssmReturnConfigureCount='0';
+            const target=frame.contentWindow;
+            const original=target.postMessage.bind(target);
+            target.postMessage=(message,origin) => {
+              if(message && message.type==='home-screen-manager-media-bar' && message.action==='configure') {
+                frame.dataset.hssmReturnConfigureCount=String(Number(frame.dataset.hssmReturnConfigureCount||0)+1);
+              }
+              return original(message,origin);
+            };
+          });
+        }""")
         page.locator(".hssm-owned-custom-page.is-active [data-hssm-section-id='manager-movies-one']").evaluate("node => node.dataset.hssmRetentionProbe='retained'")
         page.evaluate("document.querySelector('.emby-tab-button[data-index=\"0\"]').click()")
         page.wait_for_function("document.querySelector('#homeTab').classList.contains('is-active')")
         page.locator(".hssm-custom-page-tab[data-hssm-page-id='manager-page-movies']").click()
         page.wait_for_function("document.querySelector('.hssm-owned-custom-page.is-active [data-hssm-section-id=\"manager-movies-one\"]').dataset.hssmRetentionProbe === 'retained'")
+        page.wait_for_function("""Array.from(document.querySelectorAll('.hssm-owned-custom-page.is-active .hssm-section-media-bar')).every(frame => Number(frame.dataset.hssmReturnConfigureCount||0)>0)""")
+        returned_custom_logo = page.frame_locator(".hssm-owned-custom-page.is-active .hssm-section-media-bar[data-hssm-media-section-id='manager-movies-two']").locator("#logo")
+        returned_custom_logo.wait_for(state="visible")
+        assert "/Items/series-two/Images/Logo" in returned_custom_logo.get_attribute("src")
         assert len([request for request in requests if "/Users/user/Items/Resume" in request]) == resume_requests_before_return
+        assert len([request for request in requests if "/Users/user/Items" in request]) == item_queries_before_return
         assert any("Filters=IsPlayed" in url and "IncludeItemTypes=Movie" in url for url in requests), requests
         assert any("IncludeItemTypes=Episode" in url and "Filters=IsPlayed" in url for url in requests), requests
         assert any("Ids=watched-series" in url for url in requests), requests

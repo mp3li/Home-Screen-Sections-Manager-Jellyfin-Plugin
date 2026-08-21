@@ -9,13 +9,13 @@
     "imageUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Assets/Branding/home-screen-sections-manager-plugin-photo.png",
     "versions": [
       {
-        "version": "0.1.0.63",
-        "changelog": "Adds viewport-gated custom rows, Media Bars, card and header artwork; loads saved and dynamic content in Jellyfin-sized 16-item pages; prevents custom-page request starvation; and opens create/edit section settings immediately with bounded 16-ID dashboard requests.",
+        "version": "0.1.0.64",
+        "changelog": "Restores Jellyfin-style text section headings and keeps explicit custom-page Media Bars working across Home/page round trips without repeating Jellyfin item queries.",
         "targetAbi": "10.11.11.0",
         "framework": "net9.0",
-        "sourceUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Test%20Releases/0.1.0.63-test/Jellyfin.Plugin.HomeScreenSectionsManager_0.1.0.63-test.zip",
-        "checksum": "672c37e3b3feea75e0ea95b7292e67ad",
-        "timestamp": "2026-08-21T05:13:01Z"
+        "sourceUrl": "https://raw.githubusercontent.com/mp3li/Home-Screen-Sections-Manager-Jellyfin-Plugin/main/Test%20Releases/0.1.0.64-test/Jellyfin.Plugin.HomeScreenSectionsManager_0.1.0.64-test.zip",
+        "checksum": "29c10047f585fff9db599ef839e4ed58",
+        "timestamp": "2026-08-21T05:40:04Z"
       }
     ]
   }

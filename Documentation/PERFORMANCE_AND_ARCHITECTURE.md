@@ -63,9 +63,8 @@ work can starve native navigation and playback.
    of horizontal scrolling. A user's larger Maximum Items choice is the row's
    ceiling, not its initial payload: for example, 80 means up to five 16-item
    pages as the user moves through that row.
-4. Card and section-header image URLs remain inert until near the viewport.
-   Header art reuses the first resolved item image rather than scanning or
-   requesting additional metadata.
+4. Card image URLs remain inert until near the viewport. Section names remain
+   normal text headings and do not request or display backdrop artwork.
 5. The initial settings response includes only 16 saved IDs per section. The
    rest are available through an authenticated, bounded endpoint.
 6. My List uses one user-scoped server query and returns one bounded ID page,

@@ -46,10 +46,10 @@ def run() -> None:
     assert "Limit:1000" not in CLIENT
     assert "artistAlbumLimit" in CLIENT
 
-    # Visible section headers reuse the first resolved card artwork and pass
-    # through the same observer instead of starting a separate eager request.
-    assert 'data-hssm-image-overlay="header"' in CLIENT
-    assert ".hssm-section-title-with-art" in CLIENT_CSS
+    # Section names remain normal text headings; lazy image work belongs to
+    # media cards and must not turn headings into backdrop banners.
+    assert 'data-hssm-image-overlay="header"' not in CLIENT
+    assert ".hssm-section-title-with-art" not in CLIENT_CSS
 
     # The section editor must render before its catalogs settle, and both saved
     # preview hydration and manual library browsing must remain 16-item work.

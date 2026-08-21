@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    var CLIENT_VERSION = "0.1.0.63";
+    var CLIENT_VERSION = "0.1.0.64";
     if (window.HomeScreenManagerClient) {
         if (window.HomeScreenManagerClient.version === CLIENT_VERSION) {
             window.HomeScreenManagerClient.refresh();
@@ -115,9 +115,7 @@
         delete target.dataset.hssmImageUrl;
         if (source) {
             var image = 'url("' + source.replace(/"/g, '%22') + '")';
-            target.style.backgroundImage = target.dataset.hssmImageOverlay === 'header'
-                ? 'linear-gradient(90deg, rgba(8, 8, 10, 0.92) 0%, rgba(8, 8, 10, 0.66) 48%, rgba(8, 8, 10, 0.18) 100%), ' + image
-                : image;
+            target.style.backgroundImage = image;
         }
     }
 
@@ -1106,9 +1104,7 @@
         var titleAttributes = type === 'my-list-content'
             ? ' href="#/home" data-hssm-open-my-list="true"'
             : titleDestination ? ' href="' + escapeHtml(titleDestination) + '"' : ' href="#" data-hssm-open-section="' + escapeHtml(id) + '"';
-        var headerImageUrl = showSectionName && items.length ? cardImage(items[0], section) : '';
-        var headerImageSource = headerImageUrl ? ' data-hssm-image-url="' + escapeHtml(headerImageUrl) + '" data-hssm-image-overlay="header"' : '';
-        var sectionTitleMarkup = showSectionName ? '<div class="sectionTitleContainer sectionTitleContainer-cards padded-left hssm-section-title-with-art"' + headerImageSource + '><a is="emby-linkbutton" class="more button-flat button-flat-mini sectionTitleTextButton hssm-section-title-link"' + titleAttributes + '><h2 class="sectionTitle sectionTitle-cards">' + escapeHtml(name) + '</h2><span class="material-icons chevron_right" aria-hidden="true"></span></a></div>' : '';
+        var sectionTitleMarkup = showSectionName ? '<div class="sectionTitleContainer sectionTitleContainer-cards padded-left"><a is="emby-linkbutton" class="more button-flat button-flat-mini sectionTitleTextButton hssm-section-title-link"' + titleAttributes + '><h2 class="sectionTitle sectionTitle-cards">' + escapeHtml(name) + '</h2><span class="material-icons chevron_right" aria-hidden="true"></span></a></div>' : '';
         var ownsScroller = forceOwnedScroller === true || (pageId !== 'home' && pageId !== 'my-list');
         var ranked = type === 'top-10-50' && prop(section, 'ShowRankNumbers', 'showRankNumbers', true) !== false;
         node.className = 'verticalSection emby-scroller-container hssm-client-section hssm-size-' + artSize + ' hssm-shape-' + artShape + ' hssm-art-' + artType + (showSectionName ? '' : ' hssm-hide-section-name') + (ranked ? ' hssm-top-ranked hssm-rank-' + String(prop(section, 'RankNumberColorMode', 'rankNumberColorMode', 'solid')) : '');
@@ -2328,9 +2324,16 @@
     function syncOwnedMediaBarVisibility() {
         Array.from(document.querySelectorAll('.hssm-owned-media-bar')).forEach(function (frame) {
             var active = ownedMediaBarIsActive(frame);
+            var activeState = active ? 'true' : 'false';
+            var activityChanged = frame.dataset.hssmOwnedActive !== activeState;
+            frame.dataset.hssmOwnedActive = activeState;
             frame.hidden = !active;
             frame.style.display = active ? 'block' : 'none';
-            try { frame.contentWindow.postMessage({ type:'abyss-spotlight', action:active ? 'resume' : 'pause' }, window.location.origin); } catch (_) {}
+            if (activityChanged) {
+                try { frame.contentWindow.postMessage({ type:'abyss-spotlight', action:active ? 'resume' : 'pause' }, window.location.origin); } catch (_) {}
+            }
+            if (active && frame._hssmStartItemsLoad) queueExplicitMediaBarLoad(frame);
+            if (activityChanged && active && frame._hssmPayload) sendMediaBarPayload(frame, true, frame._hssmPayload);
         });
     }
 
@@ -2544,8 +2547,9 @@
         frame.style.order = !firstOnPage && sourceNode ? sourceNode.style.order : '';
         frame.dataset.hssmMediaBar = 'true';
         frame.dataset.hssmClientVersion = CLIENT_VERSION;
-        if (sourceNode && sourceNode.parentNode === container) container.insertBefore(frame, sourceNode);
-        else container.appendChild(frame);
+        if (sourceNode && sourceNode.parentNode === container) {
+            if (frame.parentNode !== container || frame.nextSibling !== sourceNode) container.insertBefore(frame, sourceNode);
+        } else if (frame.parentNode !== container) container.appendChild(frame);
         bindMediaBarMessages();
         var urls = mediaBarUrls(frame, settings);
         if (frame.src !== urls.plugin) {
@@ -2616,7 +2620,9 @@
             var frame = ensureSectionMediaBarFrame(container, settings, section, sourceNode, firstOnPage);
             if (!frame) return;
             var requestSignature = sectionSignature(section);
-            if (frame.dataset.hssmSectionRequestSignature === requestSignature && (frame._hssmStartItemsLoad || frame._hssmItemsRequest || (frame._hssmPayload && frame._hssmPayload.items && frame._hssmPayload.items.length))) return;
+            if (frame.dataset.hssmSectionRequestSignature === requestSignature && (frame._hssmStartItemsLoad || frame._hssmItemsRequest || (frame._hssmPayload && frame._hssmPayload.items && frame._hssmPayload.items.length))) {
+                return;
+            }
             frame.dataset.hssmSectionRequestSignature = requestSignature;
             var payload = { type:'home-screen-manager-media-bar', action:'configure', items:[], loading:true, intervalSeconds:Math.max(1,Math.min(300,Number(setting(settings,'MediaBarIntervalSeconds',5))||5)), imageType:String(setting(settings,'MediaBarImageType','abyss-original')), slowZoom:setting(settings,'EnableMediaBarSlowZoom',true)!==false, topGradient:true };
             frame._hssmPayload = payload;

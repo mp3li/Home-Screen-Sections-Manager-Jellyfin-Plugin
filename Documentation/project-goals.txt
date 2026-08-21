@@ -33,9 +33,9 @@ The current phase is optimization. Existing behavior must be preserved while
 load time, request count, request ordering, payload size, caching, cancellation,
 and remote playback contention are made production-worthy. Custom rows use a
 Jellyfin/Kefin-sized first page of 16 items, load only near the viewport, and
-page further content on horizontal demand. Card and visible section-header
-artwork uses the same viewport-gated loader. Header artwork reuses an already
-resolved section item image rather than performing an additional metadata scan.
+page further content on horizontal demand. Card artwork uses the viewport-gated
+loader. Section names remain normal Jellyfin-style text headings rather than
+becoming image or backdrop banners.
 
 Implementation boundary
 -----------------------

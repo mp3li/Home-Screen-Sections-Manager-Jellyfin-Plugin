@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.1.0.64-test] - 2026-08-20
+
+- Restores custom section names to Jellyfin-style text headings and removes the unintended first-item backdrop banner from those headings. Card artwork and its lazy loading are unchanged.
+- Keeps explicit Media Bars working after Home/custom-page round trips by preserving their existing iframe, resuming deferred work, and restoring the already-loaded payload without repeating the section request.
+
 ## [0.1.0.63-test] - 2026-08-20
 
 - Loads only custom rows and per-section Media Bars near the viewport, preserves full-height loading placeholders, and starts nearer rows first through the existing two-request global budget.

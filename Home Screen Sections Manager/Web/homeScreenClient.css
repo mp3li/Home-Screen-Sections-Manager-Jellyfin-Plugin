@@ -372,28 +372,6 @@ body.hssm-section-listing-open {
     width: 100% !important;
 }
 
-.hssm-client-section > .hssm-section-title-with-art {
-    background-color: rgba(8, 8, 10, 0.78);
-    background-position: center 38%;
-    background-repeat: no-repeat;
-    background-size: cover;
-    border-radius: 0.65em;
-    margin: 0 3.3% 0.55em;
-    min-height: 3.4em;
-    overflow: hidden;
-    padding-bottom: 0.6em !important;
-    padding-left: 1em !important;
-    padding-right: 1em !important;
-    padding-top: 0.6em !important;
-    width: calc(100% - 6.6%) !important;
-}
-
-.hssm-client-section > .hssm-section-title-with-art .sectionTitle,
-.hssm-client-section > .hssm-section-title-with-art .material-icons {
-    color: #fff !important;
-    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.92);
-}
-
 .hssm-client-section > .sectionTitleContainer > .hssm-section-title-link {
     margin: 0 !important;
     max-width: 100% !important;

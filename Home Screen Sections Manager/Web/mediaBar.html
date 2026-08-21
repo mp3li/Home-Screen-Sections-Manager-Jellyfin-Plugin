@@ -697,7 +697,12 @@
                 const authoritativeSlowZoom = data.slowZoom !== false;
                 const topGradient = data.topGradient === true;
                 const nextSignature = JSON.stringify([authoritativeInterval, authoritativeImageType, authoritativeSlowZoom, topGradient, nextItems.map(artworkSignature)]);
-                if (document.body.dataset.hssmPayloadSignature === nextSignature) return;
+                if (document.body.dataset.hssmPayloadSignature === nextSignature) {
+                    const artworkWasInterrupted = items.length && !$('content').classList.contains('visible') && (!renderController || renderController.signal.aborted);
+                    if (!paused && artworkWasInterrupted) await renderItem(currentIndex);
+                    startAuto();
+                    return;
+                }
                 document.body.dataset.hssmPayloadSignature = nextSignature;
                 document.body.classList.toggle('hssm-media-bar-top-gradient', topGradient);
                 const nextImageType = validImageTypes.includes(String(authoritativeImageType)) ? String(authoritativeImageType) : 'abyss-original';
