@@ -47,10 +47,16 @@ def run() -> None:
               window.__applyCalls = [];
               window.__brandingWrites = [];
               window.__collectionManagerCatalogCalls = 0;
+              window.__itemIdBatchSizes = [];
+              window.__oversizedItemIdRequests = 0;
               window.Dashboard = { alert(){}, showLoadingMsg(){}, hideLoadingMsg(){} };
               window.ApiClient = {
                 getCurrentUserId:()=> 'user', serverId:()=> 'server',
-                getUrl:(path,params)=>path + (params && params.IncludeItemTypes ? '?IncludeItemTypes=' + encodeURIComponent(params.IncludeItemTypes) : ''),
+                getUrl:(path,params)=> {
+                  if(params && params.Ids) window.__itemIdBatchSizes.push(String(params.Ids).split(',').filter(Boolean).length);
+                  const query = params ? new URLSearchParams(Object.entries(params).map(([key,value]) => [key,String(value)])).toString() : '';
+                  return path + (query ? '?' + query : '');
+                },
                 getJSON:(url)=> {
                   if(String(url).includes('top-row-settings')) return Promise.resolve(structuredClone(window.__topRowSettings));
                   if(String(url).includes('section-settings')) return Promise.resolve(structuredClone(window.__sectionSettings));
@@ -59,6 +65,11 @@ def run() -> None:
                   if(String(url).includes('DisplayPreferences')) return Promise.resolve({CustomPrefs:{homesection0:'resume'}});
                   if(String(url).includes('Users/user/Views')) return Promise.resolve({Items:[{Id:'library',Name:'Movies',CollectionType:'movies'}]});
                   if(String(url).includes('Users/user/Items?IncludeItemTypes=BoxSet')) return Promise.resolve({Items:[{Id:'foreign',Name:'Foreign Collection',ChildCount:20}]});
+                  if(String(url).includes('Users/user/Items?Ids=')) {
+                    const ids = new URL(String(url), 'https://jellyfin.test/').searchParams.get('Ids').split(',');
+                    if(ids.length > 16) { window.__oversizedItemIdRequests += 1; return Promise.reject({status:400,statusText:'Bad Request'}); }
+                    return Promise.resolve({Items:ids.map(id => ({Id:id,Name:'Item ' + id,Type:'Movie',ImageTags:{Primary:'image'}})),TotalRecordCount:ids.length});
+                  }
                   if(String(url).includes('Genres')) return Promise.resolve({Items:[{Id:'genre-drama',Name:'Drama',Type:'Genre'},{Id:'genre-comedy',Name:'Comedy',Type:'Genre'}]});
                   if(String(url).includes('CollectionManager/settings/main') || String(url).includes('CollectionManager/art/collections')) { window.__collectionManagerCatalogCalls += 1; return new Promise(()=>{}); }
                   if(String(url).includes('Plugins')) return Promise.resolve([{Name:'JavaScript Injector',Id:'injector'}]);
@@ -92,7 +103,7 @@ def run() -> None:
                 getPluginConfiguration:()=>Promise.resolve({CustomJavaScripts:[]}),
                 updatePluginConfiguration:()=>Promise.resolve()
               };
-              window.HomeScreenManagerClient = { version:'0.1.0.59', refresh(){} };
+              window.HomeScreenManagerClient = { version:'0.1.0.63', refresh(){} };
               window.CustomElements = { upgradeSubtree(){} };
             }
             """
@@ -499,6 +510,34 @@ def run() -> None:
         generated_css = page.evaluate("window.__brandingWrites.at(-1).CustomCss || window.__brandingWrites.at(-1).customCss")
         assert "background: linear-gradient(to right, #112233, #445566)" in generated_css
         assert "-webkit-text-fill-color: #12ab34" in generated_css
+
+        page.evaluate(
+            """() => {
+              window.__sectionSettings.Sections.find(section => section.Id === 'manager-one').ItemIds = Array.from({length:40}, (_,index) => 'large-' + String(index + 1).padStart(2,'0'));
+              window.__itemIdBatchSizes = [];
+              window.__savedGetUserViews = ApiClient.getUserViews;
+              ApiClient.getUserViews = () => new Promise(() => {});
+              window.HSSMReloadSectionEditor();
+            }"""
+        )
+        page.locator("[data-tab='create-sections']").click()
+        manager_one_page = page.evaluate("window.__sectionSettings.Sections.find(section => section.Id === 'manager-one').PageId")
+        page.locator("#hssmSectionPageSelect").select_option(manager_one_page)
+        page.wait_for_selector("#hssmSectionList [data-section-id='manager-one']")
+        page.locator("#hssmSectionList [data-section-id='manager-one']").click()
+        page.locator("#hssmEditSectionButton").click()
+        page.locator("#hssmFinishSectionButton").click()
+        page.get_by_text("Select Media", exact=True).wait_for(timeout=500)
+        page.wait_for_function("window.__itemIdBatchSizes.length >= 1")
+        assert page.evaluate("Math.max(...window.__itemIdBatchSizes)") <= 16
+        assert page.evaluate("window.__oversizedItemIdRequests") == 0
+        assert "40 selected media items" in page.locator("#hssmTypeSpecificSettings [data-hssm-content]").inner_text()
+        page.locator("#hssmTypeSpecificSettings [data-hssm-content-page='2']").click()
+        page.wait_for_function("window.__itemIdBatchSizes.length >= 2")
+        assert page.evaluate("window.__itemIdBatchSizes.slice(0,2)") == [16, 16]
+        page.locator("#hssmTypeSpecificSettings [data-hssm-save-move]").click()
+        page.wait_for_function("window.__sectionSettings.Sections.find(section => section.Id === 'manager-one').ItemIds.length === 40")
+        page.evaluate("ApiClient.getUserViews = window.__savedGetUserViews")
         assert not page_errors, page_errors
         browser.close()
 

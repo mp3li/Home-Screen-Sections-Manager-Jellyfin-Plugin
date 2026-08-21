@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.1.0.63-test] - 2026-08-20
+
+- Loads only custom rows and per-section Media Bars near the viewport, preserves full-height loading placeholders, and starts nearer rows first through the existing two-request global budget.
+- Defers CSS background artwork until each card is near the vertical and horizontal viewport, preventing hundreds of off-screen images from saturating a remote server's upload while playback is active.
+- Uses the Jellyfin/Kefin-sized 16-item initial row payload instead of 40, then loads further 16-item batches up to the user's configured maximum through Jellyfin 10.11.11's transform-aware scroller event and position APIs.
+- Gives every visible plugin section header a photographic background that reuses its first resolved item image through the same lazy artwork observer.
+- Reuses a matching row request for its Media Bar, bounds music-artist album-art discovery, and pages My List through one signed-in-user server query instead of recursively querying every library from the browser.
+- Bounds Watch Again and recent-listening discovery to useful recent candidate windows, filters deleted library IDs before Continue requests, and retains per-user and per-section caches.
+- Sends only the first 16 saved item IDs per applied section in client settings, supplies later IDs through a bounded authenticated endpoint, and preserves complete random ordering by loading the full ID list only when a visible Random section needs it.
+- Lets browsers retain versioned client JavaScript and CSS for one year while keeping the bootstrap uncached, reducing repeated remote startup transfers without making plugin updates stale.
+- Restricts native-book metadata hydration to actual Book/Audiobook cards or Jellyfin's Resume Books row and narrows enhanced-search and art-override fields to the metadata and image families they consume.
+- Opens the create/edit section content editor before Jellyfin library or collection catalogs finish, loads those catalogs independently, and keeps the draft usable with a specific preserved-content message if either request fails.
+- Stops existing sections from hydrating every saved item before **Select Content** can open. Saved previews and manual library browsing now use 16-item server pages, full saved ID order is retained unless content is explicitly changed, and an explicit action remains available when every manual-order title must be hydrated.
+- Replaces 100-ID dashboard query URLs with 16-ID batches, avoiding oversized remote/proxy requests that could surface as HTTP 400 while retaining all saved items across preview pages and an unchanged save.
+- Removes Overview, tag, rating, sort, and series fields from ordinary collection/library expansion; only Top ranking requests retain the rating metadata they actually consume.
+
 ## [0.1.0.60-test] - 2026-08-17
 
 - Prevents remote-user request starvation by allowing only two plugin section requests overall and one per managed page, serializing library-scoped Continue requests, collapsing an all-libraries Continue section to one request per media type, progressively loading only nearby Top Row artwork, and delaying lightweight My List heart-state reads until Jellyfin's own page request has room to run.

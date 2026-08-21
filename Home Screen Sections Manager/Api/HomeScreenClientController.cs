@@ -10,6 +10,8 @@ namespace Jellyfin.Plugin.HomeScreenSectionsManager.Api;
 [Route("HomeScreenSectionsManager")]
 public sealed class HomeScreenClientController : ControllerBase
 {
+    private const int InitialSectionItemIdLimit = 16;
+
     /// <summary>Returns the plugin-owned sections and hybrid order for the signed-in user interface.</summary>
     [Authorize]
     [HttpGet("client-settings")]
@@ -22,7 +24,11 @@ public sealed class HomeScreenClientController : ControllerBase
         var topRows = Plugin.GetEffectiveTopRows(configuration);
         return Ok(new
         {
-            Sections = configuration.Sections.Where(section => section.IsApplied).ToArray(),
+            // The persisted rules can contain thousands of item ids per row.
+            // Send only the first display page here; later pages use the small
+            // authenticated item-id endpoint below. This keeps every route from
+            // redownloading the plugin's entire saved catalog.
+            Sections = configuration.Sections.Where(section => section.IsApplied).Select(ClientSection).ToArray(),
             configuration.SectionOrder,
             configuration.Pages,
             configuration.PageOrder,
@@ -79,6 +85,27 @@ public sealed class HomeScreenClientController : ControllerBase
         });
     }
 
+    /// <summary>Returns one bounded page of saved ids for an applied section.</summary>
+    [Authorize]
+    [HttpGet("sections/{sectionId}/item-ids")]
+    public ActionResult<object> GetSectionItemIds(string sectionId, [FromQuery] int startIndex = 0, [FromQuery] int limit = 16)
+    {
+        var section = (Plugin.Instance?.Configuration ?? new PluginConfiguration()).Sections.FirstOrDefault(candidate =>
+            candidate.IsApplied && string.Equals(candidate.Id, sectionId, StringComparison.Ordinal));
+        if (section is null)
+        {
+            return NotFound();
+        }
+
+        var offset = Math.Max(0, startIndex);
+        var count = Math.Clamp(limit, 1, 10000);
+        return Ok(new
+        {
+            ItemIds = section.ItemIds.Skip(offset).Take(count).ToArray(),
+            TotalRecordCount = section.ItemIds.Count,
+        });
+    }
+
     /// <summary>Serves the exact source logo selected for a collection in Collection Manager.</summary>
     [Authorize]
     [HttpGet("top-row-logo/{collectionId}")]
@@ -100,13 +127,13 @@ public sealed class HomeScreenClientController : ControllerBase
     [AllowAnonymous]
     [HttpGet("client.js")]
     [Produces("application/javascript")]
-    public ActionResult GetClientScript() => Embedded("Jellyfin.Plugin.HomeScreenSectionsManager.Web.homeScreenClient.js", "application/javascript");
+    public ActionResult GetClientScript() => Embedded("Jellyfin.Plugin.HomeScreenSectionsManager.Web.homeScreenClient.js", "application/javascript", true);
 
     /// <summary>Serves the embedded Home Screen Manager browser styles.</summary>
     [AllowAnonymous]
     [HttpGet("client.css")]
     [Produces("text/css")]
-    public ActionResult GetClientStyles() => Embedded("Jellyfin.Plugin.HomeScreenSectionsManager.Web.homeScreenClient.css", "text/css");
+    public ActionResult GetClientStyles() => Embedded("Jellyfin.Plugin.HomeScreenSectionsManager.Web.homeScreenClient.css", "text/css", true);
 
     /// <summary>Serves a stable no-cache bootstrap so a catalog update always loads the installed browser-client version.</summary>
     [AllowAnonymous]
@@ -152,7 +179,7 @@ public sealed class HomeScreenClientController : ControllerBase
     [Produces("text/plain")]
     public ActionResult GetAbyssLicense() => Embedded("Jellyfin.Plugin.HomeScreenSectionsManager.ThirdParty.Abyss.LICENSE", "text/plain");
 
-    private ActionResult Embedded(string resourceName, string contentType)
+    private ActionResult Embedded(string resourceName, string contentType, bool cacheWhenVersioned = false)
     {
         var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(resourceName);
         if (stream is null)
@@ -160,9 +187,52 @@ public sealed class HomeScreenClientController : ControllerBase
             return NotFound();
         }
 
-        Response.Headers.CacheControl = "no-store, no-cache, must-revalidate, max-age=0";
-        Response.Headers.Pragma = "no-cache";
-        Response.Headers.Expires = "0";
+        if (cacheWhenVersioned && Request.Query.ContainsKey("v"))
+        {
+            Response.Headers.CacheControl = "private, max-age=31536000, immutable";
+        }
+        else
+        {
+            Response.Headers.CacheControl = "no-store, no-cache, must-revalidate, max-age=0";
+            Response.Headers.Pragma = "no-cache";
+            Response.Headers.Expires = "0";
+        }
+
         return File(stream, contentType);
     }
+
+    private static object ClientSection(HomeScreenSectionDefinition section) => new
+    {
+        section.Id,
+        section.Name,
+        section.PageId,
+        section.Type,
+        section.SourceIds,
+        ItemIds = section.ItemIds.Take(InitialSectionItemIdLimit).ToArray(),
+        ItemCount = section.ItemIds.Count,
+        ItemIdTail = section.ItemIds.TakeLast(5).ToArray(),
+        section.ContentOrder,
+        section.MaxItems,
+        section.ArtSize,
+        section.ArtType,
+        section.ArtShape,
+        section.DisplayLogosOnly,
+        section.ShowText,
+        section.ShowSectionName,
+        section.IsVisible,
+        section.IsMediaBar,
+        section.DisplayTopCount,
+        section.ShowRankNumbers,
+        section.RankNumberColorMode,
+        section.RankNumberColorOne,
+        section.RankNumberColorTwo,
+        section.RankNumberShadowColor,
+        section.RankNumberFontDataUrl,
+        section.ActivityMaxItems,
+        section.ActivityMediaType,
+        section.Drafts,
+        section.RotationIntervalMinutes,
+        section.RotationStartUnixMilliseconds,
+        section.IsApplied,
+    };
 }

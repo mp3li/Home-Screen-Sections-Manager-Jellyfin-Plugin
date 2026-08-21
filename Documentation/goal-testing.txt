@@ -35,9 +35,14 @@ Current dashboard checks
       corresponding Collection Manager tabs.
 - [ ] Confirm collection/tag/library choices show the expected Content In
       Section media and row modes show primary images.
-- [ ] Confirm every image-based Content In Section preview shows 20 items per
-      page with working Previous/Next controls, while Manual ordering shows the
-      full text-only draggable list.
+- [ ] Confirm every image-based Content In Section preview shows 16 items per
+      page with working Previous/Next controls, an unchanged large edit retains
+      every saved ID, and the explicit manual-order action loads the full
+      text-only draggable list only when requested.
+- [ ] Throttle or hold the Jellyfin library and collection catalog requests,
+      then confirm Select Content opens immediately, each catalog reports its
+      own failure without losing the draft, and no saved-ID request contains
+      more than 16 IDs or returns HTTP 400 through the remote reverse proxy.
 - [ ] Confirm the collection, library, and metadata-tag source pickers for
       Rotating Sections and Seasonal Sections are all collapsed by default.
 - [ ] Confirm each selected collection, library, or metadata tag creates one visible draft,

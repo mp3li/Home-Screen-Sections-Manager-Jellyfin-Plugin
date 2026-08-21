@@ -6,6 +6,16 @@
 
 <p align="center"><strong>Early testing build:</strong> this release lets you design, order, save, and add custom sections to Jellyfin Web's home screen while keeping Jellyfin's native home rows in the same hybrid layout.</p>
 
+## Current development phase
+
+The first phase of this project deliberately asked whether these home-screen,
+navigation, Media Bar, and per-user section ideas were possible in Jellyfin Web
+at all. The current phase is different: the functionality exists, so work is
+now focused on load time, request efficiency, caching, bounded payloads, and
+remote-user behavior without regressing established features. The detailed
+support and performance boundaries are recorded in
+[the architecture audit](Documentation/PERFORMANCE_AND_ARCHITECTURE.md).
+
 ## Current dashboard tabs
 
 - Main Settings

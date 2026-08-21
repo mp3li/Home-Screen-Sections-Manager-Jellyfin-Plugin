@@ -34,6 +34,7 @@ def run() -> None:
             {"Id": "jellyfin-0-resume", "Name": "Continue Watching", "PageId": "home", "Type": "resume", "ItemIds": [], "SourceIds": [], "MaxItems": 3, "IsApplied": True, "IsVisible": True, "IsMediaBar": False, "ArtSize": "large", "ArtType": "thumb", "ArtShape": "circle", "ShowText": False, "ShowSectionName": False},
             {"Id": "manager-home-top", "Name": "Top 20 in Foreign Collection With A Deliberately Long Custom Section Name", "PageId": "home", "Type": "top-10-50", "SourceIds": ["collection|top-source"], "ItemIds": [], "DisplayTopCount": 20, "ShowRankNumbers": True, "RankNumberColorMode": "horizontal-gradient", "RankNumberColorOne": "#ff0000", "RankNumberColorTwo": "#0000ff", "RankNumberShadowColor": "#123456", "IsApplied": True, "IsVisible": True, "IsMediaBar": False},
             {"Id": "manager-home-test", "Name": "Test Section", "PageId": "home", "Type": "manual-content", "ItemIds": ["resume-two"], "ArtSize": "extra-small", "ArtShape": "wide", "ShowSectionName": False, "IsApplied": True, "IsVisible": True, "IsMediaBar": False},
+            {"Id": "manager-home-large", "Name": "Large Home Section", "PageId": "home", "Type": "manual-content", "ItemIds": [f"home-lazy-{index:02d}" for index in range(16)], "ItemCount": 80, "ArtSize": "extra-small", "ArtShape": "wide", "ShowSectionName": True, "IsApplied": True, "IsVisible": True, "IsMediaBar": False},
             {"Id": "manager-movies-one", "Name": "Movie Picks", "PageId": "manager-page-movies", "Type": "manual-content", "ItemIds": ["resume-one"], "IsApplied": True, "IsVisible": True, "IsMediaBar": True},
             {"Id": "manager-movies-two", "Name": "More Movies", "PageId": "manager-page-movies", "Type": "manual-content", "ItemIds": ["resume-two"], "IsApplied": True, "IsVisible": True, "IsMediaBar": True},
             {"Id": "manager-watch-again", "Name": "Watch Again", "PageId": "manager-page-movies", "Type": "watch-again", "ItemIds": [], "SourceIds": [], "ContentOrder": "completed-descending", "IsApplied": True, "IsVisible": True, "IsMediaBar": True},
@@ -41,15 +42,16 @@ def run() -> None:
             {"Id": "manager-books", "Name": "Audiobooks", "PageId": "manager-page-movies", "Type": "manual-content", "ItemIds": ["audio-book-one"], "SourceIds": [], "ArtType": "primary", "ArtShape": "book", "ShowText": True, "IsApplied": True, "IsVisible": True, "IsMediaBar": False},
             {"Id": "manager-recent-songs", "Name": "Songs Recently Listened To", "PageId": "manager-page-movies", "Type": "recently-listened-songs", "ItemIds": [], "SourceIds": [], "ContentOrder": "completed-descending", "ArtType": "primary", "ArtShape": "square", "ShowText": True, "IsApplied": True, "IsVisible": True, "IsMediaBar": False},
             {"Id": "manager-library", "Name": "Library Items", "PageId": "manager-page-movies", "Type": "library-content", "ItemIds": ["year-folder", "actual-movie"], "SourceIds": ["library-one"], "IsApplied": True, "IsVisible": True, "IsMediaBar": False},
+            {"Id": "manager-lazy-large", "Name": "Large Lazy Section", "PageId": "manager-page-movies", "Type": "manual-content", "ItemIds": [f"lazy-{index:02d}" for index in range(16)], "ItemCount": 80, "ItemIdTail": [f"lazy-{index:02d}" for index in range(75, 80)], "SourceIds": [], "IsApplied": True, "IsVisible": True, "IsMediaBar": False},
             {"Id": "manager-movies-hidden", "Name": "Saved for Later", "PageId": "manager-page-movies", "Type": "manual-content", "ItemIds": ["liked-one"], "IsApplied": True, "IsVisible": False, "IsMediaBar": False},
             {"Id": "my-list-content", "Name": "Added to My List", "PageId": "my-list", "Type": "my-list-content", "ItemIds": [], "IsApplied": True, "IsVisible": True, "IsMediaBar": True, "ArtShape": "circle"},
         ],
-        "SectionOrder": ["jellyfin-0-resume", "manager-home-top", "manager-home-test"],
+        "SectionOrder": ["jellyfin-0-resume", "manager-home-top", "manager-home-test", "manager-home-large"],
         "Pages": [{"Id": "my-list", "Name": "My List"}, {"Id": "manager-page-movies", "Name": "Movies"}],
         "PageOrder": ["home", "favorites", "my-list", "manager-page-movies"],
         "PageLayouts": [
-            {"PageId": "home", "SectionOrder": ["jellyfin-0-resume", "manager-home-top", "manager-home-test"]},
-            {"PageId": "manager-page-movies", "SectionOrder": ["manager-movies-one", "manager-movies-two", "manager-watch-again", "manager-continue", "manager-books", "manager-recent-songs", "manager-library", "hidden:manager-movies-hidden"]},
+            {"PageId": "home", "SectionOrder": ["jellyfin-0-resume", "manager-home-top", "manager-home-test", "manager-home-large"]},
+            {"PageId": "manager-page-movies", "SectionOrder": ["manager-movies-one", "manager-movies-two", "manager-watch-again", "manager-continue", "manager-books", "manager-recent-songs", "manager-library", "manager-lazy-large", "hidden:manager-movies-hidden"]},
             {"PageId": "my-list", "SectionOrder": ["my-list-content"]},
         ],
         "EnableMyList": True,
@@ -118,6 +120,8 @@ def run() -> None:
     resume["CommunityRating"] = 8.8
     resume_two["CommunityRating"] = 7.7
     top_row_items = [base_item(f"{index:032x}", f"Collection {index}", "BoxSet") for index in range(1, 17)]
+    lazy_items = [base_item(f"lazy-{index:02d}", f"Lazy Item {index:02d}") for index in range(80)]
+    home_lazy_items = [base_item(f"home-lazy-{index:02d}", f"Home Lazy Item {index:02d}") for index in range(80)]
     del top_row_items[-1]["ImageTags"]["Primary"]
     settings["TopRowSection"]["SourceIds"] = [item["Id"] for item in top_row_items]
     settings["TopRowSection"]["ItemIds"] = [item["Id"] for item in top_row_items]
@@ -129,7 +133,7 @@ def run() -> None:
     ]
     first_top_row_id = top_row_items[0]["Id"]
     missing_top_row_id = top_row_items[-1]["Id"]
-    items_by_id = {item["Id"]: item for item in [resume, resume_two, resume_three, series_two, liked, liked_opaque, watched_movie, watched_series, watched_episode_one, watched_episode_two, watched_special, audio_book, recent_song, genre_drama, year_folder, actual_movie, *top_row_items]}
+    items_by_id = {item["Id"]: item for item in [resume, resume_two, resume_three, series_two, liked, liked_opaque, watched_movie, watched_series, watched_episode_one, watched_episode_two, watched_special, audio_book, recent_song, genre_drama, year_folder, actual_movie, *top_row_items, *lazy_items, *home_lazy_items]}
     requests: list[str] = []
     page_errors: list[str] = []
 
@@ -145,6 +149,13 @@ def run() -> None:
             query = parse_qs(url.query)
             if path.endswith("/client-settings"):
                 route.fulfill(status=200, content_type="application/json", body=json.dumps(settings))
+            elif path.endswith("/HomeScreenSectionsManager/my-list-item-ids"):
+                route.fulfill(status=200, content_type="application/json", body=json.dumps({"ItemIds": ["liked-one", "liked-opaque"], "TotalRecordCount": 2}))
+            elif "/HomeScreenSectionsManager/sections/" in path and path.endswith("/item-ids"):
+                start = int(query.get("startIndex", ["0"])[0])
+                limit = int(query.get("limit", ["16"])[0])
+                source_items = home_lazy_items if "/manager-home-large/" in path else lazy_items
+                route.fulfill(status=200, content_type="application/json", body=json.dumps({"ItemIds": [item["Id"] for item in source_items[start:start + limit]], "TotalRecordCount": len(source_items)}))
             elif path.endswith("/HomeScreenSectionsManager/recent-listening"):
                 route.fulfill(status=200, content_type="application/json", body=json.dumps({"ItemIds": ["recent-song-one"]}))
             elif path.endswith("/Users/user/Views"):
@@ -239,7 +250,21 @@ def run() -> None:
               getAncestorItems: () => Promise.resolve([{ Id:'library-one', Name:'Movies', Type:'CollectionFolder' }]),
               updateUserItemRating: () => Promise.resolve({ Likes:true })
             };
-            window.CustomElements = { upgradeSubtree(){} };
+            window.CustomElements = { upgradeSubtree(root){
+              const candidates=[];
+              if(root && root.matches && root.matches('[is="emby-scroller"]'))candidates.push(root);
+              if(root && root.querySelectorAll)candidates.push(...root.querySelectorAll('[is="emby-scroller"]'));
+              candidates.forEach(scroller => {
+                if(scroller.__hssmNativeScrollerTestDouble)return;
+                scroller.__hssmNativeScrollerTestDouble=true;
+                scroller._hssmTestScrollPosition=0;
+                scroller.getScrollPosition=()=>Number(scroller._hssmTestScrollPosition||0);
+                scroller.getScrollSize=()=>Number(scroller.dataset.hssmTestScrollSize||scroller.querySelector('.scrollSlider')?.scrollWidth||scroller.scrollWidth||0);
+                scroller.addScrollEventListener=(handler,options)=>scroller.addEventListener('scrollanimate',handler,options);
+                scroller.removeScrollEventListener=(handler,options)=>scroller.removeEventListener('scrollanimate',handler,options);
+                scroller.scrollToPosition=position=>{ scroller._hssmTestScrollPosition=Number(position)||0; scroller.dispatchEvent(new Event('scrollanimate')); };
+              });
+            } };
             window.__playedIds = [];
             document.addEventListener('click', event => {
               const play = event.target.closest('[data-action="resume"]');
@@ -379,6 +404,23 @@ def run() -> None:
         assert small_heart_hover_width > proportional_controls["smallHeart"] and small_heart_hover_width <= proportional_controls["mediumHeart"], {"before": proportional_controls["smallHeart"], "hover": small_heart_hover_width, "normal": proportional_controls["mediumHeart"]}
         assert page.locator("#homeTab [data-hssm-section-id='manager-home-top'] .hssm-rank-number").count() == 2
         assert page.locator("#homeTab [data-hssm-section-id='manager-home-top']").evaluate("node => node.classList.contains('hssm-top-ranked')")
+
+        # A Jellyfin-style Home row treats Maximum Items as a ceiling. The
+        # first 16 are present now; transform-scroller movement requests only
+        # the next 16 through Jellyfin's scrollanimate-aware API.
+        home_large = page.locator("#homeTab [data-hssm-section-id='manager-home-large']")
+        assert home_large.locator(".hssm-client-card").count() == 16
+        assert not any("/HomeScreenSectionsManager/sections/manager-home-large/item-ids" in request and "startIndex=16" in request for request in requests), requests
+        home_large.locator(".hssm-client-scroller").evaluate("""scroller => {
+          scroller.dataset.hssmTestScrollSize='5000';
+          scroller._hssmTestScrollPosition=4400;
+          scroller.dispatchEvent(new Event('scrollanimate'));
+        }""")
+        page.wait_for_selector("#homeTab [data-hssm-section-id='manager-home-large'] .hssm-client-card[data-id='home-lazy-16']")
+        assert home_large.locator(".hssm-client-card").count() == 32
+        assert any("/HomeScreenSectionsManager/sections/manager-home-large/item-ids" in request and "startIndex=16" in request and "limit=16" in request for request in requests), requests
+        assert home_large.locator(".hssm-client-scroller").evaluate("scroller => scroller.getScrollPosition()") == 4400
+
         rank_geometry = page.locator("#homeTab [data-hssm-section-id='manager-home-top'] .hssm-rank-number").first.evaluate("node => { const box=node.getBoundingClientRect(), scalable=node.closest('.cardScalable').getBoundingClientRect(), style=getComputedStyle(node), glyph=getComputedStyle(node.querySelector('.hssm-rank-glyph')), image=getComputedStyle(node.closest('.cardScalable').querySelector(':scope > .cardImageContainer')); return {width:box.width,height:box.height,fontSize:parseFloat(style.fontSize),display:style.display,visibility:style.visibility,bottomDelta:Math.abs(box.bottom-scalable.bottom),rankZ:Number(style.zIndex),imageZ:Number(image.zIndex),backgroundImage:glyph.backgroundImage,textFill:glyph.webkitTextFillColor,filter:style.filter,shadow:getComputedStyle(node.closest('.hssm-client-section')).getPropertyValue('--hssm-rank-shadow').trim()}; }")
         assert rank_geometry["width"] > 20 and rank_geometry["height"] > 20 and rank_geometry["fontSize"] > 40 and rank_geometry["display"] != "none" and rank_geometry["visibility"] == "visible", rank_geometry
         assert rank_geometry["bottomDelta"] < 1 and rank_geometry["rankZ"] < rank_geometry["imageZ"], rank_geometry
@@ -540,8 +582,10 @@ def run() -> None:
             """() => {
               window.__baseFetchForLaneTest=window.fetch;
               window.__abortedSlowRequests=0;
+              window.__startedSlowRequests=0;
               window.fetch=(url, options) => String(url).includes('slow-')
                 ? new Promise((resolve, reject) => {
+                    window.__startedSlowRequests += 1;
                     const timer=setTimeout(() => resolve(new Response(JSON.stringify({Items:[{Id:'slow-item',Name:'Slow Item',Type:'Movie',ImageTags:{Primary:'x'},UserData:{}}]}), {status:200,headers:{'content-type':'application/json'}})), 1400);
                     if (options && options.signal) options.signal.addEventListener('abort', () => {
                       clearTimeout(timer);
@@ -558,6 +602,10 @@ def run() -> None:
             }"""
         )
         page.wait_for_selector("#homeTab [data-hssm-section-id='manager-home-slow-0'][data-hssm-loading='true']")
+        page.wait_for_timeout(150)
+        assert page.evaluate("window.__startedSlowRequests") == 0
+        page.locator("#homeTab [data-hssm-section-id='manager-home-slow-0']").evaluate("node => node.scrollIntoView({block:'center'})")
+        page.wait_for_function("window.__startedSlowRequests > 0")
         custom_start = page.evaluate("performance.now()")
         page.locator(".hssm-custom-page-tab[data-hssm-page-id='manager-page-movies']").click()
         page.wait_for_selector(".hssm-owned-custom-page.is-active [data-hssm-section-id='manager-movies-one'] .hssm-client-card", timeout=900)
@@ -573,8 +621,12 @@ def run() -> None:
         page.evaluate("window.HomeScreenManagerClient.invalidate(); window.HomeScreenManagerClient.refresh();")
         page.wait_for_selector("#indexPage > .hssm-top-row[data-hssm-top-row-id='movies-page-top-row']")
         page.wait_for_selector(".hssm-owned-custom-page.is-active [data-hssm-section-id='manager-movies-one'] .hssm-client-card")
+        first_section_header = page.locator(".hssm-owned-custom-page.is-active [data-hssm-section-id='manager-movies-one'] > .hssm-section-title-with-art")
+        page.wait_for_function("node => node.style.backgroundImage.includes('/Items/resume-one/Images/Primary')", arg=first_section_header.element_handle())
+        page.locator(".hssm-owned-custom-page.is-active [data-hssm-section-id='manager-continue']").evaluate("node => node.scrollIntoView({block:'center'})")
         continue_episode = page.locator(".hssm-owned-custom-page.is-active [data-hssm-section-id='manager-continue'] .hssm-client-card[data-id='resume-two']")
         continue_episode.wait_for(state="attached")
+        page.wait_for_function("node => node.style.backgroundImage.includes('/Items/series-two/Images/Primary')", arg=continue_episode.locator(".cardContent").element_handle())
         assert continue_episode.locator(".hssm-card-title").inner_text().strip() == "Resume Two S00E00 Series Two"
         assert continue_episode.locator(".hssm-card-year").count() == 0
         secondary_line = page.locator(".hssm-owned-custom-page.is-active [data-hssm-section-id='manager-movies-one'] .hssm-card-year").first
@@ -584,6 +636,7 @@ def run() -> None:
         page.wait_for_function("node => node.querySelector('bdi').classList.contains('hssm-marquee-title')", arg=secondary_line.element_handle())
         assert "/Items/series-two/Images/Primary" in continue_episode.locator(".cardContent").get_attribute("style")
         assert any("/Users/user/Items/Resume" in request and "ParentId=library-one" in request for request in requests), requests
+        page.locator(".hssm-owned-custom-page.is-active [data-hssm-section-id='manager-watch-again']").evaluate("node => node.scrollIntoView({block:'center'})")
         page.wait_for_selector(".hssm-owned-custom-page.is-active .hssm-section-media-bar[data-hssm-media-section-id='manager-movies-two']")
         page.wait_for_selector(".hssm-owned-custom-page.is-active [data-hssm-section-id='manager-watch-again'] .hssm-client-card[data-id='watched-movie']")
         page.wait_for_selector(".hssm-owned-custom-page.is-active [data-hssm-section-id='manager-watch-again'] .hssm-client-card[data-id='watched-episode-two']")
@@ -609,6 +662,7 @@ def run() -> None:
         assert page.locator(".hssm-owned-custom-page.is-active [data-hssm-section-id='manager-watch-again'] .hssm-client-card").first.get_attribute("data-id") == "watched-episode-two"
         assert page.locator(".hssm-owned-custom-page.is-active [data-hssm-section-id='manager-watch-again'] .hssm-client-card[data-type='Episode']").count() == 1
         watch_again_episode = page.locator(".hssm-owned-custom-page.is-active [data-hssm-section-id='manager-watch-again'] .hssm-client-card[data-id='watched-episode-two']")
+        page.wait_for_function("node => node.style.backgroundImage.includes('/Items/watched-series/Images/Primary')", arg=watch_again_episode.locator(".cardContent").element_handle())
         assert watch_again_episode.locator(".hssm-card-title").inner_text().strip() == "A Completed Episode With A Deliberately Very Long Title For Marquee Testing S01E02 Completed Series"
         assert "/Items/watched-series/Images/Primary" in watch_again_episode.locator(".cardContent").get_attribute("style")
         custom_page_state = page.evaluate(
@@ -621,17 +675,29 @@ def run() -> None:
               topPadding: parseFloat(getComputedStyle(document.querySelector('.hssm-owned-custom-page.is-active')).paddingTop)
             })"""
         )
-        assert {key: value for key, value in custom_page_state.items() if key != "topPadding"} == {"titleAbsent": True, "visibleSections": 7, "hiddenSectionAbsent": True, "mediaBars": 3, "lowerBarMarked": True}, custom_page_state
+        assert {key: value for key, value in custom_page_state.items() if key != "topPadding"} == {"titleAbsent": True, "visibleSections": 8, "hiddenSectionAbsent": True, "mediaBars": 3, "lowerBarMarked": True}, custom_page_state
         assert custom_page_state["topPadding"] >= 60, custom_page_state
+        page.locator(".hssm-owned-custom-page.is-active [data-hssm-section-id='manager-books']").evaluate("node => node.scrollIntoView({block:'center'})")
         book_card = page.locator(".hssm-owned-custom-page.is-active [data-hssm-section-id='manager-books'] .hssm-client-card[data-id='audio-book-one']")
+        book_card.wait_for(state="attached")
         assert book_card.locator(".hssm-card-title").inner_text().strip() == "The Long Book"
         assert book_card.locator(".hssm-card-author").inner_text().strip() == "Excellent Author"
         book_art = book_card.locator(".cardContent").evaluate("node => ({fit:getComputedStyle(node).backgroundSize,ratio:node.closest('.cardScalable').getBoundingClientRect().height/node.closest('.cardScalable').getBoundingClientRect().width})")
         assert book_art["fit"] == "contain" and 1.45 <= book_art["ratio"] <= 1.55, book_art
+        page.locator(".hssm-owned-custom-page.is-active [data-hssm-section-id='manager-recent-songs']").evaluate("node => node.scrollIntoView({block:'center'})")
         page.wait_for_selector(".hssm-owned-custom-page.is-active [data-hssm-section-id='manager-recent-songs'] .hssm-client-card[data-id='recent-song-one']")
         assert any("/HomeScreenSectionsManager/recent-listening" in url for url in requests), requests
+        page.locator(".hssm-owned-custom-page.is-active [data-hssm-section-id='manager-library']").evaluate("node => node.scrollIntoView({block:'center'})")
         page.wait_for_selector(".hssm-owned-custom-page.is-active [data-hssm-section-id='manager-library'] .hssm-client-card[data-id='actual-movie']")
         assert page.locator(".hssm-owned-custom-page.is-active [data-hssm-section-id='manager-library'] .hssm-client-card[data-id='year-folder']").count() == 0
+        lazy_section = page.locator(".hssm-owned-custom-page.is-active [data-hssm-section-id='manager-lazy-large']")
+        lazy_section.evaluate("node => node.scrollIntoView({block:'center'})")
+        page.wait_for_selector(".hssm-owned-custom-page.is-active [data-hssm-section-id='manager-lazy-large'] .hssm-client-card[data-id='lazy-00']")
+        initial_lazy_images = [request for request in requests if "/Items/lazy-" in request and "/Images/" in request]
+        assert 0 < len(initial_lazy_images) < 16, initial_lazy_images
+        lazy_section.locator(".hssm-client-scroller").evaluate("scroller => scroller._hssmSetOwnedOffset(100000)")
+        page.wait_for_selector(".hssm-owned-custom-page.is-active [data-hssm-section-id='manager-lazy-large'] .hssm-client-card[data-id='lazy-16']")
+        assert any("/HomeScreenSectionsManager/sections/manager-lazy-large/item-ids" in request and "startIndex=16" in request for request in requests), requests
         custom_logo = page.frame_locator(".hssm-section-media-bar[data-hssm-media-section-id='manager-movies-two']").locator("#logo")
         custom_logo.wait_for(state="visible")
         assert "/Items/series-two/Images/Logo" in custom_logo.get_attribute("src")
@@ -789,7 +855,7 @@ def run() -> None:
         page.evaluate("window.HomeScreenManagerClient.invalidate(); window.HomeScreenManagerClient.refresh();")
         page.wait_for_function("document.querySelector('.emby-tab-button[data-index=\"1\"]').classList.contains('hssm-hidden-page-tab')")
         page.wait_for_function("!document.body.classList.contains('hssm-title-marquee-enabled') && !document.querySelector('.hssm-marquee-title')")
-        assert any("Filters=Likes" in url and "ParentId=library-one" in url for url in requests), requests
+        assert any("/HomeScreenSectionsManager/my-list-item-ids" in url and "limit=16" in url for url in requests), requests
         item_queries = [parse_qs(urlparse(url).query) for url in requests if urlparse(url).path.endswith("/Users/user/Items")]
         assert any(query.get("Ids") == ["resume-one"] and query.get("EnableImageTypes") == ["Primary,Thumb,Backdrop,Logo"] for query in item_queries), item_queries
         assert any(query.get("Fields") == ["UserData"] and query.get("EnableImages") == ["false"] for query in item_queries), item_queries

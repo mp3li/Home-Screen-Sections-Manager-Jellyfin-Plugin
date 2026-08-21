@@ -10,30 +10,42 @@ libraries, or explicitly selected items while retaining Jellyfin's own rows.
 
 Current scope
 -------------
-The plugin currently provides three Dashboard tabs:
+The plugin currently provides five Dashboard tabs:
 
 1. Main Settings
 2. Customization Settings
-3. Create and Manage Home Screen Sections
+3. Create and Manage Top Rows
+4. Create and Manage Home Screen Sections
+5. Create and Manage Home Screen Pages
 
-Main Settings is intentionally empty.
-Customization Settings applies supported Abyss variables through Jellyfin's
-branding configuration. Create and Manage Home Screen Sections reads the
-current user's official Jellyfin home-section display preferences, combines
-them with saved plugin drafts, and saves their hybrid order. It also saves each plugin section's
-type and selected manual, collection, tag, or library source.
+The plugin now renders its own rows and pages in Jellyfin Web, integrates Top
+Rows and Media Bars, provides per-user My List and automatic sections, and
+preserves Jellyfin's native rows in the hybrid layout. The detailed current
+surface is maintained in README.md and JELLYFIN_10.11.11_COMPATIBILITY_AUDIT.md.
 
-This release does not inject or render plugin sections on the home screen. It
-does not create collections, change media metadata, write NFO files, call
-outside services, or start background work.
+Project phase history
+---------------------
+The first implementation phase was exploratory: it established whether custom
+home sections, pages, hybrid ordering, Media Bars, Top Rows, and the companion
+plugin workflows were possible at all without replacing Jellyfin Web files.
+
+The current phase is optimization. Existing behavior must be preserved while
+load time, request count, request ordering, payload size, caching, cancellation,
+and remote playback contention are made production-worthy. Custom rows use a
+Jellyfin/Kefin-sized first page of 16 items, load only near the viewport, and
+page further content on horizontal demand. Card and visible section-header
+artwork uses the same viewport-gated loader. Header artwork reuses an already
+resolved section item image rather than performing an additional metadata scan.
 
 Implementation boundary
 -----------------------
-Before a feature is added, its exact Jellyfin 10.11.11 public extension point
-must be verified in both the official Jellyfin source/documentation and the
-local Jellyfin Plugin Base. A feature must not claim to change a Jellyfin home
-screen unless the target-version API supports it and a real-server test records
-the result.
+Before a feature is added, its Jellyfin 10.11.11 server API, plugin API, or
+version-pinned Jellyfin Web contract must be identified. Custom web rows are an
+additive injected-client integration, not an official Jellyfin plugin extension
+point. KefinTweaks is a useful behavioral reference, not a Jellyfin 10.11.11
+support authority; its own documentation describes 10.11.x as untested and
+unsupported. A source/build/browser-fixture result must not be reported as a
+real-server result.
 
 Compatibility and packaging requirements
 ----------------------------------------

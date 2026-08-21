@@ -1068,7 +1068,7 @@
             }
             function nativeCollections() {
                 const id = currentUserId();
-                return ApiClient.getJSON(ApiClient.getUrl('Users/' + encodeURIComponent(id) + '/Items', { IncludeItemTypes:'BoxSet', Recursive:true, Fields:'Overview,ChildCount', Limit:1000 })).then(result => (result.Items || result.items || []).map(item => ({ Id:item.Id || item.id, Name:item.Name || item.name, MediaItems:Number(item.ChildCount || item.childCount || 0) })));
+                return ApiClient.getJSON(ApiClient.getUrl('Users/' + encodeURIComponent(id) + '/Items', { IncludeItemTypes:'BoxSet', Recursive:true, Fields:'ChildCount', EnableImages:false, EnableTotalRecordCount:false, Limit:1000 })).then(result => (result.Items || result.items || []).map(item => ({ Id:item.Id || item.id, Name:item.Name || item.name, MediaItems:Number(item.ChildCount || item.childCount || 0) })));
             }
             function loadCatalogs() {
                 if (catalogsLoaded) return Promise.resolve();
@@ -1405,7 +1405,7 @@
             const page = document.getElementById('homeScreenSectionsManagerPage');
             const host = page && page.querySelector('#hssmTypeSpecificSettings');
             if (!page || !host) return;
-            const state = { id:'', name:'', type:'', pageId:'home', isVisible:true, isMediaBar:false, isApplied:false, isEditing:false, nativeOnly:false, nativeAvailableItems:0, sources:[], items:{}, resolvedItemIds:[], contentItems:[], contentItemOrder:[], savedItemIds:[], contentSelectionDirty:false, savedPreviewLoadId:0, draggedContentId:null, contentPage:1, contentOrder:'title-ascending', maxItems:0, artSize:'medium', artType:'automatic', artShape:'poster', showText:true, showSectionName:true, libraries:[], collections:[], manual:{}, manualStates:{}, tagSearch:'', tagSources:{}, tagTypeLoadIds:{}, tagCatalogLoadId:0, drafts:[], draftLibraryIds:[], draggedDraftId:null, rotationValue:1, rotationUnit:'days', draftPreviewLoadId:0, topLoadRunning:false, topPending:null, displayTop:10, showRankNumbers:true, rankNumberColorMode:'solid', rankNumberColorOne:'#f5f5f7', rankNumberColorTwo:'#f5f5f7', rankNumberShadowColor:'#000000', rankNumberFontDataUrl:'', activityMaxItems:20, activityMediaType:'movies', activityPreviewLoadId:0 };
+            const state = { id:'', name:'', type:'', pageId:'home', isVisible:true, isMediaBar:false, isApplied:false, isEditing:false, nativeOnly:false, nativeAvailableItems:0, sources:[], items:{}, resolvedItemIds:[], contentItems:[], contentItemOrder:[], savedItemIds:[], contentSelectionDirty:false, savedPreviewLoadId:0, editorLoadId:0, draggedContentId:null, contentPage:1, contentOrder:'title-ascending', maxItems:0, artSize:'medium', artType:'automatic', artShape:'poster', showText:true, showSectionName:true, libraries:[], collections:[], manual:{}, manualStates:{}, tagSearch:'', tagSources:{}, tagTypeLoadIds:{}, tagCatalogLoadId:0, drafts:[], draftLibraryIds:[], draggedDraftId:null, rotationValue:1, rotationUnit:'days', draftPreviewLoadId:0, topLoadRunning:false, topPending:null, displayTop:10, showRankNumbers:true, rankNumberColorMode:'solid', rankNumberColorOne:'#f5f5f7', rankNumberColorTwo:'#f5f5f7', rankNumberShadowColor:'#000000', rankNumberFontDataUrl:'', activityMaxItems:20, activityMediaType:'movies', activityPreviewLoadId:0 };
             const esc = value => { const el = document.createElement('span'); el.textContent = value == null ? '' : String(value); return el.innerHTML; };
             const cm = path => ApiClient.getJSON(ApiClient.getUrl('CollectionManager/' + path));
             const cmPost = (path, body) => ApiClient.ajax({ type:'POST', url:ApiClient.getUrl('CollectionManager/' + path), data:JSON.stringify(body), contentType:'application/json', dataType:'json' });
@@ -1458,18 +1458,8 @@
                 return Promise.resolve(request).then(result => (result.Items || result.items || []).map(item => ({ Id:item.Id || item.id, ItemId:item.Id || item.id, Name:item.Name || item.name })));
             }
             function nativeCollections() {
-                return itemQuery({ IncludeItemTypes:'BoxSet', Recursive:true, Fields:'Overview,ChildCount', Limit:1000 }).then(result => (result.Items || result.items || []).map(item => ({ Id:item.Id || item.id, Name:item.Name || item.name, MediaItems:Number(item.ChildCount || item.childCount || 0) })));
+                return itemQuery({ IncludeItemTypes:'BoxSet', Recursive:true, Fields:'ChildCount', EnableImages:false, EnableTotalRecordCount:false, Limit:1000 }).then(result => (result.Items || result.items || []).map(item => ({ Id:item.Id || item.id, Name:item.Name || item.name, MediaItems:Number(item.ChildCount || item.childCount || 0) })));
             }
-            function setupData() {
-                state.collectionManagerConfiguration = {};
-                const needsLibraries = kind() === 'manual-content' || isLibraryType() || isTagType() || isDraftType() || isTopType();
-                const needsCollections = isCollectionType() || isDraftType() || isTopType();
-                const requests = [];
-                if (needsLibraries) requests.push(nativeLibraries().then(libraries => { state.libraries = libraries; }));
-                if (needsCollections) requests.push(nativeCollections().then(collections => { state.collections = collections; }));
-                return Promise.all(requests).then(() => state);
-            }
-
             function manualMarkup() {
                 return '<section class="hssm-conditional-section"><h2>Select Media</h2><p class="fieldDescription">Select media from any combination of your Jellyfin libraries to display in this section. Every selected media item will be shown together in the Content In Section area below.</p><div data-hssm-manual-libraries><p class="fieldDescription">Open a library to choose media for your section.</p></div></section>' + contentMarkup();
             }
@@ -1681,22 +1671,30 @@
                 const editor = host.querySelector('[data-hssm-manual-order]');
                 const list = host.querySelector('[data-hssm-manual-order-list]');
                 if (!editor || !list) return;
+                const previousNote = editor.querySelector('[data-hssm-manual-order-note]');
+                if (previousNote) previousNote.remove();
                 const isManual = state.contentOrder === 'manual';
                 editor.hidden = !isManual;
                 if (!isManual) return;
-                list.innerHTML = state.contentItems.length ? state.contentItems.map(item => {
+                const loadedIds = new Set(state.contentItems.map(item => String(item.Id || item.id)));
+                const orderedItems = state.contentItemOrder.map(id => state.items[id]).filter(Boolean);
+                const incomplete = state.contentItemOrder.length > loadedIds.size && state.contentItemOrder.length > orderedItems.length;
+                list.innerHTML = orderedItems.length ? orderedItems.map(item => {
                     const id = String(item.Id || item.id), name = String(item.Name || item.name || 'Untitled content');
                     return '<div class="hssm-manual-order-row" draggable="true" data-hssm-manual-order-id="' + esc(id) + '"><span class="hssm-manual-order-handle" aria-hidden="true">⠿</span><span>' + esc(name) + '</span></div>';
                 }).join('') : '<p class="fieldDescription" style="padding:.75em">No content is currently available to order.</p>';
+                if (incomplete) list.insertAdjacentHTML('beforebegin', '<p class="fieldDescription" data-hssm-manual-order-note>Only the currently loaded items are shown here. Your complete saved order is preserved. <button is="emby-button" type="button" class="raised" data-hssm-load-manual-order>Load all selected items for reordering</button></p>');
             }
-            function itemCards(items, rowMode, allowRemove) {
+            function itemCards(items, rowMode, allowRemove, totalOverride) {
                 if (!items.length) return '<p class="fieldDescription">No content is currently selected.</p>';
-                const pageSize = 20, pages = Math.max(1, Math.ceil(items.length / pageSize));
+                const pageSize = 16, total = Math.max(items.length, Number(totalOverride) || 0), remotePage = total > items.length;
+                const pages = Math.max(1, Math.ceil((remotePage ? total : items.length) / pageSize));
                 state.contentPage = Math.min(Math.max(1, Number(state.contentPage) || 1), pages);
-                const visible = items.slice((state.contentPage - 1) * pageSize, state.contentPage * pageSize);
-                const pagination = pages > 1 ? '<div class="hssm-content-pagination"><button is="emby-button" type="button" class="raised" data-hssm-content-page="' + (state.contentPage - 1) + '"' + (state.contentPage <= 1 ? ' disabled' : '') + '>Previous Page</button><button is="emby-button" type="button" class="raised" data-hssm-content-page="' + (state.contentPage + 1) + '"' + (state.contentPage >= pages ? ' disabled' : '') + '>Next Page</button><span class="fieldDescription mcm-pagination-text">Page ' + state.contentPage + ' out of ' + pages + '</span></div>' : '';
-                if (!rowMode) return '<p class="fieldDescription">This collection will include ' + items.length + ' selected media item' + (items.length === 1 ? '' : 's') + '.</p>' + pagination + '<div class="mcm-collection-member-grid">' + visible.map(item => manualPickerItem(item, false, allowRemove === true)).join('') + '</div>';
-                return '<p class="fieldDescription">This section will include ' + items.length + ' selected item' + (items.length === 1 ? '' : 's') + '.</p>' + pagination + '<div class="hssm-preview-grid hssm-row-preview">' + visible.map(item => '<div class="hssm-preview-card">' + rowImage(item) + '<span class="hssm-preview-copy"><strong>' + esc(item.Name) + '</strong></span></div>').join('') + '</div>';
+                const visible = remotePage ? items : items.slice((state.contentPage - 1) * pageSize, state.contentPage * pageSize);
+                const pagination = pages > 1 ? '<div class="hssm-content-pagination"><button is="emby-button" type="button" class="raised" data-hssm-content-page="' + (state.contentPage - 1) + '"' + (state.contentPage <= 1 ? ' disabled' : '') + '>Previous Page</button><button is="emby-button" type="button" class="raised" data-hssm-content-page="' + (state.contentPage + 1) + '"' + (state.contentPage >= pages ? ' disabled' : '') + '>Next Page</button><span class="fieldDescription mcm-pagination-text">Page ' + state.contentPage + ' out of ' + pages + ' · loaded in batches of 16</span></div>' : '';
+                const summary = '<p class="fieldDescription">This section will include ' + total + ' selected ' + (rowMode ? 'item' : 'media item') + (total === 1 ? '' : 's') + '.</p>';
+                if (!rowMode) return summary + pagination + '<div class="mcm-collection-member-grid">' + visible.map(item => manualPickerItem(item, false, allowRemove === true)).join('') + '</div>';
+                return summary + pagination + '<div class="hssm-preview-grid hssm-row-preview">' + visible.map(item => '<div class="hssm-preview-card">' + rowImage(item) + '<span class="hssm-preview-copy"><strong>' + esc(item.Name) + '</strong></span></div>').join('') + '</div>';
             }
             function previewDraft(draft) {
                 if (draft.SourceType === 'collection' || draft.SourceType === 'library') return loadAllParentItems(draft.SourceId, 0, [], null, draft.SourceType === 'library');
@@ -1706,12 +1704,31 @@
             }
             function loadItemIds(ids) {
                 const values = (ids || []).map(String).filter(Boolean), chunks = [];
-                for (let index = 0; index < values.length; index += 100) chunks.push(values.slice(index, index + 100));
-                return chunks.reduce((work, chunk) => work.then(groups => itemQuery({ Ids:chunk.join(','), Fields:'Overview,PrimaryImageAspectRatio,Tags,CommunityRating,SortName,SeriesName,SeriesId' }).then(result => { groups.push(result.Items || result.items || []); return groups; })), Promise.resolve([])).then(groups => {
+                for (let index = 0; index < values.length; index += 16) chunks.push(values.slice(index, index + 16));
+                return chunks.reduce((work, chunk) => work.then(groups => itemQuery({ Ids:chunk.join(','), Fields:'Overview,PrimaryImageAspectRatio,Tags,CommunityRating,SortName,SeriesName,SeriesId', EnableTotalRecordCount:false }).then(result => { groups.push(result.Items || result.items || []); return groups; })), Promise.resolve([])).then(groups => {
                     const byId = {};
                     groups.flat().forEach(item => { byId[String(item.Id || item.id)] = item; });
                     return values.map(id => byId[id]).filter(Boolean);
                 });
+            }
+            function renderIdBackedContent(content, ids, rowMode, allowRemove) {
+                const values = uniqueIds(ids), pageSize = 16, pages = Math.max(1, Math.ceil(values.length / pageSize));
+                state.contentPage = Math.min(Math.max(1, Number(state.contentPage) || 1), pages);
+                const pageIds = values.slice((state.contentPage - 1) * pageSize, state.contentPage * pageSize);
+                const loadId = ++state.savedPreviewLoadId;
+                const cached = pageIds.map(id => state.items[id]).filter(Boolean), missing = pageIds.filter(id => !state.items[id]);
+                const show = loaded => {
+                    if (loadId !== state.savedPreviewLoadId || !host.contains(content)) return;
+                    loaded.forEach(item => { state.items[String(item.Id || item.id)] = item; });
+                    state.contentItems = pageIds.map(id => state.items[id]).filter(Boolean);
+                    state.resolvedItemIds = values.slice();
+                    renderManualOrder();
+                    content.innerHTML = state.contentItems.length ? itemCards(state.contentItems, rowMode, allowRemove, values.length) : '<p class="fieldDescription">The complete saved selection of ' + values.length + ' item' + (values.length === 1 ? '' : 's') + ' is preserved. This preview batch could not be loaded right now.</p>';
+                };
+                if (!values.length) { state.contentItems = []; state.resolvedItemIds = []; renderManualOrder(); content.innerHTML = '<p class="fieldDescription">No content is currently selected.</p>'; return; }
+                if (!missing.length) { show(cached); return; }
+                content.innerHTML = '<p class="fieldDescription">Loading preview batch ' + state.contentPage + ' of ' + pages + '… Your complete saved selection is preserved.</p>';
+                loadItemIds(missing).then(items => show(cached.concat(items)), () => show(cached));
             }
             function imdbTaggedRating(item) {
                 const tags = item.Tags || item.tags || [];
@@ -1735,7 +1752,7 @@
             }
             function topSourceItems(source, progress) {
                 const split = String(source).indexOf('|'), sourceType = split < 0 ? '' : String(source).slice(0, split), sourceId = split < 0 ? '' : String(source).slice(split + 1);
-                if (sourceType === 'collection' || sourceType === 'library') return loadAllParentItems(sourceId, 0, [], progress, sourceType === 'library');
+                if (sourceType === 'collection' || sourceType === 'library') return loadAllParentItems(sourceId, 0, [], progress, sourceType === 'library', 'Tags,CommunityRating,SortName,SeriesName,SeriesId');
                 if (sourceType === 'tag') {
                     if (progress) progress(0, null);
                     return previewDraft({ SourceType:'tag', SourceId:sourceId }).then(items => loadItemIds(items.map(item => String(item.Id || item.id))));
@@ -1829,28 +1846,17 @@
             function renderContent() {
                 const content = host.querySelector('[data-hssm-content]');
                 if (!content) return;
-                if (kind() !== 'manual-content') state.resolvedItemIds = [];
                 const rowMode = kind() === 'multiple-collections-in-a-row' || kind() === 'libraries-in-a-row';
-                if (state.isEditing && !state.contentSelectionDirty && state.savedItemIds.length && kind() !== 'manual-content') {
-                    const loadId = ++state.savedPreviewLoadId;
-                    content.innerHTML = '<p class="fieldDescription">Loading saved section content…</p>';
-                    loadItemIds(state.savedItemIds).then(items => {
-                        if (loadId !== state.savedPreviewLoadId || state.contentSelectionDirty) return;
-                        updateContentItems(items);
-                        content.innerHTML = itemCards(state.contentItems, rowMode);
-                    }, () => {
-                        if (loadId !== state.savedPreviewLoadId || state.contentSelectionDirty) return;
-                        content.innerHTML = '<p class="fieldDescription">Saved section content is preserved. Its preview could not be loaded right now.</p>';
-                    });
+                if (state.isEditing && !state.contentSelectionDirty && state.savedItemIds.length) {
+                    renderIdBackedContent(content, state.savedItemIds, rowMode, kind() === 'manual-content');
                     return;
                 }
+                if (kind() !== 'manual-content') state.resolvedItemIds = [];
                 if (isTopType()) { renderTopContent(content); return; }
                 if (isActivityType()) { renderActivityContent(content); return; }
                 if (isDraftType()) { renderDraftContent(content); return; }
                 if (kind() === 'manual-content') {
-                    const items = Object.keys(state.items).map(id => state.items[id]);
-                    updateContentItems(items);
-                    content.innerHTML = itemCards(state.contentItems, false, true);
+                    renderIdBackedContent(content, state.contentItemOrder, false, true);
                     return;
                 }
                 if (isTagType()) {
@@ -1886,13 +1892,13 @@
             function isNavigationFolder(item) {
                 return ['folder','collectionfolder','userrootfolder','aggregatefolder','storagefolder','channelfolder'].includes(String(item && (item.Type || item.type) || '').toLowerCase());
             }
-            function loadAllParentItems(parentId, startIndex, accumulated, progress, excludeNavigationFolders) {
+            function loadAllParentItems(parentId, startIndex, accumulated, progress, excludeNavigationFolders, fields) {
                 const start = startIndex || 0, all = accumulated || [];
-                return itemQuery({ ParentId:parentId, Recursive:true, Fields:'Overview,PrimaryImageAspectRatio,Tags,CommunityRating,SortName,SeriesName,SeriesId', StartIndex:start, Limit:200 }).then(result => {
+                return itemQuery({ ParentId:parentId, Recursive:true, Fields:fields || 'PrimaryImageAspectRatio', StartIndex:start, Limit:200 }).then(result => {
                     const items = result.Items || result.items || [], total = Number(result.TotalRecordCount || result.totalRecordCount || items.length), next = start + items.length;
                     all.push(...(excludeNavigationFolders ? items.filter(item => !isNavigationFolder(item)) : items));
                     if (progress && progress(all.length, total) === false) return all;
-                    return items.length && next < total ? loadAllParentItems(parentId, next, all, progress, excludeNavigationFolders) : all;
+                    return items.length && next < total ? loadAllParentItems(parentId, next, all, progress, excludeNavigationFolders, fields) : all;
                 });
             }
             function uniqueIds(values) {
@@ -1933,7 +1939,7 @@
                     return sourceIds.reduce((work, source, sourceIndex) => work.then(() => {
                         if (progress) progress('Loading Top source ' + (sourceIndex + 1) + ' of ' + sourceIds.length + ' for ' + name + '…');
                         const split = source.indexOf('|'), sourceType = split < 0 ? '' : source.slice(0, split), sourceId = split < 0 ? '' : source.slice(split + 1);
-                        const request = sourceType === 'collection' || sourceType === 'library' ? loadAllParentItems(sourceId, 0, [], null, sourceType === 'library') : sourceType === 'tag' ? genericTagItems(sourceId, name).then(loadItemIds) : Promise.resolve([]);
+                        const request = sourceType === 'collection' || sourceType === 'library' ? loadAllParentItems(sourceId, 0, [], null, sourceType === 'library', 'Tags,CommunityRating,SortName,SeriesName,SeriesId') : sourceType === 'tag' ? genericTagItems(sourceId, name).then(loadItemIds) : Promise.resolve([]);
                         return request.then(items => { groups.push(items); });
                     }), Promise.resolve()).then(() => {
                         const unique = groups.flat().filter((item, index, all) => all.findIndex(candidate => String(candidate.Id || candidate.id) === String(item.Id || item.id)) === index);
@@ -1965,16 +1971,28 @@
                 const target = host.querySelector('[data-hssm-manual-libraries]');
                 target.innerHTML = state.libraries.map(library => { const id = String(library.ItemId || library.Id); return '<div class="mcm-library-overview" data-hssm-manual-library="' + esc(id) + '"><div class="mcm-library-heading"><h3>' + esc(library.Name) + '</h3><button is="emby-button" type="button" class="raised" data-hssm-manual-open="' + esc(id) + '">Click here to expand</button></div><div class="mcm-picker-library-content mcm-manual-picker" data-hssm-manual-content="' + esc(id) + '" hidden></div></div>'; }).join('') || '<p class="fieldDescription">No Jellyfin libraries were found.</p>';
             }
-            function manualState(id) { return state.manualStates[id] || (state.manualStates[id] = { page:1, search:'' }); }
+            function manualState(id) { return state.manualStates[id] || (state.manualStates[id] = { page:1, search:'', total:0, loadId:0 }); }
             function manualPickerItem(item, includePicker, allowRemove) {
-                const id = String(item.Id), selected = state.items[id], year = item.ProductionYear, type = item.Type, info = (year ? ' (' + year + ')' : '') + (type ? ' · ' + type : ''), overview = String(item.Overview || '').replace(/<[^>]*>/g, '').trim(), poster = item.HasPrimaryImage || item.ImageTags ? '<img class="mcm-related-poster" loading="lazy" src="' + image(id) + '" alt="" onerror="this.remove()" />' : '', details = poster + '<span class="mcm-related-title-text"><strong>' + esc(item.Name) + '</strong>' + (!includePicker && allowRemove !== false ? '<button is="emby-button" type="button" class="raised mcm-manual-remove" data-hssm-manual-remove="' + esc(id) + '">Remove</button>' : '') + '<span class="fieldDescription">' + esc(info) + '</span>' + (overview ? '<span class="fieldDescription mcm-manual-description">' + esc(overview) + '</span>' : '') + '</span>';
+                const id = String(item.Id), selected = state.contentItemOrder.indexOf(id) >= 0, year = item.ProductionYear, type = item.Type, info = (year ? ' (' + year + ')' : '') + (type ? ' · ' + type : ''), overview = String(item.Overview || '').replace(/<[^>]*>/g, '').trim(), poster = item.HasPrimaryImage || item.ImageTags ? '<img class="mcm-related-poster" loading="lazy" src="' + image(id) + '" alt="" onerror="this.remove()" />' : '', details = poster + '<span class="mcm-related-title-text"><strong>' + esc(item.Name) + '</strong>' + (!includePicker && allowRemove !== false ? '<button is="emby-button" type="button" class="raised mcm-manual-remove" data-hssm-manual-remove="' + esc(id) + '">Remove</button>' : '') + '<span class="fieldDescription">' + esc(info) + '</span>' + (overview ? '<span class="fieldDescription mcm-manual-description">' + esc(overview) + '</span>' : '') + '</span>';
                 return includePicker ? '<label class="checkboxContainer"><input is="emby-checkbox" type="checkbox" data-hssm-manual-item="' + esc(id) + '"' + (selected ? ' checked' : '') + ' /><span class="mcm-manual-picker-details">' + details + '</span></label>' : '<div class="mcm-related-title">' + details + '</div>';
             }
             function renderManualItems(id) {
-                const target = host.querySelector('[data-hssm-manual-content="' + CSS.escape(id) + '"]'), items = state.manual[id] || [], view = manualState(id), search = view.search.toLowerCase(), filtered = items.filter(item => !search || String(item.Name || '').toLowerCase().includes(search)), pageSize = 10, pages = Math.max(1, Math.ceil(filtered.length / pageSize)), pageNumber = Math.min(Math.max(1, view.page), pages), visible = filtered.slice((pageNumber - 1) * pageSize, pageNumber * pageSize);
+                const target = host.querySelector('[data-hssm-manual-content="' + CSS.escape(id) + '"]'), items = state.manual[id] || [], view = manualState(id), pages = Math.max(1, Math.ceil(Number(view.total || items.length) / 16)), pageNumber = Math.min(Math.max(1, view.page), pages);
                 if (!target) return; view.page = pageNumber;
-                if (!items.length) { target.innerHTML = '<p class="fieldDescription">No selectable media was found in this library.</p>'; return; }
-                target.innerHTML = '<div class="inputContainer"><label class="inputLabel inputLabelUnfocused">Search media</label><input is="emby-input" type="search" data-hssm-manual-search value="' + esc(view.search) + '" placeholder="Search this library" /></div><div class="mcm-library-heading mcm-manual-controls"><button is="emby-button" type="button" class="raised" data-hssm-manual-page="' + (pageNumber - 1) + '"' + (pageNumber <= 1 ? ' disabled' : '') + '>Previous Page</button><button is="emby-button" type="button" class="raised" data-hssm-manual-all>Select All</button><button is="emby-button" type="button" class="raised" data-hssm-manual-none>Select None</button><button is="emby-button" type="button" class="raised" data-hssm-manual-page="' + (pageNumber + 1) + '"' + (pageNumber >= pages ? ' disabled' : '') + '>Next Page</button><span class="fieldDescription mcm-pagination-text">Page ' + pageNumber + ' out of ' + pages + '</span></div><div class="mcm-collection-member-grid">' + visible.map(item => manualPickerItem(item, true)).join('') + '</div>';
+                target.innerHTML = '<div class="inputContainer"><label class="inputLabel inputLabelUnfocused">Search media</label><input is="emby-input" type="search" data-hssm-manual-search value="' + esc(view.search) + '" placeholder="Search this library" /></div><div class="mcm-library-heading mcm-manual-controls"><button is="emby-button" type="button" class="raised" data-hssm-manual-page="' + (pageNumber - 1) + '"' + (pageNumber <= 1 ? ' disabled' : '') + '>Previous Page</button><button is="emby-button" type="button" class="raised" data-hssm-manual-all>Select This Page</button><button is="emby-button" type="button" class="raised" data-hssm-manual-none>Clear This Page</button><button is="emby-button" type="button" class="raised" data-hssm-manual-page="' + (pageNumber + 1) + '"' + (pageNumber >= pages ? ' disabled' : '') + '>Next Page</button><span class="fieldDescription mcm-pagination-text">Page ' + pageNumber + ' out of ' + pages + ' · loaded in batches of 16</span></div>' + (items.length ? '<div class="mcm-collection-member-grid">' + items.map(item => manualPickerItem(item, true)).join('') + '</div>' : '<p class="fieldDescription">No selectable media was found in this library.</p>');
+            }
+            function loadManualPage(id) {
+                const content = host.querySelector('[data-hssm-manual-content="' + CSS.escape(id) + '"]'), view = manualState(id), loadId = ++view.loadId;
+                if (!content) return;
+                content.innerHTML = '<p class="fieldDescription">Loading 16 library items…</p>';
+                const params = { ParentId:id, Recursive:true, Fields:'Overview,PrimaryImageAspectRatio', StartIndex:(Math.max(1, view.page) - 1) * 16, Limit:16, EnableTotalRecordCount:true };
+                if (view.search.trim()) params.SearchTerm = view.search.trim();
+                itemQuery(params).then(result => {
+                    if (view.loadId !== loadId || !host.contains(content)) return;
+                    state.manual[id] = (result.Items || result.items || []).filter(item => !isNavigationFolder(item));
+                    view.total = Number(result.TotalRecordCount || result.totalRecordCount || state.manual[id].length);
+                    renderManualItems(id);
+                }, () => { if (view.loadId === loadId && host.contains(content)) content.innerHTML = '<p class="fieldDescription">Could not load this 16-item library batch. Your existing selections are preserved.</p>'; });
             }
             function renderCollections() {
                 const one = kind() === 'individual-collection-content';
@@ -2029,8 +2047,9 @@
                     target.innerHTML = '<div class="inputContainer"><label class="inputLabel inputLabelUnfocused">Search tags</label><input is="emby-input" type="search" data-hssm-tag-search value="' + esc(state.tagSearch) + '" placeholder="Search tag types and tags" /></div><p class="fieldDescription" data-hssm-tag-status>' + (usesDraftSourcePicker() ? 'Metadata tags loaded. Now select one or more tags.' : 'Choose a metadata tag type to expand its tags.') + '</p>' + (pluginTypes.length ? '<p class="fieldDescription">Tags added by Media Tagging Manager Plugin</p>' + pluginTypes.map(tagTypeMarkup).join('') : '') + (jellyfinTypes.length ? (pluginTypes.length ? '<hr class="mcm-tag-source-divider" />' : '') + '<p class="fieldDescription">Tags added by Jellyfin and in your NFOs</p>' + jellyfinTypes.map(tagTypeMarkup).join('') : '');
                     if (state.tagSearch) searchTagPicker();
                 }, () => { if (loadId === state.tagCatalogLoadId) target.innerHTML = '<p class="fieldDescription">Run Collection Manager’s metadata tag scan before selecting tags.</p>'; });
-            }            function renderEditor() {
-                host.innerHTML = '<p class="fieldDescription">Loading section settings…</p>';
+            }
+            function renderEditor() {
+                const editorLoadId = ++state.editorLoadId;
                 if (isMyListContentType()) {
                     host.innerHTML = contentMarkup();
                     const contentSection = host.querySelector('[data-hssm-content]').closest('section');
@@ -2049,12 +2068,13 @@
                     const contentSection = host.querySelector('[data-hssm-content]').closest('section');
                     contentSection.innerHTML = '<h2>' + esc(choice ? choice[0] : state.name) + '</h2><p class="fieldDescription">Choose which Jellyfin libraries can supply resumable content. Existing sections default to every library.</p><div data-hssm-continue-libraries><p class="fieldDescription">Loading Jellyfin libraries…</p></div>';
                     nativeLibraries().then(libraries => {
+                        if (editorLoadId !== state.editorLoadId) return;
                         state.libraries = libraries;
                         const selected = new Set((state.sources.length ? state.sources : libraries.map(item => String(item.Id || item.ItemId))).map(String));
                         const picker = host.querySelector('[data-hssm-continue-libraries]');
                         if (!picker) return;
                         picker.innerHTML = libraries.map(item => { const id = String(item.Id || item.ItemId); return '<label class="checkboxContainer"><input is="emby-checkbox" type="checkbox" data-hssm-continue-library="' + esc(id) + '"' + (selected.has(id) ? ' checked' : '') + ' /><span>' + esc(item.Name) + '</span></label>'; }).join('') || '<p class="fieldDescription">No Jellyfin libraries are available.</p>';
-                    }, () => { const picker = host.querySelector('[data-hssm-continue-libraries]'); if (picker) picker.innerHTML = '<p class="fieldDescription">Jellyfin libraries could not be loaded.</p>'; });
+                    }, () => { if (editorLoadId !== state.editorLoadId) return; const picker = host.querySelector('[data-hssm-continue-libraries]'); if (picker) picker.innerHTML = '<p class="fieldDescription">Jellyfin libraries could not be loaded.</p>'; });
                     return;
                 }
                 if (isAutomaticType()) {
@@ -2073,26 +2093,52 @@
                     host.innerHTML = libraryMarkup();
                     const request = typeof ApiClient.getUserViews === 'function' ? ApiClient.getUserViews({}, userId()) : ApiClient.getJSON(ApiClient.getUrl('Users/' + encodeURIComponent(userId()) + '/Views'));
                     Promise.resolve(request).then(result => {
+                        if (editorLoadId !== state.editorLoadId) return;
                         state.libraries = result.Items || result.items || [];
                         renderLibraries();
                         renderContent();
-                    }, () => { const target = host.querySelector('[data-hssm-libraries]'); if (target) target.innerHTML = '<p class="fieldDescription">Jellyfin libraries could not be loaded.</p>'; });
+                    }, () => { if (editorLoadId !== state.editorLoadId) return; const target = host.querySelector('[data-hssm-libraries]'); if (target) target.innerHTML = '<p class="fieldDescription">Jellyfin libraries could not be loaded.</p>'; });
                     return;
                 }
-                setupData().then(() => {
-                    if (kind() === 'manual-content') host.innerHTML = manualMarkup();
-                    else if (isCollectionType()) host.innerHTML = collectionMarkup();
-                    else if (isTagType()) host.innerHTML = tagMarkup();
-                    else if (isDraftType()) host.innerHTML = dynamicMarkup();
-                    else if (isTopType()) host.innerHTML = topMarkup();
-                    else host.innerHTML = libraryMarkup();
-                    if (kind() === 'manual-content') renderManual();
-                    if (isCollectionType()) renderCollections();
-                    if (isTagType()) renderTags();
-                    if (isLibraryType()) renderLibraries();
-                    if (usesDraftSourcePicker()) { renderDraftCollections(); renderDraftLibraries(); renderSourceDrafts(); }
-                    renderContent();
-                }, () => { host.innerHTML = '<p class="fieldDescription">Jellyfin could not load the available libraries and collections. Your current section draft has been kept; try opening it again.</p>'; });
+                state.collectionManagerConfiguration = {};
+                if (kind() === 'manual-content') host.innerHTML = manualMarkup();
+                else if (isCollectionType()) host.innerHTML = collectionMarkup();
+                else if (isTagType()) host.innerHTML = tagMarkup();
+                else if (isDraftType()) host.innerHTML = dynamicMarkup();
+                else if (isTopType()) host.innerHTML = topMarkup();
+                else host.innerHTML = libraryMarkup();
+                renderContent();
+                if (usesDraftSourcePicker()) renderSourceDrafts();
+
+                const needsLibraries = kind() === 'manual-content' || isLibraryType() || isTagType() || usesDraftSourcePicker();
+                const needsCollections = isCollectionType() || usesDraftSourcePicker();
+                if (needsLibraries) {
+                    const libraryTarget = host.querySelector(kind() === 'manual-content' ? '[data-hssm-manual-libraries]' : usesDraftSourcePicker() ? '[data-hssm-draft-libraries]' : isTagType() ? '[data-hssm-tags]' : '[data-hssm-libraries]');
+                    if (libraryTarget) libraryTarget.innerHTML = '<p class="fieldDescription">Loading Jellyfin libraries…</p>';
+                    nativeLibraries().then(libraries => {
+                        if (editorLoadId !== state.editorLoadId) return;
+                        state.libraries = libraries;
+                        if (kind() === 'manual-content') renderManual();
+                        else if (isTagType()) renderTags();
+                        else if (usesDraftSourcePicker()) renderDraftLibraries();
+                        else renderLibraries();
+                    }, () => {
+                        if (editorLoadId !== state.editorLoadId) return;
+                        if (libraryTarget && host.contains(libraryTarget)) libraryTarget.innerHTML = '<p class="fieldDescription">Jellyfin libraries could not be loaded. Your section draft and saved content are preserved.</p>';
+                    });
+                }
+                if (needsCollections) {
+                    const collectionTarget = host.querySelector(usesDraftSourcePicker() ? '[data-hssm-draft-collections]' : '[data-hssm-collections]');
+                    if (collectionTarget) collectionTarget.innerHTML = '<p class="fieldDescription">Loading Jellyfin collections…</p>';
+                    nativeCollections().then(collections => {
+                        if (editorLoadId !== state.editorLoadId) return;
+                        state.collections = collections;
+                        if (usesDraftSourcePicker()) renderDraftCollections(); else renderCollections();
+                    }, () => {
+                        if (editorLoadId !== state.editorLoadId) return;
+                        if (collectionTarget && host.contains(collectionTarget)) collectionTarget.innerHTML = '<p class="fieldDescription">Jellyfin collections could not be loaded. Your section draft and saved content are preserved.</p>';
+                    });
+                }
             }
             function loadManualItems(id) {
                 const content = host.querySelector('[data-hssm-manual-content="' + CSS.escape(id) + '"]'), button = host.querySelector('[data-hssm-manual-open="' + CSS.escape(id) + '"]');
@@ -2100,9 +2146,7 @@
                 if (!content.hidden) { content.hidden = true; if (button) button.textContent = 'Click here to expand'; return; }
                 content.hidden = false; if (button) button.textContent = 'Click here to collapse';
                 if (state.manual[id]) { renderManualItems(id); return; }
-                content.innerHTML = '<p class="fieldDescription">Loading library media…</p>';
-                loadAllParentItems(id, 0, [], null, true)
-                    .then(items => { state.manual[id] = items; renderManualItems(id); }, () => { content.innerHTML = '<p class="fieldDescription">Could not load library media.</p>'; });
+                loadManualPage(id);
             }            function tagChoiceMarkup(choice) {
                 const libraryId = String(choice.LibraryId), type = choice.MetadataType, value = choice.Value, key = libraryId + '|' + type + '|' + value, selected = isTopType() ? state.sources.indexOf('tag|' + key) >= 0 : isDraftType() ? !!selectedDraft('tag', key) : state.sources.indexOf(key) >= 0, multiple = usesDraftSourcePicker() || kind() !== 'individual-tag-content', imageMarkup = choice.PersonImageUrl ? '<img class="mcm-person-image" src="' + esc(ApiClient.getUrl('Items/' + choice.PersonImageUrl + '/Images/Primary')) + '" alt="" />' : '';
                 return '<div class="mcm-flat-tag-choice"><label class="checkboxContainer">' + imageMarkup + '<input is="emby-checkbox" type="' + (multiple ? 'checkbox' : 'radio') + '" name="hssmTagSource" data-hssm-tag="' + esc(key) + '"' + (selected ? ' checked' : '') + ' /> <span>' + esc(value) + ' (' + Number(choice.MatchingItems || 0) + ')</span></label><span class="fieldDescription">' + esc(choice.LibraryName) + '</span></div>';
@@ -2136,7 +2180,7 @@
                 button.textContent = 'Click here to collapse';
                 loadTagType(type, state.tagSearch);
             }
-            let tagSearchTimer = null;
+            let tagSearchTimer = null, manualSearchTimer = null;
             function searchTagPicker() {
                 const target = host.querySelector('[data-hssm-tags]'), sections = target ? Array.from(target.querySelectorAll('[data-hssm-tag-type]')) : [], status = target && target.querySelector('[data-hssm-tag-status]');
                 if (!state.tagSearch.trim()) {
@@ -2160,7 +2204,7 @@
                 if (!state.name.trim()) { saveStatus.textContent = 'Enter a section name before saving.'; return; }
                 state.name = state.name.trim();
                 if (isTopType()) state.contentOrder = 'rating-descending';
-                const required = isActivityType() || isAutomaticType() ? 1 : isTopType() ? state.sources.length && state.contentItemOrder.length : isDraftType() ? state.drafts.length : kind() === 'manual-content' ? Object.keys(state.items).length : state.sources.length;
+                const required = isActivityType() || isAutomaticType() ? 1 : isTopType() ? state.sources.length && state.contentItemOrder.length : isDraftType() ? state.drafts.length : kind() === 'manual-content' ? state.contentItemOrder.length : state.sources.length;
                 if (isTopType() && (state.topLoadRunning || state.topPending)) { saveStatus.textContent = 'Wait for the current Top source selection to finish loading and ranking.'; return; }
                 if (!required || (needsTwo && state.sources.length < 2)) { saveStatus.textContent = needsTwo ? 'Select at least two metadata tags before saving.' : isTopType() && state.sources.length ? 'No selected media has a recognized IMDb or Jellyfin community rating to rank.' : 'Select content before saving.'; return; }
                 const order = Array.from(page.querySelectorAll('#hssmSectionList .hssm-section-row')).map(row => { const toggle = row.querySelector('[data-hssm-native-section-toggle]'); return toggle && !toggle.checked ? 'hidden:' + row.dataset.sectionId : row.dataset.sectionId; });
@@ -2198,7 +2242,7 @@
                 return body && (body.Detail || body.detail || body.Message || body.message || body.Title || body.title) || (text && String(text).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()) || (error && (error.message || error.statusText)) || 'Jellyfin returned no error details.';
             }
             function loadHomeScreenClient() {
-                const version = "0.1.0.59";
+                const version = "0.1.0.63";
                 let style = document.querySelector("link[data-hssm-client-style]");
                 if (!style || style.dataset.hssmClientVersion !== version) {
                     if (style) style.remove();
@@ -2375,14 +2419,23 @@
                 const manualGroup = event.target.closest('[data-hssm-manual-library]');
                 const manualId = manualGroup && manualGroup.dataset.hssmManualLibrary;
                 const manualPage = event.target.closest('[data-hssm-manual-page]');
-                if (manualPage && manualId) { manualState(manualId).page = Number(manualPage.dataset.hssmManualPage); renderManualItems(manualId); return; }
-                if (event.target.closest('[data-hssm-manual-all]') && manualId) { markContentSelectionDirty(); (state.manual[manualId] || []).forEach(item => { state.items[String(item.Id)] = item; }); renderManualItems(manualId); renderContent(); return; }
-                if (event.target.closest('[data-hssm-manual-none]') && manualId) { markContentSelectionDirty(); (state.manual[manualId] || []).forEach(item => { delete state.items[String(item.Id)]; }); renderManualItems(manualId); renderContent(); return; }
+                if (manualPage && manualId) { manualState(manualId).page = Number(manualPage.dataset.hssmManualPage); loadManualPage(manualId); return; }
+                if (event.target.closest('[data-hssm-manual-all]') && manualId) { markContentSelectionDirty(); (state.manual[manualId] || []).forEach(item => { const id=String(item.Id); state.items[id]=item; if (state.contentItemOrder.indexOf(id)<0) state.contentItemOrder.push(id); }); renderManualItems(manualId); renderContent(); return; }
+                if (event.target.closest('[data-hssm-manual-none]') && manualId) { markContentSelectionDirty(); const removed=new Set((state.manual[manualId] || []).map(item => String(item.Id))); removed.forEach(id => { delete state.items[id]; }); state.contentItemOrder=state.contentItemOrder.filter(id => !removed.has(id)); renderManualItems(manualId); renderContent(); return; }
                 const contentPage = event.target.closest('[data-hssm-content-page]');
                 if (contentPage) {
                     state.contentPage = Number(contentPage.dataset.hssmContentPage) || 1;
-                    const content = host.querySelector('[data-hssm-content]');
-                    if (content) content.innerHTML = itemCards(state.contentItems, kind() === 'multiple-collections-in-a-row' || kind() === 'libraries-in-a-row', kind() === 'manual-content');
+                    renderContent();
+                    return;
+                }
+                if (event.target.closest('[data-hssm-load-manual-order]')) {
+                    const button = event.target.closest('[data-hssm-load-manual-order]');
+                    button.disabled = true; button.textContent = 'Loading selected items…';
+                    loadItemIds(state.contentItemOrder).then(items => {
+                        items.forEach(item => { state.items[String(item.Id || item.id)] = item; });
+                        state.contentItems = state.contentItemOrder.map(id => state.items[id]).filter(Boolean);
+                        renderManualOrder();
+                    }, () => { button.disabled = false; button.textContent = 'Try loading all selected items again'; });
                     return;
                 }
                 const removeRankFont = event.target.closest('[data-hssm-remove-rank-font]');
@@ -2390,7 +2443,7 @@
                 const removeRankShadow = event.target.closest('[data-hssm-remove-rank-shadow]');
                 if (removeRankShadow) { state.rankNumberShadowColor = ''; const picker = host.querySelector('[data-hssm-rank-shadow-color]'); if (picker) picker.dataset.shadowRemoved = 'true'; return; }
                 const removeManual = event.target.closest('[data-hssm-manual-remove]');
-                if (removeManual) { markContentSelectionDirty(); delete state.items[removeManual.dataset.hssmManualRemove]; renderContent(); return; }
+                if (removeManual) { markContentSelectionDirty(); const id=removeManual.dataset.hssmManualRemove; delete state.items[id]; state.contentItemOrder=state.contentItemOrder.filter(value => value !== id); renderContent(); return; }
                 if (event.target.closest('[data-hssm-library-all]')) { markContentSelectionDirty(); state.sources = state.libraries.map(library => String(library.ItemId || library.Id)); renderLibraries(); renderContent(); return; }
                 if (event.target.closest('[data-hssm-library-none]')) { markContentSelectionDirty(); state.sources = []; renderLibraries(); renderContent(); return; }
                 const pickerToggle = event.target.closest('[data-hssm-draft-picker-toggle]');
@@ -2422,9 +2475,8 @@
                 const id = group.dataset.hssmManualLibrary;
                 manualState(id).search = search.value;
                 manualState(id).page = 1;
-                renderManualItems(id);
-                const restored = host.querySelector('[data-hssm-manual-library="' + CSS.escape(id) + '"] [data-hssm-manual-search]');
-                if (restored) { restored.focus(); restored.setSelectionRange(restored.value.length, restored.value.length); }
+                window.clearTimeout(manualSearchTimer);
+                manualSearchTimer = window.setTimeout(() => loadManualPage(id), 300);
             });
             host.addEventListener('change', event => {
                 const continueLibrary = event.target.closest('[data-hssm-continue-library]');
@@ -2535,7 +2587,8 @@
                     markContentSelectionDirty();
                     const id = manual.dataset.hssmManualItem;
                     const item = Object.values(state.manual).flat().find(candidate => String(candidate.Id) === String(id));
-                    if (manual.checked && item) state.items[id] = item; else delete state.items[id];
+                    if (manual.checked && item) { state.items[id] = item; if (state.contentItemOrder.indexOf(id) < 0) state.contentItemOrder.push(id); }
+                    else { delete state.items[id]; state.contentItemOrder = state.contentItemOrder.filter(value => value !== id); }
                 }
                 if (collection || library || tag) { state.contentPage = 1; state.contentItems = []; state.contentItemOrder = []; }
                 renderContent();
@@ -2592,19 +2645,18 @@
                     const model = (window.HSSMDashboardSectionModels || []).find(item => String(item.id) === state.id);
                     const savedName = state.name;
                     const savedMediaBar = state.isMediaBar;
-                    const itemIds = hydrateSavedSection(model && model.definition || {}, model);
+                    hydrateSavedSection(model && model.definition || {}, model);
                     state.name = savedName;
                     state.isMediaBar = savedMediaBar;
-                    if (state.type === 'manual-content' && state.savedItemIds.length && !Object.keys(state.items).length) {
-                        host.innerHTML = '<p class="fieldDescription">Loading saved section settings…</p>';
-                        loadItemIds(itemIds).then(items => { items.forEach(item => { state.items[String(item.Id || item.id)] = item; }); }).finally(renderEditor);
-                    } else renderEditor();
+                    renderEditor();
                     return;
                 }
                 state.isVisible = true;
                 state.isApplied = false;
                 state.sources = [];
                 state.items = {};
+                state.manual = {};
+                state.manualStates = {};
                 state.resolvedItemIds = [];
                 state.contentItems = [];
                 state.contentItemOrder = [];
@@ -2678,6 +2730,8 @@
                 const interval = Number(definition.RotationIntervalMinutes || definition.rotationIntervalMinutes || 1440);
                 if (interval % 10080 === 0) { state.rotationValue = interval / 10080; state.rotationUnit = 'weeks'; } else if (interval % 1440 === 0) { state.rotationValue = interval / 1440; state.rotationUnit = 'days'; } else { state.rotationValue = Math.max(1, interval / 60); state.rotationUnit = 'hours'; }
                 state.items = {};
+                state.manual = {};
+                state.manualStates = {};
                 return itemIds;
             }
             page.addEventListener('hssm-manager-section-edit', event => {
@@ -2711,12 +2765,8 @@
                     state.tagTypeLoadIds = {};
                     const model = (window.HSSMDashboardSectionModels || []).find(item => String(item.id) === state.id);
                     const definition = model && model.definition || {};
-                    const itemIds = hydrateSavedSection(definition, model);
-                    if (state.type !== 'manual-content' || !itemIds.length) { renderEditor(); return; }
-                    host.innerHTML = '<p class="fieldDescription">Loading saved section settings…</p>';
-                    loadItemIds(itemIds).then(items => {
-                        items.forEach(item => { state.items[String(item.Id || item.id)] = item; });
-                    }).finally(renderEditor);
+                    hydrateSavedSection(definition, model);
+                    renderEditor();
                 }, 0);
             }, true);
             host.addEventListener('dragstart', event => {

@@ -90,6 +90,13 @@ body.hssm-client-enabled .itemDetailPage.is-active .detailImageContainer > .deta
     padding-top: 1em;
 }
 
+/* Reserve approximately one card row while an off-screen section waits for
+   visibility. Without this, many tiny loading labels fit inside the observer
+   margin and accidentally turn lazy loading back into an eager request burst. */
+.hssm-client-section[data-hssm-loading="true"] {
+    min-height: clamp(14rem, 32vh, 22rem);
+}
+
 .hssm-client-section[hidden] {
     display: none !important;
 }
@@ -363,6 +370,28 @@ body.hssm-section-listing-open {
     padding-left: 3.3% !important;
     padding-right: 3.3% !important;
     width: 100% !important;
+}
+
+.hssm-client-section > .hssm-section-title-with-art {
+    background-color: rgba(8, 8, 10, 0.78);
+    background-position: center 38%;
+    background-repeat: no-repeat;
+    background-size: cover;
+    border-radius: 0.65em;
+    margin: 0 3.3% 0.55em;
+    min-height: 3.4em;
+    overflow: hidden;
+    padding-bottom: 0.6em !important;
+    padding-left: 1em !important;
+    padding-right: 1em !important;
+    padding-top: 0.6em !important;
+    width: calc(100% - 6.6%) !important;
+}
+
+.hssm-client-section > .hssm-section-title-with-art .sectionTitle,
+.hssm-client-section > .hssm-section-title-with-art .material-icons {
+    color: #fff !important;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.92);
 }
 
 .hssm-client-section > .sectionTitleContainer > .hssm-section-title-link {

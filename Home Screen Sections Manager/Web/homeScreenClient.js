@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    var CLIENT_VERSION = "0.1.0.60";
+    var CLIENT_VERSION = "0.1.0.63";
     if (window.HomeScreenManagerClient) {
         if (window.HomeScreenManagerClient.version === CLIENT_VERSION) {
             window.HomeScreenManagerClient.refresh();
@@ -17,6 +17,7 @@
         } catch (_) { /* Continue with the new client when session storage is unavailable. */ }
     }
 
+    var SECTION_PAGE_SIZE = 16;
     var homeRetryTimer = null;
     var lastContainer = null;
     var lastSignature = '';
@@ -89,6 +90,9 @@
     var topChromeMutationObserver = null;
     var topChromeSyncFrame = 0;
     var titleMarqueeHoverBound = false;
+    var sectionVisibilityObserver = null;
+    var cardArtworkObserver = null;
+    var explicitMediaBarObserver = null;
 
     function createLimiter(maximum) {
         var active = 0;
@@ -102,6 +106,39 @@
         return function (work) {
             return new Promise(function (resolve, reject) { pending.push({ work: work, resolve: resolve, reject: reject }); next(); });
         };
+    }
+
+    function loadCardArtwork(target) {
+        if (!target || target.dataset.hssmImageLoaded === 'true') return;
+        var source = String(target.dataset.hssmImageUrl || '');
+        target.dataset.hssmImageLoaded = 'true';
+        delete target.dataset.hssmImageUrl;
+        if (source) {
+            var image = 'url("' + source.replace(/"/g, '%22') + '")';
+            target.style.backgroundImage = target.dataset.hssmImageOverlay === 'header'
+                ? 'linear-gradient(90deg, rgba(8, 8, 10, 0.92) 0%, rgba(8, 8, 10, 0.66) 48%, rgba(8, 8, 10, 0.18) 100%), ' + image
+                : image;
+        }
+    }
+
+    function observeCardArtwork(scope) {
+        if (!scope) return;
+        var targets = Array.from(scope.querySelectorAll('[data-hssm-image-url]'));
+        if (!targets.length) return;
+        if (typeof IntersectionObserver !== 'function') {
+            targets.forEach(loadCardArtwork);
+            return;
+        }
+        if (!cardArtworkObserver) {
+            cardArtworkObserver = new IntersectionObserver(function (entries) {
+                entries.forEach(function (entry) {
+                    if (!entry.isIntersecting) return;
+                    cardArtworkObserver.unobserve(entry.target);
+                    loadCardArtwork(entry.target);
+                });
+            }, { root:null, rootMargin:'500px 700px', threshold:0.01 });
+        }
+        targets.forEach(function (target) { cardArtworkObserver.observe(target); });
     }
 
     function sectionRequestLane(state) {
@@ -507,6 +544,8 @@
             'Artists','AlbumArtists','ArtistItems','Album','AlbumId'
         ];
         if (mediaBar) fields.push('Tags','Overview','People','ChildCount','RecursiveItemCount');
+        else if (String(prop(section, 'ArtShape', 'artShape', '')).toLowerCase() === 'book'
+            || String(prop(section, 'Type', 'type', '')).toLowerCase().indexOf('reading') >= 0) fields.push('People');
         return {
             // Cold custom-page loads should not ask Jellyfin to resolve every
             // supported image family. Keep the metadata cards and Media Bars
@@ -572,22 +611,36 @@
 
     function watchAgainItems(section, signal) {
         section = section || {};
-        var context = cacheContext() + ':' + (prop(section, 'IsMediaBar', 'isMediaBar', false) === true ? 'media-bar' : 'row');
+        var configuredMaximum = maximumSectionItems(section);
+        var desiredItems = Number.isFinite(configuredMaximum) ? Math.min(200, configuredMaximum) : 100;
+        var context = JSON.stringify([
+            sectionSignature(section),
+            sectionImageTypes(section),
+            prop(section, 'IsMediaBar', 'isMediaBar', false) === true ? 'media-bar' : 'row',
+            desiredItems
+        ]);
         var cached = watchAgainCaches[context];
         if (cached && Date.now() - cached.savedAt < 30 * 1000) return Promise.resolve(cached.items);
+        var persisted = cacheRead('watch-again:' + context, 5 * 60 * 1000);
+        if (Array.isArray(persisted)) {
+            watchAgainCaches[context] = { savedAt:Date.now(), items:persisted };
+            return Promise.resolve(persisted);
+        }
         if (watchAgainRequests[context]) return watchAgainRequests[context];
         var options = sectionItemOptions(section);
+        var movieHistoryLimit = Math.max(100, Math.min(500, desiredItems * 3));
+        var episodeHistoryLimit = Math.max(300, Math.min(2000, desiredItems * 10));
         // These can be large libraries. Run the two history reads one after
         // another so Watch Again never consumes both plugin request slots or
         // competes with Jellyfin's native navigation request.
         watchAgainRequests[context] = queryItems(Object.assign({}, options, {
             Filters:'IsPlayed', IncludeItemTypes:'Movie', Recursive:true,
-            SortBy:'DatePlayed,SortName', SortOrder:'Descending', Limit:2000,
+            SortBy:'DatePlayed,SortName', SortOrder:'Descending', Limit:movieHistoryLimit,
             EnableTotalRecordCount:false
         }), signal).then(function (movies) {
             return queryItems(Object.assign({}, options, {
                 Filters:'IsPlayed', IncludeItemTypes:'Episode', Recursive:true, IsVirtualItem:false,
-                SortBy:'DatePlayed,SortName', SortOrder:'Descending', Limit:10000,
+                SortBy:'DatePlayed,SortName', SortOrder:'Descending', Limit:episodeHistoryLimit,
                 EnableTotalRecordCount:false
             }), signal).then(function (episodes) { return [movies, episodes]; });
         }).then(function (groups) {
@@ -626,8 +679,9 @@
                         _hssmWatchAgainTitle:[String(prop(episode, 'Name', 'name', '')), episodeCode, seriesName].filter(Boolean).join(' ')
                     });
                 });
-                var combined = uniqueItems(groups[0].concat(episodes));
+                var combined = orderItems(uniqueItems(groups[0].concat(episodes)), section).slice(0, desiredItems);
                 watchAgainCaches[context] = { savedAt:Date.now(), items:combined };
+                cacheWrite('watch-again:' + context, combined);
                 return combined;
             });
         }).finally(function () { delete watchAgainRequests[context]; });
@@ -638,7 +692,7 @@
         section = section || {};
         return watchAgainItems(section, signal).then(function (items) {
             var offset = Math.max(0, Number(start) || 0);
-            var count = Math.max(1, Math.min(100, Number(limit) || 40));
+            var count = Math.max(1, Math.min(100, Number(limit) || SECTION_PAGE_SIZE));
             return orderItems(items, section).slice(offset, offset + count);
         });
     }
@@ -673,6 +727,8 @@
 
     function sectionSignature(section) {
         var ids = prop(section, 'ItemIds', 'itemIds', []).map(String);
+        var itemCount = Math.max(ids.length, Number(prop(section, 'ItemCount', 'itemCount', ids.length)) || 0);
+        var itemTail = prop(section, 'ItemIdTail', 'itemIdTail', ids.slice(-5)).map(String);
         var sources = prop(section, 'SourceIds', 'sourceIds', []).map(String);
         return JSON.stringify([
             String(prop(section, 'Id', 'id', '')),
@@ -680,7 +736,7 @@
             String(prop(section, 'ContentOrder', 'contentOrder', '')),
             Number(prop(section, 'MaxItems', 'maxItems', 0)) || 0,
             Number(prop(section, 'DisplayTopCount', 'displayTopCount', 0)) || 0,
-            ids.length, ids.slice(0, 5), ids.slice(-5), sources
+            itemCount, ids.slice(0, 5), itemTail, sources
         ]);
     }
 
@@ -739,7 +795,15 @@
     function loadTopItemsFromSources(section, signal) {
         var sources = prop(section, 'SourceIds', 'sourceIds', []).map(String).filter(Boolean);
         var limit = Math.max(5, Math.min(100, Number(prop(section, 'DisplayTopCount', 'displayTopCount', 10)) || 10));
-        var key = cacheContext() + ':' + JSON.stringify([sources, limit, String(prop(section, 'Name', 'name', ''))]);
+        var key = JSON.stringify([
+            sectionSignature(section),
+            sectionImageTypes(section),
+            sources,
+            limit,
+            String(prop(section, 'Name', 'name', ''))
+        ]);
+        var persisted = cacheRead('top-recovery:' + key, 6 * 60 * 60 * 1000);
+        if (Array.isArray(persisted)) return Promise.resolve(persisted);
         if (topRecoveryRequests[key]) return topRecoveryRequests[key];
         topRecoveryRequests[key] = sources.reduce(function (work, source) {
             return work.then(function (items) {
@@ -767,7 +831,10 @@
                 .slice(0, limit)
                 .map(function (entry) { return String(prop(entry.item, 'Id', 'id', '')); })
                 .filter(Boolean);
-            return queryIds(ids, sectionItemOptions(section), signal);
+            return queryIds(ids, sectionItemOptions(section), signal).then(function (loaded) {
+                cacheWrite('top-recovery:' + key, loaded);
+                return loaded;
+            });
         }).finally(function () { delete topRecoveryRequests[key]; });
         return topRecoveryRequests[key];
     }
@@ -991,7 +1058,10 @@
         var imageItem = useSeriesPrimary ? Object.assign({}, item, { Id:seriesId, ImageTags:{ Primary:prop(item, 'SeriesPrimaryImageTag', 'seriesPrimaryImageTag', '') || 'series-primary' }, BackdropImageTags:[], ParentBackdropImageTags:[] }) : item;
         var imageUrl = cardImage(imageItem, isWatchAgain && type === 'Episode' ? Object.assign({}, section, { ArtType:'primary', artType:'primary' }) : section);
         var showText = prop(section, 'ShowText', 'showText', true) !== false;
-        var imageStyle = imageUrl ? ' style="background-image:url(&quot;' + escapeHtml(imageUrl) + '&quot;)"' : '';
+        // CSS background images are otherwise fetched immediately, including
+        // cards many rows below the viewport. Keep the URL inert until the
+        // shared artwork observer says the card is close enough to be useful.
+        var imageSource = imageUrl ? ' data-hssm-image-url="' + escapeHtml(imageUrl) + '"' : '';
         var footer = '';
         var textClass = 'cardText hssm-card-text' + (shape.name === 'circle' ? ' cardTextCentered hssm-card-text-centered' : ' hssm-card-text-left');
         if (showText && isMyList && type === 'Episode') {
@@ -1018,7 +1088,7 @@
             '<button is="paper-icon-button-light" type="button" class="cardOverlayButton cardOverlayButton-hover itemAction paper-icon-button-light cardOverlayFab-primary" data-action="resume" title="Play" aria-label="Play ' + escapeHtml(name) + '"><span class="material-icons cardOverlayButtonIcon cardOverlayButtonIcon-hover play_arrow" aria-hidden="true"></span></button></div>';
         return '<div class="card ' + shape.card + ' card-hoverable card-withuserdata hssm-client-card" data-id="' + escapeHtml(id) + '" data-serverid="' + escapeHtml(serverId) + '" data-type="' + escapeHtml(type) + '" data-mediatype="' + escapeHtml(mediaType) + '" data-isfolder="' + String(isFolder) + '">' +
             '<div class="cardBox' + (showText ? ' cardBox-bottompadded' : '') + '"><div class="cardScalable">' + rankMarkup + '<div class="cardPadder ' + shape.padder + '"></div>' +
-            '<a is="emby-linkbutton" href="' + escapeHtml(href) + '" data-action="link" class="cardImageContainer coveredImage cardContent itemAction" aria-label="' + escapeHtml(name) + '"' + imageStyle + '></a>' + playMarkup +
+            '<a is="emby-linkbutton" href="' + escapeHtml(href) + '" data-action="link" class="cardImageContainer coveredImage cardContent itemAction" aria-label="' + escapeHtml(name) + '"' + imageSource + '></a>' + playMarkup +
             '</div>' + footer + '</div></div>';
     }
 
@@ -1036,7 +1106,9 @@
         var titleAttributes = type === 'my-list-content'
             ? ' href="#/home" data-hssm-open-my-list="true"'
             : titleDestination ? ' href="' + escapeHtml(titleDestination) + '"' : ' href="#" data-hssm-open-section="' + escapeHtml(id) + '"';
-        var sectionTitleMarkup = showSectionName ? '<div class="sectionTitleContainer sectionTitleContainer-cards padded-left"><a is="emby-linkbutton" class="more button-flat button-flat-mini sectionTitleTextButton hssm-section-title-link"' + titleAttributes + '><h2 class="sectionTitle sectionTitle-cards">' + escapeHtml(name) + '</h2><span class="material-icons chevron_right" aria-hidden="true"></span></a></div>' : '';
+        var headerImageUrl = showSectionName && items.length ? cardImage(items[0], section) : '';
+        var headerImageSource = headerImageUrl ? ' data-hssm-image-url="' + escapeHtml(headerImageUrl) + '" data-hssm-image-overlay="header"' : '';
+        var sectionTitleMarkup = showSectionName ? '<div class="sectionTitleContainer sectionTitleContainer-cards padded-left hssm-section-title-with-art"' + headerImageSource + '><a is="emby-linkbutton" class="more button-flat button-flat-mini sectionTitleTextButton hssm-section-title-link"' + titleAttributes + '><h2 class="sectionTitle sectionTitle-cards">' + escapeHtml(name) + '</h2><span class="material-icons chevron_right" aria-hidden="true"></span></a></div>' : '';
         var ownsScroller = forceOwnedScroller === true || (pageId !== 'home' && pageId !== 'my-list');
         var ranked = type === 'top-10-50' && prop(section, 'ShowRankNumbers', 'showRankNumbers', true) !== false;
         node.className = 'verticalSection emby-scroller-container hssm-client-section hssm-size-' + artSize + ' hssm-shape-' + artShape + ' hssm-art-' + artType + (showSectionName ? '' : ' hssm-hide-section-name') + (ranked ? ' hssm-top-ranked hssm-rank-' + String(prop(section, 'RankNumberColorMode', 'rankNumberColorMode', 'solid')) : '');
@@ -1066,7 +1138,7 @@
         var cards = items.map(function (item, index) { return card(item, section, String(prop(section, 'Type', 'type', '')) === 'top-10-50' ? index + 1 : 0); }).join('');
         var scroller = ownsScroller
             ? '<div class="hssm-owned-scroll-shell"><button type="button" class="hssm-scroll-button hssm-scroll-button-left emby-button" data-hssm-scroll-direction="left" aria-label="Scroll ' + escapeHtml(name) + ' left"><span class="material-icons chevron_left" aria-hidden="true"></span></button><div class="hssm-client-scroller hssm-owned-horizontal-scroll padded-top-focusscale padded-bottom-focusscale"><div class="focuscontainer-x itemsContainer hssm-client-items">' + cards + '</div></div><button type="button" class="hssm-scroll-button hssm-scroll-button-right emby-button" data-hssm-scroll-direction="right" aria-label="Scroll ' + escapeHtml(name) + ' right"><span class="material-icons chevron_right" aria-hidden="true"></span></button></div>'
-            : '<div is="emby-scroller" class="hssm-client-scroller padded-top-focusscale padded-bottom-focusscale" data-horizontal="true" data-centerfocus="true"><div is="emby-itemscontainer" class="focuscontainer-x itemsContainer scrollSlider animatedScrollX hssm-client-items">' + cards + '</div></div>';
+            : '<div is="emby-scroller" class="hssm-client-scroller padded-top-focusscale padded-bottom-focusscale" data-horizontal="true" data-centerfocus="true" data-scrollevent="true"><div is="emby-itemscontainer" class="focuscontainer-x itemsContainer scrollSlider animatedScrollX hssm-client-items">' + cards + '</div></div>';
         node.innerHTML = sectionTitleMarkup + scroller;
         return node;
     }
@@ -1098,7 +1170,11 @@
     function sectionListingItems(section, state) {
         var type = String(prop(section, 'Type', 'type', ''));
         var ids = prop(section, 'ItemIds', 'itemIds', []).map(String).filter(Boolean);
-        if (ids.length) return queryIds(ids);
+        var total = sectionItemCount(section);
+        if (ids.length) {
+            var allIds = total > ids.length ? requestSectionIds(section, 0, total) : Promise.resolve(ids);
+            return allIds.then(function (loadedIds) { return queryIds(loadedIds, sectionItemOptions(section)); });
+        }
         if (type === 'my-list-content') return loadLikedItems(true);
         if (type === 'watch-again') return watchAgainItems(section);
         var dynamic = dynamicSectionItems(section, state && state.preferences || latestNativePreferences || {}, state && state.container || activeManagedSectionContainer() || document);
@@ -1144,6 +1220,7 @@
                 var listingSection = Object.assign({}, section, { ArtSize:'medium', artSize:'medium', ArtType:selectedImageType, artType:selectedImageType, ArtShape:wideImage ? 'wide' : 'poster', artShape:wideImage ? 'wide' : 'poster', ShowText:true, showText:true });
                 page.querySelector('.hssm-section-listing-grid').innerHTML = visible.map(function (item) { return card(item, listingSection, 0); }).join('');
                 if (window.CustomElements && typeof window.CustomElements.upgradeSubtree === 'function') window.CustomElements.upgradeSubtree(page);
+                observeCardArtwork(page.querySelector('.hssm-section-listing-grid'));
                 if (setting(state && state.settings, 'EnableMyList', false)) Array.from(page.querySelectorAll('.card[data-id]')).forEach(addMyListButton);
             }
             filter.addEventListener('input', paint);
@@ -1157,6 +1234,7 @@
 
     function upgradeSectionControls(node) {
         if (!node) return;
+        observeCardArtwork(node);
         if (window.CustomElements && typeof window.CustomElements.upgradeSubtree === 'function') {
             window.CustomElements.upgradeSubtree(node);
         }
@@ -1402,12 +1480,26 @@
     }
 
     function applyNativeBookPresentation(container) {
-        var cards = Array.from(container.querySelectorAll(':scope > [class*="section"] .card[data-id]'));
+        var native = nativeTypes(latestNativePreferences || {});
+        var cards = Array.from(container.querySelectorAll(':scope > [class*="section"] .card[data-id]')).filter(function (cardNode) {
+            var type = String(cardNode.dataset.type || cardNode.dataset.itemtype || '').toLowerCase();
+            if (type === 'book' || type === 'audiobook') return true;
+            var sectionNode = cardNode.closest('[class*="section"]');
+            if (!sectionNode) return false;
+            var sectionClass = Array.from(sectionNode.classList).find(function (name) { return /^section\d+$/.test(name); });
+            var index = sectionClass ? Number(sectionClass.slice('section'.length)) : -1;
+            return index >= 0 && native[index] === 'resumebook';
+        });
         var ids = cards.map(function (node) { return String(node.dataset.id || ''); }).filter(Boolean);
         var signature = CLIENT_VERSION + ':' + ids.join(',');
         if (!ids.length || container.dataset.hssmBookPresentationSignature === signature) return;
         container.dataset.hssmBookPresentationSignature = signature;
-        queryIds(ids).then(function (items) {
+        queryIds(ids, {
+            Fields:'People,Artists,AlbumArtists,Album,AlbumId',
+            EnableImageTypes:'Primary',
+            ImageTypeLimit:1,
+            EnableTotalRecordCount:false
+        }).then(function (items) {
             if (!container.isConnected || container.dataset.hssmBookPresentationSignature !== signature) return;
             var byId = {};
             items.forEach(function (item) { byId[String(prop(item, 'Id', 'id', ''))] = item; });
@@ -1558,7 +1650,7 @@
                 });
                 return;
             }
-            queryIds(cardIds).then(function (items) {
+            queryIds(cardIds, sectionItemOptions(definition)).then(function (items) {
                 if (!node.isConnected || node.dataset.hssmNativeOverrideSignature !== signature) return;
                 var byId = {};
                 items.forEach(function (item) { byId[String(prop(item, 'Id', 'id', ''))] = item; });
@@ -1925,7 +2017,14 @@
             }).map(function (view) { return normalizedTopRowItemId(prop(view, 'Id', 'id', '')); }).filter(Boolean);
             var selected = new Set(libraries.map(function (id) { return normalizedTopRowItemId(resolvedLibraryId(id)); }));
             var allLibrariesSelected = available.length > 0 && available.every(function (id) { return selected.has(id); });
-            var scopes = !libraries.length || allLibrariesSelected ? [''] : libraries;
+            var availableSet = new Set(available);
+            var liveLibraries = libraries.map(resolvedLibraryId).filter(function (id, index, values) {
+                return availableSet.has(normalizedTopRowItemId(id)) && values.indexOf(id) === index;
+            });
+            // Never send known-stale ParentIds. They can leave Jellyfin doing
+            // expensive failed ancestry work and previously made one removed
+            // library hold every later custom row in the request lane.
+            var scopes = !libraries.length || allLibrariesSelected ? [''] : liveLibraries;
             var requests = [];
             tokens.forEach(function (token) {
                 scopes.forEach(function (libraryId) { requests.push({ token:token, libraryId:libraryId }); });
@@ -1949,7 +2048,10 @@
 
     function recentListeningItems(type, section, signal) {
         var options = sectionItemOptions(section || {});
-        return getJson('HomeScreenSectionsManager/recent-listening', { limit:300 }, signal).then(function (result) {
+        var configuredMaximum = maximumSectionItems(section || {});
+        var desiredItems = Number.isFinite(configuredMaximum) ? Math.min(100, configuredMaximum) : 40;
+        var historyLimit = Math.max(40, Math.min(200, desiredItems * 3));
+        return getJson('HomeScreenSectionsManager/recent-listening', { limit:historyLimit }, signal).then(function (result) {
             var ids = prop(result, 'ItemIds', 'itemIds', []).map(String).filter(Boolean);
             return queryIds(ids, options, signal).then(function (songs) {
                 if (type === 'recently-listened-songs') return songs.map(function (item, index) { return Object.assign({}, item, { _hssmRecentListeningIndex:index }); });
@@ -1989,6 +2091,11 @@
             if (activeState.refreshPromise) return activeState.refreshPromise.then(function () { return orderItems(uniqueItems(activeState.items || []), section).slice(0, 30); });
             if (activeState.pagePromise) return activeState.pagePromise.then(function () { return orderItems(uniqueItems(activeState.items || []), section).slice(0, 30); });
             if (activeState.items && activeState.items.length) return Promise.resolve(orderItems(uniqueItems(activeState.items), section).slice(0, 30));
+            // A visible Media Bar gets priority, but it must reuse the matching
+            // row's request and cache instead of issuing a second metadata read.
+            if (!activeState.complete) return startInitialSectionLoad(activeState).then(function () {
+                return orderItems(uniqueItems(activeState.items || []), section).slice(0, 30);
+            });
         }
         var dynamic = dynamicSectionItems(section, latestNativePreferences || {}, activeManagedSectionContainer() || document);
         if (dynamic) return dynamic.then(function (items) { return orderItems(uniqueItems(items), section).slice(0, 30); });
@@ -2002,7 +2109,7 @@
                 items = orderItems(uniqueItems(items), section).slice(0, 30);
                 var ids = items.map(function (item) { return String(prop(item, 'Id', 'id', '')); }).filter(Boolean);
                 if (!ids.length) return [];
-                return queryIds(ids).then(function (fresh) {
+                return queryIds(ids, sectionItemOptions(Object.assign({}, section, { IsMediaBar:true }))).then(function (fresh) {
                     var freshById = {};
                     fresh.forEach(function (item) { freshById[String(prop(item, 'Id', 'id', ''))] = item; });
                     return items.map(function (item) { return freshById[String(prop(item, 'Id', 'id', ''))] || item; });
@@ -2015,7 +2122,7 @@
         var ids = sectionPageIds(section, 0, 30);
         var cached = sectionCache(section);
         if (!ids.length) return Promise.resolve([]);
-        return queryIds(ids).then(function (items) { return orderItems(uniqueItems(items), section).slice(0, 30); }, function () {
+        return queryIds(ids, sectionItemOptions(Object.assign({}, section, { IsMediaBar:true }))).then(function (items) { return orderItems(uniqueItems(items), section).slice(0, 30); }, function () {
             if (!cached || !cached.items.length) return [];
             var allowed = {}; ids.forEach(function (id) { allowed[id] = true; });
             return orderItems(uniqueItems(cached.items.filter(function (item) { return allowed[String(prop(item, 'Id', 'id', ''))]; })), section).slice(0, 30);
@@ -2051,9 +2158,10 @@
         var request = mediaBarMetadataLane(function () {
             return queryIds(seriesIds, sectionItemOptions({ IsMediaBar:true })).then(function (seriesItems) {
                 return queryIds(musicParentIds, sectionItemOptions({ IsMediaBar:true })).then(function (musicParents) {
+                    var artistAlbumLimit = Math.max(30, Math.min(300, artistSlideIds.length * 10));
                     var albumOptions = {
                         ArtistIds:artistSlideIds.join(','), IncludeItemTypes:'MusicAlbum', Recursive:true,
-                        SortBy:'ProductionYear,SortName', SortOrder:'Descending', Limit:1000,
+                        SortBy:'ProductionYear,SortName', SortOrder:'Descending', Limit:artistAlbumLimit,
                         Fields:'ProductionYear,SortName,AlbumArtists,ArtistItems,PrimaryImageAspectRatio',
                         EnableImageTypes:'Primary', ImageTypeLimit:1, EnableTotalRecordCount:false
                     };
@@ -2441,11 +2549,46 @@
         bindMediaBarMessages();
         var urls = mediaBarUrls(frame, settings);
         if (frame.src !== urls.plugin) {
-            frame.addEventListener('load', function handleLoad() { frame.removeEventListener('load', handleLoad); sendMediaBarPayload(frame, true); });
-            frame.src = urls.plugin;
+            frame._hssmPendingSrc = urls.plugin;
         }
         syncOwnedMediaBarVisibility();
         return frame;
+    }
+
+    function startExplicitMediaBarLoad(frame) {
+        if (!frame || !frame.isConnected || !frame._hssmStartItemsLoad || frame._hssmItemsRequest) return;
+        if (explicitMediaBarObserver) explicitMediaBarObserver.unobserve(frame);
+        var start = frame._hssmStartItemsLoad;
+        frame._hssmStartItemsLoad = null;
+        if (frame._hssmPendingSrc) {
+            var pendingSource = frame._hssmPendingSrc;
+            frame._hssmPendingSrc = null;
+            frame.addEventListener('load', function handleLoad() { frame.removeEventListener('load', handleLoad); sendMediaBarPayload(frame, true); });
+            frame.src = pendingSource;
+        }
+        start();
+    }
+
+    function queueExplicitMediaBarLoad(frame) {
+        if (!frame || !frame._hssmStartItemsLoad) return;
+        if (typeof IntersectionObserver !== 'function') {
+            startExplicitMediaBarLoad(frame);
+            return;
+        }
+        var bounds = frame.getBoundingClientRect();
+        var viewport = Math.max(1, window.innerHeight || document.documentElement.clientHeight || 800);
+        if (bounds.top <= viewport * 1.75 && bounds.bottom >= -viewport * 0.5) {
+            startExplicitMediaBarLoad(frame);
+            return;
+        }
+        if (!explicitMediaBarObserver) {
+            explicitMediaBarObserver = new IntersectionObserver(function (entries) {
+                entries.filter(function (entry) { return entry.isIntersecting; }).sort(function (left, right) {
+                    return left.boundingClientRect.top - right.boundingClientRect.top;
+                }).forEach(function (entry) { startExplicitMediaBarLoad(entry.target); });
+            }, { root:null, rootMargin:'75% 0px 75% 0px', threshold:0.01 });
+        }
+        explicitMediaBarObserver.observe(frame);
     }
 
     function renderExplicitMediaBars(settings, container, sections, preferences) {
@@ -2473,12 +2616,15 @@
             var frame = ensureSectionMediaBarFrame(container, settings, section, sourceNode, firstOnPage);
             if (!frame) return;
             var requestSignature = sectionSignature(section);
-            if (frame.dataset.hssmSectionRequestSignature === requestSignature && (frame._hssmItemsRequest || (frame._hssmPayload && frame._hssmPayload.items && frame._hssmPayload.items.length))) return;
+            if (frame.dataset.hssmSectionRequestSignature === requestSignature && (frame._hssmStartItemsLoad || frame._hssmItemsRequest || (frame._hssmPayload && frame._hssmPayload.items && frame._hssmPayload.items.length))) return;
             frame.dataset.hssmSectionRequestSignature = requestSignature;
             var payload = { type:'home-screen-manager-media-bar', action:'configure', items:[], loading:true, intervalSeconds:Math.max(1,Math.min(300,Number(setting(settings,'MediaBarIntervalSeconds',5))||5)), imageType:String(setting(settings,'MediaBarImageType','abyss-original')), slowZoom:setting(settings,'EnableMediaBarSlowZoom',true)!==false, topGradient:true };
             frame._hssmPayload = payload;
             sendMediaBarPayload(frame, true, payload);
-            frame._hssmItemsRequest = mediaBarSectionItems(section).then(resolveMediaBarLogos).then(function (items) { if(!frame.isConnected || frame.dataset.hssmSectionRequestSignature !== requestSignature)return; payload.items=items; payload.loading=false; frame._hssmPayload=payload; sendMediaBarPayload(frame,true,payload); }, function () { payload.loading=false; sendMediaBarPayload(frame,true,payload); }).finally(function () { frame._hssmItemsRequest = null; });
+            frame._hssmStartItemsLoad = function () {
+                frame._hssmItemsRequest = mediaBarSectionItems(section).then(resolveMediaBarLogos).then(function (items) { if(!frame.isConnected || frame.dataset.hssmSectionRequestSignature !== requestSignature)return; payload.items=items; payload.loading=false; frame._hssmPayload=payload; sendMediaBarPayload(frame,true,payload); }, function () { payload.loading=false; sendMediaBarPayload(frame,true,payload); }).finally(function () { frame._hssmItemsRequest = null; });
+            };
+            queueExplicitMediaBarLoad(frame);
         });
         applyHybridOrder(container, scoped, preferences || {});
     }
@@ -2601,6 +2747,21 @@
             return items;
         }).finally(function () { likedItemsRequest = null; });
         return likedItemsRequest;
+    }
+
+    function loadLikedItemsPage(start, limit, section, signal) {
+        var offset = Math.max(0, Number(start) || 0);
+        var count = Math.max(1, Math.min(100, Number(limit) || SECTION_PAGE_SIZE));
+        return getJson('HomeScreenSectionsManager/my-list-item-ids', { startIndex:offset, limit:count }, signal).then(function (result) {
+            var ids = prop(result, 'ItemIds', 'itemIds', []).map(String).filter(Boolean);
+            var total = Math.max(ids.length, Number(prop(result, 'TotalRecordCount', 'totalRecordCount', ids.length)) || 0);
+            return queryIds(ids, sectionItemOptions(section || {}), signal).then(function (items) {
+                items.forEach(function (item) { likedItemsById[String(prop(item, 'Id', 'id', ''))] = item; });
+                likedItemsLoaded = true;
+                cacheWrite('my-list', Object.keys(likedItemsById).map(function (id) { return likedItemsById[id]; }));
+                return { items:items, total:total };
+            });
+        });
     }
 
     function queueVisibleHeartStatus(scope) {
@@ -3082,10 +3243,11 @@
         if (!term.trim()) { resultHost.innerHTML = ''; page.classList.remove('hssm-search-showing'); return; }
         page.classList.add('hssm-search-showing'); resultHost.innerHTML = '<p class="hssm-loading">Searching Jellyfin…</p>';
         var types = mode === 'music' ? 'Audio,MusicAlbum,MusicArtist,MusicVideo' : mode === 'books' ? 'Book,AudioBook' : mode === 'all' ? 'Movie,Series,Season,Episode,Video,BoxSet,Playlist,Audio,MusicAlbum,MusicArtist,MusicVideo,Book,AudioBook' : 'Movie,Series,Season,Episode,Video';
-        queryItems({ SearchTerm: term.trim(), IncludeItemTypes: types, Recursive: true, Limit: 100 }).then(function (items) {
+        var definition = { ArtSize: 'medium', ArtType: 'automatic', ArtShape: mode === 'books' ? 'book' : 'poster', ShowText: true };
+        queryItems(Object.assign({}, sectionItemOptions(definition), { SearchTerm: term.trim(), IncludeItemTypes: types, Recursive: true, Limit: 100 })).then(function (items) {
             if (!resultHost.isConnected) return;
-            var definition = { ArtSize: 'medium', ArtType: 'automatic', ArtShape: 'poster', ShowText: true };
             resultHost.innerHTML = '<p class="hssm-search-count">' + items.length + (items.length === 1 ? ' result' : ' results') + '</p><div class="hssm-search-grid">' + uniqueItems(items).map(function (item) { return card(item, definition); }).join('') + '</div>';
+            observeCardArtwork(resultHost);
             Array.from(resultHost.querySelectorAll('.card[data-id]')).forEach(addMyListButton);
         }, function () { resultHost.innerHTML = '<p>Jellyfin search could not be completed.</p>'; });
     }
@@ -3106,7 +3268,7 @@
         if (input.value) search();
     }
     function sectionPageIds(section, cursor, limit) {
-        var ids = prop(section, 'ItemIds', 'itemIds', []).map(String).filter(Boolean);
+        var ids = (section._hssmAllItemIds || prop(section, 'ItemIds', 'itemIds', [])).map(String).filter(Boolean);
         if (String(prop(section, 'ContentOrder', 'contentOrder', '')) === 'random') {
             var randomSourceKey = ids.join('|');
             if (!section._hssmRandomIds || section._hssmRandomSourceKey !== randomSourceKey) {
@@ -3127,32 +3289,78 @@
         return ids.slice(cursor, cursor + limit);
     }
 
+    function sectionItemCount(section) {
+        var ids = prop(section, 'ItemIds', 'itemIds', []).map(String).filter(Boolean);
+        return Math.max(ids.length, Number(prop(section, 'ItemCount', 'itemCount', ids.length)) || 0);
+    }
+
+    function requestSectionIds(section, start, limit, signal) {
+        var id = String(prop(section, 'Id', 'id', ''));
+        if (!id) return Promise.resolve([]);
+        return getJson('HomeScreenSectionsManager/sections/' + encodeURIComponent(id) + '/item-ids', {
+            startIndex:Math.max(0, Number(start) || 0),
+            limit:Math.max(1, Math.min(10000, Number(limit) || SECTION_PAGE_SIZE))
+        }, signal).then(function (result) {
+            return prop(result, 'ItemIds', 'itemIds', []).map(String).filter(Boolean);
+        });
+    }
+
+    function loadSectionPageIds(section, cursor, limit, signal) {
+        var local = sectionPageIds(section, cursor, limit);
+        var total = sectionItemCount(section);
+        if (String(prop(section, 'ContentOrder', 'contentOrder', '')) === 'random'
+            && total > (section._hssmAllItemIds || prop(section, 'ItemIds', 'itemIds', [])).length) {
+            return requestSectionIds(section, 0, total, signal).then(function (ids) {
+                section._hssmAllItemIds = ids;
+                delete section._hssmRandomIds;
+                delete section._hssmRandomSourceKey;
+                return sectionPageIds(section, cursor, limit);
+            });
+        }
+        if (local.length >= limit || cursor + local.length >= total) return Promise.resolve(local);
+        return requestSectionIds(section, cursor, limit, signal);
+    }
+
     function attachSectionPaging(state) {
         if (!state || !state.node || !state.node.isConnected) return;
         var scroller = state.node.querySelector(".hssm-client-scroller");
         if (!scroller || scroller.dataset.hssmPagingBound === "true") return;
         scroller.dataset.hssmPagingBound = "true";
-        scroller.addEventListener("scroll", function () {
-            var current = Number(scroller.dataset.hssmOwnedOffset || scroller.scrollLeft || 0);
+        var onSectionScroll = function () {
+            var current = typeof scroller.getScrollPosition === 'function'
+                ? Number(scroller.getScrollPosition()) || 0
+                : Number(scroller.dataset.hssmOwnedOffset || scroller.scrollLeft || 0);
             var items = scroller.querySelector('.hssm-client-items');
-            var total = items ? Math.max(items.scrollWidth || 0, items.getBoundingClientRect().width || 0) : scroller.scrollWidth;
-            if (current + scroller.clientWidth < total - Math.max(600, scroller.clientWidth)) return;
+            var total = typeof scroller.getScrollSize === 'function'
+                ? Number(scroller.getScrollSize()) || 0
+                : items ? Math.max(items.scrollWidth || 0, items.getBoundingClientRect().width || 0) : scroller.scrollWidth;
+            var viewport = Math.max(1, scroller.clientWidth || state.node.clientWidth || 1);
+            var prefetchDistance = Math.max(320, Math.min(640, Math.round(viewport * 0.5)));
+            if (current + viewport < total - prefetchDistance) return;
             if (state.dynamicLoader) loadDynamicPage(state);
             else loadSectionPage(state);
-        }, { passive:true });
+        };
+        // Jellyfin 10.11.11 can use transform-based horizontal scrolling on
+        // desktop. Its emby-scroller exposes the correct event/position API;
+        // our owned browser scroller deliberately falls back to native scroll.
+        if (typeof scroller.addScrollEventListener === 'function') {
+            scroller.addScrollEventListener(onSectionScroll, { passive:true });
+        } else {
+            scroller.addEventListener("scroll", onSectionScroll, { passive:true });
+        }
     }
 
     function loadDynamicPage(state) {
-        if (!state || !state.dynamicLoader || state.loading || state.complete || !sectionStateIsCurrent(state)) return;
+        if (!state || !state.dynamicLoader || state.loading || state.complete || !sectionStateIsCurrent(state)) return Promise.resolve();
         var maximum = maximumSectionItems(state.section);
-        if (state.cursor >= maximum) { state.complete = true; return; }
+        if (state.cursor >= maximum) { state.complete = true; return Promise.resolve(); }
         state.loading = true;
         var start = state.cursor;
-        var pageSize = Math.min(40, maximum - start);
+        var pageSize = Math.min(SECTION_PAGE_SIZE, maximum - start);
         var wasSkipped = false;
         var pageRequest = queueVisibleSectionRequest(state, function (signal) { return state.dynamicLoader(start, pageSize, signal); });
         state.pagePromise = pageRequest;
-        pageRequest.then(function (items) {
+        return pageRequest.then(function (items) {
             if (items === skippedSectionRequest) { wasSkipped = true; return; }
             if (!sectionStateIsCurrent(state) || !state.container.isConnected) return;
             items = uniqueItems(items || []);
@@ -3181,7 +3389,11 @@
         if (!state || !sectionStateIsCurrent(state) || !state.container.isConnected) return;
         var oldNode = state.node;
         var oldScroller = oldNode && oldNode.querySelector('.hssm-client-scroller');
-        var oldScrollLeft = oldScroller ? Number(oldScroller.dataset.hssmOwnedOffset || oldScroller.scrollLeft || 0) : 0;
+        var oldScrollLeft = oldScroller
+            ? typeof oldScroller.getScrollPosition === 'function'
+                ? Number(oldScroller.getScrollPosition()) || 0
+                : Number(oldScroller.dataset.hssmOwnedOffset || oldScroller.scrollLeft || 0)
+            : 0;
         var ordered = orderItems(uniqueItems(state.items), state.section).slice(0, maximumSectionItems(state.section));
         var nextNode = sectionNode(state.section, ordered, loading, !!state.container.closest('.hssm-owned-custom-page'));
         if (oldNode && oldNode.isConnected) oldNode.replaceWith(nextNode);
@@ -3192,6 +3404,7 @@
         var nextScroller = nextNode.querySelector('.hssm-client-scroller');
         if (nextScroller && oldScrollLeft) {
             if (typeof nextScroller._hssmSetOwnedOffset === 'function') nextScroller._hssmSetOwnedOffset(oldScrollLeft);
+            else if (typeof nextScroller.scrollToPosition === 'function') nextScroller.scrollToPosition(oldScrollLeft, true);
             else nextScroller.scrollLeft = oldScrollLeft;
         }
         attachSectionPaging(state);
@@ -3200,26 +3413,33 @@
     }
 
     function loadSectionPage(state) {
-        if (!state || state.loading || state.complete || !sectionStateIsCurrent(state)) return;
+        if (!state || state.loading || state.complete || !sectionStateIsCurrent(state)) return state && state.pagePromise ? state.pagePromise : Promise.resolve();
         var maximum = maximumSectionItems(state.section);
-        if (state.cursor >= maximum) { state.complete = true; return; }
-        var pageIds = sectionPageIds(state.section, state.cursor, Math.min(40, maximum - state.cursor));
-        if (!pageIds.length) {
+        var total = sectionItemCount(state.section);
+        var effectiveMaximum = Number.isFinite(maximum) ? Math.min(maximum, total) : total;
+        if (state.cursor >= effectiveMaximum) {
             state.complete = true;
             if (!state.items.length) paintSectionState(state, false);
-            return;
+            return Promise.resolve();
         }
+        var pageSize = Math.min(SECTION_PAGE_SIZE, effectiveMaximum - state.cursor);
+        var pageIds = [];
         state.loading = true;
         var wasSkipped = false;
-        var pageRequest = queueVisibleSectionRequest(state, function (signal) { return queryIds(pageIds, sectionItemOptions(state.section), signal); });
+        var pageRequest = queueVisibleSectionRequest(state, function (signal) {
+            return loadSectionPageIds(state.section, state.cursor, pageSize, signal).then(function (ids) {
+                pageIds = ids;
+                return ids.length ? queryIds(ids, sectionItemOptions(state.section), signal) : [];
+            });
+        });
         state.pagePromise = pageRequest;
-        pageRequest.then(function (items) {
+        return pageRequest.then(function (items) {
             if (items === skippedSectionRequest) { wasSkipped = true; return; }
             if (!sectionStateIsCurrent(state) || !state.container.isConnected) return;
             if (['library-content','multiple-library-content'].indexOf(String(prop(state.section, 'Type', 'type', ''))) >= 0) items = withoutNavigationFolders(items);
             state.items = uniqueItems(state.items.concat(items));
             state.cursor += pageIds.length;
-            state.complete = state.cursor >= maximum || sectionPageIds(state.section, state.cursor, 1).length === 0;
+            state.complete = !pageIds.length || state.cursor >= effectiveMaximum;
             saveSectionCache(state.section, state.items, state.cursor);
             paintSectionState(state, false);
         }).catch(function (error) {
@@ -3247,20 +3467,23 @@
         } else if (type === 'recently-added-library') {
             var recentLibraryId = String((prop(state.section, 'SourceIds', 'sourceIds', []) || [])[0] || '');
             state.dynamicLoader = function (start, limit, requestSignal) { return queryItems(Object.assign({}, sectionItemOptions(state.section), { ParentId:resolvedLibraryId(recentLibraryId), Recursive:true, SortBy:'DateCreated', SortOrder:'Descending', StartIndex:start, Limit:limit, EnableTotalRecordCount:false }), requestSignal).then(withoutNavigationFolders); };
-            request = recentLibraryId ? state.dynamicLoader(0, Math.min(40, maximumSectionItems(state.section)), signal) : Promise.resolve([]);
+            request = recentLibraryId ? state.dynamicLoader(0, Math.min(SECTION_PAGE_SIZE, maximumSectionItems(state.section)), signal) : Promise.resolve([]);
         } else if (type === "my-list-content") {
-            request = loadLikedItems(true, signal).then(function (items) {
-                state.dynamicTotal = items.length;
-                return items;
-            });
+            state.dynamicLoader = function (start, limit, requestSignal) {
+                return loadLikedItemsPage(start, limit, state.section, requestSignal).then(function (page) {
+                    state.dynamicTotal = page.total;
+                    return page.items;
+                });
+            };
+            request = state.dynamicLoader(0, SECTION_PAGE_SIZE, signal);
         } else if (type === "watch-again") {
             state.dynamicLoader = function (start, limit, requestSignal) { return loadWatchAgainItems(start, limit, state.section, requestSignal); };
-            request = state.dynamicLoader(0, 40, signal);
+            request = state.dynamicLoader(0, SECTION_PAGE_SIZE, signal);
         } else if (type === "top-10-50" && !prop(state.section, 'ItemIds', 'itemIds', []).length) {
             request = loadTopItemsFromSources(state.section, signal).then(function (items) {
                 state.dynamicTotal = items.length;
                 state.dynamicLoader = function (start, limit) { return Promise.resolve(items.slice(start, start + limit)); };
-                return state.dynamicLoader(0, 40);
+                return state.dynamicLoader(0, SECTION_PAGE_SIZE);
             });
         } else if (type === "other-users-activity") {
             var maximum = Math.max(1, Math.min(100, Number(prop(state.section, "ActivityMaxItems", "activityMaxItems", 20)) || 20));
@@ -3271,7 +3494,7 @@
                 var ids = prop(result, "ItemIds", "itemIds", []).map(String).filter(Boolean).slice(0, maximum);
                 state.dynamicTotal = ids.length;
                 state.dynamicLoader = function (start, limit, requestSignal) { return queryIds(ids.slice(start, start + limit), sectionItemOptions(state.section), requestSignal); };
-                return state.dynamicLoader(0, 40, signal);
+                return state.dynamicLoader(0, SECTION_PAGE_SIZE, signal);
             });
         } else if (type === "rotating-sections" || type === "seasonal-sections") {
             var draft = activeSectionDraft(state.section);
@@ -3285,14 +3508,14 @@
                         return sourceType === 'library' ? withoutNavigationFolders(items) : items;
                     });
                 };
-                request = state.dynamicLoader(0, 40, signal);
+                request = state.dynamicLoader(0, SECTION_PAGE_SIZE, signal);
             }
             if (sourceType === "tag") {
                 request = postJson("CollectionManager/individual-collection-drafts/preview", tagSource(sourceId, prop(state.section, "Name", "name", ""))).then(function (preview) {
                     var ids = prop(preview, "Items", "items", []).map(function (item) { return String(prop(item, "Id", "id", "")); }).filter(Boolean);
                     state.dynamicTotal = ids.length;
                     state.dynamicLoader = function (start, limit, requestSignal) { return queryIds(ids.slice(start, start + limit), sectionItemOptions(state.section), requestSignal); };
-                    return state.dynamicLoader(0, 40, signal);
+                    return state.dynamicLoader(0, SECTION_PAGE_SIZE, signal);
                 });
             }
         }
@@ -3301,7 +3524,7 @@
             if (!sectionStateIsCurrent(state) || !state.container.isConnected) return;
             state.items = uniqueItems(items || []).slice(0, maximumSectionItems(state.section));
             state.cursor = state.items.length;
-            state.complete = Number.isFinite(state.dynamicTotal) ? state.cursor >= state.dynamicTotal : state.items.length < 40;
+            state.complete = Number.isFinite(state.dynamicTotal) ? state.cursor >= state.dynamicTotal : state.items.length < SECTION_PAGE_SIZE;
             saveSectionCache(state.section, state.items, state.cursor);
             paintSectionState(state, false);
         }).catch(function (error) {
@@ -3311,7 +3534,8 @@
     }
 
     function queueInitialDynamicSection(state) {
-        if (!state || state.refreshPromise || state.initialLoadComplete || !sectionStateIsCurrent(state)) return;
+        if (!state || state.initialLoadComplete || !sectionStateIsCurrent(state)) return Promise.resolve();
+        if (state.refreshPromise) return state.refreshPromise;
         var wasSkipped = false;
         state.refreshPromise = queueVisibleSectionRequest(state, function (signal) { return loadDynamicSection(state, signal); }).then(function (result) {
             wasSkipped = result === skippedSectionRequest;
@@ -3320,6 +3544,47 @@
             state.refreshPromise = null;
             if (wasSkipped && managedSectionContainerIsActive(state.container)) window.setTimeout(function () { queueInitialDynamicSection(state); }, 0);
         });
+        return state.refreshPromise;
+    }
+
+    function startInitialSectionLoad(state) {
+        if (!state || !sectionStateIsCurrent(state) || !managedSectionContainerIsActive(state.container)) return Promise.resolve();
+        state.waitingForViewport = false;
+        if (sectionVisibilityObserver && state.node) sectionVisibilityObserver.unobserve(state.node);
+        if (state.initialDynamic) return queueInitialDynamicSection(state);
+        if (!state.loading && !state.complete && !state.items.length) return loadSectionPage(state);
+        return state.pagePromise || Promise.resolve();
+    }
+
+    function queueSectionLoadWhenNear(state) {
+        if (!state || !sectionStateIsCurrent(state)) return;
+        if (state.initialDynamic && state.initialLoadComplete) return;
+        if (!state.initialDynamic && (state.loading || state.complete || state.items.length)) return;
+        if (state.waitingForViewport) return;
+        if (typeof IntersectionObserver !== 'function') {
+            startInitialSectionLoad(state);
+            return;
+        }
+        var bounds = state.node && state.node.getBoundingClientRect();
+        var viewport = Math.max(1, window.innerHeight || document.documentElement.clientHeight || 800);
+        if (bounds && bounds.top <= viewport * 1.75 && bounds.bottom >= -viewport * 0.5) {
+            startInitialSectionLoad(state);
+            return;
+        }
+        if (!sectionVisibilityObserver) {
+            sectionVisibilityObserver = new IntersectionObserver(function (entries) {
+                entries.filter(function (entry) { return entry.isIntersecting; }).sort(function (left, right) {
+                    return left.boundingClientRect.top - right.boundingClientRect.top;
+                }).forEach(function (entry) {
+                    sectionVisibilityObserver.unobserve(entry.target);
+                    var queuedState = entry.target._hssmSectionState;
+                    if (queuedState) startInitialSectionLoad(queuedState);
+                });
+            }, { root:null, rootMargin:'75% 0px 75% 0px', threshold:0.01 });
+        }
+        state.waitingForViewport = true;
+        state.node._hssmSectionState = state;
+        sectionVisibilityObserver.observe(state.node);
     }
 
     function resumeContainerSectionLoads(container) {
@@ -3327,8 +3592,7 @@
         Object.keys(sectionRuntime).forEach(function (id) {
             var state = sectionRuntime[id];
             if (!state || state.container !== container || !sectionStateIsCurrent(state)) return;
-            if (state.initialDynamic) queueInitialDynamicSection(state);
-            else if (!state.loading && !state.complete && !state.items.length) loadSectionPage(state);
+            queueSectionLoadWhenNear(state);
         });
     }
 
@@ -3351,7 +3615,8 @@
             initialDynamic:false,
             initialLoadComplete:false,
             refreshPromise:null,
-            pagePromise:null
+            pagePromise:null,
+            waitingForViewport:false
         };
         sectionRuntime[id] = state;
         paintSectionState(state, !cached);
@@ -3359,16 +3624,16 @@
         var recoversTop = type === 'top-10-50' && !prop(section, 'ItemIds', 'itemIds', []).length;
         var isAutomatic = isContinueSectionType(type) || type.indexOf('recently-listened-') === 0 || type === 'recently-added-library';
         if (type === 'my-list-content' || type === 'watch-again' || recoversTop || isAutomatic) state.complete = false;
-        else if (!cached || !cached.items.length) loadSectionPage(state);
-        else state.complete = sectionPageIds(section, state.cursor, 1).length === 0;
+        else if (!cached || !cached.items.length) state.complete = false;
+        else {
+            var savedMaximum = maximumSectionItems(section);
+            var savedTotal = sectionItemCount(section);
+            state.complete = state.cursor >= (Number.isFinite(savedMaximum) ? Math.min(savedMaximum, savedTotal) : savedTotal);
+        }
         if (type === 'my-list-content' || type === 'watch-again' || recoversTop || isAutomatic || type === 'other-users-activity' || type === 'rotating-sections' || type === 'seasonal-sections') {
             state.initialDynamic = true;
-            var delay = type === 'my-list-content' || type === 'watch-again' || recoversTop || isAutomatic ? 0 : 800;
-            if (!delay) queueInitialDynamicSection(state);
-            else window.setTimeout(function () {
-                if (sectionStateIsCurrent(state)) queueInitialDynamicSection(state);
-            }, delay);
         }
+        queueSectionLoadWhenNear(state);
         return state;
     }
 
