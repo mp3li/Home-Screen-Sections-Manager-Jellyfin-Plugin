@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    var CLIENT_VERSION = "0.1.0.65";
+    var CLIENT_VERSION = "0.1.0.66";
     if (window.HomeScreenManagerClient) {
         if (window.HomeScreenManagerClient.version === CLIENT_VERSION) {
             window.HomeScreenManagerClient.refresh();
@@ -227,12 +227,32 @@
         if (right) right.disabled = slider.scrollLeft >= maximum - 1;
     }
 
+    function syncPageTabWindow(tabs, slider, customPages) {
+        if (!tabs || !slider || !customPages || customPages.length <= 4) {
+            if (tabs) tabs.style.removeProperty('--hssm-page-tabs-window-width');
+            return;
+        }
+        var visibleButtons = Array.from(slider.querySelectorAll(':scope > .emby-tab-button')).filter(function (button) {
+            return !button.hidden && !button.classList.contains('hssm-hidden-page-tab');
+        });
+        var first = visibleButtons[0];
+        var fourthCustom = customPages[3];
+        if (!first || !fourthCustom) return;
+        var sliderStyle = window.getComputedStyle(slider);
+        var paddingLeft = parseFloat(sliderStyle.paddingLeft) || 0;
+        var paddingRight = parseFloat(sliderStyle.paddingRight) || 0;
+        var width = Math.ceil(Math.max(1, fourthCustom.offsetLeft + fourthCustom.offsetWidth - first.offsetLeft + paddingLeft + paddingRight));
+        var current = parseFloat(tabs.style.getPropertyValue('--hssm-page-tabs-window-width')) || 0;
+        if (Math.abs(current - width) > 1) tabs.style.setProperty('--hssm-page-tabs-window-width', width + 'px');
+    }
+
     function updatePageTabOverflow(tabs, slider) {
         if (!tabs || !slider) return;
         var header = tabs.closest('.headerTabs');
         if (!header) return;
-        var customPageCount = Array.from(slider.querySelectorAll('.hssm-custom-page-tab')).filter(function (button) { return !button.hidden && !button.classList.contains('hssm-hidden-page-tab'); }).length;
-        var enabled = customPageCount > 4;
+        var customPages = Array.from(slider.querySelectorAll('.hssm-custom-page-tab')).filter(function (button) { return !button.hidden && !button.classList.contains('hssm-hidden-page-tab'); });
+        var enabled = customPages.length > 4;
+        syncPageTabWindow(tabs, slider, customPages);
         header.classList.toggle('hssm-page-tabs-overflow-shell', enabled);
         tabs.classList.toggle('hssm-page-tabs-overflow', enabled);
         var left = header.querySelector(':scope > .hssm-page-nav-arrow-left');
@@ -241,6 +261,7 @@
             if (left) left.remove();
             if (right) right.remove();
             slider.scrollLeft = 0;
+            tabs.style.removeProperty('--hssm-page-tabs-window-width');
             return;
         }
         if (!left) {
@@ -280,12 +301,19 @@
                 slider.scrollLeft = Math.max(0, Math.min(maximum, slider.scrollLeft + delta));
             }, { passive:false });
             if (typeof ResizeObserver === 'function') {
-                var observer = new ResizeObserver(function () { updatePageTabArrowState(tabs, slider); });
+                var observer = new ResizeObserver(function () {
+                    var currentCustomPages = Array.from(slider.querySelectorAll('.hssm-custom-page-tab')).filter(function (button) { return !button.hidden && !button.classList.contains('hssm-hidden-page-tab'); });
+                    syncPageTabWindow(tabs, slider, currentCustomPages);
+                    updatePageTabArrowState(tabs, slider);
+                });
                 observer.observe(slider);
                 slider.hssmPageOverflowResizeObserver = observer;
             }
         }
-        window.requestAnimationFrame(function () { updatePageTabArrowState(tabs, slider); });
+        window.requestAnimationFrame(function () {
+            syncPageTabWindow(tabs, slider, customPages);
+            updatePageTabArrowState(tabs, slider);
+        });
     }
 
     function ensureOwnedMyListPage(settings) {
@@ -610,13 +638,16 @@
 
     function sectionItemOptions(section) {
         var mediaBar = prop(section, 'IsMediaBar', 'isMediaBar', false) === true;
+        var sectionType = String(prop(section, 'Type', 'type', ''));
         var fields = [
             'PrimaryImageAspectRatio','PrimaryImageItemId','PrimaryImageTag','DateCreated','PremiereDate','ProductionYear',
-            'CommunityRating','SortName','RunTimeTicks','ParentId','ParentIndexNumber','IndexNumber','IsVirtualItem',
+            'SortName','RunTimeTicks','ParentId','ParentIndexNumber','IndexNumber','IsVirtualItem',
             'SeriesId','SeriesName','SeriesPrimaryImageTag','ParentLogoImageTag','ParentLogoItemId','UserData',
             'Artists','AlbumArtists','ArtistItems','Album','AlbumId'
         ];
+        if (sectionType !== 'crunchyroll-top-5-100') fields.push('CommunityRating');
         if (mediaBar) fields.push('Tags','Overview','People','ChildCount','RecursiveItemCount');
+        else if (isRankedTopSectionType(sectionType)) fields.push('Tags');
         else if (String(prop(section, 'ArtShape', 'artShape', '')).toLowerCase() === 'book'
             || String(prop(section, 'Type', 'type', '')).toLowerCase().indexOf('reading') >= 0) fields.push('People');
         return {
@@ -809,6 +840,9 @@
             String(prop(section, 'ContentOrder', 'contentOrder', '')),
             Number(prop(section, 'MaxItems', 'maxItems', 0)) || 0,
             Number(prop(section, 'DisplayTopCount', 'displayTopCount', 0)) || 0,
+            String(prop(section, 'CrunchyrollRatingMode', 'crunchyrollRatingMode', 'upvotes')),
+            String(prop(section, 'CrunchyrollRatingOrder', 'crunchyrollRatingOrder', 'descending')),
+            (prop(section, 'CrunchyrollStarRatings', 'crunchyrollStarRatings', [5]) || [5]).map(Number),
             itemCount, ids.slice(0, 5), itemTail, sources
         ]);
     }
@@ -867,6 +901,7 @@
 
     function loadTopItemsFromSources(section, signal) {
         var sources = prop(section, 'SourceIds', 'sourceIds', []).map(String).filter(Boolean);
+        var sectionType = String(prop(section, 'Type', 'type', ''));
         var limit = Math.max(5, Math.min(100, Number(prop(section, 'DisplayTopCount', 'displayTopCount', 10)) || 10));
         var key = JSON.stringify([
             sectionSignature(section),
@@ -886,7 +921,8 @@
                 if (sourceType === 'collection' || sourceType === 'library') {
                     return queryItemSummaries({
                         ParentId:sourceType === 'library' ? resolvedLibraryId(sourceId) : sourceId,
-                        Recursive:true, Limit:5000, EnableTotalRecordCount:false
+                        Recursive:true, Limit:5000, EnableTotalRecordCount:false,
+                        Fields:sectionType === 'crunchyroll-top-5-100' ? 'SortName,Tags' : 'CommunityRating,SortName,Tags'
                     }, signal).then(function (loaded) { return items.concat(sourceType === 'library' ? withoutNavigationFolders(loaded) : loaded); });
                 }
                 if (sourceType === 'tag') {
@@ -898,9 +934,7 @@
                 return items;
             });
         }, Promise.resolve([])).then(function (items) {
-            var ids = uniqueItems(items).map(function (item) { return { item:item, rating:imdbTaggedRating(item) }; })
-                .filter(function (entry) { return Number.isFinite(entry.rating); })
-                .sort(function (left, right) { return right.rating - left.rating; })
+            var ids = rankedTopEntries(uniqueItems(items), section)
                 .slice(0, limit)
                 .map(function (entry) { return String(prop(entry.item, 'Id', 'id', '')); })
                 .filter(Boolean);
@@ -946,6 +980,63 @@
         return Number.isFinite(nativeRating) && nativeRating > 0 ? nativeRating : null;
     }
 
+    function isRankedTopSectionType(type) {
+        return type === 'top-10-50' || type === 'crunchyroll-top-5-100';
+    }
+
+    function crunchyrollVoteNumber(value) {
+        var match = String(value || '').trim().replace(/,/g, '').match(/^([0-9]+(?:\.[0-9]+)?)\s*([kmb])?$/i);
+        if (!match) return null;
+        var suffix = String(match[2] || '').toLowerCase();
+        var multiplier = suffix === 'k' ? 1000 : suffix === 'm' ? 1000000 : suffix === 'b' ? 1000000000 : 1;
+        var number = Number(match[1]) * multiplier;
+        return Number.isFinite(number) ? number : null;
+    }
+
+    function crunchyrollTaggedRating(item) {
+        var tags = prop(item, 'Tags', 'tags', []);
+        for (var index = 0; index < tags.length; index++) {
+            var match = String(tags[index]).match(/^\s*crunchyrollratings\s*:\s*([0-9][0-9,.]*\s*[kmb]?)\s+upvotes?\s*\/\s*([0-9][0-9,.]*\s*[kmb]?)\s+downvotes?\s*$/i);
+            if (!match) continue;
+            var upvotes = crunchyrollVoteNumber(match[1]);
+            var downvotes = crunchyrollVoteNumber(match[2]);
+            if (upvotes == null || downvotes == null) continue;
+            return { score:upvotes - downvotes, upvotes:upvotes, downvotes:downvotes };
+        }
+        return null;
+    }
+
+    function crunchyrollOverallRating(item) {
+        var tags = prop(item, 'Tags', 'tags', []);
+        for (var index = 0; index < tags.length; index++) {
+            var match = String(tags[index]).match(/^\s*crunchyrollrating\s*:\s*([0-9]+(?:\.[0-9]+)?)\s*\/\s*5(?:\s+from\s+[0-9][0-9,]*\s+ratings?)?\s*$/i);
+            var rating = match ? Number(match[1]) : NaN;
+            if (Number.isFinite(rating) && rating >= 0 && rating <= 5) return rating;
+        }
+        return null;
+    }
+
+    function rankedTopEntries(items, section) {
+        var sectionType = String(prop(section, 'Type', 'type', ''));
+        if (sectionType === 'crunchyroll-top-5-100') {
+            var mode = String(prop(section, 'CrunchyrollRatingMode', 'crunchyrollRatingMode', 'upvotes'));
+            if (mode === 'upvotes') {
+                return items.map(function (item) { return { item:item, rating:crunchyrollTaggedRating(item) }; })
+                    .filter(function (entry) { return !!entry.rating; })
+                    .sort(function (left, right) { return right.rating.score - left.rating.score || right.rating.upvotes - left.rating.upvotes || left.rating.downvotes - right.rating.downvotes; });
+            }
+            var order = String(prop(section, 'CrunchyrollRatingOrder', 'crunchyrollRatingOrder', 'descending'));
+            var stars = {};
+            (prop(section, 'CrunchyrollStarRatings', 'crunchyrollStarRatings', [5]) || [5]).forEach(function (value) { stars[Number(value)] = true; });
+            var rated = items.map(function (item) { return { item:item, rating:crunchyrollOverallRating(item) }; }).filter(function (entry) { return Number.isFinite(entry.rating); });
+            if (mode === 'star-categories') rated = rated.filter(function (entry) { return stars[Math.floor(entry.rating)] === true; });
+            return rated.sort(function (left, right) { return order === 'ascending' ? left.rating - right.rating : right.rating - left.rating; });
+        }
+        return items.map(function (item) { return { item:item, rating:imdbTaggedRating(item) }; })
+            .filter(function (entry) { return Number.isFinite(entry.rating); })
+            .sort(function (left, right) { return right.rating - left.rating; });
+    }
+
     function taggedRating(item) {
         var tags = prop(item, 'Tags', 'tags', []);
         for (var index = 0; index < tags.length; index++) {
@@ -972,12 +1063,17 @@
     function orderItems(items, section) {
         var sectionType = String(prop(section, 'Type', 'type', ''));
         if (sectionType.indexOf('recently-listened-') === 0) return items.slice().sort(function (left, right) { return Number(prop(left, '_hssmRecentListeningIndex', '_hssmRecentListeningIndex', Number.MAX_SAFE_INTEGER)) - Number(prop(right, '_hssmRecentListeningIndex', '_hssmRecentListeningIndex', Number.MAX_SAFE_INTEGER)); });
-        var order = sectionType === 'top-10-50' ? 'rating-descending' : String(prop(section, 'ContentOrder', 'contentOrder', 'title-ascending'));
+        var order = isRankedTopSectionType(sectionType) ? 'rating-descending' : String(prop(section, 'ContentOrder', 'contentOrder', 'title-ascending'));
         var manualIds = prop(section, 'ItemIds', 'itemIds', []).map(String);
         var sourceIds = prop(section, 'SourceIds', 'sourceIds', []).map(String);
         var ranks = {};
         (manualIds.length ? manualIds : sourceIds).forEach(function (id, index) { ranks[id] = index; });
         var sorted = items.slice();
+        if (isRankedTopSectionType(sectionType) && manualIds.length) {
+            return sorted.sort(function (left, right) {
+                return (ranks[String(prop(left, 'Id', 'id', ''))] ?? Number.MAX_SAFE_INTEGER) - (ranks[String(prop(right, 'Id', 'id', ''))] ?? Number.MAX_SAFE_INTEGER);
+            });
+        }
         if (order === 'random') {
             if (!section._hssmRandomRanks) section._hssmRandomRanks = {};
             sorted.forEach(function (item) {
@@ -1000,7 +1096,22 @@
         if (order === 'date-added-ascending') return sorted.sort(function (left, right) { return dateValue(left, 'added') - dateValue(right, 'added'); });
         if (order === 'completed-descending') return sorted.sort(function (left, right) { return dateValue(right, 'completed') - dateValue(left, 'completed'); });
         if (order === 'completed-ascending') return sorted.sort(function (left, right) { return dateValue(left, 'completed') - dateValue(right, 'completed'); });
-        if (order === 'rating-descending') return sorted.sort(function (left, right) { var leftRating = String(prop(section, 'Type', 'type', '')) === 'top-10-50' ? imdbTaggedRating(left) : taggedRating(left); var rightRating = String(prop(section, 'Type', 'type', '')) === 'top-10-50' ? imdbTaggedRating(right) : taggedRating(right); return (rightRating || 0) - (leftRating || 0); });
+        if (order === 'rating-descending') return sorted.sort(function (left, right) {
+            if (sectionType === 'crunchyroll-top-5-100') {
+                var crunchyrollMode = String(prop(section, 'CrunchyrollRatingMode', 'crunchyrollRatingMode', 'upvotes'));
+                if (crunchyrollMode !== 'upvotes') {
+                    var leftOverall = crunchyrollOverallRating(left) || 0;
+                    var rightOverall = crunchyrollOverallRating(right) || 0;
+                    return String(prop(section, 'CrunchyrollRatingOrder', 'crunchyrollRatingOrder', 'descending')) === 'ascending' ? leftOverall - rightOverall : rightOverall - leftOverall;
+                }
+                var leftCrunchyroll = crunchyrollTaggedRating(left) || { score:0, upvotes:0, downvotes:Number.MAX_SAFE_INTEGER };
+                var rightCrunchyroll = crunchyrollTaggedRating(right) || { score:0, upvotes:0, downvotes:Number.MAX_SAFE_INTEGER };
+                return rightCrunchyroll.score - leftCrunchyroll.score || rightCrunchyroll.upvotes - leftCrunchyroll.upvotes || leftCrunchyroll.downvotes - rightCrunchyroll.downvotes;
+            }
+            var leftRating = sectionType === 'top-10-50' ? imdbTaggedRating(left) : taggedRating(left);
+            var rightRating = sectionType === 'top-10-50' ? imdbTaggedRating(right) : taggedRating(right);
+            return (rightRating || 0) - (leftRating || 0);
+        });
         return sorted.sort(function (left, right) { return String(prop(left, 'SortName', 'sortName', prop(left, 'Name', 'name', ''))).localeCompare(String(prop(right, 'SortName', 'sortName', prop(right, 'Name', 'name', '')))); });
     }
 
@@ -1181,7 +1292,7 @@
             : titleDestination ? ' href="' + escapeHtml(titleDestination) + '"' : ' href="#" data-hssm-open-section="' + escapeHtml(id) + '"';
         var sectionTitleMarkup = showSectionName ? '<div class="sectionTitleContainer sectionTitleContainer-cards padded-left"><a is="emby-linkbutton" class="more button-flat button-flat-mini sectionTitleTextButton hssm-section-title-link"' + titleAttributes + '><h2 class="sectionTitle sectionTitle-cards">' + escapeHtml(name) + '</h2><span class="material-icons chevron_right" aria-hidden="true"></span></a></div>' : '';
         var ownsScroller = forceOwnedScroller === true || (pageId !== 'home' && pageId !== 'my-list');
-        var ranked = type === 'top-10-50' && prop(section, 'ShowRankNumbers', 'showRankNumbers', true) !== false;
+        var ranked = isRankedTopSectionType(type) && prop(section, 'ShowRankNumbers', 'showRankNumbers', true) !== false;
         node.className = 'verticalSection emby-scroller-container hssm-client-section hssm-size-' + artSize + ' hssm-shape-' + artShape + ' hssm-art-' + artType + (showSectionName ? '' : ' hssm-hide-section-name') + (ranked ? ' hssm-top-ranked hssm-rank-' + String(prop(section, 'RankNumberColorMode', 'rankNumberColorMode', 'solid')) : '');
         node.style.setProperty('--hssm-rank-one', String(prop(section, 'RankNumberColorOne', 'rankNumberColorOne', '#f5f5f7')));
         node.style.setProperty('--hssm-rank-two', String(prop(section, 'RankNumberColorTwo', 'rankNumberColorTwo', '#f5f5f7')));
@@ -1193,7 +1304,7 @@
         }
         node.style.setProperty('--hssm-rank-shadow', rankShadow);
         var rankFont = String(prop(section, 'RankNumberFontDataUrl', 'rankNumberFontDataUrl', ''));
-        if (rankFont && String(prop(section, 'Type', 'type', '')) === 'top-10-50') { var family = 'hssm-rank-' + id.replace(/[^a-z0-9_-]/gi, ''); var styleId = family + '-font'; var fontStyle = document.getElementById(styleId); if (!fontStyle) { fontStyle = document.createElement('style'); fontStyle.id = styleId; document.head.appendChild(fontStyle); } fontStyle.textContent = '@font-face{font-family:"' + family + '";src:url("' + rankFont.replace(/"/g, '') + '")}'; node.style.setProperty('--hssm-rank-font', '"' + family + '"'); }
+        if (rankFont && isRankedTopSectionType(type)) { var family = 'hssm-rank-' + id.replace(/[^a-z0-9_-]/gi, ''); var styleId = family + '-font'; var fontStyle = document.getElementById(styleId); if (!fontStyle) { fontStyle = document.createElement('style'); fontStyle.id = styleId; document.head.appendChild(fontStyle); } fontStyle.textContent = '@font-face{font-family:"' + family + '";src:url("' + rankFont.replace(/"/g, '') + '")}'; node.style.setProperty('--hssm-rank-font', '"' + family + '"'); }
         node.dataset.hssmSectionId = id;
         if (!items.length) {
             if (loading) {
@@ -1206,7 +1317,7 @@
             }
             return node;
         }
-        var cards = items.map(function (item, index) { return card(item, section, String(prop(section, 'Type', 'type', '')) === 'top-10-50' ? index + 1 : 0); }).join('');
+        var cards = items.map(function (item, index) { return card(item, section, isRankedTopSectionType(type) ? index + 1 : 0); }).join('');
         var scroller = ownsScroller
             ? '<div class="hssm-owned-scroll-shell"><button type="button" class="hssm-scroll-button hssm-scroll-button-left emby-button" data-hssm-scroll-direction="left" aria-label="Scroll ' + escapeHtml(name) + ' left"><span class="material-icons chevron_left" aria-hidden="true"></span></button><div class="hssm-client-scroller hssm-owned-horizontal-scroll padded-top-focusscale padded-bottom-focusscale"><div is="emby-itemscontainer" class="focuscontainer-x itemsContainer hssm-client-items">' + cards + '</div></div><button type="button" class="hssm-scroll-button hssm-scroll-button-right emby-button" data-hssm-scroll-direction="right" aria-label="Scroll ' + escapeHtml(name) + ' right"><span class="material-icons chevron_right" aria-hidden="true"></span></button></div>'
             : '<div is="emby-scroller" class="hssm-client-scroller padded-top-focusscale padded-bottom-focusscale" data-horizontal="true" data-centerfocus="true" data-scrollevent="true"><div is="emby-itemscontainer" class="focuscontainer-x itemsContainer scrollSlider animatedScrollX hssm-client-items">' + cards + '</div></div>';
@@ -1250,7 +1361,7 @@
         if (type === 'watch-again') return watchAgainItems(section);
         var dynamic = dynamicSectionItems(section, state && state.preferences || latestNativePreferences || {}, state && state.container || activeManagedSectionContainer() || document);
         if (dynamic) return dynamic;
-        if (type === 'top-10-50') return loadTopItemsFromSources(section);
+        if (isRankedTopSectionType(type)) return loadTopItemsFromSources(section);
         return Promise.resolve(state && state.items ? state.items : []);
     }
 
@@ -2191,7 +2302,7 @@
                 }, function () { return items; });
             });
         }
-        if (type === 'top-10-50' && !prop(section, 'ItemIds', 'itemIds', []).length) {
+        if (isRankedTopSectionType(type) && !prop(section, 'ItemIds', 'itemIds', []).length) {
             return loadTopItemsFromSources(section);
         }
         var ids = sectionPageIds(section, 0, 30);
@@ -3368,7 +3479,7 @@
             }
             ids = section._hssmRandomIds;
         }
-        if (String(prop(section, 'Type', 'type', '')) === 'top-10-50') {
+        if (isRankedTopSectionType(String(prop(section, 'Type', 'type', '')))) {
             ids = ids.slice(0, Math.max(5, Math.min(100, Number(prop(section, 'DisplayTopCount', 'displayTopCount', 10)) || 10)));
         }
         return ids.slice(cursor, cursor + limit);
@@ -3564,7 +3675,7 @@
         } else if (type === "watch-again") {
             state.dynamicLoader = function (start, limit, requestSignal) { return loadWatchAgainItems(start, limit, state.section, requestSignal); };
             request = state.dynamicLoader(0, SECTION_PAGE_SIZE, signal);
-        } else if (type === "top-10-50" && !prop(state.section, 'ItemIds', 'itemIds', []).length) {
+        } else if (isRankedTopSectionType(type) && !prop(state.section, 'ItemIds', 'itemIds', []).length) {
             request = loadTopItemsFromSources(state.section, signal).then(function (items) {
                 state.dynamicTotal = items.length;
                 state.dynamicLoader = function (start, limit) { return Promise.resolve(items.slice(start, start + limit)); };
@@ -3706,7 +3817,7 @@
         sectionRuntime[id] = state;
         paintSectionState(state, !cached);
         var type = String(prop(section, 'Type', 'type', ''));
-        var recoversTop = type === 'top-10-50' && !prop(section, 'ItemIds', 'itemIds', []).length;
+        var recoversTop = isRankedTopSectionType(type) && !prop(section, 'ItemIds', 'itemIds', []).length;
         var isAutomatic = isContinueSectionType(type) || type.indexOf('recently-listened-') === 0 || type === 'recently-added-library';
         if (type === 'my-list-content' || type === 'watch-again' || recoversTop || isAutomatic) state.complete = false;
         else if (!cached || !cached.items.length) state.complete = false;

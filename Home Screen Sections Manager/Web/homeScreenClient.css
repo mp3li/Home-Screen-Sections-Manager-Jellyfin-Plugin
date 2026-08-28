@@ -14,9 +14,11 @@
 }
 
 .headerTabs.hssm-page-tabs-overflow-shell > .hssm-page-tabs-overflow {
-    flex: 1 1 auto;
+    flex: 0 1 var(--hssm-page-tabs-window-width, 100%);
+    max-width: var(--hssm-page-tabs-window-width, 100%);
     min-width: 0;
     overflow: hidden;
+    width: var(--hssm-page-tabs-window-width, 100%);
 }
 
 .hssm-page-tabs-overflow > .emby-tabs-slider {
@@ -119,7 +121,7 @@ body.hssm-client-enabled.hssm-top-row-enabled .itemDetailPage:not(.hide) .detail
 body.hssm-client-enabled.hssm-top-row-enabled .itemDetailPage.is-active .detailImageContainer > .card,
 body.hssm-client-enabled.hssm-top-row-enabled .itemDetailPage:not(.hide) .detailImageContainer > .detailImage,
 body.hssm-client-enabled.hssm-top-row-enabled .itemDetailPage.is-active .detailImageContainer > .detailImage {
-    transform: translateY(var(--hssm-top-row-height, 0px)) !important;
+    transform: translateY(calc(var(--hssm-top-row-height, 0px) * 2)) !important;
 }
 
 @media (min-width: 1400px) {

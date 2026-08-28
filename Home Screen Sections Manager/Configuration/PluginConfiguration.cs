@@ -253,8 +253,17 @@ public sealed class HomeScreenSectionDefinition
     public bool IsMediaBar { get; set; }
 
 
-    /// <summary>Gets or sets how many IMDb-tagged items the Top section displays.</summary>
+    /// <summary>Gets or sets how many ranked items a Top section displays.</summary>
     public int DisplayTopCount { get; set; } = 10;
+
+    /// <summary>Gets or sets which Crunchyroll rating value builds a Crunchyroll Top section.</summary>
+    public string CrunchyrollRatingMode { get; set; } = "upvotes";
+
+    /// <summary>Gets or sets whether overall Crunchyroll ratings are ordered from highest or lowest.</summary>
+    public string CrunchyrollRatingOrder { get; set; } = "descending";
+
+    /// <summary>Gets or sets the whole-number Crunchyroll star categories included by star-category mode.</summary>
+    public List<int> CrunchyrollStarRatings { get; set; } = [5];
 
     /// <summary>Gets or sets whether oversized ranking numbers are visible.</summary>
     public bool ShowRankNumbers { get; set; } = true;
@@ -541,6 +550,12 @@ public sealed class ApplySectionRequest
     public bool IsMediaBar { get; set; }
 
     public int DisplayTopCount { get; set; } = 10;
+
+    public string CrunchyrollRatingMode { get; set; } = "upvotes";
+
+    public string CrunchyrollRatingOrder { get; set; } = "descending";
+
+    public List<int> CrunchyrollStarRatings { get; set; } = [5];
 
     public bool ShowRankNumbers { get; set; } = true;
 

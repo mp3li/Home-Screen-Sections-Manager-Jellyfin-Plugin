@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.0.66-test] - 2026-08-28
+
+- Adds **Crunchyroll Top 5-100** with three deliberately simple ranking choices: the existing Upvotes / Downvotes ranking, Overall Rating, or any combination of 1-star through 5-star categories. Star categories use the whole-number portion of `crunchyrollrating`, so 4.8 counts as 4 stars, and Overall Rating or Star Rating(s) can run highest-to-lowest or lowest-to-highest.
+- Keeps Crunchyroll setup server-friendly: selecting sources or changing rating controls makes no rating-content request; only **Save and Move On** inspects the selected collections, libraries, or metadata-tag matches, and it reports the exact expected tag format when nothing qualifies.
+- Makes more than four custom pages use a true four-page-wide navigation viewport with working left/right arrows and horizontal mouse or trackpad scrolling while keeping four or fewer pages unchanged.
+- Lowers only detail-page Primary/Poster artwork further below the Top Row and retains the already-correct custom-page row edges, vertical scrolling, Jellyfin multi-select, repeated same-type creation, and single-flight all-pages refresh behavior.
+- Rewrites the README around discovery, documents every section type and dashboard tab in detail, adds dedicated Custom Pages, Top Rows, Media Bars, My List, Additional Features, and maintenance sections, and documents the plugin's Abyss compatibility and licensing with a dedicated compatibility badge.
+
 ## [0.1.0.65-test] - 2026-08-21
 
 - Keeps the fast "create another similar section" workflow while rebinding every repeated section to a collision-resistant new identity, retaining its content/order/art choices, confirming both save and apply responses before showing success, and rejecting duplicate section IDs instead of silently dropping a row.

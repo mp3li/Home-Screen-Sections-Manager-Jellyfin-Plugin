@@ -523,6 +523,82 @@ def run() -> None:
         page.locator("#hssmTypeSpecificSettings [data-hssm-display-top]").select_option("20")
         assert page.locator("#hssmTypeSpecificSettings [data-hssm-top-draft-name]").input_value() == "Top 20 in Foreign Collection"
 
+        page.locator("#hssmAddSectionButton").click()
+        crunchyroll_id = page.locator("#hssmSectionList [data-hssm-inline-section-name]").locator("xpath=ancestor::*[@data-section-id]").get_attribute("data-section-id")
+        page.locator("#hssmSectionList [data-hssm-inline-section-name]").fill("Crunchyroll Top 5")
+        page.locator("input[name='hssmType'][value='crunchyroll-top-5-100']").check()
+        page.locator("#hssmFinishSectionButton").click()
+        page.get_by_text("Crunchyroll Top 5-100 Settings", exact=True).wait_for()
+        assert page.locator("#hssmTypeSpecificSettings [data-hssm-display-top] option").all_text_contents() == ["5", "10", "20", "30", "40", "50", "75", "100"]
+        page.evaluate(
+            """() => {
+              window.__crunchyrollRated = false;
+              window.__crunchyrollSourceRequests = [];
+              window.__savedCrunchyrollGetJSON = ApiClient.getJSON;
+              ApiClient.getJSON = url => {
+                const parsed = new URL(String(url), 'https://jellyfin.test/');
+                if (parsed.pathname.endsWith('/Users/user/Items') && parsed.searchParams.get('ParentId') === 'foreign') {
+                  window.__crunchyrollSourceRequests.push(parsed.searchParams.get('Fields') || '');
+                  const tags = window.__crunchyrollRated
+                    ? [
+                        {Id:'crunchy-a',Name:'Crunchy A',Type:'Series',Tags:['crunchyrollratings: 15.2k upvotes / 96 downvotes','crunchyrollrating: 4.8 / 5 from 52,354 ratings']},
+                        {Id:'crunchy-b',Name:'Crunchy B',Type:'Series',Tags:['crunchyrollratings: 15.1k upvotes / 1 downvote','crunchyrollrating: 5.0 / 5 from 12,000 ratings']},
+                        {Id:'crunchy-c',Name:'Crunchy C',Type:'Series',Tags:['crunchyrollrating: 3.9 / 5 from 8,000 ratings']},
+                        {Id:'crunchy-unrated',Name:'Crunchy Unrated',Type:'Series',Tags:['IMDb: 10/10']}
+                      ]
+                    : [{Id:'crunchy-unrated',Name:'Crunchy Unrated',Type:'Series',Tags:['IMDb: 10/10']}];
+                  return Promise.resolve({Items:tags,TotalRecordCount:tags.length});
+                }
+                return window.__savedCrunchyrollGetJSON(url);
+              };
+            }"""
+        )
+        page.locator("#hssmTypeSpecificSettings [data-hssm-draft-picker-toggle='collections']").click()
+        page.locator("#hssmTypeSpecificSettings [data-hssm-draft-collection='foreign']").check()
+        page.wait_for_timeout(100)
+        assert page.evaluate("window.__crunchyrollSourceRequests.length") == 0
+        assert "Choose Save and Move On" in page.locator("#hssmTypeSpecificSettings [data-hssm-content]").inner_text()
+        page.locator("#hssmTypeSpecificSettings [data-hssm-save-move]").click()
+        page.get_by_text("None of the selected content has a valid crunchyrollratings tag. Expected format: crunchyrollratings: 15.2k upvotes / 96 downvotes.", exact=True).wait_for()
+        assert page.evaluate("window.__crunchyrollSourceRequests.length") == 1
+        assert not page.evaluate("id => window.__sectionSettings.Sections.some(section => section.Id === id)", crunchyroll_id)
+        assert all("CommunityRating" not in fields for fields in page.evaluate("window.__crunchyrollSourceRequests"))
+        page.evaluate("window.__crunchyrollRated = true")
+        page.locator("#hssmTypeSpecificSettings [data-hssm-save-move]").click()
+        page.wait_for_function(
+            "id => { const section=window.__sectionSettings.Sections.find(candidate => candidate.Id === id); return section && section.Type === 'crunchyroll-top-5-100' && section.ItemIds.join(',') === 'crunchy-a,crunchy-b' && section.ContentOrder === 'rating-descending'; }",
+            arg=crunchyroll_id,
+        )
+        assert page.evaluate("window.__crunchyrollSourceRequests.length") == 2
+        assert all("CommunityRating" not in fields for fields in page.evaluate("window.__crunchyrollSourceRequests"))
+        assert page.locator("#hssmTypeSpecificSettings [data-hssm-crunchyroll-rating-mode]").input_value() == "upvotes"
+        page.locator("#hssmTypeSpecificSettings [data-hssm-crunchyroll-rating-mode]").select_option("star-categories")
+        page.locator("#hssmTypeSpecificSettings [data-hssm-crunchyroll-star='5']").uncheck()
+        page.locator("#hssmTypeSpecificSettings [data-hssm-save-move]").click()
+        page.get_by_text("Select at least one Crunchyroll star rating before saving.", exact=True).wait_for()
+        assert page.evaluate("window.__crunchyrollSourceRequests.length") == 2
+        page.locator("#hssmTypeSpecificSettings [data-hssm-crunchyroll-star='4']").check()
+        assert page.evaluate("window.__crunchyrollSourceRequests.length") == 2
+        page.locator("#hssmTypeSpecificSettings [data-hssm-save-move]").click()
+        page.wait_for_function("window.__crunchyrollSourceRequests.length === 3")
+        four_star_debug = page.evaluate("id => ({requests:window.__crunchyrollSourceRequests.length,status:document.querySelector('#hssmTypeSpecificSettings [data-hssm-save-status]').textContent,checked:Array.from(document.querySelectorAll('#hssmTypeSpecificSettings [data-hssm-crunchyroll-star]:checked')).map(input => input.dataset.hssmCrunchyrollStar),section:window.__sectionSettings.Sections.find(candidate => candidate.Id === id)})", crunchyroll_id)
+        assert four_star_debug["requests"] == 3, four_star_debug
+        four_star_section = page.evaluate("id => window.__sectionSettings.Sections.find(candidate => candidate.Id === id)", crunchyroll_id)
+        assert four_star_section["CrunchyrollRatingMode"] == "star-categories", four_star_section
+        assert four_star_section["CrunchyrollStarRatings"] == [4], four_star_section
+        assert four_star_section["ItemIds"] == ["crunchy-a"], four_star_section
+        assert page.evaluate("window.__crunchyrollSourceRequests.length") == 3
+        page.locator("#hssmTypeSpecificSettings [data-hssm-crunchyroll-star='5']").check()
+        page.locator("#hssmTypeSpecificSettings [data-hssm-crunchyroll-rating-order]").select_option("ascending")
+        assert page.evaluate("window.__crunchyrollSourceRequests.length") == 3
+        page.locator("#hssmTypeSpecificSettings [data-hssm-save-move]").click()
+        page.wait_for_function(
+            "id => { const section=window.__sectionSettings.Sections.find(candidate => candidate.Id === id); return section && section.CrunchyrollRatingOrder === 'ascending' && section.CrunchyrollStarRatings.slice().sort().join(',') === '4,5' && section.ItemIds.join(',') === 'crunchy-a,crunchy-b'; }",
+            arg=crunchyroll_id,
+        )
+        assert page.evaluate("window.__crunchyrollSourceRequests.length") == 4
+        page.evaluate("ApiClient.getJSON=window.__savedCrunchyrollGetJSON; delete window.__savedCrunchyrollGetJSON")
+
         library_item_ids = page.evaluate(
             """
             async () => {

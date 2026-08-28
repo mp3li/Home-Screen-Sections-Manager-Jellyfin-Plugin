@@ -60,6 +60,21 @@ def run() -> None:
     assert "StartIndex:(Math.max(1, view.page) - 1) * 16, Limit:16" in DASHBOARD
     assert "renderIdBackedContent(content, state.savedItemIds" in DASHBOARD
 
+    # Crunchyroll ranking must stay dormant while sources are selected. It is
+    # resolved only from those selected sources after Save and Move On, using
+    # Tags without asking Jellyfin for an unrelated CommunityRating field.
+    assert "function resolveCrunchyrollSelection(saveStatus)" in DASHBOARD
+    assert "Choose Save and Move On to check only that selected content" in DASHBOARD
+    crunchyroll_source_loader = DASHBOARD[DASHBOARD.index("function topSourceItems(source, progress)"):DASHBOARD.index("function setTopBusy(busy)")]
+    assert "isCrunchyrollTopType() ? 'Overview,PrimaryImageAspectRatio,Tags,SortName,SeriesName,SeriesId'" in crunchyroll_source_loader
+    assert "None of the selected content has a valid crunchyrollratings tag." in DASHBOARD
+    assert "function crunchyrollOverallRating(item)" in DASHBOARD
+    assert "Math.floor(entry.rating)" in DASHBOARD
+    assert "Select at least one Crunchyroll star rating before saving." in DASHBOARD
+    assert "function crunchyrollTaggedRating(item)" in CLIENT
+    assert "function crunchyrollOverallRating(item)" in CLIENT
+    assert "isRankedTopSectionType(type)" in CLIENT
+
     # A full all-pages refresh must be single-flight, reuse repeated source
     # scans, omit image/count payload work, and breathe between large pages.
     assert "HSSMRefreshSavedSectionsInFlight" in DASHBOARD

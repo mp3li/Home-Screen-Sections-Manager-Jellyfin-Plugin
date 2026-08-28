@@ -446,7 +446,8 @@
             const value = String(source || '');
             const direct = ['library-content', 'multiple-library-content', 'libraries-in-a-row'].includes(String(type || ''));
             if (direct) return window.HSSMResolveLibraryId(value);
-            const prefix = String(type || '') === 'top-10-50' && (value.indexOf('tag|') === 0 || value.indexOf('library|') === 0) ? value.slice(0, value.indexOf('|') + 1) : '';
+            const rankedTop = ['top-10-50', 'crunchyroll-top-5-100'].includes(String(type || ''));
+            const prefix = rankedTop && (value.indexOf('tag|') === 0 || value.indexOf('library|') === 0) ? value.slice(0, value.indexOf('|') + 1) : '';
             const encoded = prefix ? value.slice(prefix.length) : value;
             if (prefix === 'library|') return prefix + window.HSSMResolveLibraryId(encoded);
             const tagBased = prefix === 'tag|' || ['individual-tag-content', 'multiple-tag-content', 'muilti-match-tag-collection-content'].includes(String(type || ''));
@@ -489,6 +490,7 @@
                 ['rotating-sections', 'Rotating Sections', 'Create multiple section drafts from selected collections, libraries, and metadata tags, then rotate which draft appears on the home screen using the schedule you choose.'],
                 ['seasonal-sections', 'Seasonal Sections', 'Create multiple section drafts from selected collections, libraries, and metadata tags, then choose the recurring date window when each draft appears on the home screen.'],
                 ['top-10-50', 'Top 5-100', 'Based on IMDB ratings that must already be tagged in your media to use this feature. Select as much media as you’d like and the displayed media and media order will be picked based on your selections.'],
+                ['crunchyroll-top-5-100', 'Crunchyroll Top 5-100', 'Create a Top 5-100 section from selected content using Crunchyroll upvotes/downvotes, overall ratings, or any selected whole-number star ratings. For star choices, the whole-number portion is used, so 4.8 counts as 4 stars. Rating tags are checked only after Save and Move On.'],
                 ['other-users-activity', 'What Other Users Are Watching/Reading/Listening To', 'Displays a random combination of what all users have recently watched/are currently watching.']
             ];
             let sections = [], selectedId = null, draftId = null, draggedId = null, lastDeleted = null, activePageId = 'home', savedSnapshot = null, sectionLoadSequence = 0, sectionIdSequence = 0;
@@ -731,7 +733,7 @@
                     sections.filter(item => item.origin === 'manager').forEach(item => { models[item.id] = item; });
                     function updateDefinition(definition, model) {
                         const updated = Object.assign({}, definition, { PageId:activePageId, Name:model.name, IsVisible:model.enabled !== false, IsMediaBar:!!model.isMediaBar });
-                        if (String(definition.Type || definition.type || '') === 'top-10-50') {
+                        if (['top-10-50', 'crunchyroll-top-5-100'].includes(String(definition.Type || definition.type || ''))) {
                             const drafts = definition.Drafts || definition.drafts || [];
                             updated.Drafts = drafts.map((draft, index) => index === 0 ? Object.assign({}, draft, { Name:model.name }) : draft);
                         }
@@ -815,7 +817,7 @@
                     const type = String(definition.Type || definition.type || '');
                     const itemIds = definition.ItemIds || definition.itemIds || [];
                     const topCount = Number(definition.DisplayTopCount || definition.displayTopCount || 10);
-                    if (type !== 'top-10-50' || itemIds.length >= topCount) return { definition };
+                    if (!['top-10-50', 'crunchyroll-top-5-100'].includes(type) || itemIds.length >= topCount) return { definition };
                     return window.HSSMConfirmTopCountWarning(topCount, itemIds.length, 'Refresh Section Anyways').then(confirmed => confirmed ? { definition } : null);
                 }).then(payload => {
                     if (!payload) { status.textContent = 'Section refresh canceled.'; return null; }
@@ -833,6 +835,9 @@
                         IsVisible:valueOf(definition, 'IsVisible', 'isVisible', true),
                         IsMediaBar:valueOf(definition, 'IsMediaBar', 'isMediaBar', false),
                         DisplayTopCount:Number(definition.DisplayTopCount || definition.displayTopCount || 10),
+                        CrunchyrollRatingMode:definition.CrunchyrollRatingMode || definition.crunchyrollRatingMode || 'upvotes',
+                        CrunchyrollRatingOrder:definition.CrunchyrollRatingOrder || definition.crunchyrollRatingOrder || 'descending',
+                        CrunchyrollStarRatings:definition.CrunchyrollStarRatings || definition.crunchyrollStarRatings || [5],
                         ShowRankNumbers:valueOf(definition, 'ShowRankNumbers', 'showRankNumbers', true),
                         RankNumberColorMode:definition.RankNumberColorMode || definition.rankNumberColorMode || 'solid',
                         RankNumberColorOne:definition.RankNumberColorOne || definition.rankNumberColorOne || '#f5f5f7',
@@ -979,7 +984,7 @@
                 if (item.definition) {
                     item.definition.Name = input.value;
                     const drafts = item.definition.Drafts || item.definition.drafts || [];
-                    if (String(item.type || item.definition.Type || item.definition.type || '') === 'top-10-50' && drafts[0]) drafts[0].Name = input.value;
+                    if (['top-10-50', 'crunchyroll-top-5-100'].includes(String(item.type || item.definition.Type || item.definition.type || '')) && drafts[0]) drafts[0].Name = input.value;
                 }
                 page.dispatchEvent(new CustomEvent('hssm-section-name-changed', { detail:{ id:item.id, name:input.value } }));
                 finishButton.disabled = !(item.name.trim() && item.type);
@@ -1425,7 +1430,7 @@
             const page = document.getElementById('homeScreenSectionsManagerPage');
             const host = page && page.querySelector('#hssmTypeSpecificSettings');
             if (!page || !host) return;
-            const state = { id:'', name:'', type:'', pageId:'home', isVisible:true, isMediaBar:false, isApplied:false, isEditing:false, nativeOnly:false, nativeAvailableItems:0, sources:[], items:{}, resolvedItemIds:[], contentItems:[], contentItemOrder:[], savedItemIds:[], contentSelectionDirty:false, savedPreviewLoadId:0, editorLoadId:0, draggedContentId:null, contentPage:1, contentOrder:'title-ascending', maxItems:0, artSize:'medium', artType:'automatic', artShape:'poster', showText:true, showSectionName:true, libraries:[], collections:[], manual:{}, manualStates:{}, tagSearch:'', tagSources:{}, tagTypeLoadIds:{}, tagCatalogLoadId:0, drafts:[], draftLibraryIds:[], draggedDraftId:null, rotationValue:1, rotationUnit:'days', draftPreviewLoadId:0, topLoadRunning:false, topPending:null, displayTop:10, showRankNumbers:true, rankNumberColorMode:'solid', rankNumberColorOne:'#f5f5f7', rankNumberColorTwo:'#f5f5f7', rankNumberShadowColor:'#000000', rankNumberFontDataUrl:'', activityMaxItems:20, activityMediaType:'movies', activityPreviewLoadId:0 };
+            const state = { id:'', name:'', type:'', pageId:'home', isVisible:true, isMediaBar:false, isApplied:false, isEditing:false, nativeOnly:false, nativeAvailableItems:0, sources:[], items:{}, resolvedItemIds:[], contentItems:[], contentItemOrder:[], savedItemIds:[], contentSelectionDirty:false, savedPreviewLoadId:0, editorLoadId:0, draggedContentId:null, contentPage:1, contentOrder:'title-ascending', maxItems:0, artSize:'medium', artType:'automatic', artShape:'poster', showText:true, showSectionName:true, libraries:[], collections:[], manual:{}, manualStates:{}, tagSearch:'', tagSources:{}, tagTypeLoadIds:{}, tagCatalogLoadId:0, drafts:[], draftLibraryIds:[], draggedDraftId:null, rotationValue:1, rotationUnit:'days', draftPreviewLoadId:0, topLoadRunning:false, topPending:null, displayTop:10, crunchyrollRatingMode:'upvotes', crunchyrollRatingOrder:'descending', crunchyrollStarRatings:[5], showRankNumbers:true, rankNumberColorMode:'solid', rankNumberColorOne:'#f5f5f7', rankNumberColorTwo:'#f5f5f7', rankNumberShadowColor:'#000000', rankNumberFontDataUrl:'', activityMaxItems:20, activityMediaType:'movies', activityPreviewLoadId:0 };
             const esc = value => { const el = document.createElement('span'); el.textContent = value == null ? '' : String(value); return el.innerHTML; };
             const cm = path => ApiClient.getJSON(ApiClient.getUrl('CollectionManager/' + path));
             const cmPost = (path, body) => ApiClient.ajax({ type:'POST', url:ApiClient.getUrl('CollectionManager/' + path), data:JSON.stringify(body), contentType:'application/json', dataType:'json' });
@@ -1456,7 +1461,8 @@
             const isLibraryType = () => libraryTypes.has(kind());
             const isDraftType = () => draftTypes.has(kind());
             const isSeasonalType = () => kind() === 'seasonal-sections';
-            const isTopType = () => kind() === 'top-10-50';
+            const isTopType = () => ['top-10-50', 'crunchyroll-top-5-100'].includes(kind());
+            const isCrunchyrollTopType = () => kind() === 'crunchyroll-top-5-100';
             const isActivityType = () => kind() === 'other-users-activity';
             const isMyListContentType = () => kind() === 'my-list-content';
             const isWatchAgainType = () => kind() === 'watch-again';
@@ -1506,9 +1512,16 @@
                     + '</section>';
             }
             function topMarkup() {
-                return '<section class="hssm-conditional-section"><h2>Top 5-100 Settings</h2><p class="fieldDescription">Choose how many of the highest IMDb-tagged items from your selected sources will appear.</p><div class="selectContainer"><label class="selectLabel">Display Top:</label><select is="emby-select" data-hssm-display-top>' + selectOptions([[5,'5'],[10,'10'],[20,'20'],[30,'30'],[40,'40'],[50,'50'],[75,'75'],[100,'100']], state.displayTop) + '</select></div></section>'
+                const crunchyroll = isCrunchyrollTopType();
+                const title = crunchyroll ? 'Crunchyroll Top 5-100 Settings' : 'Top 5-100 Settings';
+                const description = crunchyroll ? 'Choose how many items will appear and whether they are ranked by upvotes, their overall Crunchyroll rating, or selected whole-number star categories.' : 'Choose how many of the highest IMDb-tagged items from your selected sources will appear.';
+                const starOptions = [5,4,3,2,1].map(stars => '<label class="checkboxContainer"><input is="emby-checkbox" type="checkbox" data-hssm-crunchyroll-star="' + stars + '"' + (state.crunchyrollStarRatings.includes(stars) ? ' checked' : '') + ' /><span>' + stars + ' Star' + (stars === 1 ? '' : 's') + '</span></label>').join('');
+                const crunchyrollSettings = crunchyroll
+                    ? '<div class="selectContainer"><label class="selectLabel">Crunchyroll Ranking</label><select is="emby-select" data-hssm-crunchyroll-rating-mode>' + selectOptions([['upvotes','Upvotes / Downvotes'],['overall-rating','Overall Rating'],['star-categories','Star Rating(s)']], state.crunchyrollRatingMode) + '</select></div><div data-hssm-crunchyroll-rating-order-settings' + (state.crunchyrollRatingMode === 'upvotes' ? ' hidden' : '') + '><div class="selectContainer"><label class="selectLabel">Rating Order</label><select is="emby-select" data-hssm-crunchyroll-rating-order>' + selectOptions([['descending','Highest to Lowest'],['ascending','Lowest to Highest']], state.crunchyrollRatingOrder) + '</select></div></div><div data-hssm-crunchyroll-star-settings' + (state.crunchyrollRatingMode === 'star-categories' ? '' : ' hidden') + '><h3>Star Ratings to Include</h3><p class="fieldDescription">Select any star categories to include. The whole-number portion is used, so 4.8 counts as 4 stars.</p><div class="hssm-yes-no">' + starOptions + '</div></div>'
+                    : '';
+                return '<section class="hssm-conditional-section"><h2>' + title + '</h2><p class="fieldDescription">' + description + '</p><div class="selectContainer"><label class="selectLabel">Display Top:</label><select is="emby-select" data-hssm-display-top>' + selectOptions([[5,'5'],[10,'10'],[20,'20'],[30,'30'],[40,'40'],[50,'50'],[75,'75'],[100,'100']], state.displayTop) + '</select></div>' + crunchyrollSettings + '</section>'
                     + sourceDraftPickerMarkup()
-                    + '<section class="hssm-conditional-section"><h2>Top Section Draft</h2><p class="fieldDescription">All media from the selected collections and libraries, plus all media matching the selected tags, is combined into one Top draft. You can edit its title.</p><div class="hssm-source-drafts" data-hssm-source-drafts></div></section>'
+                    + '<section class="hssm-conditional-section"><h2>' + (crunchyroll ? 'Crunchyroll Top Section Draft' : 'Top Section Draft') + '</h2><p class="fieldDescription">All media from the selected collections and libraries, plus all media matching the selected tags, is combined into one Top draft. You can edit its title.' + (crunchyroll ? ' The selected content is checked for Crunchyroll ratings only when you choose Save and Move On.' : '') + '</p><div class="hssm-source-drafts" data-hssm-source-drafts></div></section>'
                     + contentMarkup();
             }
             function activitySectionName(value) {
@@ -1521,7 +1534,7 @@
             }
             function numberingMarkup() {
                 if (!isTopType()) return '';
-                return '<div class="hssm-numbering-settings"><h3>Numbering Settings</h3><p class="fieldDescription">Select your preferences for if you want visible numbers on your Top 5-100 section, and their color(s).</p><div class="hssm-yes-no"><label class="checkboxContainer"><input is="emby-checkbox" type="radio" name="hssmRankNumbers" value="yes" data-hssm-rank-numbers' + (state.showRankNumbers ? ' checked' : '') + ' /><span>Yes</span></label><label class="checkboxContainer"><input is="emby-checkbox" type="radio" name="hssmRankNumbers" value="no" data-hssm-rank-numbers' + (!state.showRankNumbers ? ' checked' : '') + ' /><span>No</span></label></div><h4>Numbering Color(s):</h4><div class="hssm-numbering-colors"><div class="selectContainer"><label class="selectLabel">Color Style</label><select is="emby-select" data-hssm-rank-color-mode>' + selectOptions([['solid','Solid (Default)'],['vertical-gradient','Vertical Gradient'],['horizontal-gradient','Horizontal Gradient'],['center-gradient','Center Gradient']], state.rankNumberColorMode) + '</select></div><div class="inputContainer"><label class="inputLabel inputLabelUnfocused">First Color</label><input is="emby-input" type="color" data-hssm-rank-color-one value="' + esc(state.rankNumberColorOne) + '" /></div><div class="inputContainer"' + (state.rankNumberColorMode === 'solid' ? ' hidden' : '') + '><label class="inputLabel inputLabelUnfocused">Second Color</label><input is="emby-input" type="color" data-hssm-rank-color-two value="' + esc(state.rankNumberColorTwo) + '" /></div><div class="inputContainer"><label class="inputLabel inputLabelUnfocused">Shadow Color</label><input is="emby-input" type="color" data-hssm-rank-shadow-color value="' + esc(state.rankNumberShadowColor || '#000000') + '"' + (!state.rankNumberShadowColor ? ' data-shadow-removed="true"' : '') + ' /></div></div><button is="emby-button" type="button" class="raised" data-hssm-remove-rank-shadow>Remove Shadow</button><div class="inputContainer"><label class="inputLabel inputLabelUnfocused">Import Numbering Font</label><input is="emby-input" type="file" accept=".ttf,.otf,font/ttf,font/otf,application/x-font-ttf,application/x-font-opentype" data-hssm-rank-font /></div><p class="fieldDescription">The default Abyss theme font will be used unless you import a .ttf or .otf font file.</p><p class="fieldDescription" data-hssm-rank-font-status>' + (state.rankNumberFontDataUrl ? 'A custom numbering font is imported.' : 'Using the default Abyss theme font.') + '</p>' + (state.rankNumberFontDataUrl ? '<button is="emby-button" type="button" class="raised" data-hssm-remove-rank-font>Remove Imported Font</button>' : '') + '</div>';
+                return '<div class="hssm-numbering-settings"><h3>Numbering Settings</h3><p class="fieldDescription">Select your preferences for if you want visible numbers on your ' + (isCrunchyrollTopType() ? 'Crunchyroll Top 5-100' : 'Top 5-100') + ' section, and their color(s).</p><div class="hssm-yes-no"><label class="checkboxContainer"><input is="emby-checkbox" type="radio" name="hssmRankNumbers" value="yes" data-hssm-rank-numbers' + (state.showRankNumbers ? ' checked' : '') + ' /><span>Yes</span></label><label class="checkboxContainer"><input is="emby-checkbox" type="radio" name="hssmRankNumbers" value="no" data-hssm-rank-numbers' + (!state.showRankNumbers ? ' checked' : '') + ' /><span>No</span></label></div><h4>Numbering Color(s):</h4><div class="hssm-numbering-colors"><div class="selectContainer"><label class="selectLabel">Color Style</label><select is="emby-select" data-hssm-rank-color-mode>' + selectOptions([['solid','Solid (Default)'],['vertical-gradient','Vertical Gradient'],['horizontal-gradient','Horizontal Gradient'],['center-gradient','Center Gradient']], state.rankNumberColorMode) + '</select></div><div class="inputContainer"><label class="inputLabel inputLabelUnfocused">First Color</label><input is="emby-input" type="color" data-hssm-rank-color-one value="' + esc(state.rankNumberColorOne) + '" /></div><div class="inputContainer"' + (state.rankNumberColorMode === 'solid' ? ' hidden' : '') + '><label class="inputLabel inputLabelUnfocused">Second Color</label><input is="emby-input" type="color" data-hssm-rank-color-two value="' + esc(state.rankNumberColorTwo) + '" /></div><div class="inputContainer"><label class="inputLabel inputLabelUnfocused">Shadow Color</label><input is="emby-input" type="color" data-hssm-rank-shadow-color value="' + esc(state.rankNumberShadowColor || '#000000') + '"' + (!state.rankNumberShadowColor ? ' data-shadow-removed="true"' : '') + ' /></div></div><button is="emby-button" type="button" class="raised" data-hssm-remove-rank-shadow>Remove Shadow</button><div class="inputContainer"><label class="inputLabel inputLabelUnfocused">Import Numbering Font</label><input is="emby-input" type="file" accept=".ttf,.otf,font/ttf,font/otf,application/x-font-ttf,application/x-font-opentype" data-hssm-rank-font /></div><p class="fieldDescription">The default Abyss theme font will be used unless you import a .ttf or .otf font file.</p><p class="fieldDescription" data-hssm-rank-font-status>' + (state.rankNumberFontDataUrl ? 'A custom numbering font is imported.' : 'Using the default Abyss theme font.') + '</p>' + (state.rankNumberFontDataUrl ? '<button is="emby-button" type="button" class="raised" data-hssm-remove-rank-font>Remove Imported Font</button>' : '') + '</div>';
             }
             function dynamicMarkup() {
                 const title = isSeasonalType() ? 'Seasonal Section Drafts' : 'Rotating Section Drafts';
@@ -1645,8 +1658,10 @@
                 if (!target) return;
                 if (isTopType()) {
                     const draft = state.drafts[0];
-                    const preview = !draft ? 'Select at least one collection, library, or metadata tag above.' : draft.PreviewError ? 'The selected rated media could not be previewed right now.' : draft.PreviewCount == null ? 'Loading and ranking matching media…' : 'This draft currently includes ' + draft.PreviewCount + ' ranked media item' + (draft.PreviewCount === 1 ? '' : 's') + '.';
-                    target.innerHTML = '<div class="mcm-draft-card" data-hssm-source-draft="' + esc(draft ? draft.Id : 'top-draft') + '"><div class="inputContainer"><label class="inputLabel inputLabelUnfocused">Section Title</label><input is="emby-input" type="text" data-hssm-top-draft-name value="' + esc(draft ? draft.Name : state.name) + '" autocomplete="off" /></div><p class="fieldDescription" data-hssm-top-count-description>All selected sources are combined into one Top ' + state.displayTop + ' draft. Media without an IMDb rating tag is excluded.</p><p class="fieldDescription" data-hssm-draft-preview-status>' + preview + '</p></div>';
+                    const waiting = isCrunchyrollTopType() ? 'The selected sources will be checked only after you choose Save and Move On.' : 'Loading and ranking matching media…';
+                    const preview = !draft ? 'Select at least one collection, library, or metadata tag above.' : draft.PreviewError ? 'The selected rated media could not be previewed right now.' : draft.PreviewCount == null ? waiting : 'This draft currently includes ' + draft.PreviewCount + ' ranked media item' + (draft.PreviewCount === 1 ? '' : 's') + '.';
+                    const excluded = isCrunchyrollTopType() ? crunchyrollSelectionDescription() : 'Media without an IMDb rating tag is excluded.';
+                    target.innerHTML = '<div class="mcm-draft-card" data-hssm-source-draft="' + esc(draft ? draft.Id : 'top-draft') + '"><div class="inputContainer"><label class="inputLabel inputLabelUnfocused">Section Title</label><input is="emby-input" type="text" data-hssm-top-draft-name value="' + esc(draft ? draft.Name : state.name) + '" autocomplete="off" /></div><p class="fieldDescription" data-hssm-top-count-description>All selected sources are combined into one Top ' + state.displayTop + ' draft. ' + excluded + '</p><p class="fieldDescription" data-hssm-draft-preview-status>' + preview + '</p></div>';
                     return;
                 }
                 target.innerHTML = state.drafts.length ? state.drafts.map((draft, index) => {
@@ -1722,10 +1737,10 @@
                 const selectedTag = { SourceLibraryId:parts[0], MetadataType:parts[1], MetadataValue:parts.slice(2).join('|'), AdditionalLibraryIds:[], CollectionTitle:state.name, Overview:'', ExistingCollectionAction:'', ArtPreference:'JellyfinDefault' };
                 return cmPost('individual-collection-drafts/preview', selectedTag).then(preview => (preview.Items || preview.items || []).map(item => ({ Id:item.Id || item.id, Name:item.Title || item.title, Type:item.LibraryName || item.libraryName, HasPrimaryImage:true })));
             }
-            function loadItemIds(ids) {
+            function loadItemIds(ids, fields) {
                 const values = (ids || []).map(String).filter(Boolean), chunks = [];
                 for (let index = 0; index < values.length; index += 16) chunks.push(values.slice(index, index + 16));
-                return chunks.reduce((work, chunk) => work.then(groups => itemQuery({ Ids:chunk.join(','), Fields:'Overview,PrimaryImageAspectRatio,Tags,CommunityRating,SortName,SeriesName,SeriesId', EnableTotalRecordCount:false }).then(result => { groups.push(result.Items || result.items || []); return groups; })), Promise.resolve([])).then(groups => {
+                return chunks.reduce((work, chunk) => work.then(groups => itemQuery({ Ids:chunk.join(','), Fields:fields || 'Overview,PrimaryImageAspectRatio,Tags,CommunityRating,SortName,SeriesName,SeriesId', EnableTotalRecordCount:false }).then(result => { groups.push(result.Items || result.items || []); return groups; })), Promise.resolve([])).then(groups => {
                     const byId = {};
                     groups.flat().forEach(item => { byId[String(item.Id || item.id)] = item; });
                     return values.map(id => byId[id]).filter(Boolean);
@@ -1762,6 +1777,61 @@
                 const nativeRating = Number(item.CommunityRating ?? item.communityRating);
                 return Number.isFinite(nativeRating) && nativeRating > 0 ? nativeRating : null;
             }
+            function crunchyrollVoteNumber(value) {
+                const match = String(value || '').trim().replace(/,/g, '').match(/^([0-9]+(?:\.[0-9]+)?)\s*([kmb])?$/i);
+                if (!match) return null;
+                const multiplier = !match[2] ? 1 : match[2].toLowerCase() === 'k' ? 1000 : match[2].toLowerCase() === 'm' ? 1000000 : 1000000000;
+                const number = Number(match[1]) * multiplier;
+                return Number.isFinite(number) ? number : null;
+            }
+            function crunchyrollTaggedRating(item) {
+                const tags = item.Tags || item.tags || [];
+                for (let index = 0; index < tags.length; index += 1) {
+                    const match = String(tags[index]).match(/^\s*crunchyrollratings\s*:\s*([0-9][0-9,.]*\s*[kmb]?)\s+upvotes?\s*\/\s*([0-9][0-9,.]*\s*[kmb]?)\s+downvotes?\s*$/i);
+                    if (!match) continue;
+                    const upvotes = crunchyrollVoteNumber(match[1]), downvotes = crunchyrollVoteNumber(match[2]);
+                    if (upvotes == null || downvotes == null) continue;
+                    return { score:upvotes - downvotes, upvotes:upvotes, downvotes:downvotes };
+                }
+                return null;
+            }
+            function crunchyrollOverallRating(item) {
+                const tags = item.Tags || item.tags || [];
+                for (let index = 0; index < tags.length; index += 1) {
+                    const match = String(tags[index]).match(/^\s*crunchyrollrating\s*:\s*([0-9]+(?:\.[0-9]+)?)\s*\/\s*5(?:\s+from\s+[0-9][0-9,]*\s+ratings?)?\s*$/i);
+                    const rating = match ? Number(match[1]) : NaN;
+                    if (Number.isFinite(rating) && rating >= 0 && rating <= 5) return rating;
+                }
+                return null;
+            }
+            function crunchyrollSelectionDescription() {
+                if (state.crunchyrollRatingMode === 'upvotes') return 'Media without a valid crunchyrollratings tag is excluded.';
+                if (state.crunchyrollRatingMode === 'star-categories') return 'Only media whose whole-number overall rating matches a selected star category is included.';
+                return 'Media without a valid crunchyrollrating tag is excluded.';
+            }
+            function crunchyrollNoMatchesMessage() {
+                if (state.crunchyrollRatingMode === 'upvotes') return 'None of the selected content has a valid crunchyrollratings tag. Expected format: crunchyrollratings: 15.2k upvotes / 96 downvotes.';
+                if (state.crunchyrollRatingMode === 'star-categories') return 'None of the selected content has a crunchyrollrating in the selected star categories. The whole-number portion is used, so 4.8 counts as 4 stars.';
+                return 'None of the selected content has a valid crunchyrollrating tag. Expected format: crunchyrollrating: 4.8 / 5 from 52,354 ratings.';
+            }
+            function rankedTopItems(items, limit) {
+                const seen = new Set();
+                const entries = (items || []).filter(item => {
+                    const id = String(item && (item.Id || item.id) || '');
+                    if (!id || seen.has(id)) return false;
+                    seen.add(id);
+                    return true;
+                });
+                if (isCrunchyrollTopType()) {
+                    if (state.crunchyrollRatingMode === 'upvotes') return entries.map(item => ({ item:item, rating:crunchyrollTaggedRating(item) })).filter(entry => entry.rating).sort((left, right) => right.rating.score - left.rating.score || right.rating.upvotes - left.rating.upvotes || left.rating.downvotes - right.rating.downvotes).slice(0, limit).map(entry => entry.item);
+                    const selectedStars = new Set(state.crunchyrollStarRatings);
+                    const rated = entries.map(item => ({ item:item, rating:crunchyrollOverallRating(item) })).filter(entry => Number.isFinite(entry.rating));
+                    const matching = state.crunchyrollRatingMode === 'star-categories' ? rated.filter(entry => selectedStars.has(Math.floor(entry.rating))) : rated;
+                    matching.sort((left, right) => state.crunchyrollRatingOrder === 'ascending' ? left.rating - right.rating : right.rating - left.rating);
+                    return matching.slice(0, limit).map(entry => entry.item);
+                }
+                return entries.map(item => ({ item:item, rating:imdbTaggedRating(item) })).filter(entry => Number.isFinite(entry.rating)).sort((left, right) => right.rating - left.rating).slice(0, limit).map(entry => entry.item);
+            }
             function ensureTopDraft() {
                 if (!state.drafts.length) state.drafts = [{ Id:'top-draft-' + state.id, SourceType:'top', SourceId:'combined', Name:state.name || ('Top ' + state.displayTop), StartMonth:1, StartDay:1, EndMonth:12, EndDay:31, PreviewCount:null }];
                 return state.drafts[0];
@@ -1772,10 +1842,11 @@
             }
             function topSourceItems(source, progress) {
                 const split = String(source).indexOf('|'), sourceType = split < 0 ? '' : String(source).slice(0, split), sourceId = split < 0 ? '' : String(source).slice(split + 1);
-                if (sourceType === 'collection' || sourceType === 'library') return loadAllParentItems(sourceId, 0, [], progress, sourceType === 'library', 'Tags,CommunityRating,SortName,SeriesName,SeriesId');
+                const fields = isCrunchyrollTopType() ? 'Overview,PrimaryImageAspectRatio,Tags,SortName,SeriesName,SeriesId' : 'Tags,CommunityRating,SortName,SeriesName,SeriesId';
+                if (sourceType === 'collection' || sourceType === 'library') return loadAllParentItems(sourceId, 0, [], progress, sourceType === 'library', fields);
                 if (sourceType === 'tag') {
                     if (progress) progress(0, null);
-                    return previewDraft({ SourceType:'tag', SourceId:sourceId }).then(items => loadItemIds(items.map(item => String(item.Id || item.id))));
+                    return previewDraft({ SourceType:'tag', SourceId:sourceId }).then(items => loadItemIds(items.map(item => String(item.Id || item.id)), fields));
                 }
                 return Promise.resolve([]);
             }
@@ -1805,7 +1876,7 @@
                 }), Promise.resolve()).then(() => {
                     if (pending.loadId !== topLoadSequence || !isTopType()) return;
                     const unique = groups.flat().filter((item, index, all) => all.findIndex(candidate => String(candidate.Id || candidate.id) === String(item.Id || item.id)) === index);
-                    const rated = unique.map(item => ({ item:item, rating:imdbTaggedRating(item) })).filter(entry => Number.isFinite(entry.rating)).sort((left, right) => right.rating - left.rating).slice(0, pending.displayTop).map(entry => entry.item);
+                    const rated = rankedTopItems(unique, pending.displayTop);
                     if (!rated.length && state.isEditing && !state.contentSelectionDirty && state.savedItemIds.length) {
                         pending.draft.PreviewCount = state.savedItemIds.length;
                         renderSourceDrafts();
@@ -1830,11 +1901,42 @@
                 const loadId = ++topLoadSequence, draft = ensureTopDraft();
                 state.topPending = null;
                 if (!state.sources.length) { updateContentItems([]); draft.PreviewCount = 0; renderSourceDrafts(); content.innerHTML = '<p class="fieldDescription">Select at least one collection, library, or metadata tag above.</p>'; if (!state.topLoadRunning) setTopBusy(false); return; }
+                if (isCrunchyrollTopType()) {
+                    draft.PreviewCount = state.contentItemOrder.length ? state.contentItemOrder.length : null;
+                    draft.PreviewError = false;
+                    renderSourceDrafts();
+                    content.innerHTML = '<p class="fieldDescription">Your sources are selected. Choose Save and Move On to check only that selected content for the Crunchyroll rating tags needed by your ranking choice.</p>';
+                    if (!state.topLoadRunning) setTopBusy(false);
+                    return;
+                }
                 draft.PreviewCount = null; draft.PreviewError = false; renderSourceDrafts();
                 content.innerHTML = '<p class="fieldDescription">Your current source selection is waiting to be loaded and ranked…</p>';
                 state.topPending = { loadId:loadId, sources:state.sources.slice(), displayTop:state.displayTop, draft:draft, content:content };
                 setTopBusy(true);
                 runPendingTopLoad();
+            }
+            function markCrunchyrollRankingDirty() {
+                if (!isCrunchyrollTopType()) return;
+                markContentSelectionDirty();
+                state.contentSelectionDirty = true;
+                topLoadSequence += 1;
+                state.topPending = null;
+                state.contentPage = 1;
+                state.contentItems = [];
+                state.contentItemOrder = [];
+                state.resolvedItemIds = [];
+                const draft = ensureTopDraft();
+                draft.PreviewCount = null;
+                draft.PreviewError = false;
+                renderSourceDrafts();
+                const content = host.querySelector('[data-hssm-content]');
+                if (content) renderTopContent(content);
+            }
+            function syncCrunchyrollRatingControls() {
+                const orderSettings = host.querySelector('[data-hssm-crunchyroll-rating-order-settings]');
+                const starSettings = host.querySelector('[data-hssm-crunchyroll-star-settings]');
+                if (orderSettings) orderSettings.hidden = state.crunchyrollRatingMode === 'upvotes';
+                if (starSettings) starSettings.hidden = state.crunchyrollRatingMode !== 'star-categories';
             }
             function renderActivityContent(content) {
                 const loadId = ++state.activityPreviewLoadId;
@@ -1956,12 +2058,13 @@
                     return loadPage(0);
                 });
             }
-            function loadRefreshItemIds(ids) {
+            function loadRefreshItemIds(ids, fields) {
                 const values = uniqueIds(ids), chunks = [];
+                const normalizedFields = fields || 'Tags,CommunityRating,SortName,SeriesName,SeriesId';
                 for (let index = 0; index < values.length; index += 16) chunks.push(values.slice(index, index + 16));
                 return chunks.reduce((work, chunk, index) => work.then(groups => {
-                    const key = 'rated-items|' + chunk.join(',');
-                    return cachedRefreshRequest(key, () => itemQuery({ Ids:chunk.join(','), Fields:'Tags,CommunityRating,SortName,SeriesName,SeriesId', EnableImages:false, EnableTotalRecordCount:false })).then(result => {
+                    const key = 'rated-items|' + normalizedFields + '|' + chunk.join(',');
+                    return cachedRefreshRequest(key, () => itemQuery({ Ids:chunk.join(','), Fields:normalizedFields, EnableImages:false, EnableTotalRecordCount:false })).then(result => {
                         groups.push(result.Items || result.items || []);
                         return index + 1 < chunks.length ? refreshBreather(35).then(() => groups) : groups;
                     });
@@ -2005,17 +2108,32 @@
                     const request = cachedRefreshRequest(tagKey, () => type === 'individual-tag-content' ? cmPost('individual-collection-drafts/preview', selectedTags[0]) : cmPost('tag-collection-drafts/preview', { SelectedTags:selectedTags, AdditionalLibraryIds:[], RequireAllTags:type === 'muilti-match-tag-collection-content', CollectionTitle:name, Overview:'', ExistingCollectionAction:'', ArtPreference:'JellyfinDefault' }));
                     return request.then(preview => ({ definition:Object.assign({}, definition, { ItemIds:refreshedOrder(definition, (preview.Items || preview.items || []).map(item => String(item.Id || item.id))) }), skipped:false }));
                 }
-                if (type === 'top-10-50') {
+                if (['top-10-50', 'crunchyroll-top-5-100'].includes(type)) {
                     const groups = [];
                     return sourceIds.reduce((work, source, sourceIndex) => work.then(() => {
                         if (progress) progress('Loading Top source ' + (sourceIndex + 1) + ' of ' + sourceIds.length + ' for ' + name + '…');
                         const split = source.indexOf('|'), sourceType = split < 0 ? '' : source.slice(0, split), sourceId = split < 0 ? '' : source.slice(split + 1);
-                        const request = sourceType === 'collection' || sourceType === 'library' ? loadRefreshParentItems(sourceId, sourceType === 'library', 'Tags,CommunityRating,SortName,SeriesName,SeriesId') : sourceType === 'tag' ? genericTagItems(sourceId, name).then(loadRefreshItemIds) : Promise.resolve([]);
+                        const fields = type === 'crunchyroll-top-5-100' ? 'Tags,SortName,SeriesName,SeriesId' : 'Tags,CommunityRating,SortName,SeriesName,SeriesId';
+                        const request = sourceType === 'collection' || sourceType === 'library' ? loadRefreshParentItems(sourceId, sourceType === 'library', fields) : sourceType === 'tag' ? genericTagItems(sourceId, name).then(ids => loadRefreshItemIds(ids, fields)) : Promise.resolve([]);
                         return request.then(items => { groups.push(items); });
                     }), Promise.resolve()).then(() => {
                         const unique = groups.flat().filter((item, index, all) => all.findIndex(candidate => String(candidate.Id || candidate.id) === String(item.Id || item.id)) === index);
                         const limit = [5,10,20,30,40,50,75,100].includes(Number(definition.DisplayTopCount || definition.displayTopCount)) ? Number(definition.DisplayTopCount || definition.displayTopCount) : 10;
-                        const ids = unique.map(item => ({ id:String(item.Id || item.id), rating:imdbTaggedRating(item) })).filter(entry => Number.isFinite(entry.rating)).sort((left, right) => right.rating - left.rating).slice(0, limit).map(entry => entry.id);
+                        let ids;
+                        if (type === 'crunchyroll-top-5-100') {
+                            const mode = String(definition.CrunchyrollRatingMode || definition.crunchyrollRatingMode || 'upvotes');
+                            if (mode === 'upvotes') {
+                                ids = unique.map(item => ({ id:String(item.Id || item.id), rating:crunchyrollTaggedRating(item) })).filter(entry => entry.rating).sort((left, right) => right.rating.score - left.rating.score || right.rating.upvotes - left.rating.upvotes || left.rating.downvotes - right.rating.downvotes).slice(0, limit).map(entry => entry.id);
+                            } else {
+                                const order = String(definition.CrunchyrollRatingOrder || definition.crunchyrollRatingOrder || 'descending');
+                                const stars = new Set((definition.CrunchyrollStarRatings || definition.crunchyrollStarRatings || [5]).map(Number));
+                                const rated = unique.map(item => ({ id:String(item.Id || item.id), rating:crunchyrollOverallRating(item) })).filter(entry => Number.isFinite(entry.rating));
+                                const matching = mode === 'star-categories' ? rated.filter(entry => stars.has(Math.floor(entry.rating))) : rated;
+                                ids = matching.sort((left, right) => order === 'ascending' ? left.rating - right.rating : right.rating - left.rating).slice(0, limit).map(entry => entry.id);
+                            }
+                        } else {
+                            ids = unique.map(item => ({ id:String(item.Id || item.id), rating:imdbTaggedRating(item) })).filter(entry => Number.isFinite(entry.rating)).sort((left, right) => right.rating - left.rating).slice(0, limit).map(entry => entry.id);
+                        }
                         return { definition:Object.assign({}, definition, { ItemIds:ids }), skipped:false };
                     });
                 }
@@ -2293,20 +2411,66 @@
                         if (!remaining && status) status.textContent = 'Showing metadata tag search results.';
                     });
                 });
-            }            function saveAndMove() {
+            }
+            function resolveCrunchyrollSelection(saveStatus) {
+                const loadId = ++topLoadSequence, sources = state.sources.slice(), groups = [];
+                state.topPending = null;
+                state.topLoadRunning = true;
+                setTopBusy(true);
+                saveStatus.textContent = 'Checking only the selected content for the required Crunchyroll rating tags…';
+                return sources.reduce((work, source, index) => work.then(() => {
+                    if (loadId !== topLoadSequence || !isCrunchyrollTopType()) throw new Error('The Crunchyroll source selection changed while it was being checked.');
+                    saveStatus.textContent = 'Checking selected source ' + (index + 1) + ' of ' + sources.length + ' for the required Crunchyroll rating tags…';
+                    return topSourceItems(source).then(items => { groups.push(items); });
+                }), Promise.resolve()).then(() => {
+                    if (loadId !== topLoadSequence || !isCrunchyrollTopType()) throw new Error('The Crunchyroll source selection changed while it was being checked.');
+                    const unique = groups.flat().filter((item, index, all) => all.findIndex(candidate => String(candidate.Id || candidate.id) === String(item.Id || item.id)) === index);
+                    return rankedTopItems(unique, state.displayTop);
+                }).finally(() => {
+                    state.topLoadRunning = false;
+                    setTopBusy(false);
+                });
+            }
+            function saveAndMove(crunchyrollResolved) {
                 const saveStatus = host.querySelector('[data-hssm-save-status]');
                 const needsTwo = kind() === 'multiple-tag-content' || kind() === 'muilti-match-tag-collection-content';
                 if (!state.name.trim()) { saveStatus.textContent = 'Enter a section name before saving.'; return; }
                 state.name = state.name.trim();
                 if (isTopType()) state.contentOrder = 'rating-descending';
+                if (isCrunchyrollTopType() && !state.sources.length) { saveStatus.textContent = 'Select content before saving.'; return; }
+                if (isCrunchyrollTopType() && state.crunchyrollRatingMode === 'star-categories' && !state.crunchyrollStarRatings.length) { saveStatus.textContent = 'Select at least one Crunchyroll star rating before saving.'; return; }
+                if (isCrunchyrollTopType() && crunchyrollResolved !== true && (state.contentSelectionDirty || !state.savedItemIds.length)) {
+                    resolveCrunchyrollSelection(saveStatus).then(rated => {
+                        if (!rated.length) {
+                            updateContentItems([]);
+                            const draft = ensureTopDraft();
+                            draft.PreviewCount = 0;
+                            renderSourceDrafts();
+                            saveStatus.textContent = crunchyrollNoMatchesMessage();
+                            return;
+                        }
+                        state.contentSelectionDirty = true;
+                        updateContentItems(rated);
+                        const draft = ensureTopDraft();
+                        draft.PreviewCount = rated.length;
+                        draft.PreviewError = false;
+                        renderSourceDrafts();
+                        const content = host.querySelector('[data-hssm-content]');
+                        if (content) content.innerHTML = itemCards(state.contentItems, false);
+                        saveAndMove(true);
+                    }).catch(error => {
+                        saveStatus.textContent = 'The selected Crunchyroll content could not be checked: ' + errorMessage(error);
+                    });
+                    return;
+                }
                 const required = isActivityType() || isAutomaticType() ? 1 : isTopType() ? state.sources.length && state.contentItemOrder.length : isDraftType() ? state.drafts.length : kind() === 'manual-content' ? state.contentItemOrder.length : state.sources.length;
                 if (isTopType() && (state.topLoadRunning || state.topPending)) { saveStatus.textContent = 'Wait for the current Top source selection to finish loading and ranking.'; return; }
-                if (!required || (needsTwo && state.sources.length < 2)) { saveStatus.textContent = needsTwo ? 'Select at least two metadata tags before saving.' : isTopType() && state.sources.length ? 'No selected media has a recognized IMDb or Jellyfin community rating to rank.' : 'Select content before saving.'; return; }
+                if (!required || (needsTwo && state.sources.length < 2)) { saveStatus.textContent = needsTwo ? 'Select at least two metadata tags before saving.' : isCrunchyrollTopType() && state.sources.length ? crunchyrollNoMatchesMessage() : isTopType() && state.sources.length ? 'No selected media has a recognized IMDb or Jellyfin community rating to rank.' : 'Select content before saving.'; return; }
                 const order = Array.from(page.querySelectorAll('#hssmSectionList .hssm-section-row')).map(row => { const toggle = row.querySelector('[data-hssm-native-section-toggle]'); return toggle && !toggle.checked ? 'hidden:' + row.dataset.sectionId : row.dataset.sectionId; });
                 clampMaximumToAvailable();
                 const itemIds = state.isEditing && !state.contentSelectionDirty ? state.savedItemIds.slice() : state.contentItemOrder.slice();
                 if (isTopType()) ensureTopDraft().Name = state.name;
-                const definition = { Id:state.id, Name:state.name, PageId:state.pageId, Type:state.type, IsVisible:state.isVisible, IsMediaBar:state.isMediaBar, SourceIds:state.sources, ItemIds:itemIds, ContentOrder:state.contentOrder, MaxItems:state.maxItems, ArtSize:state.artSize, ArtType:state.artType, ArtShape:state.artShape, ShowText:state.showText, ShowSectionName:state.showSectionName, Drafts:state.drafts.map(draft => ({ Id:draft.Id, SourceType:draft.SourceType, SourceId:draft.SourceId, Name:draft.Name, StartMonth:draft.StartMonth, StartDay:draft.StartDay, EndMonth:draft.EndMonth, EndDay:draft.EndDay })), RotationIntervalMinutes:rotationIntervalMinutes(), RotationStartUnixMilliseconds:Date.now(), DisplayTopCount:state.displayTop, ShowRankNumbers:state.showRankNumbers, RankNumberColorMode:state.rankNumberColorMode, RankNumberColorOne:state.rankNumberColorOne, RankNumberColorTwo:state.rankNumberColorTwo, RankNumberShadowColor:state.rankNumberShadowColor, RankNumberFontDataUrl:state.rankNumberFontDataUrl, ActivityMaxItems:state.activityMaxItems, ActivityMediaType:state.activityMediaType, IsApplied:state.isApplied };
+                const definition = { Id:state.id, Name:state.name, PageId:state.pageId, Type:state.type, IsVisible:state.isVisible, IsMediaBar:state.isMediaBar, SourceIds:state.sources, ItemIds:itemIds, ContentOrder:state.contentOrder, MaxItems:state.maxItems, ArtSize:state.artSize, ArtType:state.artType, ArtShape:state.artShape, ShowText:state.showText, ShowSectionName:state.showSectionName, Drafts:state.drafts.map(draft => ({ Id:draft.Id, SourceType:draft.SourceType, SourceId:draft.SourceId, Name:draft.Name, StartMonth:draft.StartMonth, StartDay:draft.StartDay, EndMonth:draft.EndMonth, EndDay:draft.EndDay })), RotationIntervalMinutes:rotationIntervalMinutes(), RotationStartUnixMilliseconds:Date.now(), DisplayTopCount:state.displayTop, CrunchyrollRatingMode:state.crunchyrollRatingMode, CrunchyrollRatingOrder:state.crunchyrollRatingOrder, CrunchyrollStarRatings:state.crunchyrollStarRatings.slice(), ShowRankNumbers:state.showRankNumbers, RankNumberColorMode:state.rankNumberColorMode, RankNumberColorOne:state.rankNumberColorOne, RankNumberColorTwo:state.rankNumberColorTwo, RankNumberShadowColor:state.rankNumberShadowColor, RankNumberFontDataUrl:state.rankNumberFontDataUrl, ActivityMaxItems:state.activityMaxItems, ActivityMediaType:state.activityMediaType, IsApplied:state.isApplied };
                 ApiClient.getJSON(ApiClient.getUrl('HomeScreenSectionsManager/section-settings')).then(saved => {
                     const existing = saved.Sections || saved.sections || [];
                     const sections = existing.filter(item => String(item.Id || item.id) !== state.id);
@@ -2340,7 +2504,7 @@
                 return body && (body.Detail || body.detail || body.Message || body.message || body.Title || body.title) || (text && String(text).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()) || (error && (error.message || error.statusText)) || 'Jellyfin returned no error details.';
             }
             function loadHomeScreenClient() {
-                const version = "0.1.0.65";
+                const version = "0.1.0.66";
                 let style = document.querySelector("link[data-hssm-client-style]");
                 if (!style || style.dataset.hssmClientVersion !== version) {
                     if (style) style.remove();
@@ -2490,7 +2654,7 @@
                 const editing = state.isEditing;
                 applyStatus.textContent = editing ? 'Refreshing section…' : 'Adding section to ' + destination + '…';
                 const appliedItemIds = state.isEditing && !state.contentSelectionDirty ? null : state.contentItemOrder;
-                ensureJavaScriptInjectorLoader().then(() => ApiClient.ajax({ type:'POST', url:ApiClient.getUrl('HomeScreenSectionsManager/sections/' + encodeURIComponent(state.id) + '/apply'), data:JSON.stringify({ Name:state.name, ContentOrder:state.contentOrder, MaxItems:state.maxItems, ItemIds:appliedItemIds, ArtSize:state.artSize, ArtType:state.artType, ArtShape:state.artShape, ShowText:state.showText, ShowSectionName:state.showSectionName, IsVisible:state.isVisible, IsMediaBar:state.isMediaBar, DisplayTopCount:state.displayTop, ShowRankNumbers:state.showRankNumbers, RankNumberColorMode:state.rankNumberColorMode, RankNumberColorOne:state.rankNumberColorOne, RankNumberColorTwo:state.rankNumberColorTwo, RankNumberShadowColor:state.rankNumberShadowColor, RankNumberFontDataUrl:state.rankNumberFontDataUrl, ActivityMaxItems:state.activityMaxItems, ActivityMediaType:state.activityMediaType }), contentType:'application/json', dataType:'json' })).then(response => {
+                ensureJavaScriptInjectorLoader().then(() => ApiClient.ajax({ type:'POST', url:ApiClient.getUrl('HomeScreenSectionsManager/sections/' + encodeURIComponent(state.id) + '/apply'), data:JSON.stringify({ Name:state.name, ContentOrder:state.contentOrder, MaxItems:state.maxItems, ItemIds:appliedItemIds, ArtSize:state.artSize, ArtType:state.artType, ArtShape:state.artShape, ShowText:state.showText, ShowSectionName:state.showSectionName, IsVisible:state.isVisible, IsMediaBar:state.isMediaBar, DisplayTopCount:state.displayTop, CrunchyrollRatingMode:state.crunchyrollRatingMode, CrunchyrollRatingOrder:state.crunchyrollRatingOrder, CrunchyrollStarRatings:state.crunchyrollStarRatings.slice(), ShowRankNumbers:state.showRankNumbers, RankNumberColorMode:state.rankNumberColorMode, RankNumberColorOne:state.rankNumberColorOne, RankNumberColorTwo:state.rankNumberColorTwo, RankNumberShadowColor:state.rankNumberShadowColor, RankNumberFontDataUrl:state.rankNumberFontDataUrl, ActivityMaxItems:state.activityMaxItems, ActivityMediaType:state.activityMediaType }), contentType:'application/json', dataType:'json' })).then(response => {
                     const applied = response && (response.Applied !== undefined ? response.Applied : response.applied);
                     const appliedSection = response && (response.Section || response.section);
                     if (applied !== true || !appliedSection || String(appliedSection.Id || appliedSection.id) !== state.id) throw new Error('Jellyfin did not confirm that this section was applied.');
@@ -2504,7 +2668,7 @@
                         state.contentSelectionDirty = false;
                     }
                     const model = (window.HSSMDashboardSectionModels || []).find(item => String(item.id) === state.id);
-                    if (model) model.definition = Object.assign({}, model.definition || {}, { Id:state.id, Name:state.name, PageId:state.pageId, Type:state.type, SourceIds:state.sources.slice(), ItemIds:state.savedItemIds.slice(), ContentOrder:state.contentOrder, MaxItems:state.maxItems, ArtSize:state.artSize, ArtType:state.artType, ArtShape:state.artShape, ShowText:state.showText, ShowSectionName:state.showSectionName, IsVisible:state.isVisible, IsMediaBar:state.isMediaBar, DisplayTopCount:state.displayTop, ShowRankNumbers:state.showRankNumbers, RankNumberColorMode:state.rankNumberColorMode, RankNumberColorOne:state.rankNumberColorOne, RankNumberColorTwo:state.rankNumberColorTwo, RankNumberShadowColor:state.rankNumberShadowColor, RankNumberFontDataUrl:state.rankNumberFontDataUrl, ActivityMaxItems:state.activityMaxItems, ActivityMediaType:state.activityMediaType, IsApplied:true });
+                    if (model) model.definition = Object.assign({}, model.definition || {}, { Id:state.id, Name:state.name, PageId:state.pageId, Type:state.type, SourceIds:state.sources.slice(), ItemIds:state.savedItemIds.slice(), ContentOrder:state.contentOrder, MaxItems:state.maxItems, ArtSize:state.artSize, ArtType:state.artType, ArtShape:state.artShape, ShowText:state.showText, ShowSectionName:state.showSectionName, IsVisible:state.isVisible, IsMediaBar:state.isMediaBar, DisplayTopCount:state.displayTop, CrunchyrollRatingMode:state.crunchyrollRatingMode, CrunchyrollRatingOrder:state.crunchyrollRatingOrder, CrunchyrollStarRatings:state.crunchyrollStarRatings.slice(), ShowRankNumbers:state.showRankNumbers, RankNumberColorMode:state.rankNumberColorMode, RankNumberColorOne:state.rankNumberColorOne, RankNumberColorTwo:state.rankNumberColorTwo, RankNumberShadowColor:state.rankNumberShadowColor, RankNumberFontDataUrl:state.rankNumberFontDataUrl, ActivityMaxItems:state.activityMaxItems, ActivityMediaType:state.activityMediaType, IsApplied:true });
                     applyStatus.textContent = editing ? 'Section refreshed.' : 'Section added to ' + destination + '.';
                     if (window.Dashboard && typeof Dashboard.alert === 'function') Dashboard.alert(editing ? 'Section refreshed through JavaScript Injector.' : 'Section added to ' + destination + ' through JavaScript Injector.');
                 }, error => {
@@ -2589,6 +2753,9 @@
                     return;
                 }
                 const displayTop = event.target.closest('[data-hssm-display-top]');
+                const crunchyrollMode = event.target.closest('[data-hssm-crunchyroll-rating-mode]');
+                const crunchyrollOrder = event.target.closest('[data-hssm-crunchyroll-rating-order]');
+                const crunchyrollStar = event.target.closest('[data-hssm-crunchyroll-star]');
                 const activityType = event.target.closest('[data-hssm-activity-media-type]');
                 const activityMax = event.target.closest('[data-hssm-activity-max]');
                 const rankNumbers = event.target.closest('[data-hssm-rank-numbers]');
@@ -2600,9 +2767,13 @@
                 if (displayTop) {
                     state.displayTop = [5,10,20,30,40,50,75,100].includes(Number(displayTop.value)) ? Number(displayTop.value) : 10;
                     const description = host.querySelector('[data-hssm-top-count-description]');
-                    if (description) description.textContent = 'All selected sources are combined into one Top ' + state.displayTop + ' draft. Media without an IMDb rating tag is excluded.';
+                    if (description) description.textContent = 'All selected sources are combined into one Top ' + state.displayTop + ' draft. ' + (isCrunchyrollTopType() ? crunchyrollSelectionDescription() : 'Media without an IMDb rating tag is excluded.');
+                    if (isCrunchyrollTopType()) markCrunchyrollRankingDirty();
                     state.contentPage = 1; return;
                 }
+                if (crunchyrollMode) { state.crunchyrollRatingMode = ['overall-rating','star-categories'].includes(crunchyrollMode.value) ? crunchyrollMode.value : 'upvotes'; syncCrunchyrollRatingControls(); markCrunchyrollRankingDirty(); return; }
+                if (crunchyrollOrder) { state.crunchyrollRatingOrder = crunchyrollOrder.value === 'ascending' ? 'ascending' : 'descending'; markCrunchyrollRankingDirty(); return; }
+                if (crunchyrollStar) { state.crunchyrollStarRatings = Array.from(host.querySelectorAll('[data-hssm-crunchyroll-star]:checked')).map(input => Number(input.dataset.hssmCrunchyrollStar)).filter(value => value >= 1 && value <= 5); markCrunchyrollRankingDirty(); return; }
                 if (activityType) { state.activityMediaType = activityType.value; setSectionName(activitySectionName(state.activityMediaType)); state.contentPage = 1; renderContent(); return; }
                 if (activityMax) { state.activityMaxItems = Math.max(1, Math.min(100, Math.floor(Number(activityMax.value) || 20))); state.contentPage = 1; renderContent(); return; }
                 if (rankNumbers) { state.showRankNumbers = rankNumbers.value === 'yes'; return; }
@@ -2781,7 +2952,7 @@
                 state.savedItemIds = [];
                 state.contentSelectionDirty = false;
                 state.contentPage = 1;
-                state.contentOrder = state.type === 'top-10-50' ? 'rating-descending' : state.type === 'recently-added-library' ? 'date-added-descending' : (state.type === 'watch-again' || automaticSectionTypes.has(state.type)) ? 'completed-descending' : 'title-ascending';
+                state.contentOrder = isTopType() ? 'rating-descending' : state.type === 'recently-added-library' ? 'date-added-descending' : (state.type === 'watch-again' || automaticSectionTypes.has(state.type)) ? 'completed-descending' : 'title-ascending';
                 state.maxItems = 0;
                 state.artSize = 'medium';
                 state.artType = 'automatic';
@@ -2800,6 +2971,9 @@
                 topLoadSequence += 1;
                 state.topPending = null;
                 state.displayTop = 10;
+                state.crunchyrollRatingMode = 'upvotes';
+                state.crunchyrollRatingOrder = 'descending';
+                state.crunchyrollStarRatings = [5];
                 state.showRankNumbers = true;
                 state.rankNumberColorMode = 'solid';
                 state.rankNumberColorOne = '#f5f5f7';
@@ -2834,6 +3008,10 @@
                 state.showSectionName = definition.ShowSectionName !== undefined ? !!definition.ShowSectionName : (definition.showSectionName !== undefined ? !!definition.showSectionName : true);
                 state.contentPage = 1;
                 state.displayTop = Number(definition.DisplayTopCount || definition.displayTopCount || 10);
+                state.crunchyrollRatingMode = ['overall-rating','star-categories'].includes(String(definition.CrunchyrollRatingMode || definition.crunchyrollRatingMode || 'upvotes')) ? String(definition.CrunchyrollRatingMode || definition.crunchyrollRatingMode) : 'upvotes';
+                state.crunchyrollRatingOrder = String(definition.CrunchyrollRatingOrder || definition.crunchyrollRatingOrder || 'descending') === 'ascending' ? 'ascending' : 'descending';
+                state.crunchyrollStarRatings = (definition.CrunchyrollStarRatings || definition.crunchyrollStarRatings || [5]).map(Number).filter(value => value >= 1 && value <= 5);
+                if (!state.crunchyrollStarRatings.length) state.crunchyrollStarRatings = [5];
                 state.showRankNumbers = definition.ShowRankNumbers !== undefined ? !!definition.ShowRankNumbers : (definition.showRankNumbers !== undefined ? !!definition.showRankNumbers : true);
                 state.rankNumberColorMode = String(definition.RankNumberColorMode || definition.rankNumberColorMode || 'solid');
                 state.rankNumberColorOne = String(definition.RankNumberColorOne || definition.rankNumberColorOne || '#f5f5f7');

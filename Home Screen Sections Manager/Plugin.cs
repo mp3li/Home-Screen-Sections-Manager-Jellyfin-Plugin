@@ -105,7 +105,7 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
                     ? request.ItemIds.Where(id => !string.IsNullOrWhiteSpace(id)).Distinct(StringComparer.Ordinal).ToList()
                     : [.. section.ItemIds],
                 ContentOrder = string.Equals(section.Id, normalizedId, StringComparison.Ordinal)
-                    ? string.Equals(section.Type, "top-10-50", StringComparison.Ordinal) ? "rating-descending" : normalizedOrder
+                    ? IsRankedTopSectionType(section.Type) ? "rating-descending" : normalizedOrder
                     : NormalizeContentOrder(section.ContentOrder),
                 MaxItems = string.Equals(section.Id, normalizedId, StringComparison.Ordinal)
                     ? NormalizeMaxItems(request.MaxItems)
@@ -134,6 +134,15 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
                 DisplayTopCount = string.Equals(section.Id, normalizedId, StringComparison.Ordinal)
                     ? NormalizeDisplayTopCount(request.DisplayTopCount)
                     : NormalizeDisplayTopCount(section.DisplayTopCount),
+                CrunchyrollRatingMode = string.Equals(section.Id, normalizedId, StringComparison.Ordinal)
+                    ? NormalizeCrunchyrollRatingMode(request.CrunchyrollRatingMode)
+                    : NormalizeCrunchyrollRatingMode(section.CrunchyrollRatingMode),
+                CrunchyrollRatingOrder = string.Equals(section.Id, normalizedId, StringComparison.Ordinal)
+                    ? NormalizeCrunchyrollRatingOrder(request.CrunchyrollRatingOrder)
+                    : NormalizeCrunchyrollRatingOrder(section.CrunchyrollRatingOrder),
+                CrunchyrollStarRatings = string.Equals(section.Id, normalizedId, StringComparison.Ordinal)
+                    ? NormalizeCrunchyrollStarRatings(request.CrunchyrollStarRatings)
+                    : NormalizeCrunchyrollStarRatings(section.CrunchyrollStarRatings),
                 ShowRankNumbers = string.Equals(section.Id, normalizedId, StringComparison.Ordinal)
                     ? request.ShowRankNumbers
                     : section.ShowRankNumbers,
@@ -165,7 +174,7 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
             }).ToList();
 
         var appliedSection = configuration.Sections.FirstOrDefault(section => string.Equals(section.Id, normalizedId, StringComparison.Ordinal));
-        if (appliedSection is not null && string.Equals(appliedSection.Type, "top-10-50", StringComparison.Ordinal) && !string.IsNullOrWhiteSpace(request.Name) && appliedSection.Drafts.Count > 0)
+        if (appliedSection is not null && IsRankedTopSectionType(appliedSection.Type) && !string.IsNullOrWhiteSpace(request.Name) && appliedSection.Drafts.Count > 0)
         {
             appliedSection.Drafts[0].Name = request.Name.Trim();
         }
@@ -350,6 +359,9 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
             IsVisible = section.IsVisible,
             IsMediaBar = section.IsMediaBar,
             DisplayTopCount = section.DisplayTopCount,
+            CrunchyrollRatingMode = section.CrunchyrollRatingMode,
+            CrunchyrollRatingOrder = section.CrunchyrollRatingOrder,
+            CrunchyrollStarRatings = [.. (section.CrunchyrollStarRatings ?? [])],
             ShowRankNumbers = section.ShowRankNumbers,
             RankNumberColorMode = section.RankNumberColorMode,
             RankNumberColorOne = section.RankNumberColorOne,
@@ -495,6 +507,10 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
         (section.SourceIds?.Any(id => !string.IsNullOrWhiteSpace(id)) ?? false)
         || (section.ItemIds?.Any(id => !string.IsNullOrWhiteSpace(id)) ?? false);
 
+    private static bool IsRankedTopSectionType(string? type) =>
+        string.Equals(type, "top-10-50", StringComparison.Ordinal)
+        || string.Equals(type, "crunchyroll-top-5-100", StringComparison.Ordinal);
+
     private static HomeScreenSectionDefinition NormalizeSection(HomeScreenSectionDefinition section, ISet<string> validPageIds)
     {
         var normalized = CloneSection(section);
@@ -505,7 +521,7 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
         normalized.Type = section.Type.Trim();
         normalized.SourceIds = (section.SourceIds ?? []).Where(id => !string.IsNullOrWhiteSpace(id)).Distinct(StringComparer.Ordinal).ToList();
         normalized.ItemIds = (section.ItemIds ?? []).Where(id => !string.IsNullOrWhiteSpace(id)).Distinct(StringComparer.Ordinal).ToList();
-        normalized.ContentOrder = string.Equals(normalized.Type, "top-10-50", StringComparison.Ordinal)
+        normalized.ContentOrder = IsRankedTopSectionType(normalized.Type)
             ? "rating-descending"
             : NormalizeContentOrder(section.ContentOrder);
         normalized.MaxItems = NormalizeMaxItems(section.MaxItems);
@@ -513,6 +529,9 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
         normalized.ArtType = NormalizeArtType(section.ArtType);
         normalized.ArtShape = NormalizeArtShape(section.ArtShape);
         normalized.DisplayTopCount = NormalizeDisplayTopCount(section.DisplayTopCount);
+        normalized.CrunchyrollRatingMode = NormalizeCrunchyrollRatingMode(section.CrunchyrollRatingMode);
+        normalized.CrunchyrollRatingOrder = NormalizeCrunchyrollRatingOrder(section.CrunchyrollRatingOrder);
+        normalized.CrunchyrollStarRatings = NormalizeCrunchyrollStarRatings(section.CrunchyrollStarRatings);
         normalized.RankNumberColorMode = NormalizeColorMode(section.RankNumberColorMode);
         normalized.RankNumberColorOne = NormalizeColor(section.RankNumberColorOne, "#f5f5f7");
         normalized.RankNumberColorTwo = NormalizeColor(section.RankNumberColorTwo, "#f5f5f7");
@@ -600,6 +619,16 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
     private static string NormalizeColorMode(string? value) => value switch { "vertical-gradient" => "vertical-gradient", "horizontal-gradient" => "horizontal-gradient", "center-gradient" => "center-gradient", _ => "solid" };
 
     private static int NormalizeDisplayTopCount(int value) => value is 5 or 10 or 20 or 30 or 40 or 50 or 75 or 100 ? value : 10;
+
+    private static string NormalizeCrunchyrollRatingMode(string? value) => value is "overall-rating" or "star-categories" ? value : "upvotes";
+
+    private static string NormalizeCrunchyrollRatingOrder(string? value) => string.Equals(value, "ascending", StringComparison.Ordinal) ? "ascending" : "descending";
+
+    private static List<int> NormalizeCrunchyrollStarRatings(IEnumerable<int>? values)
+    {
+        var normalized = (values ?? []).Where(value => value is >= 1 and <= 5).Distinct().OrderDescending().ToList();
+        return normalized.Count > 0 ? normalized : [5];
+    }
 
     private static int NormalizeMaxItems(int value) => value <= 0 ? 0 : Math.Clamp(value, 1, 10000);
 
